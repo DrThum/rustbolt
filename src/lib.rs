@@ -1,16 +1,19 @@
-use packets::CmdAuthLogonChallengeClient;
+use crate::packets::{
+    CmdAuthLogonChallengeClient, CmdAuthLogonChallengeServer, CmdAuthLogonProofClient,
+    CmdAuthLogonProofServer,
+};
 
 use tokio::io::AsyncReadExt;
 use tokio::net::TcpStream;
-
-use crate::packets::CmdAuthLogonChallengeServer;
+use wow_srp::server::SrpProof;
 
 mod packets;
 
 #[derive(PartialEq)]
 enum AuthState {
     Init,
-    LogonChallenge,
+    LogonChallenge(SrpProof),
+    LogonProof,
 }
 
 pub async fn process(mut socket: TcpStream) {
@@ -23,24 +26,38 @@ pub async fn process(mut socket: TcpStream) {
                 println!("Socket closed");
                 return;
             }
-            Ok(_) if state == AuthState::Init => {
-                let cmd_auth_logon_challenge_client = CmdAuthLogonChallengeClient::new(&buf);
-                println!("{:?}", cmd_auth_logon_challenge_client);
-                let cmd_auth_logon_challenge_server =
-                    CmdAuthLogonChallengeServer::new(&cmd_auth_logon_challenge_client.account_name);
-                cmd_auth_logon_challenge_server
-                    .write(&mut socket)
-                    .await
-                    .unwrap(); // FIXME
-                println!("sent auth logon challenge (server)");
-                state = AuthState::LogonChallenge;
-            }
-            Ok(_) if state == AuthState::LogonChallenge => {
-                println!("received {:?}", &buf);
-            }
-            Ok(_) => {
-                println!("received unexpected {:?}", &buf);
-            }
+            Ok(_) => match state {
+                AuthState::Init => {
+                    let cmd_auth_logon_challenge_client = CmdAuthLogonChallengeClient::new(&buf);
+                    println!("{:?}", cmd_auth_logon_challenge_client);
+                    let (cmd_auth_logon_challenge_server, proof) = CmdAuthLogonChallengeServer::new(
+                        &cmd_auth_logon_challenge_client.account_name,
+                    );
+                    cmd_auth_logon_challenge_server
+                        .write(&mut socket)
+                        .await
+                        .unwrap(); // FIXME
+                    println!("sent auth logon challenge (server)");
+                    state = AuthState::LogonChallenge(proof);
+                }
+                AuthState::LogonChallenge(proof) => {
+                    let cmd_auth_logon_proof_client = CmdAuthLogonProofClient::new(&buf);
+                    println!("{:?}", cmd_auth_logon_proof_client);
+                    let cmd_auth_logon_proof_server =
+                        CmdAuthLogonProofServer::new(cmd_auth_logon_proof_client, proof);
+                    cmd_auth_logon_proof_server
+                        .write(&mut socket)
+                        .await
+                        .unwrap();
+                    println!("sent auth logon proof (server)");
+                    state = AuthState::LogonProof;
+                }
+                AuthState::LogonProof => {
+                    println!("received {:?}", &buf);
+                } /*                 _ => {
+                      println!("received unexpected {:?}", &buf);
+                  } */
+            },
             Err(_) => {
                 println!("Socket error, closing");
                 return;

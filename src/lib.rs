@@ -1,14 +1,16 @@
-use packets::CmdAuthLogonChallenge;
+use packets::CmdAuthLogonChallengeClient;
 
 use tokio::io::AsyncReadExt;
 use tokio::net::TcpStream;
+
+use crate::packets::CmdAuthLogonChallengeServer;
 
 mod packets;
 
 #[derive(PartialEq)]
 enum AuthState {
     Init,
-    LogonChallenge
+    LogonChallenge,
 }
 
 pub async fn process(mut socket: TcpStream) {
@@ -22,8 +24,15 @@ pub async fn process(mut socket: TcpStream) {
                 return;
             }
             Ok(_) if state == AuthState::Init => {
-                let cmd_auth_logon_challenge = CmdAuthLogonChallenge::new(&buf);
-                println!("{:?}", cmd_auth_logon_challenge);
+                let cmd_auth_logon_challenge_client = CmdAuthLogonChallengeClient::new(&buf);
+                println!("{:?}", cmd_auth_logon_challenge_client);
+                let cmd_auth_logon_challenge_server =
+                    CmdAuthLogonChallengeServer::new(&cmd_auth_logon_challenge_client.account_name);
+                cmd_auth_logon_challenge_server
+                    .write(&mut socket)
+                    .await
+                    .unwrap(); // FIXME
+                println!("sent auth logon challenge (server)");
                 state = AuthState::LogonChallenge;
             }
             Ok(_) if state == AuthState::LogonChallenge => {

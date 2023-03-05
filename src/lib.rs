@@ -3,7 +3,7 @@ use crate::packets::{
     CmdAuthLogonProofServer,
 };
 
-use tokio::io::AsyncReadExt;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use wow_srp::server::SrpProof;
 
@@ -53,10 +53,24 @@ pub async fn process(mut socket: TcpStream) {
                     state = AuthState::LogonProof;
                 }
                 AuthState::LogonProof => {
-                    println!("received {:?}", &buf);
-                } /*                 _ => {
-                      println!("received unexpected {:?}", &buf);
-                  } */
+                    println!("received realm list (client)");
+                    // TEMP: refactor with CmdRealmListClient and CmdRealmListServer
+                    socket.write(&0x10_u8.to_le_bytes()).await.unwrap(); // opcode
+                    socket.write(&42_u16.to_le_bytes()).await.unwrap(); // TODO: calculate size
+                    socket.write(&0_u32.to_le_bytes()).await.unwrap(); // padding
+                    socket.write(&1_u16.to_le_bytes()).await.unwrap(); // num_realms
+                    socket.write(&1_u8.to_le_bytes()).await.unwrap(); // realm_type
+                    socket.write(&0_u8.to_le_bytes()).await.unwrap(); // locked
+                    socket.write(&0x40_u8.to_le_bytes()).await.unwrap(); // realm flags
+                    socket.write("Rustbolt\0".as_bytes()).await.unwrap();
+                    socket.write("127.0.0.1:8085\0".as_bytes()).await.unwrap();
+                    socket.write(&200_f32.to_le_bytes()).await.unwrap(); // population
+                    socket.write(&1_u8.to_le_bytes()).await.unwrap(); // num_chars
+                    socket.write(&3_u8.to_le_bytes()).await.unwrap(); // locale
+                    socket.write(&1_u8.to_le_bytes()).await.unwrap(); // realm_id
+                    socket.write(&0_u16.to_le_bytes()).await.unwrap(); // padding
+                    println!("sent realm list (server)");
+                }
             },
             Err(_) => {
                 println!("Socket error, closing");

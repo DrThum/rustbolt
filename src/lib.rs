@@ -1,7 +1,10 @@
 use crate::packets::{
     CmdAuthLogonChallengeClient, CmdAuthLogonChallengeServer, CmdAuthLogonProofClient,
-    CmdAuthLogonProofServer,
+    CmdAuthLogonProofServer, CmdRealmListClient, CmdRealmListServer, Realm, RealmFlag, RealmType,
+    RealmZone,
 };
+use binrw::io::Cursor;
+use binrw::{BinReaderExt, BinWriterExt};
 
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
@@ -17,7 +20,7 @@ enum AuthState {
 }
 
 pub async fn process(mut socket: TcpStream) {
-    let mut buf = vec![0; 1024];
+    let mut buf = [0_u8; 1024];
     let mut state = AuthState::Init;
 
     loop {
@@ -28,47 +31,76 @@ pub async fn process(mut socket: TcpStream) {
             }
             Ok(_) => match state {
                 AuthState::Init => {
-                    let cmd_auth_logon_challenge_client = CmdAuthLogonChallengeClient::new(&buf);
+                    let mut reader = Cursor::new(buf);
+                    let cmd_auth_logon_challenge_client: CmdAuthLogonChallengeClient =
+                        reader.read_le().unwrap();
                     println!("{:?}", cmd_auth_logon_challenge_client);
                     let (cmd_auth_logon_challenge_server, proof) = CmdAuthLogonChallengeServer::new(
                         &cmd_auth_logon_challenge_client.account_name,
                     );
-                    cmd_auth_logon_challenge_server
-                        .write(&mut socket)
-                        .await
-                        .unwrap(); // FIXME
+
+                    let mut writer = Cursor::new(Vec::new());
+                    writer.write_le(&cmd_auth_logon_challenge_server).unwrap();
+                    socket.write(writer.get_ref()).await.unwrap();
                     println!("sent auth logon challenge (server)");
                     state = AuthState::LogonChallenge(proof);
                 }
                 AuthState::LogonChallenge(proof) => {
-                    let cmd_auth_logon_proof_client = CmdAuthLogonProofClient::new(&buf);
+                    let mut reader = Cursor::new(buf);
+                    let cmd_auth_logon_proof_client: CmdAuthLogonProofClient =
+                        reader.read_le().unwrap();
                     println!("{:?}", cmd_auth_logon_proof_client);
                     let cmd_auth_logon_proof_server =
                         CmdAuthLogonProofServer::new(cmd_auth_logon_proof_client, proof);
-                    cmd_auth_logon_proof_server
-                        .write(&mut socket)
-                        .await
-                        .unwrap();
+
+                    let mut writer = Cursor::new(Vec::new());
+                    writer.write_le(&cmd_auth_logon_proof_server).unwrap();
+                    socket.write(writer.get_ref()).await.unwrap();
                     println!("sent auth logon proof (server)");
                     state = AuthState::LogonProof;
                 }
                 AuthState::LogonProof => {
-                    println!("received realm list (client)");
-                    // TEMP: refactor with CmdRealmListClient and CmdRealmListServer
-                    socket.write(&0x10_u8.to_le_bytes()).await.unwrap(); // opcode
-                    socket.write(&42_u16.to_le_bytes()).await.unwrap(); // TODO: calculate size
-                    socket.write(&0_u32.to_le_bytes()).await.unwrap(); // padding
-                    socket.write(&1_u16.to_le_bytes()).await.unwrap(); // num_realms
-                    socket.write(&1_u8.to_le_bytes()).await.unwrap(); // realm_type
-                    socket.write(&0_u8.to_le_bytes()).await.unwrap(); // locked
-                    socket.write(&0x40_u8.to_le_bytes()).await.unwrap(); // realm flags
-                    socket.write("Rustbolt\0".as_bytes()).await.unwrap();
-                    socket.write("127.0.0.1:8085\0".as_bytes()).await.unwrap();
-                    socket.write(&200_f32.to_le_bytes()).await.unwrap(); // population
-                    socket.write(&1_u8.to_le_bytes()).await.unwrap(); // num_chars
-                    socket.write(&3_u8.to_le_bytes()).await.unwrap(); // locale
-                    socket.write(&1_u8.to_le_bytes()).await.unwrap(); // realm_id
-                    socket.write(&0_u16.to_le_bytes()).await.unwrap(); // padding
+                    let mut reader = Cursor::new(buf);
+                    let cmd_realm_list_client: CmdRealmListClient = reader.read_le().unwrap();
+                    println!("{:?}", cmd_realm_list_client);
+
+                    let realm1 = Realm {
+                        _realm_type: RealmType::PvP,
+                        _locked: false,
+                        _realm_flags: vec![RealmFlag::ForceNewPlayers, RealmFlag::Invalid],
+                        _realm_name: "Rustbolt".into(),
+                        _address_port: "127.0.0.1:8085".into(),
+                        _population: 200_f32,
+                        _num_chars: 1,
+                        _realm_category: RealmZone::French,
+                        _realm_id: 1,
+                    };
+
+                    let realm2 = Realm {
+                        _realm_type: RealmType::RolePlay,
+                        _locked: true,
+                        _realm_flags: vec![RealmFlag::Offline],
+                        _realm_name: "Rustbolt RP".into(),
+                        _address_port: "127.0.0.1:8085".into(),
+                        _population: 400_f32,
+                        _num_chars: 5,
+                        _realm_category: RealmZone::German,
+                        _realm_id: 2,
+                    };
+                    let realms = vec![realm1, realm2];
+
+                    let cmd_realm_list_server = CmdRealmListServer {
+                        _opcode: packets::Opcode::CmdRealmList,
+                        _size: 8 + realms.iter().fold(0, |acc, r| acc + r.size()),
+                        _padding: 0,
+                        _num_realms: realms.len().try_into().unwrap(),
+                        _realms: realms,
+                        _padding_footer: 0,
+                    };
+
+                    let mut writer = Cursor::new(Vec::new());
+                    writer.write_le(&cmd_realm_list_server).unwrap();
+                    socket.write(writer.get_ref()).await.unwrap();
                     println!("sent realm list (server)");
                 }
             },

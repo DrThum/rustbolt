@@ -1,68 +1,58 @@
-use tokio::{io::AsyncWriteExt, net::TcpStream};
+use binrw::{binread, binrw, binwrite, NullString};
 use wow_srp::{
     normalized_string::NormalizedString,
     server::{SrpProof, SrpVerifier},
 };
 
+#[binrw]
+#[brw(repr(u8))]
+#[derive(Debug)]
+pub enum Opcode {
+    CmdAuthLogonChallenge = 0x00,
+    CmdAuthLogonProof = 0x01,
+    // CMD_AUTH_RECONNECT_CHALLENGE = 0x02,
+    CmdRealmList = 0x10,
+}
+
+#[binread]
 #[derive(Debug)]
 pub struct CmdAuthLogonChallengeClient {
-    _opcode: u8,
+    _opcode: Opcode,
     _protocol_version: u8,
     _size: u16,
+    #[br(count = 4)]
+    #[br(map = |s: Vec<u8>| String::from_utf8_lossy(&s).to_string())]
     _game_name: String,
     _version: [u8; 3],
     _build: u16,
+    #[br(count = 4)]
+    #[br(map = |s: Vec<u8>| String::from_utf8_lossy(&s).to_string())]
     _platform: String,
+    #[br(count = 4)]
+    #[br(map = |s: Vec<u8>| String::from_utf8_lossy(&s).to_string())]
     _os: String,
+    #[br(count = 4)]
+    #[br(map = |s: Vec<u8>| String::from_utf8_lossy(&s).to_string())]
     _locale: String,
     _worldregion_bias: u32,
     _ip: [u8; 4], // u32 on wowdev.wiki
     _account_name_length: u8,
+    #[br(count = _account_name_length)]
+    #[br(map = |s: Vec<u8>| String::from_utf8_lossy(&s).to_string())]
     pub account_name: String,
 }
 
-impl CmdAuthLogonChallengeClient {
-    pub fn new(buf: &Vec<u8>) -> CmdAuthLogonChallengeClient {
-        let account_name_length: usize = buf[33].into();
-
-        CmdAuthLogonChallengeClient {
-            _opcode: buf[0],
-            _protocol_version: buf[1],
-            _size: u16::from_le_bytes([buf[2], buf[3]]),
-            _game_name: std::str::from_utf8(&[buf[4], buf[5], buf[6], buf[7]])
-                .unwrap()
-                .to_string(),
-            _version: [buf[8], buf[9], buf[10]],
-            _build: u16::from_le_bytes([buf[11], buf[12]]),
-            _platform: std::str::from_utf8(&[buf[13], buf[14], buf[15], buf[16]])
-                .unwrap()
-                .to_string(),
-            _os: std::str::from_utf8(&[buf[17], buf[18], buf[19], buf[20]])
-                .unwrap()
-                .to_string(),
-            _locale: std::str::from_utf8(&[buf[21], buf[22], buf[23], buf[24]])
-                .unwrap()
-                .to_string(),
-            _worldregion_bias: u32::from_le_bytes([buf[25], buf[26], buf[27], buf[28]]),
-            _ip: [buf[29], buf[30], buf[31], buf[32]],
-            _account_name_length: buf[33],
-            account_name: std::str::from_utf8(&buf[34..(34 + account_name_length)])
-                .unwrap()
-                .to_string(),
-        }
-    }
-}
-
+#[binwrite]
 #[derive(Debug)]
 pub struct CmdAuthLogonChallengeServer {
-    _opcode: u8,
+    _opcode: Opcode,
     _protocol_version: u8,
     _result: u8,
     _server_public_key: [u8; 32],
     _generator_len: u8, // Always 1
     _generator: u8,
     _large_safe_prime_len: u8,
-    _large_safe_prime: Box<[u8]>,
+    _large_safe_prime: [u8; wow_srp::LARGE_SAFE_PRIME_LENGTH as usize],
     _salt: [u8; 32],
     _crc_salt: [u8; 16],
     _security_flags: u8,
@@ -80,14 +70,14 @@ impl CmdAuthLogonChallengeServer {
 
         (
             CmdAuthLogonChallengeServer {
-                _opcode: 0,
+                _opcode: Opcode::CmdAuthLogonChallenge,
                 _protocol_version: 0,
                 _result: 0,
                 _server_public_key: *p.server_public_key(),
                 _generator_len: 1,
                 _generator: wow_srp::GENERATOR,
                 _large_safe_prime_len: wow_srp::LARGE_SAFE_PRIME_LENGTH,
-                _large_safe_prime: Box::new(wow_srp::LARGE_SAFE_PRIME_LITTLE_ENDIAN),
+                _large_safe_prime: wow_srp::LARGE_SAFE_PRIME_LITTLE_ENDIAN,
                 _salt: *p.salt(),
                 _crc_salt: [0; 16],
                 _security_flags: 0,
@@ -95,37 +85,12 @@ impl CmdAuthLogonChallengeServer {
             p,
         )
     }
-
-    pub async fn write(&self, socket: &mut TcpStream) -> Result<(), std::io::Error> {
-        socket.write(&self._opcode.to_le_bytes()).await?;
-        socket.write(&self._protocol_version.to_le_bytes()).await?;
-        socket.write(&self._result.to_le_bytes()).await?;
-        for i in self._server_public_key.iter() {
-            socket.write_all(&i.to_le_bytes()).await?;
-        }
-        socket.write(&self._generator_len.to_le_bytes()).await?;
-        socket.write(&self._generator.to_le_bytes()).await?;
-        socket
-            .write(&self._large_safe_prime_len.to_le_bytes())
-            .await?;
-        for i in self._large_safe_prime.iter() {
-            socket.write_all(&i.to_le_bytes()).await?;
-        }
-        for i in self._salt.iter() {
-            socket.write_all(&i.to_le_bytes()).await?;
-        }
-        for i in self._crc_salt.iter() {
-            socket.write_all(&i.to_le_bytes()).await?;
-        }
-        socket.write(&self._security_flags.to_le_bytes()).await?;
-
-        Ok(())
-    }
 }
 
+#[binread]
 #[derive(Debug)]
 pub struct CmdAuthLogonProofClient {
-    _opcode: u8,
+    _opcode: Opcode,
     _client_public_key: [u8; 32],
     _client_proof: [u8; 20],
     _crc_hash: [u8; 20],
@@ -133,35 +98,10 @@ pub struct CmdAuthLogonProofClient {
     _security_flags: u8,
 }
 
-impl CmdAuthLogonProofClient {
-    pub fn new(buf: &Vec<u8>) -> CmdAuthLogonProofClient {
-        CmdAuthLogonProofClient {
-            _opcode: buf[0],
-            _client_public_key: [
-                buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7], buf[8], buf[9], buf[10],
-                buf[11], buf[12], buf[13], buf[14], buf[15], buf[16], buf[17], buf[18], buf[19],
-                buf[20], buf[21], buf[22], buf[23], buf[24], buf[25], buf[26], buf[27], buf[28],
-                buf[29], buf[30], buf[31], buf[32],
-            ],
-            _client_proof: [
-                buf[33], buf[34], buf[35], buf[36], buf[37], buf[38], buf[39], buf[40], buf[41],
-                buf[42], buf[43], buf[44], buf[45], buf[46], buf[47], buf[48], buf[49], buf[50],
-                buf[51], buf[52],
-            ],
-            _crc_hash: [
-                buf[53], buf[54], buf[55], buf[56], buf[57], buf[58], buf[59], buf[60], buf[61],
-                buf[62], buf[63], buf[64], buf[65], buf[66], buf[67], buf[68], buf[69], buf[70],
-                buf[71], buf[72],
-            ],
-            _num_keys: buf[73],
-            _security_flags: buf[74],
-        }
-    }
-}
-
+#[binwrite]
 #[derive(Debug)]
 pub struct CmdAuthLogonProofServer {
-    _opcode: u8,
+    _opcode: Opcode,
     _result: u8,
     _server_proof: [u8; 20],
     _account_flag: u32,
@@ -174,11 +114,6 @@ impl CmdAuthLogonProofServer {
         logon_proof_client: CmdAuthLogonProofClient,
         p: SrpProof,
     ) -> CmdAuthLogonProofServer {
-        println!(
-            "client public key: {:x?}",
-            &logon_proof_client._client_public_key
-        );
-        println!("client proof: {:x?}", &logon_proof_client._client_proof);
         let (_, server_proof) = p
             .into_server(
                 wow_srp::PublicKey::from_le_bytes(&logon_proof_client._client_public_key).unwrap(),
@@ -187,7 +122,7 @@ impl CmdAuthLogonProofServer {
             .unwrap();
 
         CmdAuthLogonProofServer {
-            _opcode: 1,
+            _opcode: Opcode::CmdAuthLogonProof,
             _result: 0,
             _server_proof: server_proof,
             _account_flag: 0,
@@ -195,19 +130,107 @@ impl CmdAuthLogonProofServer {
             _unknown_flags: 0,
         }
     }
+}
 
-    pub async fn write(&self, socket: &mut TcpStream) -> Result<(), std::io::Error> {
-        socket.write(&self._opcode.to_le_bytes()).await?;
-        socket.write(&self._result.to_le_bytes()).await?;
-        for i in self._server_proof.iter() {
-            socket.write_all(&i.to_le_bytes()).await?;
-        }
-        socket.write(&self._account_flag.to_le_bytes()).await?;
-        socket
-            .write(&self._hardware_survey_id.to_le_bytes())
-            .await?;
-        socket.write(&self._unknown_flags.to_le_bytes()).await?;
+#[binread]
+#[derive(Debug)]
+pub struct CmdRealmListClient {
+    _opcode: Opcode,
+    _padding: u32,
+}
 
-        Ok(())
+#[binrw]
+#[brw(repr(u8))]
+#[derive(Debug)]
+pub enum RealmType {
+    Normal = 0,
+    PvP = 1,
+    RolePlay = 6,
+    RolePlayPvP = 8,
+}
+
+#[binrw]
+#[brw(repr(u8))]
+#[repr(u8)]
+#[derive(Copy, Clone, Debug)]
+pub enum RealmFlag {
+    None = 0x00,
+    Invalid = 0x01,
+    Offline = 0x02,
+    SpecifyBuild = 0x04,
+    ForceRecommended = 0x20,
+    ForceNewPlayers = 0x40,
+    ForceFull = 0x80,
+}
+
+#[binrw]
+#[brw(repr(u8))]
+#[derive(Debug)]
+pub enum RealmZone {
+    Unknown = 0,
+    Development = 1,
+    UnitedStates = 2,
+    Oceanic = 3,
+    LatinAmerica = 4,
+    Tournament5 = 5,
+    Korea = 6,
+    Tournament7 = 7,
+    English = 8,
+    German = 9,
+    French = 10,
+    Spanish = 11,
+    Russian = 12,
+    Tournament13 = 13,
+    Taiwan = 14,
+    Tournament15 = 15,
+    China = 16,
+    Cn1 = 17,
+    Cn2 = 18,
+    Cn3 = 19,
+    Cn4 = 20,
+    Cn5 = 21,
+    Cn6 = 22,
+    Cn7 = 23,
+    Cn8 = 24,
+    Tournament25 = 25,
+    TestServer = 26,
+    Tournament27 = 27,
+    QaServer = 28,
+    Cn9 = 29,
+    TestServer2 = 30,
+}
+
+#[binwrite]
+#[derive(Debug)]
+pub struct Realm {
+    pub _realm_type: RealmType,
+    #[bw(map = |l: &bool| if *l { 1_u8 } else { 0_u8 })]
+    pub _locked: bool,
+    #[bw(map = |flags: &Vec<RealmFlag>| flags.iter().fold(0_u8, |acc, val| acc | *val as u8))]
+    pub _realm_flags: Vec<RealmFlag>,
+    pub _realm_name: NullString,
+    pub _address_port: NullString,
+    pub _population: f32,
+    pub _num_chars: u8,
+    pub _realm_category: RealmZone,
+    pub _realm_id: u8,
+}
+
+impl Realm {
+    pub fn size(&self) -> u16 {
+        (10 + self._realm_name.len() + 1 + self._address_port.len() + 1)
+            .try_into()
+            .unwrap()
     }
+}
+
+#[binwrite]
+#[derive(Debug)]
+pub struct CmdRealmListServer {
+    pub _opcode: Opcode,
+    pub _size: u16,
+    pub _padding: u32,
+    pub _num_realms: u16,
+    pub _realms: Vec<Realm>,
+    pub _padding_footer: u16,
 }

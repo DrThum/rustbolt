@@ -1,7 +1,10 @@
+use env_logger::Env;
 use tokio::net::TcpListener;
 
 #[tokio::main]
 async fn main() {
+    env_logger::Builder::from_env(Env::default().default_filter_or("debug")).init();
+
     // Bind the listener to the address
     let listener = TcpListener::bind("127.0.0.1:3724").await.unwrap();
 

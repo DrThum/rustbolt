@@ -6,6 +6,7 @@ use crate::packets::{
 use binrw::io::Cursor;
 use binrw::{BinReaderExt, BinWriterExt};
 
+use log::{error, trace};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use wow_srp::server::SrpProof;
@@ -26,7 +27,7 @@ pub async fn process(mut socket: TcpStream) {
     loop {
         match socket.read(&mut buf).await {
             Ok(0) => {
-                println!("Socket closed");
+                trace!("Client disconnected");
                 return;
             }
             Ok(_) => match state {
@@ -34,7 +35,7 @@ pub async fn process(mut socket: TcpStream) {
                     let mut reader = Cursor::new(buf);
                     let cmd_auth_logon_challenge_client: CmdAuthLogonChallengeClient =
                         reader.read_le().unwrap();
-                    println!("{:?}", cmd_auth_logon_challenge_client);
+                    trace!("Received {:?}", cmd_auth_logon_challenge_client);
                     let (cmd_auth_logon_challenge_server, proof) = CmdAuthLogonChallengeServer::new(
                         &cmd_auth_logon_challenge_client.account_name,
                     );
@@ -42,27 +43,27 @@ pub async fn process(mut socket: TcpStream) {
                     let mut writer = Cursor::new(Vec::new());
                     writer.write_le(&cmd_auth_logon_challenge_server).unwrap();
                     socket.write(writer.get_ref()).await.unwrap();
-                    println!("sent auth logon challenge (server)");
+                    trace!("Sent auth logon challenge (server)");
                     state = AuthState::LogonChallenge(proof);
                 }
                 AuthState::LogonChallenge(proof) => {
                     let mut reader = Cursor::new(buf);
                     let cmd_auth_logon_proof_client: CmdAuthLogonProofClient =
                         reader.read_le().unwrap();
-                    println!("{:?}", cmd_auth_logon_proof_client);
+                    trace!("Received {:?}", cmd_auth_logon_proof_client);
                     let cmd_auth_logon_proof_server =
                         CmdAuthLogonProofServer::new(cmd_auth_logon_proof_client, proof);
 
                     let mut writer = Cursor::new(Vec::new());
                     writer.write_le(&cmd_auth_logon_proof_server).unwrap();
                     socket.write(writer.get_ref()).await.unwrap();
-                    println!("sent auth logon proof (server)");
+                    trace!("Sent auth logon proof (server)");
                     state = AuthState::LogonProof;
                 }
                 AuthState::LogonProof => {
                     let mut reader = Cursor::new(buf);
                     let cmd_realm_list_client: CmdRealmListClient = reader.read_le().unwrap();
-                    println!("{:?}", cmd_realm_list_client);
+                    trace!("Received {:?}", cmd_realm_list_client);
 
                     let realm1 = Realm {
                         _realm_type: RealmType::PvP,
@@ -101,11 +102,11 @@ pub async fn process(mut socket: TcpStream) {
                     let mut writer = Cursor::new(Vec::new());
                     writer.write_le(&cmd_realm_list_server).unwrap();
                     socket.write(writer.get_ref()).await.unwrap();
-                    println!("sent realm list (server)");
+                    trace!("Sent realm list (server)");
                 }
             },
             Err(_) => {
-                println!("Socket error, closing");
+                error!("Socket error, closing");
                 return;
             }
         }

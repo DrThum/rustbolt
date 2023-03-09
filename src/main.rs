@@ -13,7 +13,9 @@ async fn main() {
         let (socket, _) = listener.accept().await.unwrap();
         // Spawn a new task for each inbound socket
         tokio::spawn(async move {
-            rustbolt_auth::process(socket).await;
+            rustbolt_auth::process(socket)
+                .await
+                .expect("Parse error during auth sequence");
         });
     }
 }

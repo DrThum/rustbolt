@@ -149,6 +149,20 @@ pub enum RealmType {
     RolePlayPvP = 8,
 }
 
+impl TryFrom<i32> for RealmType {
+    type Error = String;
+
+    fn try_from(value: i32) -> Result<Self, Self::Error> {
+        match value {
+            0 => Ok(RealmType::Normal),
+            1 => Ok(RealmType::PvP),
+            6 => Ok(RealmType::RolePlay),
+            8 => Ok(RealmType::RolePlayPvP),
+            _ => Err(format!("Invalid realm type: {}", value)),
+        }
+    }
+}
+
 #[binrw]
 #[brw(repr(u8))]
 #[repr(u8)]
@@ -163,56 +177,18 @@ pub enum RealmFlag {
     ForceFull = 0x80,
 }
 
-#[binrw]
-#[brw(repr(u8))]
-#[derive(Debug)]
-pub enum RealmZone {
-    Unknown = 0,
-    Development = 1,
-    UnitedStates = 2,
-    Oceanic = 3,
-    LatinAmerica = 4,
-    Tournament5 = 5,
-    Korea = 6,
-    Tournament7 = 7,
-    English = 8,
-    German = 9,
-    French = 10,
-    Spanish = 11,
-    Russian = 12,
-    Tournament13 = 13,
-    Taiwan = 14,
-    Tournament15 = 15,
-    China = 16,
-    Cn1 = 17,
-    Cn2 = 18,
-    Cn3 = 19,
-    Cn4 = 20,
-    Cn5 = 21,
-    Cn6 = 22,
-    Cn7 = 23,
-    Cn8 = 24,
-    Tournament25 = 25,
-    TestServer = 26,
-    Tournament27 = 27,
-    QaServer = 28,
-    Cn9 = 29,
-    TestServer2 = 30,
-}
-
 #[binwrite]
 #[derive(Debug)]
 pub struct Realm {
     pub _realm_type: RealmType,
     #[bw(map = |l: &bool| if *l { 1_u8 } else { 0_u8 })]
     pub _locked: bool,
-    #[bw(map = |flags: &Vec<RealmFlag>| flags.iter().fold(0_u8, |acc, val| acc | *val as u8))]
-    pub _realm_flags: Vec<RealmFlag>,
+    pub _realm_flags: u8,
     pub _realm_name: NullString,
     pub _address_port: NullString,
     pub _population: f32,
     pub _num_chars: u8,
-    pub _realm_category: RealmZone,
+    pub _realm_category: u8, // https://github.com/mangosone/server/blob/d62fdfe93b96bef5daa36433116d2f0eeb9fc3d0/src/game/WorldHandlers/World.h#L411-L452
     pub _realm_id: u8,
 }
 
@@ -226,11 +202,11 @@ impl Realm {
 
 #[binwrite]
 #[derive(Debug)]
-pub struct CmdRealmListServer {
+pub struct CmdRealmListServer<'a> {
     pub _opcode: Opcode,
     pub _size: u16,
     pub _padding: u32,
     pub _num_realms: u16,
-    pub _realms: Vec<Realm>,
+    pub _realms: &'a Vec<Realm>,
     pub _padding_footer: u16,
 }

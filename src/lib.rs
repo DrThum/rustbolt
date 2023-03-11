@@ -1,8 +1,10 @@
+use std::sync::Arc;
+
 use crate::packets::{
     CmdAuthLogonChallengeClient, CmdAuthLogonChallengeServer, CmdAuthLogonProofClient,
-    CmdAuthLogonProofServer, CmdRealmListClient, CmdRealmListServer, Realm, RealmFlag, RealmType,
-    RealmZone,
+    CmdAuthLogonProofServer, CmdRealmListClient, CmdRealmListServer,
 };
+pub use crate::packets::{Realm, RealmType};
 use binrw::io::Cursor;
 use binrw::{BinReaderExt, BinWriterExt};
 
@@ -20,7 +22,7 @@ enum AuthState {
     LogonProof,
 }
 
-pub async fn process(mut socket: TcpStream) -> Result<(), binrw::Error> {
+pub async fn process(mut socket: TcpStream, realms: Arc<Vec<Realm>>) -> Result<(), binrw::Error> {
     let mut buf = [0_u8; 1024];
     let mut state = AuthState::Init;
 
@@ -68,37 +70,12 @@ pub async fn process(mut socket: TcpStream) -> Result<(), binrw::Error> {
                     let cmd_realm_list_client: CmdRealmListClient = reader.read_le()?;
                     trace!("Received {:?}", cmd_realm_list_client);
 
-                    let realm1 = Realm {
-                        _realm_type: RealmType::PvP,
-                        _locked: false,
-                        _realm_flags: vec![RealmFlag::ForceNewPlayers, RealmFlag::Invalid],
-                        _realm_name: "Rustbolt".into(),
-                        _address_port: "127.0.0.1:8085".into(),
-                        _population: 200_f32,
-                        _num_chars: 1,
-                        _realm_category: RealmZone::French,
-                        _realm_id: 1,
-                    };
-
-                    let realm2 = Realm {
-                        _realm_type: RealmType::RolePlay,
-                        _locked: true,
-                        _realm_flags: vec![RealmFlag::Offline],
-                        _realm_name: "Rustbolt RP".into(),
-                        _address_port: "127.0.0.1:8085".into(),
-                        _population: 400_f32,
-                        _num_chars: 5,
-                        _realm_category: RealmZone::German,
-                        _realm_id: 2,
-                    };
-                    let realms = vec![realm1, realm2];
-
                     let cmd_realm_list_server = CmdRealmListServer {
                         _opcode: packets::Opcode::CmdRealmList,
                         _size: 8 + realms.iter().fold(0, |acc, r| acc + r.size()),
                         _padding: 0,
                         _num_realms: realms.len().try_into().unwrap(),
-                        _realms: realms,
+                        _realms: &*realms,
                         _padding_footer: 0,
                     };
 

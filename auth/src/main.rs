@@ -42,23 +42,23 @@ fn load_realms_from_db(conn: &mut Connection) -> Arc<Vec<Realm>> {
     let mut stmt = conn.prepare("SELECT id, realm_type, is_locked, flags, name, address, population, category FROM realms").unwrap();
     let realm_iter = stmt
         .query_map([], |row| {
-            let realm_type: i32 = row.get(1)?;
+            let realm_type: i32 = row.get("realm_type")?;
             let realm_type = RealmType::try_from(realm_type).unwrap();
-            let locked: i32 = row.get(2)?; // TODO: try to get columns by name instead of index
+            let locked: i32 = row.get("is_locked")?;
             let locked = locked > 0;
-            let realm_name: String = row.get(4)?;
-            let address: String = row.get(5)?;
+            let realm_name: String = row.get("name")?;
+            let address: String = row.get("address")?;
 
             Ok(Realm {
                 _realm_type: realm_type,
                 _locked: locked,
-                _realm_flags: row.get(3)?,
+                _realm_flags: row.get("flags")?,
                 _realm_name: realm_name.try_into().unwrap(),
                 _address_port: address.try_into().unwrap(),
-                _population: row.get(6)?,
+                _population: row.get("population")?,
                 _num_chars: 1,
-                _realm_category: row.get(7)?,
-                _realm_id: row.get(0)?,
+                _realm_category: row.get("category")?,
+                _realm_id: row.get("id")?,
             })
         })
         .unwrap();

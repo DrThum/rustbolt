@@ -6,7 +6,7 @@ use tokio::net::TcpListener;
 
 mod embedded {
     use refinery::embed_migrations;
-    embed_migrations!("./sql_migrations/auth");
+    embed_migrations!("../sql_migrations/auth");
 }
 
 #[tokio::main]

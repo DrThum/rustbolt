@@ -15,7 +15,7 @@ async fn main() {
     env_logger::Builder::from_env(Env::default().default_filter_or("debug")).init();
 
     // Execute database migrations
-    let mut conn = Connection::open_in_memory().unwrap();
+    let mut conn = Connection::open("./data/databases/auth.db").unwrap();
     embedded::migrations::runner().run(&mut conn).unwrap();
 
     // Load realms from database
@@ -27,8 +27,8 @@ async fn main() {
     loop {
         // The second item contains the IP and port of the new connection
         let (socket, _) = listener.accept().await.unwrap();
-        // Spawn a new task for each inbound socket
 
+        // Spawn a new task for each inbound socket
         let realms_copy = Arc::clone(&realms);
         tokio::spawn(async move {
             rustbolt_auth::process(socket, realms_copy)

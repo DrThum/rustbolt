@@ -1,7 +1,7 @@
 use binrw::{binread, binrw, binwrite, NullString};
 use wow_srp::{
     normalized_string::NormalizedString,
-    server::{SrpProof, SrpVerifier},
+    server::{SrpProof, SrpServer, SrpVerifier},
 };
 
 #[binrw]
@@ -113,22 +113,25 @@ impl CmdAuthLogonProofServer {
     pub fn new(
         logon_proof_client: CmdAuthLogonProofClient,
         p: SrpProof,
-    ) -> CmdAuthLogonProofServer {
-        let (_, server_proof) = p
+    ) -> (CmdAuthLogonProofServer, SrpServer) {
+        let (srp_server, server_proof) = p
             .into_server(
                 wow_srp::PublicKey::from_le_bytes(&logon_proof_client._client_public_key).unwrap(),
                 logon_proof_client._client_proof,
             )
             .unwrap();
 
-        CmdAuthLogonProofServer {
-            _opcode: Opcode::CmdAuthLogonProof,
-            _result: 0,
-            _server_proof: server_proof,
-            _account_flag: 0,
-            _hardware_survey_id: 0,
-            _unknown_flags: 0,
-        }
+        (
+            CmdAuthLogonProofServer {
+                _opcode: Opcode::CmdAuthLogonProof,
+                _result: 0,
+                _server_proof: server_proof,
+                _account_flag: 0,
+                _hardware_survey_id: 0,
+                _unknown_flags: 0,
+            },
+            srp_server,
+        )
     }
 }
 

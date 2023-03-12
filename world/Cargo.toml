@@ -1,5 +1,5 @@
 [package]
-name = "rustbolt-auth"
+name = "rustbolt-world"
 version = "0.1.0"
 edition = "2021"
 
@@ -13,4 +13,4 @@ log = "0.4.17"
 refinery = { version = "0.8", features = ["rusqlite"] }
 rusqlite = { version = "0.28.0", features = ["bundled"] }
 tokio = { version = "1", features = ["full"] }
-wow_srp = "0.5.3"
+wow_srp = { version = "0.5.3", features = ["tbc-header"] }

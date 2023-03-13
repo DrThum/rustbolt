@@ -20,26 +20,18 @@ pub struct CmdAuthLogonChallengeClient {
     _opcode: Opcode,
     _protocol_version: u8,
     _size: u16,
-    #[br(count = 4)]
-    #[br(map = |s: Vec<u8>| String::from_utf8_lossy(&s).to_string())]
-    _game_name: String,
+    _game_name: NullString,
     _version: [u8; 3],
     _build: u16,
-    #[br(count = 4)]
-    #[br(map = |s: Vec<u8>| String::from_utf8_lossy(&s).to_string())]
-    _platform: String,
-    #[br(count = 4)]
-    #[br(map = |s: Vec<u8>| String::from_utf8_lossy(&s).to_string())]
-    _os: String,
+    _platform: NullString,
+    _os: NullString,
     #[br(count = 4)]
     #[br(map = |s: Vec<u8>| String::from_utf8_lossy(&s).to_string())]
     _locale: String,
     _worldregion_bias: u32,
     _ip: [u8; 4], // u32 on wowdev.wiki
     _account_name_length: u8,
-    #[br(count = _account_name_length)]
-    #[br(map = |s: Vec<u8>| String::from_utf8_lossy(&s).to_string())]
-    pub account_name: String,
+    pub account_name: NullString,
 }
 
 #[binwrite]
@@ -65,8 +57,8 @@ impl CmdAuthLogonChallengeServer {
         SrpVerifier::from_username_and_password(username, password).into_proof()
     }
 
-    pub fn new(username: &str) -> (CmdAuthLogonChallengeServer, SrpProof) {
-        let p = Self::get_proof(username);
+    pub fn new(username: &NullString) -> (CmdAuthLogonChallengeServer, SrpProof) {
+        let p = Self::get_proof(&username.to_string());
 
         (
             CmdAuthLogonChallengeServer {

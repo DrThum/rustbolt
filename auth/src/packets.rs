@@ -48,7 +48,7 @@ pub struct CmdAuthLogonChallengeServer {
     _opcode: Opcode,
     _protocol_version: u8,
     _result: u8,
-    _server_public_key: [u8; 32],
+    _server_public_key: [u8; wow_srp::PUBLIC_KEY_LENGTH as usize],
     _generator_len: u8, // Always 1
     _generator: u8,
     _large_safe_prime_len: u8,

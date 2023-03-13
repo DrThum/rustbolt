@@ -67,8 +67,8 @@ pub async fn process(mut socket: TcpStream) -> Result<(), binrw::Error> {
                     .unwrap();
 
                 let smsg_auth_response = SmsgAuthResponse {
-                    _header: encrypted_header, // TODO
-                    _result: 0x0C,             // AUTH_OK
+                    _header: encrypted_header,
+                    _result: 0x0C, // AUTH_OK
                     _billing_time: 0,
                     _billing_flags: 0,
                     _billing_rested: 0,
@@ -183,6 +183,10 @@ pub async fn process(mut socket: TcpStream) -> Result<(), binrw::Error> {
                 writer.write_le(&smsg_char_enum)?;
                 socket.write(writer.get_ref()).await?;
                 debug!("Sent SMSG_CHAR_ENUM");
+            }
+            Ok(0) => {
+                debug!("Socket closed (received 0 byte)");
+                return Ok(());
             }
             Ok(n) => debug!("received {} bytes", n),
             Err(_) => {

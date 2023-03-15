@@ -1,8 +1,12 @@
+use std::sync::Arc;
+
 use binrw::io::Cursor;
 use binrw::{BinReaderExt, BinWriterExt};
 use hex::FromHex;
 use log::{debug, error, trace};
 use packets::SmsgAuthChallenge;
+use r2d2::Pool;
+use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::Connection;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
@@ -13,7 +17,10 @@ use crate::packets::{CmsgAuthSession, SmsgAuthResponse, SmsgCharEnum};
 
 mod packets;
 
-pub async fn process(mut socket: TcpStream) -> Result<(), binrw::Error> {
+pub async fn process(
+    mut socket: TcpStream,
+    db_pool: Arc<Pool<SqliteConnectionManager>>,
+) -> Result<(), binrw::Error> {
     // Send SMSG_AUTH_CHALLENGE
     let seed = ProofSeed::new();
     let smsg_auth_challenge = SmsgAuthChallenge {
@@ -29,8 +36,7 @@ pub async fn process(mut socket: TcpStream) -> Result<(), binrw::Error> {
     socket.write(writer.get_ref()).await?;
     trace!("Send SMSG_AUTH_CHALLENGE");
 
-    // TODO: Don't open one connection per socket
-    let mut conn = Connection::open("./data/databases/auth.db").unwrap();
+    let mut conn = db_pool.get().unwrap(); // TODO: proper error handling
     let session_key = fetch_session_key(&mut conn).unwrap();
     debug!("session key {}", session_key);
     let session_key: [u8; 40] = <Vec<u8>>::from_hex(session_key)

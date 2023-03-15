@@ -10,6 +10,8 @@ use binrw::{BinReaderExt, BinWriterExt};
 
 use hex::ToHex;
 use log::{error, trace};
+use r2d2::Pool;
+use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::Connection;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
@@ -35,6 +37,7 @@ pub enum AuthError {
     ClientDisconnected,
     SocketError(std::io::Error),
     BinRwError(binrw::Error),
+    DbError(r2d2::Error),
 }
 
 impl From<std::io::Error> for AuthError {
@@ -46,6 +49,12 @@ impl From<std::io::Error> for AuthError {
 impl From<binrw::Error> for AuthError {
     fn from(value: binrw::Error) -> Self {
         Self::BinRwError(value)
+    }
+}
+
+impl From<r2d2::Error> for AuthError {
+    fn from(value: r2d2::Error) -> Self {
+        Self::DbError(value)
     }
 }
 
@@ -147,10 +156,12 @@ impl AuthState<ClientAuthenticated> {
 }
 
 // TODO: Improve with https://docs.rs/wow_srp/latest/wow_srp/server/index.html
-pub async fn process(socket: TcpStream, realms: Arc<Vec<Realm>>) -> Result<(), AuthError> {
-    // TODO: Don't open one connection per socket
-    let mut conn = Connection::open("./data/databases/auth.db").unwrap();
-
+pub async fn process(
+    socket: TcpStream,
+    realms: Arc<Vec<Realm>>,
+    db_pool: Arc<Pool<SqliteConnectionManager>>,
+) -> Result<(), AuthError> {
+    let mut conn = db_pool.get()?;
     let mut authenticated_state = AuthState {
         socket,
         _state: SocketOpened,
@@ -166,7 +177,8 @@ pub async fn process(socket: TcpStream, realms: Arc<Vec<Realm>>) -> Result<(), A
 }
 
 fn save_session_key(conn: &mut Connection, session_key: String) -> Result<(), rusqlite::Error> {
-    let mut stmt = conn.prepare_cached("UPDATE accounts SET session_key = ? WHERE username = 'a'")?;
+    let mut stmt =
+        conn.prepare_cached("UPDATE accounts SET session_key = ? WHERE username = 'a'")?;
     stmt.execute([session_key])?;
 
     Ok(())

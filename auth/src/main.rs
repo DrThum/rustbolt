@@ -1,5 +1,6 @@
 use env_logger::Env;
 use log::trace;
+use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::Connection;
 use rustbolt_auth::{AuthError, Realm, RealmType};
 use std::sync::Arc;
@@ -15,11 +16,18 @@ async fn main() {
     // Setup logging
     env_logger::Builder::from_env(Env::default().default_filter_or("debug")).init();
 
-    // Execute database migrations
-    let mut conn = Connection::open("./data/databases/auth.db").unwrap();
-    embedded::migrations::runner().run(&mut conn).unwrap();
+    // Setup database connection pool and execute migrations
+    let sqlite_connection_manager = SqliteConnectionManager::file("./data/databases/auth.db")
+        .with_init(|c| {
+            embedded::migrations::runner().run(c).unwrap();
+            Ok(())
+        });
+    let db_pool = r2d2::Pool::new(sqlite_connection_manager)
+        .expect("Failed to create r2d2 SQlite connection pool");
+    let db_pool = Arc::new(db_pool);
 
     // Load realms from database
+    let mut conn = db_pool.get().unwrap();
     let realms = load_realms_from_db(&mut conn);
 
     // Bind the listener to the address
@@ -31,8 +39,9 @@ async fn main() {
 
         // Spawn a new task for each inbound socket
         let realms_copy = Arc::clone(&realms);
+        let db_pool_copy = Arc::clone(&db_pool);
         tokio::spawn(async move {
-            match rustbolt_auth::process(socket, realms_copy).await {
+            match rustbolt_auth::process(socket, realms_copy, db_pool_copy).await {
                 Ok(_) => (),
                 Err(AuthError::ClientDisconnected) => trace!("Client disconnected"),
                 Err(e) => panic!("Parse error during auth sequence: {:?}", e),

@@ -1,3 +1,4 @@
+use crate::packets::ServerMessage;
 use std::sync::Arc;
 
 use binrw::io::Cursor;
@@ -15,6 +16,7 @@ use wow_srp::tbc_header::{HeaderCrypto, ProofSeed};
 
 use crate::packets::{CmsgAuthSession, SmsgAuthResponse, SmsgCharEnum};
 
+mod opcodes;
 mod packets;
 
 pub async fn process(
@@ -23,22 +25,16 @@ pub async fn process(
 ) -> Result<(), binrw::Error> {
     // Send SMSG_AUTH_CHALLENGE
     let seed = ProofSeed::new();
-    let smsg_auth_challenge = SmsgAuthChallenge {
-        _size: 6,
-        _opcode: 0x1EC,
-        _server_seed: seed.seed(),
-    };
+    let packet = ServerMessage::new(SmsgAuthChallenge {
+        server_seed: seed.seed(),
+    });
+    packet.send_unencrypted(&mut socket).await?;
+    trace!("Sent SMSG_AUTH_CHALLENGE");
 
-    let mut status = 0; // TODO: enum
-
-    let mut writer = Cursor::new(Vec::new());
-    writer.write_le(&smsg_auth_challenge)?;
-    socket.write(writer.get_ref()).await?;
-    trace!("Send SMSG_AUTH_CHALLENGE");
+    let mut status = 0; // TODO: TypeState
 
     let mut conn = db_pool.get().unwrap(); // TODO: proper error handling
     let session_key = fetch_session_key(&mut conn).unwrap();
-    debug!("session key {}", session_key);
     let session_key: [u8; 40] = <Vec<u8>>::from_hex(session_key)
         .unwrap()
         .try_into()
@@ -49,6 +45,8 @@ pub async fn process(
 
     loop {
         match socket.read(&mut buf).await {
+            // TODO for split packets: reuse the same cursor,
+            // update pos, reset pos when complete packet received
             Ok(_) if status == 0 => {
                 let mut reader = Cursor::new(buf);
                 let cmsg_auth_session: CmsgAuthSession = reader.read_le()?;

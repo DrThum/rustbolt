@@ -1,6 +1,7 @@
 use env_logger::Env;
+use log::trace;
 use rusqlite::Connection;
-use rustbolt_auth::{Realm, RealmType};
+use rustbolt_auth::{AuthError, Realm, RealmType};
 use std::sync::Arc;
 use tokio::net::TcpListener;
 
@@ -31,9 +32,11 @@ async fn main() {
         // Spawn a new task for each inbound socket
         let realms_copy = Arc::clone(&realms);
         tokio::spawn(async move {
-            rustbolt_auth::process(socket, realms_copy)
-                .await
-                .expect("Parse error during auth sequence");
+            match rustbolt_auth::process(socket, realms_copy).await {
+                Ok(_) => (),
+                Err(AuthError::ClientDisconnected) => trace!("Client disconnected"),
+                Err(e) => panic!("Parse error during auth sequence: {:?}", e),
+            }
         });
     }
 }

@@ -2,6 +2,7 @@ use binrw::io::Cursor;
 use binrw::{binread, binwrite, BinWrite, BinWriterExt, NullString};
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
+use wow_srp::tbc_header::HeaderCrypto;
 
 use crate::opcodes::Opcode;
 
@@ -45,6 +46,34 @@ impl<const OPCODE: u16, Payload: WorldPacketPayload<OPCODE> + BinWrite>
         socket.write(&packet).await?;
         Ok(())
     }
+
+    pub async fn send(
+        self,
+        socket: &mut TcpStream,
+        encryption: &mut HeaderCrypto,
+    ) -> Result<(), binrw::Error>
+    where
+        for<'a> <Payload as BinWrite>::Args<'a>: Default,
+    {
+        let payload = self.payload.encode()?;
+        let header = ServerMessageHeader {
+            size: payload.len() as u16 + 2, // + 2 for the opcode size
+            opcode: OPCODE,
+        };
+        let mut encrypted_header: Vec<u8> = Vec::new();
+        encryption.write_encrypted_server_header(
+            &mut encrypted_header,
+            header.size,
+            header.opcode,
+        )?;
+
+        let mut writer = Cursor::new(Vec::new());
+        writer.write_le(&encrypted_header)?;
+        let packet = writer.get_mut();
+        packet.extend(payload);
+        socket.write(&packet).await?;
+        Ok(())
+    }
 }
 
 // pub struct ClientMessage<P: WorldPacketPayload + BinRead> { opcode, payload }
@@ -81,12 +110,13 @@ pub struct CmsgAuthSession {
 
 #[binwrite]
 pub struct SmsgAuthResponse {
-    pub _header: Vec<u8>, // Encrypted size + opcode
-    pub _result: u8,
+    pub result: u8,
     pub _billing_time: u32,
     pub _billing_flags: u8,
     pub _billing_rested: u32,
 }
+
+impl WorldPacketPayload<{ Opcode::SmsgAuthResponse as u16 }> for SmsgAuthResponse {}
 
 #[binwrite]
 pub struct SmsgCharEnum {

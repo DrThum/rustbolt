@@ -26,7 +26,7 @@ struct ServerSentLogonChallenge {
 }
 struct ClientAuthenticated;
 
-pub struct AuthState<S> {
+struct AuthState<S> {
     socket: TcpStream,
     _state: S,
 }

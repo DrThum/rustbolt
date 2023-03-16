@@ -1,5 +1,5 @@
 use super::opcodes::Opcode;
-use super::server::WorldPacketPayload;
+use super::server::ServerMessagePayload;
 use binrw::{binread, binwrite, NullString};
 
 #[binwrite]
@@ -7,23 +7,22 @@ pub struct SmsgAuthChallenge {
     pub server_seed: u32,
 }
 
-impl WorldPacketPayload<{ Opcode::SmsgAuthChallenge as u16 }> for SmsgAuthChallenge {}
+impl ServerMessagePayload<{ Opcode::SmsgAuthChallenge as u16 }> for SmsgAuthChallenge {}
 
 #[binread]
 #[derive(Debug)]
 pub struct CmsgAuthSession {
-    #[br(big)]
-    pub _size: u16,
-    pub _opcode: u32,
     pub _build: u32,
     pub _server_id: u32,
     pub _username: NullString,
     pub _client_seed: u32,
     pub _client_proof: [u8; 20],
     pub _decompressed_addon_info_size: u32,
-    #[br(count = _size - (4 + 4 + 4 + (_username.len() - 1) + 4 + 20 + 4) as u16)]
-    pub _compressed_addon_info: Vec<u8>,
+    // #[br(count = _size - (4 + 4 + 4 + (_username.len() - 1) + 4 + 20 + 4) as u16)]
+    // pub _compressed_addon_info: Vec<u8>,
 }
+
+impl ServerMessagePayload<{ Opcode::CmsgAuthSession as u16 }> for CmsgAuthSession {}
 
 #[binwrite]
 pub struct SmsgAuthResponse {
@@ -33,7 +32,7 @@ pub struct SmsgAuthResponse {
     pub _billing_rested: u32,
 }
 
-impl WorldPacketPayload<{ Opcode::SmsgAuthResponse as u16 }> for SmsgAuthResponse {}
+impl ServerMessagePayload<{ Opcode::SmsgAuthResponse as u16 }> for SmsgAuthResponse {}
 
 #[binwrite]
 pub struct SmsgCharEnum {

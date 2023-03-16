@@ -4,11 +4,18 @@ use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
 use wow_srp::tbc_header::HeaderCrypto;
 
-pub struct ServerMessage<const OPCODE: u16, Payload: WorldPacketPayload<OPCODE> + BinWrite> {
+#[binwrite]
+struct ServerMessageHeader {
+    #[bw(big)]
+    pub size: u16,
+    pub opcode: u16,
+}
+
+pub struct ServerMessage<const OPCODE: u16, Payload: ServerMessagePayload<OPCODE> + BinWrite> {
     payload: Payload,
 }
 
-pub trait WorldPacketPayload<const OPCODE: u16> {
+pub trait ServerMessagePayload<const OPCODE: u16> {
     fn encode(&self) -> Result<Vec<u8>, binrw::Error>
     where
         Self: BinWrite,
@@ -20,7 +27,7 @@ pub trait WorldPacketPayload<const OPCODE: u16> {
     }
 }
 
-impl<const OPCODE: u16, Payload: WorldPacketPayload<OPCODE> + BinWrite>
+impl<const OPCODE: u16, Payload: ServerMessagePayload<OPCODE> + BinWrite>
     ServerMessage<OPCODE, Payload>
 {
     pub fn new(payload: Payload) -> Self {
@@ -45,6 +52,8 @@ impl<const OPCODE: u16, Payload: WorldPacketPayload<OPCODE> + BinWrite>
         Ok(())
     }
 
+    // TODO: Refactor send and send_unencrypted to use a common fn _send(self, socket,
+    // Option<HeaderCrypto>)
     pub async fn send(
         self,
         socket: &mut TcpStream,
@@ -72,11 +81,4 @@ impl<const OPCODE: u16, Payload: WorldPacketPayload<OPCODE> + BinWrite>
         socket.write(&packet).await?;
         Ok(())
     }
-}
-
-#[binwrite]
-struct ServerMessageHeader {
-    #[bw(big)]
-    pub size: u16,
-    pub opcode: u16,
 }

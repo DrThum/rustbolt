@@ -1,11 +1,11 @@
-use crate::packets::ServerMessage;
+use crate::protocol::server::ServerMessage;
 use std::sync::Arc;
 
+use crate::protocol::packets::{CmsgAuthSession, SmsgAuthChallenge, SmsgAuthResponse};
 use binrw::io::Cursor;
 use binrw::BinReaderExt;
 use hex::FromHex;
 use log::{debug, error, trace};
-use packets::SmsgAuthChallenge;
 use r2d2::Pool;
 use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::Connection;
@@ -14,10 +14,7 @@ use tokio::net::TcpStream;
 use wow_srp::normalized_string::NormalizedString;
 use wow_srp::tbc_header::{HeaderCrypto, ProofSeed};
 
-use crate::packets::{CmsgAuthSession, SmsgAuthResponse};
-
-mod opcodes;
-mod packets;
+mod protocol;
 
 // TypeState pattern (https://yoric.github.io/post/rust-typestate/)
 struct SocketOpened;

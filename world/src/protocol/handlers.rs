@@ -1,5 +1,5 @@
 use binrw::io::Cursor;
-use binrw::BinWriterExt;
+use binrw::{BinWriterExt, BinReaderExt};
 use futures::future::{BoxFuture, FutureExt};
 use lazy_static::lazy_static;
 use log::{error, trace};
@@ -8,7 +8,8 @@ use tokio::net::TcpStream;
 use tokio::{io::AsyncWriteExt, sync::Mutex};
 use wow_srp::tbc_header::HeaderCrypto;
 
-use crate::protocol::packets::SmsgCharEnum;
+use crate::protocol::packets::{SmsgCharEnum, CmsgRealmSplit, SmsgRealmSplit};
+use crate::protocol::server::ServerMessage;
 
 use super::opcodes::Opcode;
 
@@ -34,7 +35,16 @@ lazy_static! {
                     handle_cmsg_char_enum(data, crypto, socket).boxed()
                 }
             ) as PacketHandler
-        )
+        ),
+        (
+            Opcode::CmsgRealmSplit as u32,
+            Box::new(
+                |data, crypto: Arc<Mutex<HeaderCrypto>>, socket: Arc<Mutex<TcpStream>>| {
+                    handle_cmsg_realm_split(data, crypto, socket).boxed()
+                }
+            ) as PacketHandler
+        ),
+
     ]);
 }
 
@@ -144,7 +154,7 @@ async fn handle_cmsg_char_enum(
         unk_0: 0,
     };
 
-    let mut writer = Cursor::new(Vec::new());
+    let mut writer = Cursor::new(Vec::new()); // TODO: Rewrite this with the new syntax
     writer.write_le(&smsg_char_enum).unwrap();
     let mut socket = socket.lock().await;
     socket.write(writer.get_ref()).await.unwrap();
@@ -156,4 +166,25 @@ async fn unhandled(
     _encryption: Arc<Mutex<HeaderCrypto>>,
     _socket: Arc<Mutex<TcpStream>>,
 ) {
+}
+
+async fn handle_cmsg_realm_split(
+    data: Vec<u8>,
+    encryption: Arc<Mutex<HeaderCrypto>>,
+    socket: Arc<Mutex<TcpStream>>,
+) {
+    trace!("Received CMSG_REALM_SPLIT");
+    let mut reader = Cursor::new(data);
+    let cmsg_realm_split: CmsgRealmSplit = reader.read_le().unwrap();
+
+    let packet = ServerMessage::new(SmsgRealmSplit {
+        client_state: cmsg_realm_split.client_state,
+        realm_state: 0x00,
+        split_date: binrw::NullString::from("01/01/01"),
+    });
+
+    let mut socket = socket.lock().await;
+    let mut encryption = encryption.lock().await;
+    packet.send(&mut socket, &mut encryption).await.unwrap();
+    trace!("Sent SMSG_REALM_SPLIT");
 }

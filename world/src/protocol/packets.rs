@@ -121,3 +121,17 @@ pub struct SmsgCharEnum {
     pub character_first_bag_inventory_type: u8, // Always 0
     pub unk_0: u32,                             // Always 0
 }
+
+#[binread]
+pub struct CmsgRealmSplit {
+    pub client_state: u32,
+}
+
+#[binwrite]
+pub struct SmsgRealmSplit {
+    pub client_state: u32,
+    pub realm_state: u32, // 0x0 - normal; 0x1: realm split; 0x2 realm split pending
+    pub split_date: NullString, // "01/01/01"
+}
+
+impl ServerMessagePayload<{ Opcode::SmsgRealmSplit as u16 }> for SmsgRealmSplit {}

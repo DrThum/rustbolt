@@ -13,6 +13,19 @@ use crate::protocol::server::ServerMessage;
 
 use super::opcodes::Opcode;
 
+macro_rules! define_handler {
+    ($opcode:expr, $handler:expr) => {
+        (
+            $opcode as u32,
+            Box::new(
+                |data, crypto: Arc<Mutex<HeaderCrypto>>, socket: Arc<Mutex<TcpStream>>| {
+                    $handler(data, crypto, socket).boxed()
+                }
+            ) as PacketHandler
+        )
+    };
+}
+
 type PacketHandler = Box<
     dyn Send
         + Sync
@@ -20,38 +33,10 @@ type PacketHandler = Box<
 >;
 lazy_static! {
     static ref HANDLERS: HashMap<u32, PacketHandler> = HashMap::from([
-        (
-            Opcode::MsgNullAction as u32,
-            Box::new(
-                |data, crypto: Arc<Mutex<HeaderCrypto>>, socket: Arc<Mutex<TcpStream>>| {
-                    unhandled(data, crypto, socket).boxed()
-                }
-            ) as PacketHandler
-        ),
-        (
-            Opcode::CmsgCharEnum as u32,
-            Box::new(
-                |data, crypto: Arc<Mutex<HeaderCrypto>>, socket: Arc<Mutex<TcpStream>>| {
-                    handle_cmsg_char_enum(data, crypto, socket).boxed()
-                }
-            ) as PacketHandler
-        ),
-        (
-            Opcode::CmsgPing as u32,
-            Box::new(
-                |data, crypto: Arc<Mutex<HeaderCrypto>>, socket: Arc<Mutex<TcpStream>>| {
-                    handle_cmsg_ping(data, crypto, socket).boxed()
-                }
-            ) as PacketHandler
-        ),
-        (
-            Opcode::CmsgRealmSplit as u32,
-            Box::new(
-                |data, crypto: Arc<Mutex<HeaderCrypto>>, socket: Arc<Mutex<TcpStream>>| {
-                    handle_cmsg_realm_split(data, crypto, socket).boxed()
-                }
-            ) as PacketHandler
-        ),
+        define_handler!(Opcode::MsgNullAction, unhandled),
+        define_handler!(Opcode::CmsgCharEnum, handle_cmsg_char_enum),
+        define_handler!(Opcode::CmsgPing, handle_cmsg_ping),
+        define_handler!(Opcode::CmsgRealmSplit, handle_cmsg_realm_split),
     ]);
 }
 

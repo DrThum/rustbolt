@@ -135,3 +135,16 @@ pub struct SmsgRealmSplit {
 }
 
 impl ServerMessagePayload<{ Opcode::SmsgRealmSplit as u16 }> for SmsgRealmSplit {}
+
+#[binread]
+pub struct CmsgPing {
+    pub ping: u32,
+    _latency: u32,
+}
+
+#[binwrite]
+pub struct SmsgPong {
+    pub ping: u32,
+}
+
+impl ServerMessagePayload<{ Opcode::SmsgPong as u16 }> for SmsgPong {}

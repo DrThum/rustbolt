@@ -1,5 +1,5 @@
 use binrw::io::Cursor;
-use binrw::{BinWriterExt, BinReaderExt};
+use binrw::{BinReaderExt, BinWriterExt};
 use futures::future::{BoxFuture, FutureExt};
 use lazy_static::lazy_static;
 use log::{error, trace};
@@ -8,7 +8,7 @@ use tokio::net::TcpStream;
 use tokio::{io::AsyncWriteExt, sync::Mutex};
 use wow_srp::tbc_header::HeaderCrypto;
 
-use crate::protocol::packets::{SmsgCharEnum, CmsgRealmSplit, SmsgRealmSplit};
+use crate::protocol::packets::{CmsgPing, CmsgRealmSplit, SmsgCharEnum, SmsgPong, SmsgRealmSplit};
 use crate::protocol::server::ServerMessage;
 
 use super::opcodes::Opcode;
@@ -37,6 +37,14 @@ lazy_static! {
             ) as PacketHandler
         ),
         (
+            Opcode::CmsgPing as u32,
+            Box::new(
+                |data, crypto: Arc<Mutex<HeaderCrypto>>, socket: Arc<Mutex<TcpStream>>| {
+                    handle_cmsg_ping(data, crypto, socket).boxed()
+                }
+            ) as PacketHandler
+        ),
+        (
             Opcode::CmsgRealmSplit as u32,
             Box::new(
                 |data, crypto: Arc<Mutex<HeaderCrypto>>, socket: Arc<Mutex<TcpStream>>| {
@@ -44,7 +52,6 @@ lazy_static! {
                 }
             ) as PacketHandler
         ),
-
     ]);
 }
 
@@ -187,4 +194,23 @@ async fn handle_cmsg_realm_split(
     let mut encryption = encryption.lock().await;
     packet.send(&mut socket, &mut encryption).await.unwrap();
     trace!("Sent SMSG_REALM_SPLIT");
+}
+
+async fn handle_cmsg_ping(
+    data: Vec<u8>,
+    encryption: Arc<Mutex<HeaderCrypto>>,
+    socket: Arc<Mutex<TcpStream>>,
+) {
+    trace!("Received CMSG_PING");
+    let mut reader = Cursor::new(data);
+    let cmsg_ping: CmsgPing = reader.read_le().unwrap();
+
+    let packet = ServerMessage::new(SmsgPong {
+        ping: cmsg_ping.ping,
+    });
+
+    let mut socket = socket.lock().await;
+    let mut encryption = encryption.lock().await;
+    packet.send(&mut socket, &mut encryption).await.unwrap();
+    trace!("Sent SMSG_PONG");
 }

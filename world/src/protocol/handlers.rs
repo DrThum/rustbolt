@@ -2,14 +2,18 @@ use binrw::io::Cursor;
 use binrw::BinReaderExt;
 use futures::future::{BoxFuture, FutureExt};
 use lazy_static::lazy_static;
-use log::{debug, error, trace};
+use log::{error, trace};
+use r2d2::PooledConnection;
+use r2d2_sqlite::SqliteConnectionManager;
+use rusqlite::named_params;
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::Mutex;
 use wow_srp::tbc_header::HeaderCrypto;
 
+use crate::constants::InventoryType;
 use crate::protocol::packets::{
-    CmsgCharCreate, CmsgPing, CmsgRealmSplit, SmsgCharCreate, SmsgCharEnum, SmsgPong,
-    SmsgRealmSplit,
+    CharEnumData, CharEnumEquip, CmsgCharCreate, CmsgPing, CmsgRealmSplit, SmsgCharCreate,
+    SmsgCharEnum, SmsgPong, SmsgRealmSplit,
 };
 use crate::protocol::server::ServerMessage;
 use crate::world_session::WorldSession;
@@ -56,18 +60,40 @@ async fn handle_cmsg_char_create(
     encryption: Arc<Mutex<HeaderCrypto>>,
     session: Arc<Mutex<WorldSession>>,
 ) {
+    fn create_char(conn: PooledConnection<SqliteConnectionManager>, source: CmsgCharCreate) {
+        // let mut stmt_check_name = conn.prepare_cached("SELECT COUNT(*) FROM characters WHERE name = ?").unwrap();
+        // // TODO
+
+        let mut stmt_create = conn.prepare_cached("INSERT INTO characters (guid, account_id, name, race, class, gender, skin, face, hairstyle, haircolor, facialstyle) VALUES (NULL, :account_id, :name, :race, :class, :gender, :skin, :face, :hairstyle, :haircolor, :facialstyle)").unwrap();
+        stmt_create
+            .execute(named_params! {
+                ":account_id": 1, /* FIXME: Add account id to WorldSession */
+                ":name": source.name.to_string(),
+                ":race": source.race,
+                ":class": source.class,
+                ":gender": source.gender,
+                ":skin": source.skin,
+                ":face": source.face,
+                ":hairstyle": source.hairstyle,
+                ":haircolor": source.haircolor,
+                ":facialstyle": source.facialstyle,
+            })
+            .unwrap();
+    }
+
     trace!("Received CMSG_CHAR_CREATE");
 
     let mut reader = Cursor::new(data);
     let cmsg_char_create: CmsgCharCreate = reader.read_le().unwrap();
-
-    debug!("Char creation: {:?}", cmsg_char_create);
+    let session_guard = session.lock().await;
+    let conn = session_guard.db_pool_char.get().unwrap();
+    create_char(conn, cmsg_char_create);
 
     let packet = ServerMessage::new(SmsgCharCreate {
         result: 0x2F, // TODO: Enum
     });
 
-    let socket = Arc::clone(&session.lock().await.socket);
+    let socket = Arc::clone(&session_guard.socket);
     packet.send(socket, encryption).await.unwrap();
     trace!("Sent SMSG_CHAR_CREATE");
 }
@@ -77,96 +103,77 @@ async fn handle_cmsg_char_enum(
     encryption: Arc<Mutex<HeaderCrypto>>,
     session: Arc<Mutex<WorldSession>>,
 ) {
+    fn fetch_chars(conn: PooledConnection<SqliteConnectionManager>) -> Vec<CharEnumData> {
+        let mut stmt = conn.prepare_cached("SELECT guid, name, race, class, gender, skin, face, hairstyle, haircolor, facialstyle FROM characters WHERE account_id = 1").unwrap(); // FIXME: Account id
+        let chars = stmt.query_map([], |row| {
+            let equipment = vec![
+                InventoryType::Head,
+                InventoryType::Neck,
+                InventoryType::Shoulders,
+                InventoryType::Body,
+                InventoryType::Chest,
+                InventoryType::Waist,
+                InventoryType::Legs,
+                InventoryType::Feet,
+                InventoryType::Wrists,
+                InventoryType::Hands,
+                InventoryType::Finger,
+                InventoryType::Finger,
+                InventoryType::Trinket,
+                InventoryType::Trinket,
+                InventoryType::Cloak,
+                InventoryType::WeaponMainHand,
+                InventoryType::WeaponOffHand,
+                InventoryType::Ranged,
+                InventoryType::Tabard,
+                InventoryType::NonEquip,
+            ]
+            .into_iter()
+            .map(|inv_type| CharEnumEquip::none(inv_type))
+            .collect();
+
+            Ok(CharEnumData {
+                guid: row.get("guid").unwrap(),
+                name: row.get::<&str, String>("name").unwrap().try_into().unwrap(),
+                race: row.get("race").unwrap(),
+                class: row.get("class").unwrap(),
+                gender: row.get("gender").unwrap(),
+                skin: row.get("skin").unwrap(),
+                face: row.get("face").unwrap(),
+                hairstyle: row.get("hairstyle").unwrap(),
+                haircolor: row.get("haircolor").unwrap(),
+                facialstyle: row.get("facialstyle").unwrap(),
+                level: 70,
+                area: 85,
+                map: 0,
+                position_x: 0.0,
+                position_y: 0.0,
+                position_z: 0.0,
+                guild_id: 0,
+                flags: 0,
+                first_login: 1, // FIXME: bool
+                pet_display_id: 0,
+                pet_level: 0,
+                pet_family: 0,
+                equipment,
+            })
+        }).unwrap();
+
+        chars.filter(|res| res.is_ok()).map(|res| res.unwrap()).into_iter().collect()
+    }
+
     trace!("Received CMSG_CHAR_ENUM");
-    // TEMP: Send SMSG_CHAR_ENUM with a level 70 T6 undead priest
+
+    let session_guard = session.lock().await;
+    let conn = session_guard.db_pool_char.get().unwrap();
+    let character_data = fetch_chars(conn);
 
     let packet = ServerMessage::new(SmsgCharEnum {
-        amount_of_characters: 1,
-        character_guid: 1,
-        character_name: "Thum".try_into().unwrap(),
-        character_race: 5,
-        character_class: 5,
-        character_gender: 0,
-        character_skin: 0,
-        character_face: 0,
-        character_hairstyle: 0,
-        character_haircolor: 0,
-        character_facialstyle: 0,
-        character_level: 70,
-        character_area: 85,
-        character_map: 0,
-        character_position_x: 0.0,
-        character_position_y: 0.0,
-        character_position_z: 0.0,
-        character_guild_id: 0,
-        character_flags: 0,
-        character_first_login: 1, // FIXME: bool
-        character_pet_display_id: 0,
-        character_pet_level: 0,
-        character_pet_family: 0,
-        character_equip_head: 45770,
-        character_equip_head_slot: 1,
-        character_equip_head_enchant: 0,
-        character_equip_neck: 0,
-        character_equip_neck_slot: 2,
-        character_equip_neck_enchant: 0,
-        character_equip_shoulders: 44978,
-        character_equip_shoulders_slot: 3, // 3
-        character_equip_shoulders_enchant: 0,
-        character_equip_body: 0,
-        character_equip_body_slot: 4, // 4
-        character_equip_body_enchant: 0,
-        character_equip_chest: 44979,
-        character_equip_chest_slot: 5, // 5
-        character_equip_chest_enchant: 0,
-        character_equip_waist: 45263,
-        character_equip_waist_slot: 6, // 6
-        character_equip_waist_enchant: 0,
-        character_equip_legs: 44968,
-        character_equip_legs_slot: 7, // 7
-        character_equip_legs_enchant: 0,
-        character_equip_feet: 45737,
-        character_equip_feet_slot: 8, // 8
-        character_equip_feet_enchant: 0,
-        character_equip_wrists: 45359,
-        character_equip_wrists_slot: 9, // 9
-        character_equip_wrists_enchant: 0,
-        character_equip_hands: 44975,
-        character_equip_hands_slot: 10, // 10
-        character_equip_hands_enchant: 0,
-        character_equip_finger1: 0,
-        character_equip_finger1_slot: 11, // 11
-        character_equip_finger1_enchant: 0,
-        character_equip_finger2: 0,
-        character_equip_finger2_slot: 11, // 11
-        character_equip_finger2_enchant: 0,
-        character_equip_trinket1: 0,
-        character_equip_trinket1_slot: 12, // 12
-        character_equip_trinket1_enchant: 0,
-        character_equip_trinket2: 0,
-        character_equip_trinket2_slot: 12, // 12
-        character_equip_trinket2_enchant: 0,
-        character_equip_back: 0,
-        character_equip_back_slot: 16, // 16
-        character_equip_back_enchant: 0,
-        character_equip_mainhand: 31346,
-        character_equip_mainhand_slot: 21, // 21
-        character_equip_mainhand_enchant: 0,
-        character_equip_offhand: 0,
-        character_equip_offhand_slot: 22, // 22
-        character_equip_offhand_enchant: 0,
-        character_equip_ranged: 0,
-        character_equip_ranged_slot: 26, // 26
-        character_equip_ranged_enchant: 0,
-        character_equip_tabard: 0,
-        character_equip_tabard_slot: 19, // 19
-        character_equip_tabard_enchant: 0,
-        character_first_bag_display_id: 0,     // Always 0
-        character_first_bag_inventory_type: 0, // Always 0
-        unk_0: 0,
+        number_of_characters: character_data.len() as u8,
+        character_data,
     });
 
-    let socket = Arc::clone(&session.lock().await.socket);
+    let socket = Arc::clone(&session_guard.socket);
     packet.send(socket, encryption).await.unwrap();
     trace!("Sent SMSG_CHAR_ENUM");
 }

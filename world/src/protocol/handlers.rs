@@ -20,8 +20,8 @@ macro_rules! define_handler {
             Box::new(
                 |data, crypto: Arc<Mutex<HeaderCrypto>>, socket: Arc<Mutex<TcpStream>>| {
                     $handler(data, crypto, socket).boxed()
-                }
-            ) as PacketHandler
+                },
+            ) as PacketHandler,
         )
     };
 }

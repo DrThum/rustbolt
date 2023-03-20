@@ -1,13 +1,13 @@
 use super::opcodes::Opcode;
 use super::server::ServerMessagePayload;
 use binrw::{binread, binwrite, NullString};
+use opcode_derive::server_opcode;
 
 #[binwrite]
+#[server_opcode]
 pub struct SmsgAuthChallenge {
     pub server_seed: u32,
 }
-
-impl ServerMessagePayload<{ Opcode::SmsgAuthChallenge as u16 }> for SmsgAuthChallenge {}
 
 #[binread]
 #[derive(Debug)]
@@ -22,9 +22,8 @@ pub struct CmsgAuthSession {
     // pub _compressed_addon_info: Vec<u8>,
 }
 
-impl ServerMessagePayload<{ Opcode::CmsgAuthSession as u16 }> for CmsgAuthSession {}
-
 #[binwrite]
+#[server_opcode]
 pub struct SmsgAuthResponse {
     pub result: u8,
     pub _billing_time: u32,
@@ -32,9 +31,8 @@ pub struct SmsgAuthResponse {
     pub _billing_rested: u32,
 }
 
-impl ServerMessagePayload<{ Opcode::SmsgAuthResponse as u16 }> for SmsgAuthResponse {}
-
 #[binwrite]
+#[server_opcode]
 pub struct SmsgCharEnum {
     pub header: Vec<u8>,
     pub amount_of_characters: u8,
@@ -128,13 +126,12 @@ pub struct CmsgRealmSplit {
 }
 
 #[binwrite]
+#[server_opcode]
 pub struct SmsgRealmSplit {
     pub client_state: u32,
     pub realm_state: u32, // 0x0 - normal; 0x1: realm split; 0x2 realm split pending
     pub split_date: NullString, // "01/01/01"
 }
-
-impl ServerMessagePayload<{ Opcode::SmsgRealmSplit as u16 }> for SmsgRealmSplit {}
 
 #[binread]
 pub struct CmsgPing {
@@ -143,8 +140,7 @@ pub struct CmsgPing {
 }
 
 #[binwrite]
+#[server_opcode]
 pub struct SmsgPong {
     pub ping: u32,
 }
-
-impl ServerMessagePayload<{ Opcode::SmsgPong as u16 }> for SmsgPong {}

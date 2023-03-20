@@ -3,4 +3,5 @@
 members = [
   "auth",
   "world",
+  "world/opcode_derive",
 ]

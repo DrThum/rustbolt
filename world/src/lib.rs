@@ -235,11 +235,12 @@ impl WorldSocketState<ServerSentAuthResponse> {
 
 pub async fn process(
     socket: TcpStream,
-    db_pool: Arc<Pool<SqliteConnectionManager>>,
+    db_pool_auth: Arc<Pool<SqliteConnectionManager>>,
+    _db_pool_char: Arc<Pool<SqliteConnectionManager>>,
 ) -> Result<(), WorldSocketError> {
     let mut state = WorldSocketState {
         socket: Arc::new(Mutex::new(socket)),
-        db_pool,
+        db_pool: db_pool_auth,
         _state: SocketOpened,
     }
     .send_challenge()

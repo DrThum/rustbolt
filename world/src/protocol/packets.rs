@@ -143,3 +143,23 @@ pub struct CmsgPing {
 pub struct SmsgPong {
     pub ping: u32,
 }
+
+#[binread]
+#[derive(Debug)]
+pub struct CmsgCharCreate {
+    pub name: NullString,
+    pub race: u8,
+    pub class: u8,
+    pub gender: u8,
+    pub skin: u8,
+    pub face: u8,
+    pub hairstyle: u8,
+    pub haircolor: u8,
+    pub facialstyle: u8,
+}
+
+#[binwrite]
+#[server_opcode]
+pub struct SmsgCharCreate {
+    pub result: u8, // https://github.com/mangosone/server/blob/d62fdfe93b96bef5daa36433116d2f0eeb9fc3d0/src/game/Server/SharedDefines.h#L250
+}

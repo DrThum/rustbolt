@@ -4,16 +4,29 @@ use env_logger::Env;
 use r2d2_sqlite::SqliteConnectionManager;
 use tokio::net::TcpListener;
 
+mod embedded {
+    use refinery::embed_migrations;
+    embed_migrations!("../sql_migrations/characters");
+}
+
 #[tokio::main]
 async fn main() {
     // Setup logging
     env_logger::Builder::from_env(Env::default().default_filter_or("debug")).init();
 
-    // Setup database connection pool
-    let sqlite_connection_manager = SqliteConnectionManager::file("./data/databases/auth.db");
-    let db_pool = r2d2::Pool::new(sqlite_connection_manager)
-        .expect("Failed to create r2d2 SQlite connection pool");
-    let db_pool = Arc::new(db_pool);
+    // Setup database connection pools
+    let db_pool_auth = r2d2::Pool::new(SqliteConnectionManager::file("./data/databases/auth.db"))
+        .expect("Failed to create r2d2 SQlite connection pool (Auth DB)");
+    let db_pool_auth = Arc::new(db_pool_auth);
+
+    let sqlite_connection_manager_char = SqliteConnectionManager::file("./data/databases/characters.db")
+        .with_init(|c| {
+            embedded::migrations::runner().run(c).unwrap();
+            Ok(())
+        });
+    let db_pool_char = r2d2::Pool::new(sqlite_connection_manager_char)
+        .expect("Failed to create r2d2 SQlite connection pool (Characters DB)");
+    let db_pool_char = Arc::new(db_pool_char);
 
     // Bind the listener to the address
     let listener = TcpListener::bind("127.0.0.1:8085").await.unwrap();
@@ -23,9 +36,10 @@ async fn main() {
         let (socket, _) = listener.accept().await.unwrap();
 
         // Spawn a new task for each inbound socket
-        let db_pool_copy = Arc::clone(&db_pool);
+        let db_pool_auth_copy = Arc::clone(&db_pool_auth);
+        let db_pool_char_copy = Arc::clone(&db_pool_char);
         tokio::spawn(async move {
-            rustbolt_world::process(socket, db_pool_copy)
+            rustbolt_world::process(socket, db_pool_auth_copy, db_pool_char_copy)
                 .await
                 .expect("World error");
         });

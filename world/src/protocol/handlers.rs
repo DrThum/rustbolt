@@ -2,13 +2,13 @@ use binrw::io::Cursor;
 use binrw::BinReaderExt;
 use futures::future::{BoxFuture, FutureExt};
 use lazy_static::lazy_static;
-use log::{error, trace};
+use log::{error, trace, debug};
 use std::{collections::HashMap, sync::Arc};
 use tokio::net::TcpStream;
 use tokio::sync::Mutex;
 use wow_srp::tbc_header::HeaderCrypto;
 
-use crate::protocol::packets::{CmsgPing, CmsgRealmSplit, SmsgCharEnum, SmsgPong, SmsgRealmSplit};
+use crate::protocol::packets::{CmsgPing, CmsgRealmSplit, SmsgCharEnum, SmsgPong, SmsgRealmSplit, CmsgCharCreate, SmsgCharCreate};
 use crate::protocol::server::ServerMessage;
 
 use super::opcodes::Opcode;
@@ -34,6 +34,7 @@ type PacketHandler = Box<
 lazy_static! {
     static ref HANDLERS: HashMap<u32, PacketHandler> = HashMap::from([
         define_handler!(Opcode::MsgNullAction, unhandled),
+        define_handler!(Opcode::CmsgCharCreate, handle_cmsg_char_create),
         define_handler!(Opcode::CmsgCharEnum, handle_cmsg_char_enum),
         define_handler!(Opcode::CmsgPing, handle_cmsg_ping),
         define_handler!(Opcode::CmsgRealmSplit, handle_cmsg_realm_split),
@@ -45,6 +46,26 @@ pub fn get_handler(opcode: u32) -> &'static PacketHandler {
         error!("Received unhandled opcode {:#X}", opcode);
         HANDLERS.get(&(Opcode::MsgNullAction as u32)).unwrap()
     })
+}
+
+async fn handle_cmsg_char_create(
+    data: Vec<u8>,
+    encryption: Arc<Mutex<HeaderCrypto>>,
+    socket: Arc<Mutex<TcpStream>>,
+) {
+    trace!("Received CMSG_CHAR_CREATE");
+
+    let mut reader = Cursor::new(data);
+    let cmsg_char_create: CmsgCharCreate = reader.read_le().unwrap();
+
+    debug!("Char creation: {:?}", cmsg_char_create);
+
+    let packet = ServerMessage::new(SmsgCharCreate {
+        result: 0x2F, // TODO: Enum
+    });
+
+    packet.send(socket, encryption).await.unwrap();
+    trace!("Sent SMSG_CHAR_CREATE");
 }
 
 async fn handle_cmsg_char_enum(

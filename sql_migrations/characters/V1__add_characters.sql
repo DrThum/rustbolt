@@ -1,0 +1,12 @@
+CREATE TABLE characters (
+  id INTEGER PRIMARY KEY,
+  name TEXT NOT NULL,
+  race INTEGER NOT NULL,
+  class INTEGER NOT NULL,
+  gender INTEGER NOT NULL,
+  skin INTEGER NOT NULL,
+  face INTEGER NOT NULL,
+  hairstyle INTEGER NOT NULL,
+  haircolor INTEGER NOT NULL,
+  facialstyle INTEGER NOT NULL
+);

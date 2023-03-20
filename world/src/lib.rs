@@ -183,8 +183,8 @@ impl WorldSocketState<ServerSentAuthResponse> {
     async fn read_socket(&mut self) -> Result<ClientMessage, WorldSocketError> {
         let mut buf = [0_u8; 6];
         let session_guard = self.session.lock().await;
-        let mut lock = session_guard.socket.lock().await;
-        match lock.read(&mut buf[..6]).await {
+        let mut socket = session_guard.socket.lock().await;
+        match socket.read(&mut buf[..6]).await {
             Ok(0) => {
                 trace!("Client disconnected");
                 return Err(WorldSocketError::ClientDisconnected);
@@ -197,26 +197,28 @@ impl WorldSocketState<ServerSentAuthResponse> {
                 )));
             }
             Ok(_) => {
-                drop(lock);
-
                 let mut encryption = self._state.encryption.lock().await;
                 let client_header: ClientMessageHeader =
                     encryption.decrypt_client_header(buf).into();
 
                 let bytes_to_read: usize = client_header.size as usize - 4; // Client opcode is u32
                 let mut buf_payload = [0_u8; 1024];
-                session_guard
-                    .socket
-                    .lock()
-                    .await
-                    .read(&mut buf_payload[..bytes_to_read])
-                    .await
-                    .unwrap();
+                if bytes_to_read > 0 {
+                    socket
+                        .read(&mut buf_payload[..bytes_to_read])
+                        .await
+                        .unwrap();
 
-                Ok(ClientMessage {
-                    header: client_header,
-                    payload: buf_payload[..bytes_to_read].to_vec(),
-                })
+                    Ok(ClientMessage {
+                        header: client_header,
+                        payload: buf_payload[..bytes_to_read].to_vec(),
+                    })
+                } else {
+                    Ok(ClientMessage {
+                        header: client_header,
+                        payload: vec![],
+                    })
+                }
             }
             Err(e) => {
                 error!("Socket error, closing");

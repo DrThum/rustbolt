@@ -12,8 +12,8 @@ use wow_srp::tbc_header::HeaderCrypto;
 
 use crate::constants::InventoryType;
 use crate::protocol::packets::{
-    CharEnumData, CharEnumEquip, CmsgCharCreate, CmsgPing, CmsgRealmSplit, SmsgCharCreate,
-    SmsgCharEnum, SmsgPong, SmsgRealmSplit,
+    CharEnumData, CharEnumEquip, CmsgCharCreate, CmsgCharDelete, CmsgPing, CmsgRealmSplit,
+    SmsgCharCreate, SmsgCharDelete, SmsgCharEnum, SmsgPong, SmsgRealmSplit,
 };
 use crate::protocol::server::ServerMessage;
 use crate::world_session::WorldSession;
@@ -43,6 +43,7 @@ lazy_static! {
         define_handler!(Opcode::MsgNullAction, unhandled),
         define_handler!(Opcode::CmsgCharCreate, handle_cmsg_char_create),
         define_handler!(Opcode::CmsgCharEnum, handle_cmsg_char_enum),
+        define_handler!(Opcode::CmsgCharDelete, handle_cmsg_char_delete),
         define_handler!(Opcode::CmsgPing, handle_cmsg_ping),
         define_handler!(Opcode::CmsgRealmSplit, handle_cmsg_realm_split),
     ]);
@@ -105,61 +106,67 @@ async fn handle_cmsg_char_enum(
 ) {
     fn fetch_chars(conn: PooledConnection<SqliteConnectionManager>) -> Vec<CharEnumData> {
         let mut stmt = conn.prepare_cached("SELECT guid, name, race, class, gender, skin, face, hairstyle, haircolor, facialstyle FROM characters WHERE account_id = 1").unwrap(); // FIXME: Account id
-        let chars = stmt.query_map([], |row| {
-            let equipment = vec![
-                InventoryType::Head,
-                InventoryType::Neck,
-                InventoryType::Shoulders,
-                InventoryType::Body,
-                InventoryType::Chest,
-                InventoryType::Waist,
-                InventoryType::Legs,
-                InventoryType::Feet,
-                InventoryType::Wrists,
-                InventoryType::Hands,
-                InventoryType::Finger,
-                InventoryType::Finger,
-                InventoryType::Trinket,
-                InventoryType::Trinket,
-                InventoryType::Cloak,
-                InventoryType::WeaponMainHand,
-                InventoryType::WeaponOffHand,
-                InventoryType::Ranged,
-                InventoryType::Tabard,
-                InventoryType::NonEquip,
-            ]
-            .into_iter()
-            .map(|inv_type| CharEnumEquip::none(inv_type))
-            .collect();
+        let chars = stmt
+            .query_map([], |row| {
+                let equipment = vec![
+                    InventoryType::Head,
+                    InventoryType::Neck,
+                    InventoryType::Shoulders,
+                    InventoryType::Body,
+                    InventoryType::Chest,
+                    InventoryType::Waist,
+                    InventoryType::Legs,
+                    InventoryType::Feet,
+                    InventoryType::Wrists,
+                    InventoryType::Hands,
+                    InventoryType::Finger,
+                    InventoryType::Finger,
+                    InventoryType::Trinket,
+                    InventoryType::Trinket,
+                    InventoryType::Cloak,
+                    InventoryType::WeaponMainHand,
+                    InventoryType::WeaponOffHand,
+                    InventoryType::Ranged,
+                    InventoryType::Tabard,
+                    InventoryType::NonEquip,
+                ]
+                .into_iter()
+                .map(|inv_type| CharEnumEquip::none(inv_type))
+                .collect();
 
-            Ok(CharEnumData {
-                guid: row.get("guid").unwrap(),
-                name: row.get::<&str, String>("name").unwrap().try_into().unwrap(),
-                race: row.get("race").unwrap(),
-                class: row.get("class").unwrap(),
-                gender: row.get("gender").unwrap(),
-                skin: row.get("skin").unwrap(),
-                face: row.get("face").unwrap(),
-                hairstyle: row.get("hairstyle").unwrap(),
-                haircolor: row.get("haircolor").unwrap(),
-                facialstyle: row.get("facialstyle").unwrap(),
-                level: 70,
-                area: 85,
-                map: 0,
-                position_x: 0.0,
-                position_y: 0.0,
-                position_z: 0.0,
-                guild_id: 0,
-                flags: 0,
-                first_login: 1, // FIXME: bool
-                pet_display_id: 0,
-                pet_level: 0,
-                pet_family: 0,
-                equipment,
+                Ok(CharEnumData {
+                    guid: row.get("guid").unwrap(),
+                    name: row.get::<&str, String>("name").unwrap().try_into().unwrap(),
+                    race: row.get("race").unwrap(),
+                    class: row.get("class").unwrap(),
+                    gender: row.get("gender").unwrap(),
+                    skin: row.get("skin").unwrap(),
+                    face: row.get("face").unwrap(),
+                    hairstyle: row.get("hairstyle").unwrap(),
+                    haircolor: row.get("haircolor").unwrap(),
+                    facialstyle: row.get("facialstyle").unwrap(),
+                    level: 70,
+                    area: 85,
+                    map: 0,
+                    position_x: 0.0,
+                    position_y: 0.0,
+                    position_z: 0.0,
+                    guild_id: 0,
+                    flags: 0,
+                    first_login: 1, // FIXME: bool
+                    pet_display_id: 0,
+                    pet_level: 0,
+                    pet_family: 0,
+                    equipment,
+                })
             })
-        }).unwrap();
+            .unwrap();
 
-        chars.filter(|res| res.is_ok()).map(|res| res.unwrap()).into_iter().collect()
+        chars
+            .filter(|res| res.is_ok())
+            .map(|res| res.unwrap())
+            .into_iter()
+            .collect()
     }
 
     trace!("Received CMSG_CHAR_ENUM");
@@ -176,6 +183,42 @@ async fn handle_cmsg_char_enum(
     let socket = Arc::clone(&session_guard.socket);
     packet.send(socket, encryption).await.unwrap();
     trace!("Sent SMSG_CHAR_ENUM");
+}
+
+async fn handle_cmsg_char_delete(
+    data: Vec<u8>,
+    encryption: Arc<Mutex<HeaderCrypto>>,
+    session: Arc<Mutex<WorldSession>>,
+) {
+    fn delete_char(conn: PooledConnection<SqliteConnectionManager>, source: CmsgCharDelete) {
+        let mut stmt_delete = conn
+            .prepare_cached(
+                "DELETE FROM characters WHERE guid = :guid AND account_id = :account_id",
+            )
+            .unwrap();
+        stmt_delete
+            .execute(named_params! {
+                ":guid": source.guid,
+                ":account_id": 1, /* FIXME: Add account id to WorldSession */
+            })
+            .unwrap();
+    }
+
+    trace!("Received CMSG_CHAR_DELETE");
+    let mut reader = Cursor::new(data);
+    let cmsg_char_delete: CmsgCharDelete = reader.read_le().unwrap();
+
+    let session_guard = session.lock().await;
+    let conn = session_guard.db_pool_char.get().unwrap();
+    delete_char(conn, cmsg_char_delete);
+
+    let packet = ServerMessage::new(SmsgCharDelete {
+        result: 0x3B, // TODO: Enum - CHAR_DELETE_SUCCESS
+    });
+
+    let socket = Arc::clone(&session_guard.socket);
+    packet.send(socket, encryption).await.unwrap();
+    trace!("Sent SMSG_CHAR_DELETE");
 }
 
 async fn unhandled(

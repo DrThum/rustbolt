@@ -129,3 +129,14 @@ pub struct CmsgCharCreate {
 pub struct SmsgCharCreate {
     pub result: u8, // https://github.com/mangosone/server/blob/d62fdfe93b96bef5daa36433116d2f0eeb9fc3d0/src/game/Server/SharedDefines.h#L250
 }
+
+#[binread]
+pub struct CmsgCharDelete {
+    pub guid: u64,
+}
+
+#[binwrite]
+#[server_opcode]
+pub struct SmsgCharDelete {
+    pub result: u8, // Enum see SmsgCharCreate
+}

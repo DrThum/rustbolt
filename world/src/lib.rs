@@ -142,7 +142,7 @@ impl WorldSocketState<ServerSentAuthChallenge> {
             .try_into()
             .unwrap();
 
-        let mut encryption = self
+        let encryption = self
             ._state
             .seed
             .into_header_crypto(
@@ -152,6 +152,7 @@ impl WorldSocketState<ServerSentAuthChallenge> {
                 cmsg_auth_session._client_seed,
             )
             .unwrap();
+        let encryption = Arc::new(Mutex::new(encryption));
 
         let packet = ServerMessage::new(SmsgAuthResponse {
             result: 0x0C, // AUTH_OK
@@ -160,16 +161,15 @@ impl WorldSocketState<ServerSentAuthChallenge> {
             _billing_rested: 0,
         });
 
-        let mut socket = self.socket.lock().await;
-        packet.send(&mut socket, &mut encryption).await?;
+        packet
+            .send(Arc::clone(&self.socket), Arc::clone(&encryption))
+            .await?;
         trace!("Sent SMSG_AUTH_RESPONSE");
 
         Ok(WorldSocketState {
             socket: Arc::clone(&self.socket),
             db_pool: self.db_pool,
-            _state: ServerSentAuthResponse {
-                encryption: Arc::new(Mutex::new(encryption)),
-            },
+            _state: ServerSentAuthResponse { encryption },
         })
     }
 }

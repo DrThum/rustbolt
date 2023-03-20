@@ -141,9 +141,7 @@ async fn handle_cmsg_char_enum(
         unk_0: 0,
     });
 
-    let mut socket = socket.lock().await;
-    let mut encryption = encryption.lock().await;
-    packet.send(&mut socket, &mut encryption).await.unwrap();
+    packet.send(socket, encryption).await.unwrap();
     trace!("Sent SMSG_CHAR_ENUM");
 }
 
@@ -169,9 +167,7 @@ async fn handle_cmsg_realm_split(
         split_date: binrw::NullString::from("01/01/01"),
     });
 
-    let mut socket = socket.lock().await;
-    let mut encryption = encryption.lock().await;
-    packet.send(&mut socket, &mut encryption).await.unwrap();
+    packet.send(socket, encryption).await.unwrap();
     trace!("Sent SMSG_REALM_SPLIT");
 }
 
@@ -188,8 +184,6 @@ async fn handle_cmsg_ping(
         ping: cmsg_ping.ping,
     });
 
-    let mut socket = socket.lock().await;
-    let mut encryption = encryption.lock().await;
-    packet.send(&mut socket, &mut encryption).await.unwrap();
+    packet.send(socket, encryption).await.unwrap();
     trace!("Sent SMSG_PONG");
 }

@@ -1,7 +1,10 @@
+use std::sync::Arc;
+
 use binrw::io::Cursor;
 use binrw::{binwrite, BinWrite, BinWriterExt};
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
+use tokio::sync::Mutex;
 use wow_srp::tbc_header::HeaderCrypto;
 
 #[binwrite]
@@ -56,12 +59,15 @@ impl<const OPCODE: u16, Payload: ServerMessagePayload<OPCODE> + BinWrite>
     // Option<HeaderCrypto>)
     pub async fn send(
         self,
-        socket: &mut TcpStream,
-        encryption: &mut HeaderCrypto,
+        socket: Arc<Mutex<TcpStream>>,
+        encryption: Arc<Mutex<HeaderCrypto>>,
     ) -> Result<(), binrw::Error>
     where
         for<'a> <Payload as BinWrite>::Args<'a>: Default,
     {
+        let mut socket = socket.lock().await;
+        let mut encryption = encryption.lock().await;
+
         let payload = self.payload.encode()?;
         let header = ServerMessageHeader {
             size: payload.len() as u16 + 2, // + 2 for the opcode size

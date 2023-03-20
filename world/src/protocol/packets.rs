@@ -34,7 +34,6 @@ pub struct SmsgAuthResponse {
 #[binwrite]
 #[server_opcode]
 pub struct SmsgCharEnum {
-    pub header: Vec<u8>,
     pub amount_of_characters: u8,
     pub character_guid: u64, // TODO: move these to a separate struct as there can be many
     pub character_name: NullString,

@@ -1,11 +1,11 @@
 use binrw::io::Cursor;
-use binrw::{BinReaderExt, BinWriterExt};
+use binrw::BinReaderExt;
 use futures::future::{BoxFuture, FutureExt};
 use lazy_static::lazy_static;
 use log::{error, trace};
 use std::{collections::HashMap, sync::Arc};
 use tokio::net::TcpStream;
-use tokio::{io::AsyncWriteExt, sync::Mutex};
+use tokio::sync::Mutex;
 use wow_srp::tbc_header::HeaderCrypto;
 
 use crate::protocol::packets::{CmsgPing, CmsgRealmSplit, SmsgCharEnum, SmsgPong, SmsgRealmSplit};
@@ -54,13 +54,8 @@ async fn handle_cmsg_char_enum(
 ) {
     trace!("Received CMSG_CHAR_ENUM");
     // TEMP: Send SMSG_CHAR_ENUM with a level 70 T6 undead priest
-    let mut encrypted_header: Vec<u8> = Vec::new();
-    let mut encryption = encryption.lock().await;
-    encryption
-        .write_encrypted_server_header(&mut encrypted_header, 246, 0x3B)
-        .unwrap();
-    let smsg_char_enum = SmsgCharEnum {
-        header: encrypted_header,
+
+    let packet = ServerMessage::new(SmsgCharEnum {
         amount_of_characters: 1,
         character_guid: 1,
         character_name: "Thum".try_into().unwrap(),
@@ -144,12 +139,11 @@ async fn handle_cmsg_char_enum(
         character_first_bag_display_id: 0,     // Always 0
         character_first_bag_inventory_type: 0, // Always 0
         unk_0: 0,
-    };
+    });
 
-    let mut writer = Cursor::new(Vec::new()); // TODO: Rewrite this with the new syntax
-    writer.write_le(&smsg_char_enum).unwrap();
     let mut socket = socket.lock().await;
-    socket.write(writer.get_ref()).await.unwrap();
+    let mut encryption = encryption.lock().await;
+    packet.send(&mut socket, &mut encryption).await.unwrap();
     trace!("Sent SMSG_CHAR_ENUM");
 }
 

@@ -2,14 +2,17 @@ use binrw::io::Cursor;
 use binrw::BinReaderExt;
 use futures::future::{BoxFuture, FutureExt};
 use lazy_static::lazy_static;
-use log::{error, trace, debug};
+use log::{debug, error, trace};
 use std::{collections::HashMap, sync::Arc};
-use tokio::net::TcpStream;
 use tokio::sync::Mutex;
 use wow_srp::tbc_header::HeaderCrypto;
 
-use crate::protocol::packets::{CmsgPing, CmsgRealmSplit, SmsgCharEnum, SmsgPong, SmsgRealmSplit, CmsgCharCreate, SmsgCharCreate};
+use crate::protocol::packets::{
+    CmsgCharCreate, CmsgPing, CmsgRealmSplit, SmsgCharCreate, SmsgCharEnum, SmsgPong,
+    SmsgRealmSplit,
+};
 use crate::protocol::server::ServerMessage;
+use crate::world_session::WorldSession;
 
 use super::opcodes::Opcode;
 
@@ -18,8 +21,8 @@ macro_rules! define_handler {
         (
             $opcode as u32,
             Box::new(
-                |data, crypto: Arc<Mutex<HeaderCrypto>>, socket: Arc<Mutex<TcpStream>>| {
-                    $handler(data, crypto, socket).boxed()
+                |data, crypto: Arc<Mutex<HeaderCrypto>>, session: Arc<Mutex<WorldSession>>| {
+                    $handler(data, crypto, session).boxed()
                 },
             ) as PacketHandler,
         )
@@ -29,7 +32,7 @@ macro_rules! define_handler {
 type PacketHandler = Box<
     dyn Send
         + Sync
-        + Fn(Vec<u8>, Arc<Mutex<HeaderCrypto>>, Arc<Mutex<TcpStream>>) -> BoxFuture<'static, ()>,
+        + Fn(Vec<u8>, Arc<Mutex<HeaderCrypto>>, Arc<Mutex<WorldSession>>) -> BoxFuture<'static, ()>,
 >;
 lazy_static! {
     static ref HANDLERS: HashMap<u32, PacketHandler> = HashMap::from([
@@ -51,7 +54,7 @@ pub fn get_handler(opcode: u32) -> &'static PacketHandler {
 async fn handle_cmsg_char_create(
     data: Vec<u8>,
     encryption: Arc<Mutex<HeaderCrypto>>,
-    socket: Arc<Mutex<TcpStream>>,
+    session: Arc<Mutex<WorldSession>>,
 ) {
     trace!("Received CMSG_CHAR_CREATE");
 
@@ -64,6 +67,7 @@ async fn handle_cmsg_char_create(
         result: 0x2F, // TODO: Enum
     });
 
+    let socket = Arc::clone(&session.lock().await.socket);
     packet.send(socket, encryption).await.unwrap();
     trace!("Sent SMSG_CHAR_CREATE");
 }
@@ -71,7 +75,7 @@ async fn handle_cmsg_char_create(
 async fn handle_cmsg_char_enum(
     _data: Vec<u8>,
     encryption: Arc<Mutex<HeaderCrypto>>,
-    socket: Arc<Mutex<TcpStream>>,
+    session: Arc<Mutex<WorldSession>>,
 ) {
     trace!("Received CMSG_CHAR_ENUM");
     // TEMP: Send SMSG_CHAR_ENUM with a level 70 T6 undead priest
@@ -162,6 +166,7 @@ async fn handle_cmsg_char_enum(
         unk_0: 0,
     });
 
+    let socket = Arc::clone(&session.lock().await.socket);
     packet.send(socket, encryption).await.unwrap();
     trace!("Sent SMSG_CHAR_ENUM");
 }
@@ -169,14 +174,14 @@ async fn handle_cmsg_char_enum(
 async fn unhandled(
     _data: Vec<u8>,
     _encryption: Arc<Mutex<HeaderCrypto>>,
-    _socket: Arc<Mutex<TcpStream>>,
+    _session: Arc<Mutex<WorldSession>>,
 ) {
 }
 
 async fn handle_cmsg_realm_split(
     data: Vec<u8>,
     encryption: Arc<Mutex<HeaderCrypto>>,
-    socket: Arc<Mutex<TcpStream>>,
+    session: Arc<Mutex<WorldSession>>,
 ) {
     trace!("Received CMSG_REALM_SPLIT");
     let mut reader = Cursor::new(data);
@@ -188,6 +193,7 @@ async fn handle_cmsg_realm_split(
         split_date: binrw::NullString::from("01/01/01"),
     });
 
+    let socket = Arc::clone(&session.lock().await.socket);
     packet.send(socket, encryption).await.unwrap();
     trace!("Sent SMSG_REALM_SPLIT");
 }
@@ -195,7 +201,7 @@ async fn handle_cmsg_realm_split(
 async fn handle_cmsg_ping(
     data: Vec<u8>,
     encryption: Arc<Mutex<HeaderCrypto>>,
-    socket: Arc<Mutex<TcpStream>>,
+    session: Arc<Mutex<WorldSession>>,
 ) {
     trace!("Received CMSG_PING");
     let mut reader = Cursor::new(data);
@@ -205,6 +211,7 @@ async fn handle_cmsg_ping(
         ping: cmsg_ping.ping,
     });
 
+    let socket = Arc::clone(&session.lock().await.socket);
     packet.send(socket, encryption).await.unwrap();
     trace!("Sent SMSG_PONG");
 }

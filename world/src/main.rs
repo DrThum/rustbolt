@@ -2,7 +2,8 @@ use std::sync::Arc;
 
 use env_logger::Env;
 use r2d2_sqlite::SqliteConnectionManager;
-use tokio::net::TcpListener;
+use rustbolt_world::world_session::WorldSession;
+use tokio::{net::TcpListener, sync::Mutex};
 
 mod embedded {
     use refinery::embed_migrations;
@@ -19,8 +20,8 @@ async fn main() {
         .expect("Failed to create r2d2 SQlite connection pool (Auth DB)");
     let db_pool_auth = Arc::new(db_pool_auth);
 
-    let sqlite_connection_manager_char = SqliteConnectionManager::file("./data/databases/characters.db")
-        .with_init(|c| {
+    let sqlite_connection_manager_char =
+        SqliteConnectionManager::file("./data/databases/characters.db").with_init(|c| {
             embedded::migrations::runner().run(c).unwrap();
             Ok(())
         });
@@ -38,10 +39,14 @@ async fn main() {
         // Spawn a new task for each inbound socket
         let db_pool_auth_copy = Arc::clone(&db_pool_auth);
         let db_pool_char_copy = Arc::clone(&db_pool_char);
+
+        let session = Arc::new(Mutex::new(WorldSession::new(
+            Arc::new(Mutex::new(socket)),
+            db_pool_auth_copy,
+            db_pool_char_copy,
+        )));
         tokio::spawn(async move {
-            rustbolt_world::process(socket, db_pool_auth_copy, db_pool_char_copy)
-                .await
-                .expect("World error");
+            rustbolt_world::process(session).await.expect("World error");
         });
     }
 }

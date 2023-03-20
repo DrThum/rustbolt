@@ -1,6 +1,7 @@
 CREATE TABLE characters (
   id INTEGER PRIMARY KEY,
-  name TEXT NOT NULL,
+  account_id INTEGER NOT NULL,
+  name TEXT UNIQUE NOT NULL,
   race INTEGER NOT NULL,
   class INTEGER NOT NULL,
   gender INTEGER NOT NULL,

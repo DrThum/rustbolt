@@ -11,12 +11,15 @@ use tokio::sync::Mutex;
 use wow_srp::tbc_header::HeaderCrypto;
 
 use crate::constants::InventoryType;
+use crate::entities::update::UpdateDataBuilder;
+use crate::entities::update_fields::{ObjectFields, UnitFields};
 use crate::protocol::packets::{
     CharEnumData, CharEnumEquip, CmsgCharCreate, CmsgCharDelete, CmsgPing, CmsgPlayerLogin,
-    CmsgRealmSplit, CmsgUpdateAccountData, SmsgAccountDataTimes, SmsgBindpointupdate,
-    SmsgCharCreate, SmsgCharDelete, SmsgCharEnum, SmsgFeatureSystemStatus, SmsgLoginSettimespeed,
-    SmsgLoginVerifyWorld, SmsgMotd, SmsgPong, SmsgRealmSplit, SmsgSetRestStart, SmsgTimeSyncReq,
-    SmsgTutorialFlags, SmsgUpdateAccountData, SmsgUpdateObject,
+    CmsgRealmSplit, CmsgUpdateAccountData, MsgSetDungeonDifficulty, SmsgAccountDataTimes,
+    SmsgBindpointupdate, SmsgCharCreate, SmsgCharDelete, SmsgCharEnum, SmsgFeatureSystemStatus,
+    SmsgInitWorldStates, SmsgLoginSettimespeed, SmsgLoginVerifyWorld, SmsgMotd, SmsgPong,
+    SmsgRealmSplit, SmsgSetRestStart, SmsgTimeSyncReq, SmsgTutorialFlags, SmsgUpdateAccountData,
+    SmsgUpdateObject,
 };
 use crate::protocol::server::ServerMessage;
 use crate::world_session::WorldSession;
@@ -267,6 +270,21 @@ async fn handle_cmsg_player_login(
     let mut reader = Cursor::new(data);
     let cmsg_player_login: CmsgPlayerLogin = reader.read_le().unwrap();
 
+    let msg_set_dungeon_difficulty = ServerMessage::new(MsgSetDungeonDifficulty {
+        difficulty: 0, // FIXME
+        unk: 1,
+        is_in_group: 0, // FIXME after group implementation
+    });
+
+    let session_guard = session.lock().await;
+    let socket = Arc::clone(&session_guard.socket);
+    let encryption_copy = Arc::clone(&encryption);
+    msg_set_dungeon_difficulty
+        .send(socket, encryption_copy)
+        .await
+        .unwrap();
+    trace!("Sent MSG_SET_DUNGEON_DIFFICULTY");
+
     let smsg_login_verify_world = ServerMessage::new(SmsgLoginVerifyWorld {
         map: 0,
         position_x: -8953.95,
@@ -275,7 +293,6 @@ async fn handle_cmsg_player_login(
         orientation: 3.83972,
     });
 
-    let session_guard = session.lock().await;
     let socket = Arc::clone(&session_guard.socket);
     let encryption_copy = Arc::clone(&encryption);
     smsg_login_verify_world
@@ -284,26 +301,7 @@ async fn handle_cmsg_player_login(
         .unwrap();
     trace!("Sent SMSG_LOGIN_VERIFY_WORLD");
 
-    let smsg_tutorial_flags = ServerMessage::new(SmsgTutorialFlags {
-        tutorial_data0: 0, // FIXME: 0xFF to disable tutorials
-        tutorial_data1: 0,
-        tutorial_data2: 0,
-        tutorial_data3: 0,
-        tutorial_data4: 0,
-        tutorial_data5: 0,
-        tutorial_data6: 0,
-        tutorial_data7: 0,
-    });
-
-    let socket = Arc::clone(&session_guard.socket);
-    let encryption_copy = Arc::clone(&encryption);
-    smsg_tutorial_flags
-        .send(socket, encryption_copy)
-        .await
-        .unwrap();
-    trace!("Sent SMSG_TUTORIAL_FLAGS");
-
-    let smsg_account_data_times = ServerMessage::new(SmsgAccountDataTimes { data: [0_u8; 32] });
+    let smsg_account_data_times = ServerMessage::new(SmsgAccountDataTimes { data: [0_u32; 32] });
 
     let socket = Arc::clone(&session_guard.socket);
     let encryption_copy = Arc::clone(&encryption);
@@ -336,118 +334,6 @@ async fn handle_cmsg_player_login(
     smsg_motd.send(socket, encryption_copy).await.unwrap();
     trace!("Sent SMSG_MOTD");
 
-    let smsg_login_settimespeed = ServerMessage::new(SmsgLoginSettimespeed {
-        timestamp: 0,
-        game_speed: 0.01666667,
-    });
-
-    let socket = Arc::clone(&session_guard.socket);
-    let encryption_copy = Arc::clone(&encryption);
-    smsg_login_settimespeed
-        .send(socket, encryption_copy)
-        .await
-        .unwrap();
-    trace!("Sent SMSG_LOGIN_SETTIMESPEED");
-
-    // https://github.com/AscEmu/AscEmu/blob/b4740618504b4ef90cc117eafbf1b832df90ed3b/src/world/Objects/Object.cpp#L401
-    // https://github.com/azerothcore/SunstriderCore/blob/master/src/server/game/Entities/Object/Object.cpp
-
-    // TODO: SMSG_TIME_SYNC_REQ or the player can't move
-    // SendInitialPacketsBeforeAddToMap: https://github.com/superwow/TrinityCoreOne/blob/4b111d5fb1664b51431df0acdafca973fe5c2b8f/src/server/game/Entities/Player/Player.cpp#L22069
-    // same with AfterAddToMap just after
-    // https://www.getmangos.eu/forums/topic/10626-need-help-with-player-login/
-    //
-    //
-    // UpdateData::BuildPacket + Object::BuildCreateUpdateBlockForPlayer
-    // Map.cpp:2349
-    //
-    // BuildValuesUpdateBlockForPlayer used? -> No
-
-    // Check Player::Create
-
-    let mut conn = session_guard.db_pool_char.get().unwrap();
-    let character = fetch_basic_char_data(&mut conn, cmsg_player_login.guid).unwrap();
-    let smsg_update_object = ServerMessage::new(SmsgUpdateObject {
-        // Note: Mangos uses COMPRESSED
-        // if data.len() > 100
-        block_count: 1,                                 // OK
-        has_transport: 0,                               // OK
-        update_type: 3,                                 // OK
-        packed_guid_mask: 1,                            // should be OK but check how to pack a GUID
-        packed_guid_guid: cmsg_player_login.guid as u8, // same ^
-        object_type: 4,                                 // OK - TYPEID_PLAYER
-        flags: 0x71, // Seems OK - UPDATEFLAG_HIGHGUID | UPDATEFLAG_LIVING |
-        // UPDATEFLAG_STATIONARY_POSITION = 0x10 | 0x20 | 0x40 = 0x70 |
-        // UPDATEFLAG_SELF = 0x1 = 0x71
-        movement_flags: 0,  // Not sure
-        movement_flags2: 0, // Pretty sure
-        timestamp: 0,
-        position_x: -8953.95,
-        position_y: 521.019,
-        position_z: 96.5399,
-        orientation: 3.83972,
-        fall_time: 0,
-        speed_walk: 1.0,
-        speed_run: 70.0,
-        speed_run_backward: 4.5,
-        speed_swim: 0.0,
-        speed_swim_backward: 0.0,
-        speed_flight: 70.0,
-        speed_flight_backward: 4.5,
-        speed_turn: 3.1415,
-        unk_highguid: 0,
-        num_mask_blocks: 50, // 50
-        mask_blocks: vec![],
-        data: vec![],
-    });
-    /*     object_field_guid: cmsg_player_login.guid,
-    object_field_type: 25,
-    unit_field_scale: 1.0,
-    object_health: 100,
-    object_power: 100,
-    object_max_health: 100,
-    object_max_power: 100,
-    level: 70,
-    faction_template: 469,
-    race: character.0,
-    class: character.1,
-    gender: character.2,
-    power: 0,
-    bounding_radius: 1.0,
-    combat_reach: 1.5,
-    display_id: 1478,
-    native_display_id: 1478,
-    base_attack_time_mainhand: 2000.0,
-    base_attack_time_offhand: 2000.0,
-    ranged_attack_time: 2000.0,
-    unit_mod_cast_speed: 1.0,
-    unit_field_base_mana: 100,
-    unit_field_base_health: 100,
-    unit_field_bytes_2: 0x2800,
-    player_bytes: (character.3 << 24) | (character.4 << 16) | (character.5 << 8) | character.6,
-    player_bytes_2: 0x02000006, // facial hair TODO
-    player_bytes_3: character.2 as u32,
-    player_xp: 0,
-    player_field_max_level: 70,*/
-
-    let socket = Arc::clone(&session_guard.socket);
-    let encryption_copy = Arc::clone(&encryption);
-    smsg_update_object
-        .send(socket, encryption_copy)
-        .await
-        .unwrap();
-    trace!("Sent initial SMSG_UPDATE_OBJECT for player");
-
-    let smsg_time_sync_req = ServerMessage::new(SmsgTimeSyncReq { sync_counter: 1 });
-
-    let socket = Arc::clone(&session_guard.socket);
-    let encryption_copy = Arc::clone(&encryption);
-    smsg_time_sync_req
-        .send(socket, encryption_copy)
-        .await
-        .unwrap();
-    trace!("Sent SMSG_TIME_SYNC_REQ");
-
     let smsg_set_rest_start = ServerMessage::new(SmsgSetRestStart { rest_start: 0 });
 
     let socket = Arc::clone(&session_guard.socket);
@@ -473,6 +359,125 @@ async fn handle_cmsg_player_login(
         .await
         .unwrap();
     trace!("Sent SMSG_BINDPOINTUPDATE");
+
+    let smsg_tutorial_flags = ServerMessage::new(SmsgTutorialFlags {
+        tutorial_data0: 0, // FIXME: 0xFFFFFFFF to disable tutorials
+        tutorial_data1: 0,
+        tutorial_data2: 0,
+        tutorial_data3: 0,
+        tutorial_data4: 0,
+        tutorial_data5: 0,
+        tutorial_data6: 0,
+        tutorial_data7: 0,
+    });
+
+    let socket = Arc::clone(&session_guard.socket);
+    let encryption_copy = Arc::clone(&encryption);
+    smsg_tutorial_flags
+        .send(socket, encryption_copy)
+        .await
+        .unwrap();
+    trace!("Sent SMSG_TUTORIAL_FLAGS");
+
+    let smsg_login_settimespeed = ServerMessage::new(SmsgLoginSettimespeed {
+        timestamp: 0, // Maybe not zero?
+        game_speed: 0.01666667,
+    });
+
+    let socket = Arc::clone(&session_guard.socket);
+    let encryption_copy = Arc::clone(&encryption);
+    smsg_login_settimespeed
+        .send(socket, encryption_copy)
+        .await
+        .unwrap();
+    trace!("Sent SMSG_LOGIN_SETTIMESPEED");
+
+    // pCurrChar->GetSocial()->SendSocialList();
+
+    let mut conn = session_guard.db_pool_char.get().unwrap();
+    let character = fetch_basic_char_data(&mut conn, cmsg_player_login.guid).unwrap();
+
+    let mut update_data_builder = UpdateDataBuilder::new();
+    update_data_builder.add_u64(ObjectFields::ObjectFieldGuid.into(), cmsg_player_login.guid);
+    update_data_builder.add_u32(ObjectFields::ObjectFieldType.into(), 25);
+    update_data_builder.add_f32(ObjectFields::ObjectFieldScaleX.into(), 1.0);
+    update_data_builder.add_u32(UnitFields::UnitFieldHealth.into(), 100);
+    update_data_builder.add_u32(UnitFields::UnitFieldMaxhealth.into(), 100);
+    update_data_builder.add_u32(UnitFields::UnitFieldLevel.into(), 70);
+    update_data_builder.add_u32(UnitFields::UnitFieldFactiontemplate.into(), 469);
+    update_data_builder.add_u8(UnitFields::UnitFieldBytes0.into(), 0, character.0); // race
+    update_data_builder.add_u8(UnitFields::UnitFieldBytes0.into(), 1, character.1); // class
+    update_data_builder.add_u8(UnitFields::UnitFieldBytes0.into(), 2, character.2); // gender
+    update_data_builder.add_u8(UnitFields::UnitFieldBytes0.into(), 3, 0); // powertype, 0 = MANA
+    update_data_builder.add_u32(UnitFields::UnitFieldDisplayid.into(), 1478);
+    update_data_builder.add_u32(UnitFields::UnitFieldNativedisplayid.into(), 1478);
+    let update_data = update_data_builder.build();
+
+    let smsg_update_object = ServerMessage::new(SmsgUpdateObject {
+        // Note: Mangos uses COMPRESSED if data.len() > 100
+        block_count: 1,
+        has_transport: 0,
+        update_type: 3,
+        packed_guid_mask: 1, // TODO: Properly implement packed guids
+        packed_guid_guid: cmsg_player_login.guid as u8,
+        object_type: 4,
+        flags: 0x71, // PDATEFLAG_HIGHGUID | UPDATEFLAG_LIVING |
+        // UPDATEFLAG_STATIONARY_POSITION = 0x10 | 0x20 | 0x40 = 0x70 |
+        // UPDATEFLAG_SELF = 0x1 = 0x71
+        movement_flags: 0,
+        movement_flags2: 0,
+        timestamp: 0,
+        position_x: -8953.95,
+        position_y: 521.019,
+        position_z: 96.5399,
+        orientation: 3.83972,
+        fall_time: 0,
+        speed_walk: 1.0,
+        speed_run: 70.0,
+        speed_run_backward: 4.5,
+        speed_swim: 0.0,
+        speed_swim_backward: 0.0,
+        speed_flight: 70.0,
+        speed_flight_backward: 4.5,
+        speed_turn: 3.1415,
+        unk_highguid: 0,
+        num_mask_blocks: update_data.num_masks,
+        mask_blocks: update_data.block_masks,
+        data: update_data.data,
+    });
+
+    let socket = Arc::clone(&session_guard.socket);
+    let encryption_copy = Arc::clone(&encryption);
+    smsg_update_object
+        .send(socket, encryption_copy)
+        .await
+        .unwrap();
+    trace!("Sent initial SMSG_UPDATE_OBJECT for player");
+
+    let smsg_init_world_states = ServerMessage::new(SmsgInitWorldStates {
+        map_id: 0,
+        zone_id: 85,
+        area_id: 154, // Deathknell
+        block_count: 0,
+    });
+
+    let socket = Arc::clone(&session_guard.socket);
+    let encryption_copy = Arc::clone(&encryption);
+    smsg_init_world_states
+        .send(socket, encryption_copy)
+        .await
+        .unwrap();
+    trace!("Sent SMSG_INIT_WORLD_STATES");
+
+    let smsg_time_sync_req = ServerMessage::new(SmsgTimeSyncReq { sync_counter: 0 });
+
+    let socket = Arc::clone(&session_guard.socket);
+    let encryption_copy = Arc::clone(&encryption);
+    smsg_time_sync_req
+        .send(socket, encryption_copy)
+        .await
+        .unwrap();
+    trace!("Sent SMSG_TIME_SYNC_REQ");
 }
 
 async fn unhandled(

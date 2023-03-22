@@ -172,7 +172,7 @@ pub struct SmsgTutorialFlags {
 #[binwrite]
 #[server_opcode]
 pub struct SmsgAccountDataTimes {
-    pub data: [u8; 32], // All 0
+    pub data: [u32; 32], // All 0
 }
 
 #[binwrite]
@@ -193,87 +193,34 @@ pub struct SmsgMotd {
 #[server_opcode]
 pub struct SmsgUpdateObject {
     pub block_count: u32,
-    pub has_transport: u8,    // FIXME: bool
-    pub update_type: u8,      // CREATE_NEW_OBJECT2 = 3
-    pub packed_guid_mask: u8, // FIXME
-    pub packed_guid_guid: u8, // FIXME
-    pub object_type: u8,      // PLAYER = 4
-    pub flags: u8,            // 0x71 for now
+    pub has_transport: u8,
+    pub update_type: u8, // CREATE_NEW_OBJECT2 = 3
+    pub packed_guid_mask: u8,
+    pub packed_guid_guid: u8,
+    pub object_type: u8, // PLAYER = 4
+    pub flags: u8,       // 0x71 for now
     pub movement_flags: u32,
-    pub movement_flags2: u8, // 0
-    pub timestamp: u32,      // 0 for now
+    pub movement_flags2: u8, // Always 0 in 2.4.3
+    pub timestamp: u32,
     pub position_x: f32,
     pub position_y: f32,
     pub position_z: f32,
     pub orientation: f32,
-    pub fall_time: u32,             // 0 for now
-    pub speed_walk: f32,            // 1.0
-    pub speed_run: f32,             // 70.0
-    pub speed_run_backward: f32,    // 4.5
-    pub speed_swim: f32,            // 0.0
-    pub speed_swim_backward: f32,   // 0.0
-    pub speed_flight: f32,          // 70.0 ?
-    pub speed_flight_backward: f32, // 4.5 ?
-    pub speed_turn: f32,            // PI (3.1415)
+    pub fall_time: u32,
+    pub speed_walk: f32,
+    pub speed_run: f32,
+    pub speed_run_backward: f32,
+    pub speed_swim: f32,
+    pub speed_swim_backward: f32,
+    pub speed_flight: f32,
+    pub speed_flight_backward: f32,
+    pub speed_turn: f32, // PI (3.1415)
     pub unk_highguid: u32,
     pub num_mask_blocks: u8,
     pub mask_blocks: Vec<u32>,
-    pub data: Vec<u32>,
+    pub data: Vec<[u8; 4]>,
 }
 
-/*
-    pub object_field_guid: u64,
-    pub object_field_type: u32, // 25 for now
-    pub unit_field_scale: f32,  // 1.0f
-    pub object_health: u32,     // 100 for now
-    pub object_power: u32,      // mana, 23, 100
-    pub object_max_health: u32, // 100 | 28
-    pub object_max_power: u32,  // mana, 29, 100
-    pub level: u32,             // 70
-    pub faction_template: u32,  // 469
-    pub race: u8,
-    pub class: u8,
-    pub gender: u8,
-    pub power: u8,
-    pub bounding_radius: f32,   // 1.0f
-    pub combat_reach: f32,      // 1.5f
-    pub display_id: u32,        // 1478
-    pub native_display_id: u32, // 1478
-    pub base_attack_time_mainhand: f32,
-    pub base_attack_time_offhand: f32,
-    pub ranged_attack_time: f32,
-    pub unit_mod_cast_speed: f32, // 1.0f
-    pub unit_field_base_mana: u32,
-    pub unit_field_base_health: u32,
-    pub unit_field_bytes_2: u32, // 0x2800
-    pub player_bytes: u32,       // see below
-    pub player_bytes_2: u32,     // see below
-    pub player_bytes_3: u32,     // gender
-    pub player_xp: u32,          // 0
-    pub player_field_max_level: u32, // 70
-
-                                 // OBJECT_FIELD_SCALE_X: 1.0f - 4
-                                 // UNIT_FIELD_LEVEL: 70 - 34
-                                 // UNIT_FIELD_FACTIONTEMPLATE: 469 - 35
-                                 // -- unit_bytes_0 here (race/class/gender/power)
-                                 // UNIT_FIELD_BOUNDINGRADIUS: 1.0f ? - 96
-                                 // UNIT_FIELD_COMBATREACH: 1.5f 97
-                                 // UNIT_FIELD_DISPLAYID: 1478 - 98
-                                 // UNIT_FIELD_NATIVEDISPLAYID: 1478 - 99
-                                 // UNIT_FIELD_BASEATTACKTIME: 2000.f | 147
-                                 // UNIT_FIELD_BASEATTACKTIME (offhand): 2000.f | 148
-                                 // UNIT_FIELD_RANGEDATTACKTIME: 2000.f | 149
-                                 // UNIT_MOD_CAST_SPEED 1.0f | 166
-                                 // UNIT_FIELD_BASE_MANA: 100 | 207
-                                 // UNIT_FIELD_BASE_HEALTH: 100 | 208
-                                 // UNIT_FIELD_BYTES_2 - offset 1 0x28 - 209
-                                 // PLAYER_BYTES: haircolor - hairstyle - face - skin | 239
-                                 // PLAYER_BYTES_2: 0x02 - 0 - 0 - facialHair | 280
-                                 // PLAYER_BYTES_3 : gender | 281
-                                 // PLAYER_XP: 0 - 926
-                                 // PLAYER_FIELD_MAX_LEVEL: 70 | 1566
-}
-*/
 #[binwrite]
 #[server_opcode]
 pub struct SmsgTimeSyncReq {
@@ -313,4 +260,21 @@ pub struct SmsgBindpointupdate {
 pub struct SmsgLoginSettimespeed {
     pub timestamp: u32,
     pub game_speed: f32,
+}
+
+#[binwrite]
+#[server_opcode]
+pub struct MsgSetDungeonDifficulty {
+    pub difficulty: u32, // 0 = Normal, 1 = Heroic
+    pub unk: u32,        // Always 1
+    pub is_in_group: u32,
+}
+
+#[binwrite]
+#[server_opcode]
+pub struct SmsgInitWorldStates {
+    pub map_id: u32,
+    pub zone_id: u32,
+    pub area_id: u32,
+    pub block_count: u16, // 0 for now
 }

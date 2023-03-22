@@ -1,4 +1,5 @@
-enum ObjectFields {
+#[allow(dead_code)]
+pub enum ObjectFields {
     ObjectFieldGuid = 0x0000,    // Size: 2, Type: Long, Flags: Public
     ObjectFieldType = 0x0002,    // Size: 1, Type: Int, Flags: Public
     ObjectFieldEntry = 0x0003,   // Size: 1, Type: Int, Flags: Public
@@ -6,9 +7,17 @@ enum ObjectFields {
     ObjectFieldPadding = 0x0005, // Size: 1, Type: Int, Flags: None
 }
 
+impl Into<usize> for ObjectFields {
+    fn into(self) -> usize {
+        self as usize
+    }
+}
+
+#[allow(dead_code)]
 const OBJECT_END: isize = 0x0006;
 
-enum ItemFields {
+#[allow(dead_code)]
+pub enum ItemFields {
     ItemFieldOwner = OBJECT_END + 0x0000, // Size: 2, Type: Long, Flags: Public
     ItemFieldContained = OBJECT_END + 0x0002, // Size: 2, Type: Long, Flags: Public
     ItemFieldCreator = OBJECT_END + 0x0004, // Size: 2, Type: Long, Flags: Public
@@ -25,17 +34,33 @@ enum ItemFields {
     ItemFieldMaxdurability = OBJECT_END + 0x0035, // Size: 1, Type: Int, Flags: OwnerOnly, Unk2
 }
 
+impl Into<usize> for ItemFields {
+    fn into(self) -> usize {
+        self as usize
+    }
+}
+
+#[allow(dead_code)]
 const ITEM_END: isize = OBJECT_END + 0x0036;
 
-enum ContainerFields {
+#[allow(dead_code)]
+pub enum ContainerFields {
     ContainerFieldNumSlots = ITEM_END + 0x0000, // Size: 1, Type: Int, Flags: Public
     ContainerAlignPad = ITEM_END + 0x0001,      // Size: 1, Type: Bytes, Flags: None
     ContainerFieldSlot1 = ITEM_END + 0x0002,    // Size: 72, Type: Long, Flags: Public
 }
 
+impl Into<usize> for ContainerFields {
+    fn into(self) -> usize {
+        self as usize
+    }
+}
+
+#[allow(dead_code)]
 const CONTAINER_END: isize = ITEM_END + 0x004A;
 
-enum UnitFields {
+#[allow(dead_code)]
+pub enum UnitFields {
     UnitFieldCharm = OBJECT_END + 0x0000, // Size: 2, Type: Long, Flags: Public
     UnitFieldSummon = OBJECT_END + 0x0002, // Size: 2, Type: Long, Flags: Public
     UnitFieldCharmedby = OBJECT_END + 0x0004, // Size: 2, Type: Long, Flags: Public
@@ -369,10 +394,19 @@ enum UnitFields {
     PlayerFieldDailyQuests1 = UNIT_END + 0x0535, // Size: 25, Type: Int, Flags: Private
 }
 
+impl Into<usize> for UnitFields {
+    fn into(self) -> usize {
+        self as usize
+    }
+}
+
+#[allow(dead_code)]
 const UNIT_END: isize = OBJECT_END + 0x00E4;
+#[allow(dead_code)]
 const PLAYER_END: isize = UNIT_END + 0x054E;
 
-enum GameObjectFields {
+#[allow(dead_code)]
+pub enum GameObjectFields {
     ObjectFieldCreatedBy = OBJECT_END + 0x0000, // Size: 2, Type: Long, Flags: Public
     GameObjectDisplayid = OBJECT_END + 0x0002,  // Size: 1, Type: Int, Flags: Public
     GameObjectFlags = OBJECT_END + 0x0003,      // Size: 1, Type: Int, Flags: Public
@@ -391,9 +425,17 @@ enum GameObjectFields {
     GameObjectPadding = OBJECT_END + 0x0013,    // Size: 1, Type: Int, Flags: None
 }
 
+impl Into<usize> for GameObjectFields {
+    fn into(self) -> usize {
+        self as usize
+    }
+}
+
+#[allow(dead_code)]
 const GAME_OBJECT_END: isize = OBJECT_END + 0x0014;
 
-enum DynamicObjectFields {
+#[allow(dead_code)]
+pub enum DynamicObjectFields {
     DynamicObjectCaster = OBJECT_END + 0x0000, // Size: 2, Type: Long, Flags: Public
     DynamicObjectBytes = OBJECT_END + 0x0002,  // Size: 1, Type: Bytes, Flags: Public
     DynamicObjectSpellid = OBJECT_END + 0x0003, // Size: 1, Type: Int, Flags: Public
@@ -405,9 +447,17 @@ enum DynamicObjectFields {
     DynamicObjectCasttime = OBJECT_END + 0x0009, // Size: 1, Type: Int, Flags: Public
 }
 
+impl Into<usize> for DynamicObjectFields {
+    fn into(self) -> usize {
+        self as usize
+    }
+}
+
+#[allow(dead_code)]
 const DYNAMIC_OBJECT_END: isize = OBJECT_END + 0x000A;
 
-enum CorpseFields {
+#[allow(dead_code)]
+pub enum CorpseFields {
     CorpseFieldOwner = OBJECT_END + 0x0000, // Size: 2, Type: Long, Flags: Public
     CorpseFieldParty = OBJECT_END + 0x0002, // Size: 2, Type: Long, Flags: Public
     CorpseFieldFacing = OBJECT_END + 0x0004, // Size: 1, Type: Float, Flags: Public
@@ -424,4 +474,11 @@ enum CorpseFields {
     CorpseFieldPad = OBJECT_END + 0x0021,   // Size: 1, Type: Int, Flags: None
 }
 
+impl Into<usize> for CorpseFields {
+    fn into(self) -> usize {
+        self as usize
+    }
+}
+
+#[allow(dead_code)]
 const CORPSE_END: isize = OBJECT_END + 0x0022;

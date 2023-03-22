@@ -17,6 +17,7 @@ use wow_srp::normalized_string::NormalizedString;
 use wow_srp::tbc_header::{HeaderCrypto, ProofSeed};
 
 mod constants;
+mod entities;
 mod protocol;
 pub mod world_session;
 

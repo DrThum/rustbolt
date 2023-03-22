@@ -83,6 +83,7 @@ impl<const OPCODE: u16, Payload: ServerMessagePayload<OPCODE> + BinWrite>
         let mut writer = Cursor::new(Vec::new());
         writer.write_le(&encrypted_header)?;
         let packet = writer.get_mut();
+        println!("payload for opcode {:#X}: {:?}", header.opcode, payload);
         packet.extend(payload);
         socket.write(&packet).await?;
         Ok(())

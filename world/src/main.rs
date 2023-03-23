@@ -40,11 +40,11 @@ async fn main() {
         let db_pool_auth_copy = Arc::clone(&db_pool_auth);
         let db_pool_char_copy = Arc::clone(&db_pool_char);
 
-        let session = Arc::new(Mutex::new(WorldSession::new(
+        let session = Arc::new(WorldSession::new(
             Arc::new(Mutex::new(socket)),
             db_pool_auth_copy,
             db_pool_char_copy,
-        )));
+        ));
         tokio::spawn(async move {
             rustbolt_world::process(session).await.expect("World error");
         });

@@ -31,7 +31,7 @@ macro_rules! define_handler {
         (
             $opcode as u32,
             Box::new(
-                |data, crypto: Arc<Mutex<HeaderCrypto>>, session: Arc<Mutex<WorldSession>>| {
+                |data, crypto: Arc<Mutex<HeaderCrypto>>, session: Arc<WorldSession>| {
                     $handler(data, crypto, session).boxed()
                 },
             ) as PacketHandler,
@@ -42,7 +42,7 @@ macro_rules! define_handler {
 type PacketHandler = Box<
     dyn Send
         + Sync
-        + Fn(Vec<u8>, Arc<Mutex<HeaderCrypto>>, Arc<Mutex<WorldSession>>) -> BoxFuture<'static, ()>,
+        + Fn(Vec<u8>, Arc<Mutex<HeaderCrypto>>, Arc<WorldSession>) -> BoxFuture<'static, ()>,
 >;
 lazy_static! {
     static ref HANDLERS: HashMap<u32, PacketHandler> = HashMap::from([
@@ -70,7 +70,7 @@ pub fn get_handler(opcode: u32) -> &'static PacketHandler {
 async fn handle_cmsg_char_create(
     data: Vec<u8>,
     encryption: Arc<Mutex<HeaderCrypto>>,
-    session: Arc<Mutex<WorldSession>>,
+    session: Arc<WorldSession>,
 ) {
     fn create_char(conn: PooledConnection<SqliteConnectionManager>, source: CmsgCharCreate) {
         // let mut stmt_check_name = conn.prepare_cached("SELECT COUNT(*) FROM characters WHERE name = ?").unwrap();
@@ -97,15 +97,14 @@ async fn handle_cmsg_char_create(
 
     let mut reader = Cursor::new(data);
     let cmsg_char_create: CmsgCharCreate = reader.read_le().unwrap();
-    let session_guard = session.lock().await;
-    let conn = session_guard.db_pool_char.get().unwrap();
+    let conn = session.db_pool_char.get().unwrap();
     create_char(conn, cmsg_char_create);
 
     let packet = ServerMessage::new(SmsgCharCreate {
         result: 0x2F, // TODO: Enum
     });
 
-    let socket = Arc::clone(&session_guard.socket);
+    let socket = Arc::clone(&session.socket);
     packet.send(socket, encryption).await.unwrap();
     trace!("Sent SMSG_CHAR_CREATE");
 }
@@ -113,7 +112,7 @@ async fn handle_cmsg_char_create(
 async fn handle_cmsg_char_enum(
     _data: Vec<u8>,
     encryption: Arc<Mutex<HeaderCrypto>>,
-    session: Arc<Mutex<WorldSession>>,
+    session: Arc<WorldSession>,
 ) {
     fn fetch_chars(conn: PooledConnection<SqliteConnectionManager>) -> Vec<CharEnumData> {
         let mut stmt = conn.prepare_cached("SELECT guid, name, race, class, gender, skin, face, hairstyle, haircolor, facialstyle FROM characters WHERE account_id = 1").unwrap(); // FIXME: Account id
@@ -182,8 +181,7 @@ async fn handle_cmsg_char_enum(
 
     trace!("Received CMSG_CHAR_ENUM");
 
-    let session_guard = session.lock().await;
-    let conn = session_guard.db_pool_char.get().unwrap();
+    let conn = session.db_pool_char.get().unwrap();
     let character_data = fetch_chars(conn);
 
     let packet = ServerMessage::new(SmsgCharEnum {
@@ -191,7 +189,7 @@ async fn handle_cmsg_char_enum(
         character_data,
     });
 
-    let socket = Arc::clone(&session_guard.socket);
+    let socket = Arc::clone(&session.socket);
     packet.send(socket, encryption).await.unwrap();
     trace!("Sent SMSG_CHAR_ENUM");
 }
@@ -199,7 +197,7 @@ async fn handle_cmsg_char_enum(
 async fn handle_cmsg_char_delete(
     data: Vec<u8>,
     encryption: Arc<Mutex<HeaderCrypto>>,
-    session: Arc<Mutex<WorldSession>>,
+    session: Arc<WorldSession>,
 ) {
     fn delete_char(conn: PooledConnection<SqliteConnectionManager>, source: CmsgCharDelete) {
         let mut stmt_delete = conn
@@ -219,15 +217,14 @@ async fn handle_cmsg_char_delete(
     let mut reader = Cursor::new(data);
     let cmsg_char_delete: CmsgCharDelete = reader.read_le().unwrap();
 
-    let session_guard = session.lock().await;
-    let conn = session_guard.db_pool_char.get().unwrap();
+    let conn = session.db_pool_char.get().unwrap();
     delete_char(conn, cmsg_char_delete);
 
     let packet = ServerMessage::new(SmsgCharDelete {
         result: 0x3B, // TODO: Enum - CHAR_DELETE_SUCCESS
     });
 
-    let socket = Arc::clone(&session_guard.socket);
+    let socket = Arc::clone(&session.socket);
     packet.send(socket, encryption).await.unwrap();
     trace!("Sent SMSG_CHAR_DELETE");
 }
@@ -235,7 +232,7 @@ async fn handle_cmsg_char_delete(
 async fn handle_cmsg_player_login(
     data: Vec<u8>,
     encryption: Arc<Mutex<HeaderCrypto>>,
-    session: Arc<Mutex<WorldSession>>,
+    session: Arc<WorldSession>,
 ) {
     fn fetch_basic_char_data(
         conn: &mut PooledConnection<SqliteConnectionManager>,
@@ -276,8 +273,7 @@ async fn handle_cmsg_player_login(
         is_in_group: 0, // FIXME after group implementation
     });
 
-    let session_guard = session.lock().await;
-    let socket = Arc::clone(&session_guard.socket);
+    let socket = Arc::clone(&session.socket);
     let encryption_copy = Arc::clone(&encryption);
     msg_set_dungeon_difficulty
         .send(socket, encryption_copy)
@@ -293,7 +289,7 @@ async fn handle_cmsg_player_login(
         orientation: 3.83972,
     });
 
-    let socket = Arc::clone(&session_guard.socket);
+    let socket = Arc::clone(&session.socket);
     let encryption_copy = Arc::clone(&encryption);
     smsg_login_verify_world
         .send(socket, encryption_copy)
@@ -303,7 +299,7 @@ async fn handle_cmsg_player_login(
 
     let smsg_account_data_times = ServerMessage::new(SmsgAccountDataTimes { data: [0_u32; 32] });
 
-    let socket = Arc::clone(&session_guard.socket);
+    let socket = Arc::clone(&session.socket);
     let encryption_copy = Arc::clone(&encryption);
     smsg_account_data_times
         .send(socket, encryption_copy)
@@ -316,7 +312,7 @@ async fn handle_cmsg_player_login(
         voice_chat_enabled: 0,
     });
 
-    let socket = Arc::clone(&session_guard.socket);
+    let socket = Arc::clone(&session.socket);
     let encryption_copy = Arc::clone(&encryption);
     smsg_feature_system_status
         .send(socket, encryption_copy)
@@ -329,14 +325,14 @@ async fn handle_cmsg_player_login(
         message: NullString::from("MOTD"),
     });
 
-    let socket = Arc::clone(&session_guard.socket);
+    let socket = Arc::clone(&session.socket);
     let encryption_copy = Arc::clone(&encryption);
     smsg_motd.send(socket, encryption_copy).await.unwrap();
     trace!("Sent SMSG_MOTD");
 
     let smsg_set_rest_start = ServerMessage::new(SmsgSetRestStart { rest_start: 0 });
 
-    let socket = Arc::clone(&session_guard.socket);
+    let socket = Arc::clone(&session.socket);
     let encryption_copy = Arc::clone(&encryption);
     smsg_set_rest_start
         .send(socket, encryption_copy)
@@ -352,7 +348,7 @@ async fn handle_cmsg_player_login(
         homebind_area_id: 85,
     });
 
-    let socket = Arc::clone(&session_guard.socket);
+    let socket = Arc::clone(&session.socket);
     let encryption_copy = Arc::clone(&encryption);
     smsg_bindpointupdate
         .send(socket, encryption_copy)
@@ -371,7 +367,7 @@ async fn handle_cmsg_player_login(
         tutorial_data7: 0,
     });
 
-    let socket = Arc::clone(&session_guard.socket);
+    let socket = Arc::clone(&session.socket);
     let encryption_copy = Arc::clone(&encryption);
     smsg_tutorial_flags
         .send(socket, encryption_copy)
@@ -384,7 +380,7 @@ async fn handle_cmsg_player_login(
         game_speed: 0.01666667,
     });
 
-    let socket = Arc::clone(&session_guard.socket);
+    let socket = Arc::clone(&session.socket);
     let encryption_copy = Arc::clone(&encryption);
     smsg_login_settimespeed
         .send(socket, encryption_copy)
@@ -394,7 +390,7 @@ async fn handle_cmsg_player_login(
 
     // pCurrChar->GetSocial()->SendSocialList();
 
-    let mut conn = session_guard.db_pool_char.get().unwrap();
+    let mut conn = session.db_pool_char.get().unwrap();
     let character = fetch_basic_char_data(&mut conn, cmsg_player_login.guid).unwrap();
 
     let mut update_data_builder = UpdateDataBuilder::new();
@@ -446,7 +442,7 @@ async fn handle_cmsg_player_login(
         data: update_data.data,
     });
 
-    let socket = Arc::clone(&session_guard.socket);
+    let socket = Arc::clone(&session.socket);
     let encryption_copy = Arc::clone(&encryption);
     smsg_update_object
         .send(socket, encryption_copy)
@@ -461,7 +457,7 @@ async fn handle_cmsg_player_login(
         block_count: 0,
     });
 
-    let socket = Arc::clone(&session_guard.socket);
+    let socket = Arc::clone(&session.socket);
     let encryption_copy = Arc::clone(&encryption);
     smsg_init_world_states
         .send(socket, encryption_copy)
@@ -471,7 +467,7 @@ async fn handle_cmsg_player_login(
 
     let smsg_time_sync_req = ServerMessage::new(SmsgTimeSyncReq { sync_counter: 0 });
 
-    let socket = Arc::clone(&session_guard.socket);
+    let socket = Arc::clone(&session.socket);
     let encryption_copy = Arc::clone(&encryption);
     smsg_time_sync_req
         .send(socket, encryption_copy)
@@ -483,14 +479,14 @@ async fn handle_cmsg_player_login(
 async fn unhandled(
     _data: Vec<u8>,
     _encryption: Arc<Mutex<HeaderCrypto>>,
-    _session: Arc<Mutex<WorldSession>>,
+    _session: Arc<WorldSession>,
 ) {
 }
 
 async fn handle_cmsg_realm_split(
     data: Vec<u8>,
     encryption: Arc<Mutex<HeaderCrypto>>,
-    session: Arc<Mutex<WorldSession>>,
+    session: Arc<WorldSession>,
 ) {
     trace!("Received CMSG_REALM_SPLIT");
     let mut reader = Cursor::new(data);
@@ -502,7 +498,7 @@ async fn handle_cmsg_realm_split(
         split_date: binrw::NullString::from("01/01/01"),
     });
 
-    let socket = Arc::clone(&session.lock().await.socket);
+    let socket = Arc::clone(&session.socket);
     packet.send(socket, encryption).await.unwrap();
     trace!("Sent SMSG_REALM_SPLIT");
 }
@@ -510,7 +506,7 @@ async fn handle_cmsg_realm_split(
 async fn handle_cmsg_ping(
     data: Vec<u8>,
     encryption: Arc<Mutex<HeaderCrypto>>,
-    session: Arc<Mutex<WorldSession>>,
+    session: Arc<WorldSession>,
 ) {
     trace!("Received CMSG_PING");
     let mut reader = Cursor::new(data);
@@ -520,7 +516,7 @@ async fn handle_cmsg_ping(
         ping: cmsg_ping.ping,
     });
 
-    let socket = Arc::clone(&session.lock().await.socket);
+    let socket = Arc::clone(&session.socket);
     packet.send(socket, encryption).await.unwrap();
     trace!("Sent SMSG_PONG");
 }
@@ -528,7 +524,7 @@ async fn handle_cmsg_ping(
 async fn handle_cmsg_update_account_data(
     data: Vec<u8>,
     encryption: Arc<Mutex<HeaderCrypto>>,
-    session: Arc<Mutex<WorldSession>>,
+    session: Arc<WorldSession>,
 ) {
     trace!("Received CMSG_UPDATE_ACCOUNT_DATA");
     let mut reader = Cursor::new(data);
@@ -539,7 +535,7 @@ async fn handle_cmsg_update_account_data(
         data: 0,
     });
 
-    let socket = Arc::clone(&session.lock().await.socket);
+    let socket = Arc::clone(&session.socket);
     packet.send(socket, encryption).await.unwrap();
     trace!("Sent SMSG_UPDATE_ACCOUNT_DATA_ID");
 }

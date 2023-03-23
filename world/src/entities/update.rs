@@ -74,8 +74,33 @@ impl UpdateDataBuilder {
         }
     }
 
-    pub fn add_u16(&mut self, _index: u32, _offset: u8, _value: u16) {
-        panic!("UpdateDataBuilder::add_u16 not implemented yet");
+    pub fn add_u16(&mut self, index: usize, offset: u8, value: u16) {
+        // Set the bit in the mask even if it's already set for this offset, and add this u8 to the
+        // correct offset to the existing value with & (or 0 if it's not defined yet)
+        if offset < 2 {
+            let default_ub = UpdateBlock::empty(index);
+            let update_block: &UpdateBlock = self
+                .blocks
+                .iter()
+                .find(|ub| ub.index == index)
+                .unwrap_or(&default_ub);
+
+            let existing_as_u32 = u32::from_le_bytes(update_block.value);
+            let reset_mask: u32 = match offset {
+                // Reset relevant bytes to zero first...
+                0 => 0xFFFF0000,
+                1 => 0x0000FFFF,
+                _ => 0xFFFFFFFF,
+            };
+
+            let updated_as_u32 = existing_as_u32 & reset_mask;
+            // ... Then, set them to the new value
+            let updated_as_u32 = updated_as_u32 | ((value as u32) << (offset * 16));
+
+            self.add_u32(index, updated_as_u32);
+        } else {
+            error!("UpdateDataBuilder: add_u16 expects an offset between 0 and 1 (inclusive)");
+        }
     }
 
     pub fn add_u32(&mut self, index: usize, value: u32) {

@@ -10,6 +10,7 @@ use crate::entities::update_fields::{ObjectFields, UnitFields};
 use crate::protocol::packets::*;
 use crate::protocol::server::ServerMessage;
 use crate::repositories::character::CharacterRepository;
+use crate::shared::response_codes::ResponseCodes;
 use crate::world_session::WorldSession;
 
 use super::opcodes::Opcode;
@@ -55,10 +56,18 @@ async fn handle_cmsg_char_create(data: Vec<u8>, session: Arc<WorldSession>) {
     let mut reader = Cursor::new(data);
     let cmsg_char_create: CmsgCharCreate = reader.read_le().unwrap();
     let conn = session.db_pool_char.get().unwrap();
-    CharacterRepository::create_character(conn, cmsg_char_create);
+
+    let name_available =
+        CharacterRepository::is_name_available(&conn, cmsg_char_create.name.to_string());
+    let result = if name_available {
+        CharacterRepository::create_character(&conn, cmsg_char_create);
+        ResponseCodes::CharCreateSuccess
+    } else {
+        ResponseCodes::CharCreateNameInUse
+    };
 
     let packet = ServerMessage::new(SmsgCharCreate {
-        result: 0x2F, // TODO: Enum
+        result: result as u8,
     });
 
     packet

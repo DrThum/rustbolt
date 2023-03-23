@@ -23,6 +23,7 @@ mod constants;
 mod entities;
 mod protocol;
 mod repositories;
+mod shared;
 pub mod world_session;
 
 // TypeState pattern (https://yoric.github.io/post/rust-typestate/)

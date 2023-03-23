@@ -10,13 +10,26 @@ use crate::{
 pub struct CharacterRepository;
 
 impl CharacterRepository {
+    pub fn is_name_available(
+        conn: &PooledConnection<SqliteConnectionManager>,
+        name: String,
+    ) -> bool {
+        let mut stmt = conn
+            .prepare_cached("SELECT COUNT(guid) FROM characters WHERE name = :name")
+            .unwrap();
+        let mut count = stmt
+            .query_map(named_params! { ":name": name }, |row| {
+                row.get::<usize, u32>(0)
+            })
+            .unwrap();
+
+        count.next().unwrap().map(|c| c == 0).unwrap_or(true)
+    }
+
     pub fn create_character(
-        conn: PooledConnection<SqliteConnectionManager>,
+        conn: &PooledConnection<SqliteConnectionManager>,
         source: CmsgCharCreate,
     ) {
-        // let mut stmt_check_name = conn.prepare_cached("SELECT COUNT(*) FROM characters WHERE name = ?").unwrap();
-        // // TODO
-
         let mut stmt_create = conn.prepare_cached("INSERT INTO characters (guid, account_id, name, race, class, gender, skin, face, hairstyle, haircolor, facialstyle) VALUES (NULL, :account_id, :name, :race, :class, :gender, :skin, :face, :hairstyle, :haircolor, :facialstyle)").unwrap();
         stmt_create
             .execute(named_params! {

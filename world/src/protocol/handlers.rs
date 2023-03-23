@@ -7,20 +7,11 @@ use r2d2::PooledConnection;
 use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::named_params;
 use std::{collections::HashMap, sync::Arc};
-use tokio::sync::Mutex;
-use wow_srp::tbc_header::HeaderCrypto;
 
 use crate::constants::InventoryType;
 use crate::entities::update::UpdateDataBuilder;
 use crate::entities::update_fields::{ObjectFields, UnitFields};
-use crate::protocol::packets::{
-    CharEnumData, CharEnumEquip, CmsgCharCreate, CmsgCharDelete, CmsgPing, CmsgPlayerLogin,
-    CmsgRealmSplit, CmsgUpdateAccountData, MsgSetDungeonDifficulty, SmsgAccountDataTimes,
-    SmsgBindpointupdate, SmsgCharCreate, SmsgCharDelete, SmsgCharEnum, SmsgFeatureSystemStatus,
-    SmsgInitWorldStates, SmsgLoginSettimespeed, SmsgLoginVerifyWorld, SmsgMotd, SmsgPong,
-    SmsgRealmSplit, SmsgSetRestStart, SmsgTimeSyncReq, SmsgTutorialFlags, SmsgUpdateAccountData,
-    SmsgUpdateObject,
-};
+use crate::protocol::packets::*;
 use crate::protocol::server::ServerMessage;
 use crate::world_session::WorldSession;
 
@@ -30,20 +21,14 @@ macro_rules! define_handler {
     ($opcode:expr, $handler:expr) => {
         (
             $opcode as u32,
-            Box::new(
-                |data, crypto: Arc<Mutex<HeaderCrypto>>, session: Arc<WorldSession>| {
-                    $handler(data, crypto, session).boxed()
-                },
-            ) as PacketHandler,
+            Box::new(|data, session: Arc<WorldSession>| $handler(data, session).boxed())
+                as PacketHandler,
         )
     };
 }
 
-type PacketHandler = Box<
-    dyn Send
-        + Sync
-        + Fn(Vec<u8>, Arc<Mutex<HeaderCrypto>>, Arc<WorldSession>) -> BoxFuture<'static, ()>,
->;
+type PacketHandler =
+    Box<dyn Send + Sync + Fn(Vec<u8>, Arc<WorldSession>) -> BoxFuture<'static, ()>>;
 lazy_static! {
     static ref HANDLERS: HashMap<u32, PacketHandler> = HashMap::from([
         define_handler!(Opcode::MsgNullAction, unhandled),
@@ -67,11 +52,7 @@ pub fn get_handler(opcode: u32) -> &'static PacketHandler {
     })
 }
 
-async fn handle_cmsg_char_create(
-    data: Vec<u8>,
-    encryption: Arc<Mutex<HeaderCrypto>>,
-    session: Arc<WorldSession>,
-) {
+async fn handle_cmsg_char_create(data: Vec<u8>, session: Arc<WorldSession>) {
     fn create_char(conn: PooledConnection<SqliteConnectionManager>, source: CmsgCharCreate) {
         // let mut stmt_check_name = conn.prepare_cached("SELECT COUNT(*) FROM characters WHERE name = ?").unwrap();
         // // TODO
@@ -104,15 +85,14 @@ async fn handle_cmsg_char_create(
         result: 0x2F, // TODO: Enum
     });
 
-    packet.send(&session.socket, &encryption).await.unwrap();
+    packet
+        .send(&session.socket, &session.encryption)
+        .await
+        .unwrap();
     trace!("Sent SMSG_CHAR_CREATE");
 }
 
-async fn handle_cmsg_char_enum(
-    _data: Vec<u8>,
-    encryption: Arc<Mutex<HeaderCrypto>>,
-    session: Arc<WorldSession>,
-) {
+async fn handle_cmsg_char_enum(_data: Vec<u8>, session: Arc<WorldSession>) {
     fn fetch_chars(conn: PooledConnection<SqliteConnectionManager>) -> Vec<CharEnumData> {
         let mut stmt = conn.prepare_cached("SELECT guid, name, race, class, gender, skin, face, hairstyle, haircolor, facialstyle FROM characters WHERE account_id = 1").unwrap(); // FIXME: Account id
         let chars = stmt
@@ -188,15 +168,14 @@ async fn handle_cmsg_char_enum(
         character_data,
     });
 
-    packet.send(&session.socket, &encryption).await.unwrap();
+    packet
+        .send(&session.socket, &session.encryption)
+        .await
+        .unwrap();
     trace!("Sent SMSG_CHAR_ENUM");
 }
 
-async fn handle_cmsg_char_delete(
-    data: Vec<u8>,
-    encryption: Arc<Mutex<HeaderCrypto>>,
-    session: Arc<WorldSession>,
-) {
+async fn handle_cmsg_char_delete(data: Vec<u8>, session: Arc<WorldSession>) {
     fn delete_char(conn: PooledConnection<SqliteConnectionManager>, source: CmsgCharDelete) {
         let mut stmt_delete = conn
             .prepare_cached(
@@ -222,15 +201,14 @@ async fn handle_cmsg_char_delete(
         result: 0x3B, // TODO: Enum - CHAR_DELETE_SUCCESS
     });
 
-    packet.send(&session.socket, &encryption).await.unwrap();
+    packet
+        .send(&session.socket, &session.encryption)
+        .await
+        .unwrap();
     trace!("Sent SMSG_CHAR_DELETE");
 }
 
-async fn handle_cmsg_player_login(
-    data: Vec<u8>,
-    encryption: Arc<Mutex<HeaderCrypto>>,
-    session: Arc<WorldSession>,
-) {
+async fn handle_cmsg_player_login(data: Vec<u8>, session: Arc<WorldSession>) {
     fn fetch_basic_char_data(
         conn: &mut PooledConnection<SqliteConnectionManager>,
         guid: u64,
@@ -271,7 +249,7 @@ async fn handle_cmsg_player_login(
     });
 
     msg_set_dungeon_difficulty
-        .send(&session.socket, &encryption)
+        .send(&session.socket, &session.encryption)
         .await
         .unwrap();
     trace!("Sent MSG_SET_DUNGEON_DIFFICULTY");
@@ -285,7 +263,7 @@ async fn handle_cmsg_player_login(
     });
 
     smsg_login_verify_world
-        .send(&session.socket, &encryption)
+        .send(&session.socket, &session.encryption)
         .await
         .unwrap();
     trace!("Sent SMSG_LOGIN_VERIFY_WORLD");
@@ -293,7 +271,7 @@ async fn handle_cmsg_player_login(
     let smsg_account_data_times = ServerMessage::new(SmsgAccountDataTimes { data: [0_u32; 32] });
 
     smsg_account_data_times
-        .send(&session.socket, &encryption)
+        .send(&session.socket, &session.encryption)
         .await
         .unwrap();
     trace!("Sent SMSG_ACCOUNT_DATA_TIMES");
@@ -304,7 +282,7 @@ async fn handle_cmsg_player_login(
     });
 
     smsg_feature_system_status
-        .send(&session.socket, &encryption)
+        .send(&session.socket, &session.encryption)
         .await
         .unwrap();
     trace!("Sent SMSG_FEATURE_SYSTEM_STATUS");
@@ -314,13 +292,16 @@ async fn handle_cmsg_player_login(
         message: NullString::from("MOTD"),
     });
 
-    smsg_motd.send(&session.socket, &encryption).await.unwrap();
+    smsg_motd
+        .send(&session.socket, &session.encryption)
+        .await
+        .unwrap();
     trace!("Sent SMSG_MOTD");
 
     let smsg_set_rest_start = ServerMessage::new(SmsgSetRestStart { rest_start: 0 });
 
     smsg_set_rest_start
-        .send(&session.socket, &encryption)
+        .send(&session.socket, &session.encryption)
         .await
         .unwrap();
     trace!("Sent SMSG_SET_REST_START");
@@ -334,7 +315,7 @@ async fn handle_cmsg_player_login(
     });
 
     smsg_bindpointupdate
-        .send(&session.socket, &encryption)
+        .send(&session.socket, &session.encryption)
         .await
         .unwrap();
     trace!("Sent SMSG_BINDPOINTUPDATE");
@@ -351,7 +332,7 @@ async fn handle_cmsg_player_login(
     });
 
     smsg_tutorial_flags
-        .send(&session.socket, &encryption)
+        .send(&session.socket, &session.encryption)
         .await
         .unwrap();
     trace!("Sent SMSG_TUTORIAL_FLAGS");
@@ -362,7 +343,7 @@ async fn handle_cmsg_player_login(
     });
 
     smsg_login_settimespeed
-        .send(&session.socket, &encryption)
+        .send(&session.socket, &session.encryption)
         .await
         .unwrap();
     trace!("Sent SMSG_LOGIN_SETTIMESPEED");
@@ -420,7 +401,7 @@ async fn handle_cmsg_player_login(
     });
 
     smsg_update_object
-        .send(&session.socket, &encryption)
+        .send(&session.socket, &session.encryption)
         .await
         .unwrap();
     trace!("Sent initial SMSG_UPDATE_OBJECT for player");
@@ -433,7 +414,7 @@ async fn handle_cmsg_player_login(
     });
 
     smsg_init_world_states
-        .send(&session.socket, &encryption)
+        .send(&session.socket, &session.encryption)
         .await
         .unwrap();
     trace!("Sent SMSG_INIT_WORLD_STATES");
@@ -441,24 +422,15 @@ async fn handle_cmsg_player_login(
     let smsg_time_sync_req = ServerMessage::new(SmsgTimeSyncReq { sync_counter: 0 });
 
     smsg_time_sync_req
-        .send(&session.socket, &encryption)
+        .send(&session.socket, &session.encryption)
         .await
         .unwrap();
     trace!("Sent SMSG_TIME_SYNC_REQ");
 }
 
-async fn unhandled(
-    _data: Vec<u8>,
-    _encryption: Arc<Mutex<HeaderCrypto>>,
-    _session: Arc<WorldSession>,
-) {
-}
+async fn unhandled(_data: Vec<u8>, _session: Arc<WorldSession>) {}
 
-async fn handle_cmsg_realm_split(
-    data: Vec<u8>,
-    encryption: Arc<Mutex<HeaderCrypto>>,
-    session: Arc<WorldSession>,
-) {
+async fn handle_cmsg_realm_split(data: Vec<u8>, session: Arc<WorldSession>) {
     trace!("Received CMSG_REALM_SPLIT");
     let mut reader = Cursor::new(data);
     let cmsg_realm_split: CmsgRealmSplit = reader.read_le().unwrap();
@@ -469,15 +441,14 @@ async fn handle_cmsg_realm_split(
         split_date: binrw::NullString::from("01/01/01"),
     });
 
-    packet.send(&session.socket, &encryption).await.unwrap();
+    packet
+        .send(&session.socket, &session.encryption)
+        .await
+        .unwrap();
     trace!("Sent SMSG_REALM_SPLIT");
 }
 
-async fn handle_cmsg_ping(
-    data: Vec<u8>,
-    encryption: Arc<Mutex<HeaderCrypto>>,
-    session: Arc<WorldSession>,
-) {
+async fn handle_cmsg_ping(data: Vec<u8>, session: Arc<WorldSession>) {
     trace!("Received CMSG_PING");
     let mut reader = Cursor::new(data);
     let cmsg_ping: CmsgPing = reader.read_le().unwrap();
@@ -486,15 +457,14 @@ async fn handle_cmsg_ping(
         ping: cmsg_ping.ping,
     });
 
-    packet.send(&session.socket, &encryption).await.unwrap();
+    packet
+        .send(&session.socket, &session.encryption)
+        .await
+        .unwrap();
     trace!("Sent SMSG_PONG");
 }
 
-async fn handle_cmsg_update_account_data(
-    data: Vec<u8>,
-    encryption: Arc<Mutex<HeaderCrypto>>,
-    session: Arc<WorldSession>,
-) {
+async fn handle_cmsg_update_account_data(data: Vec<u8>, session: Arc<WorldSession>) {
     trace!("Received CMSG_UPDATE_ACCOUNT_DATA");
     let mut reader = Cursor::new(data);
     let cmsg_update_account_data: CmsgUpdateAccountData = reader.read_le().unwrap();
@@ -504,6 +474,9 @@ async fn handle_cmsg_update_account_data(
         data: 0,
     });
 
-    packet.send(&session.socket, &encryption).await.unwrap();
+    packet
+        .send(&session.socket, &session.encryption)
+        .await
+        .unwrap();
     trace!("Sent SMSG_UPDATE_ACCOUNT_DATA_ID");
 }

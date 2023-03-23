@@ -9,12 +9,15 @@ use hex::FromHex;
 use log::{error, trace};
 use protocol::client::ClientMessageHeader;
 use protocol::handlers;
+use r2d2::Pool;
+use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::Connection;
 use tokio::io::AsyncReadExt;
+use tokio::net::TcpStream;
 use tokio::sync::Mutex;
 use world_session::WorldSession;
 use wow_srp::normalized_string::NormalizedString;
-use wow_srp::tbc_header::{HeaderCrypto, ProofSeed};
+use wow_srp::tbc_header::ProofSeed;
 
 mod constants;
 mod entities;
@@ -22,17 +25,23 @@ mod protocol;
 pub mod world_session;
 
 // TypeState pattern (https://yoric.github.io/post/rust-typestate/)
-struct SocketOpened;
+struct SocketOpened {
+    socket: Arc<Mutex<TcpStream>>,
+    db_pool_auth: Arc<Pool<SqliteConnectionManager>>,
+    db_pool_char: Arc<Pool<SqliteConnectionManager>>,
+}
 struct ServerSentAuthChallenge {
     seed: ProofSeed,
+    socket: Arc<Mutex<TcpStream>>,
+    db_pool_auth: Arc<Pool<SqliteConnectionManager>>,
+    db_pool_char: Arc<Pool<SqliteConnectionManager>>,
 }
 struct ServerSentAuthResponse {
-    encryption: Arc<Mutex<HeaderCrypto>>,
+    session: Arc<WorldSession>,
 }
 
 struct WorldSocketState<S> {
-    session: Arc<WorldSession>,
-    _state: S,
+    state: S,
 }
 
 #[derive(Debug)]
@@ -61,10 +70,35 @@ impl From<r2d2::Error> for WorldSocketError {
     }
 }
 
-impl<S> WorldSocketState<S> {
+impl WorldSocketState<SocketOpened> {
+    async fn send_challenge(
+        self,
+    ) -> Result<WorldSocketState<ServerSentAuthChallenge>, WorldSocketError> {
+        let seed = ProofSeed::new();
+        let packet = ServerMessage::new(SmsgAuthChallenge {
+            server_seed: seed.seed(),
+        });
+        let mut socket_guard = self.state.socket.lock().await;
+        packet.send_unencrypted(&mut socket_guard).await?;
+        drop(socket_guard);
+        trace!("Sent SMSG_AUTH_CHALLENGE");
+
+        Ok(WorldSocketState {
+            state: ServerSentAuthChallenge {
+                seed,
+                socket: self.state.socket,
+                db_pool_auth: self.state.db_pool_auth,
+                db_pool_char: self.state.db_pool_char,
+            },
+        })
+    }
+}
+
+impl WorldSocketState<ServerSentAuthChallenge> {
     async fn read_socket_plain(&mut self) -> Result<ClientMessage, WorldSocketError> {
         let mut buf = [0_u8; 6];
-        let mut socket_guard = self.session.socket.lock().await;
+        let mut socket_guard = self.state.socket.lock().await;
+
         match socket_guard.read_exact(&mut buf[..6]).await {
             Ok(0) => {
                 trace!("Client disconnected");
@@ -98,29 +132,7 @@ impl<S> WorldSocketState<S> {
             }
         }
     }
-}
 
-impl WorldSocketState<SocketOpened> {
-    async fn send_challenge(
-        self,
-    ) -> Result<WorldSocketState<ServerSentAuthChallenge>, WorldSocketError> {
-        let seed = ProofSeed::new();
-        let packet = ServerMessage::new(SmsgAuthChallenge {
-            server_seed: seed.seed(),
-        });
-        let mut socket = self.session.socket.lock().await;
-        packet.send_unencrypted(&mut socket).await?;
-        drop(socket);
-        trace!("Sent SMSG_AUTH_CHALLENGE");
-
-        Ok(WorldSocketState {
-            session: self.session,
-            _state: ServerSentAuthChallenge { seed },
-        })
-    }
-}
-
-impl WorldSocketState<ServerSentAuthChallenge> {
     async fn handle_auth_session(
         mut self,
     ) -> Result<WorldSocketState<ServerSentAuthResponse>, WorldSocketError> {
@@ -131,7 +143,7 @@ impl WorldSocketState<ServerSentAuthChallenge> {
         let username: String = cmsg_auth_session._username.to_string();
         let username: NormalizedString = NormalizedString::new(username).unwrap();
 
-        let mut conn = self.session.db_pool_auth.get()?;
+        let mut conn = self.state.db_pool_auth.get()?;
         let session_key = fetch_session_key(&mut conn, username.to_string()).unwrap();
         let session_key: [u8; 40] = <Vec<u8>>::from_hex(session_key)
             .unwrap()
@@ -139,7 +151,7 @@ impl WorldSocketState<ServerSentAuthChallenge> {
             .unwrap();
 
         let encryption = self
-            ._state
+            .state
             .seed
             .into_header_crypto(
                 &username,
@@ -157,12 +169,18 @@ impl WorldSocketState<ServerSentAuthChallenge> {
             _billing_rested: 0,
         });
 
-        packet.send(&self.session.socket, &encryption).await?;
+        packet.send(&self.state.socket, &encryption).await?;
         trace!("Sent SMSG_AUTH_RESPONSE");
 
         Ok(WorldSocketState {
-            session: self.session,
-            _state: ServerSentAuthResponse { encryption },
+            state: ServerSentAuthResponse {
+                session: Arc::new(WorldSession {
+                    socket: self.state.socket,
+                    encryption,
+                    db_pool_auth: self.state.db_pool_auth,
+                    db_pool_char: self.state.db_pool_char,
+                }),
+            },
         })
     }
 }
@@ -170,7 +188,8 @@ impl WorldSocketState<ServerSentAuthChallenge> {
 impl WorldSocketState<ServerSentAuthResponse> {
     async fn read_socket(&mut self) -> Result<ClientMessage, WorldSocketError> {
         let mut buf = [0_u8; 6];
-        let mut socket = self.session.socket.lock().await;
+        let mut socket = self.state.session.socket.lock().await;
+
         match socket.read(&mut buf[..6]).await {
             Ok(0) => {
                 trace!("Client disconnected");
@@ -184,7 +203,7 @@ impl WorldSocketState<ServerSentAuthResponse> {
                 )));
             }
             Ok(_) => {
-                let mut encryption = self._state.encryption.lock().await;
+                let mut encryption = self.state.session.encryption.lock().await;
                 let client_header: ClientMessageHeader =
                     encryption.decrypt_client_header(buf).into();
 
@@ -218,21 +237,23 @@ impl WorldSocketState<ServerSentAuthResponse> {
         let client_message = self.read_socket().await?;
         let handler = handlers::get_handler(client_message.header.opcode);
 
-        handler(
-            client_message.payload,
-            Arc::clone(&self._state.encryption),
-            Arc::clone(&self.session),
-        )
-        .await;
+        handler(client_message.payload, Arc::clone(&self.state.session)).await;
 
         Ok(())
     }
 }
 
-pub async fn process(session: Arc<WorldSession>) -> Result<(), WorldSocketError> {
+pub async fn process(
+    socket: Arc<Mutex<TcpStream>>,
+    db_pool_auth: Arc<Pool<SqliteConnectionManager>>,
+    db_pool_char: Arc<Pool<SqliteConnectionManager>>,
+) -> Result<(), WorldSocketError> {
     let mut state = WorldSocketState {
-        session,
-        _state: SocketOpened,
+        state: SocketOpened {
+            socket,
+            db_pool_auth,
+            db_pool_char,
+        },
     }
     .send_challenge()
     .await?

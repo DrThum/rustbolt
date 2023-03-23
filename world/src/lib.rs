@@ -157,9 +157,7 @@ impl WorldSocketState<ServerSentAuthChallenge> {
             _billing_rested: 0,
         });
 
-        packet
-            .send(Arc::clone(&self.session.socket), Arc::clone(&encryption))
-            .await?;
+        packet.send(&self.session.socket, &encryption).await?;
         trace!("Sent SMSG_AUTH_RESPONSE");
 
         Ok(WorldSocketState {

@@ -59,8 +59,8 @@ impl<const OPCODE: u16, Payload: ServerMessagePayload<OPCODE> + BinWrite>
     // Option<HeaderCrypto>)
     pub async fn send(
         self,
-        socket: Arc<Mutex<TcpStream>>,
-        encryption: Arc<Mutex<HeaderCrypto>>,
+        socket: &Arc<Mutex<TcpStream>>,
+        encryption: &Arc<Mutex<HeaderCrypto>>,
     ) -> Result<(), binrw::Error>
     where
         for<'a> <Payload as BinWrite>::Args<'a>: Default,

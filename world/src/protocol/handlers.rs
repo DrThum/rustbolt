@@ -104,8 +104,7 @@ async fn handle_cmsg_char_create(
         result: 0x2F, // TODO: Enum
     });
 
-    let socket = Arc::clone(&session.socket);
-    packet.send(socket, encryption).await.unwrap();
+    packet.send(&session.socket, &encryption).await.unwrap();
     trace!("Sent SMSG_CHAR_CREATE");
 }
 
@@ -189,8 +188,7 @@ async fn handle_cmsg_char_enum(
         character_data,
     });
 
-    let socket = Arc::clone(&session.socket);
-    packet.send(socket, encryption).await.unwrap();
+    packet.send(&session.socket, &encryption).await.unwrap();
     trace!("Sent SMSG_CHAR_ENUM");
 }
 
@@ -224,8 +222,7 @@ async fn handle_cmsg_char_delete(
         result: 0x3B, // TODO: Enum - CHAR_DELETE_SUCCESS
     });
 
-    let socket = Arc::clone(&session.socket);
-    packet.send(socket, encryption).await.unwrap();
+    packet.send(&session.socket, &encryption).await.unwrap();
     trace!("Sent SMSG_CHAR_DELETE");
 }
 
@@ -273,10 +270,8 @@ async fn handle_cmsg_player_login(
         is_in_group: 0, // FIXME after group implementation
     });
 
-    let socket = Arc::clone(&session.socket);
-    let encryption_copy = Arc::clone(&encryption);
     msg_set_dungeon_difficulty
-        .send(socket, encryption_copy)
+        .send(&session.socket, &encryption)
         .await
         .unwrap();
     trace!("Sent MSG_SET_DUNGEON_DIFFICULTY");
@@ -289,20 +284,16 @@ async fn handle_cmsg_player_login(
         orientation: 3.83972,
     });
 
-    let socket = Arc::clone(&session.socket);
-    let encryption_copy = Arc::clone(&encryption);
     smsg_login_verify_world
-        .send(socket, encryption_copy)
+        .send(&session.socket, &encryption)
         .await
         .unwrap();
     trace!("Sent SMSG_LOGIN_VERIFY_WORLD");
 
     let smsg_account_data_times = ServerMessage::new(SmsgAccountDataTimes { data: [0_u32; 32] });
 
-    let socket = Arc::clone(&session.socket);
-    let encryption_copy = Arc::clone(&encryption);
     smsg_account_data_times
-        .send(socket, encryption_copy)
+        .send(&session.socket, &encryption)
         .await
         .unwrap();
     trace!("Sent SMSG_ACCOUNT_DATA_TIMES");
@@ -312,10 +303,8 @@ async fn handle_cmsg_player_login(
         voice_chat_enabled: 0,
     });
 
-    let socket = Arc::clone(&session.socket);
-    let encryption_copy = Arc::clone(&encryption);
     smsg_feature_system_status
-        .send(socket, encryption_copy)
+        .send(&session.socket, &encryption)
         .await
         .unwrap();
     trace!("Sent SMSG_FEATURE_SYSTEM_STATUS");
@@ -325,17 +314,13 @@ async fn handle_cmsg_player_login(
         message: NullString::from("MOTD"),
     });
 
-    let socket = Arc::clone(&session.socket);
-    let encryption_copy = Arc::clone(&encryption);
-    smsg_motd.send(socket, encryption_copy).await.unwrap();
+    smsg_motd.send(&session.socket, &encryption).await.unwrap();
     trace!("Sent SMSG_MOTD");
 
     let smsg_set_rest_start = ServerMessage::new(SmsgSetRestStart { rest_start: 0 });
 
-    let socket = Arc::clone(&session.socket);
-    let encryption_copy = Arc::clone(&encryption);
     smsg_set_rest_start
-        .send(socket, encryption_copy)
+        .send(&session.socket, &encryption)
         .await
         .unwrap();
     trace!("Sent SMSG_SET_REST_START");
@@ -348,10 +333,8 @@ async fn handle_cmsg_player_login(
         homebind_area_id: 85,
     });
 
-    let socket = Arc::clone(&session.socket);
-    let encryption_copy = Arc::clone(&encryption);
     smsg_bindpointupdate
-        .send(socket, encryption_copy)
+        .send(&session.socket, &encryption)
         .await
         .unwrap();
     trace!("Sent SMSG_BINDPOINTUPDATE");
@@ -367,10 +350,8 @@ async fn handle_cmsg_player_login(
         tutorial_data7: 0,
     });
 
-    let socket = Arc::clone(&session.socket);
-    let encryption_copy = Arc::clone(&encryption);
     smsg_tutorial_flags
-        .send(socket, encryption_copy)
+        .send(&session.socket, &encryption)
         .await
         .unwrap();
     trace!("Sent SMSG_TUTORIAL_FLAGS");
@@ -380,15 +361,11 @@ async fn handle_cmsg_player_login(
         game_speed: 0.01666667,
     });
 
-    let socket = Arc::clone(&session.socket);
-    let encryption_copy = Arc::clone(&encryption);
     smsg_login_settimespeed
-        .send(socket, encryption_copy)
+        .send(&session.socket, &encryption)
         .await
         .unwrap();
     trace!("Sent SMSG_LOGIN_SETTIMESPEED");
-
-    // pCurrChar->GetSocial()->SendSocialList();
 
     let mut conn = session.db_pool_char.get().unwrap();
     let character = fetch_basic_char_data(&mut conn, cmsg_player_login.guid).unwrap();
@@ -442,10 +419,8 @@ async fn handle_cmsg_player_login(
         data: update_data.data,
     });
 
-    let socket = Arc::clone(&session.socket);
-    let encryption_copy = Arc::clone(&encryption);
     smsg_update_object
-        .send(socket, encryption_copy)
+        .send(&session.socket, &encryption)
         .await
         .unwrap();
     trace!("Sent initial SMSG_UPDATE_OBJECT for player");
@@ -457,20 +432,16 @@ async fn handle_cmsg_player_login(
         block_count: 0,
     });
 
-    let socket = Arc::clone(&session.socket);
-    let encryption_copy = Arc::clone(&encryption);
     smsg_init_world_states
-        .send(socket, encryption_copy)
+        .send(&session.socket, &encryption)
         .await
         .unwrap();
     trace!("Sent SMSG_INIT_WORLD_STATES");
 
     let smsg_time_sync_req = ServerMessage::new(SmsgTimeSyncReq { sync_counter: 0 });
 
-    let socket = Arc::clone(&session.socket);
-    let encryption_copy = Arc::clone(&encryption);
     smsg_time_sync_req
-        .send(socket, encryption_copy)
+        .send(&session.socket, &encryption)
         .await
         .unwrap();
     trace!("Sent SMSG_TIME_SYNC_REQ");
@@ -498,8 +469,7 @@ async fn handle_cmsg_realm_split(
         split_date: binrw::NullString::from("01/01/01"),
     });
 
-    let socket = Arc::clone(&session.socket);
-    packet.send(socket, encryption).await.unwrap();
+    packet.send(&session.socket, &encryption).await.unwrap();
     trace!("Sent SMSG_REALM_SPLIT");
 }
 
@@ -516,8 +486,7 @@ async fn handle_cmsg_ping(
         ping: cmsg_ping.ping,
     });
 
-    let socket = Arc::clone(&session.socket);
-    packet.send(socket, encryption).await.unwrap();
+    packet.send(&session.socket, &encryption).await.unwrap();
     trace!("Sent SMSG_PONG");
 }
 
@@ -535,7 +504,6 @@ async fn handle_cmsg_update_account_data(
         data: 0,
     });
 
-    let socket = Arc::clone(&session.socket);
-    packet.send(socket, encryption).await.unwrap();
+    packet.send(&session.socket, &encryption).await.unwrap();
     trace!("Sent SMSG_UPDATE_ACCOUNT_DATA_ID");
 }

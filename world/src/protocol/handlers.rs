@@ -60,7 +60,7 @@ async fn handle_cmsg_char_create(data: Vec<u8>, session: Arc<WorldSession>) {
     let name_available =
         CharacterRepository::is_name_available(&conn, cmsg_char_create.name.to_string());
     let result = if name_available {
-        CharacterRepository::create_character(&conn, cmsg_char_create);
+        CharacterRepository::create_character(&conn, cmsg_char_create, session.account_id);
         ResponseCodes::CharCreateSuccess
     } else {
         ResponseCodes::CharCreateNameInUse
@@ -104,7 +104,7 @@ async fn handle_cmsg_char_delete(data: Vec<u8>, session: Arc<WorldSession>) {
     CharacterRepository::delete_character(conn, cmsg_char_delete, session.account_id);
 
     let packet = ServerMessage::new(SmsgCharDelete {
-        result: 0x3B, // TODO: Enum - CHAR_DELETE_SUCCESS
+        result: ResponseCodes::CharDeleteSuccess as u8,
     });
 
     packet

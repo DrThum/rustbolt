@@ -29,11 +29,12 @@ impl CharacterRepository {
     pub fn create_character(
         conn: &PooledConnection<SqliteConnectionManager>,
         source: CmsgCharCreate,
+        account_id: u32,
     ) {
         let mut stmt_create = conn.prepare_cached("INSERT INTO characters (guid, account_id, name, race, class, gender, skin, face, hairstyle, haircolor, facialstyle) VALUES (NULL, :account_id, :name, :race, :class, :gender, :skin, :face, :hairstyle, :haircolor, :facialstyle)").unwrap();
         stmt_create
             .execute(named_params! {
-                ":account_id": 1, /* FIXME: Add account id to WorldSession */
+                ":account_id": account_id,
                 ":name": source.name.to_string(),
                 ":race": source.race,
                 ":class": source.class,
@@ -146,7 +147,7 @@ impl CharacterRepository {
                 ":guid": guid,
                 ":account_id": account_id,
             })
-            .unwrap(); // FIXME: Add account id to WorldSession
+            .unwrap();
 
         if let Some(row) = rows.next().unwrap() {
             Some((

@@ -1,6 +1,7 @@
 use crate::protocol::client::ClientMessage;
 use crate::protocol::server::ServerMessage;
 use crate::repositories::account::AccountRepository;
+use crate::shared::response_codes::ResponseCodes;
 use std::sync::Arc;
 
 use crate::protocol::packets::{CmsgAuthSession, SmsgAuthChallenge, SmsgAuthResponse};
@@ -166,7 +167,7 @@ impl WorldSocketState<ServerSentAuthChallenge> {
         let encryption = Arc::new(Mutex::new(encryption));
 
         let packet = ServerMessage::new(SmsgAuthResponse {
-            result: 0x0C, // AUTH_OK
+            result: ResponseCodes::AuthOk as u8,
             _billing_time: 0,
             _billing_flags: 0,
             _billing_rested: 0,

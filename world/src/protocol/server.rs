@@ -55,8 +55,6 @@ impl<const OPCODE: u16, Payload: ServerMessagePayload<OPCODE> + BinWrite>
         Ok(())
     }
 
-    // TODO: Refactor send and send_unencrypted to use a common fn _send(self, socket,
-    // Option<HeaderCrypto>)
     pub async fn send(
         self,
         socket: &Arc<Mutex<TcpStream>>,

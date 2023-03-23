@@ -3,16 +3,13 @@ use binrw::{BinReaderExt, NullString};
 use futures::future::{BoxFuture, FutureExt};
 use lazy_static::lazy_static;
 use log::{error, trace};
-use r2d2::PooledConnection;
-use r2d2_sqlite::SqliteConnectionManager;
-use rusqlite::named_params;
 use std::{collections::HashMap, sync::Arc};
 
-use crate::constants::InventoryType;
 use crate::entities::update::UpdateDataBuilder;
 use crate::entities::update_fields::{ObjectFields, UnitFields};
 use crate::protocol::packets::*;
 use crate::protocol::server::ServerMessage;
+use crate::repositories::character::CharacterRepository;
 use crate::world_session::WorldSession;
 
 use super::opcodes::Opcode;
@@ -53,33 +50,12 @@ pub fn get_handler(opcode: u32) -> &'static PacketHandler {
 }
 
 async fn handle_cmsg_char_create(data: Vec<u8>, session: Arc<WorldSession>) {
-    fn create_char(conn: PooledConnection<SqliteConnectionManager>, source: CmsgCharCreate) {
-        // let mut stmt_check_name = conn.prepare_cached("SELECT COUNT(*) FROM characters WHERE name = ?").unwrap();
-        // // TODO
-
-        let mut stmt_create = conn.prepare_cached("INSERT INTO characters (guid, account_id, name, race, class, gender, skin, face, hairstyle, haircolor, facialstyle) VALUES (NULL, :account_id, :name, :race, :class, :gender, :skin, :face, :hairstyle, :haircolor, :facialstyle)").unwrap();
-        stmt_create
-            .execute(named_params! {
-                ":account_id": 1, /* FIXME: Add account id to WorldSession */
-                ":name": source.name.to_string(),
-                ":race": source.race,
-                ":class": source.class,
-                ":gender": source.gender,
-                ":skin": source.skin,
-                ":face": source.face,
-                ":hairstyle": source.hairstyle,
-                ":haircolor": source.haircolor,
-                ":facialstyle": source.facialstyle,
-            })
-            .unwrap();
-    }
-
     trace!("Received CMSG_CHAR_CREATE");
 
     let mut reader = Cursor::new(data);
     let cmsg_char_create: CmsgCharCreate = reader.read_le().unwrap();
     let conn = session.db_pool_char.get().unwrap();
-    create_char(conn, cmsg_char_create);
+    CharacterRepository::create_character(conn, cmsg_char_create);
 
     let packet = ServerMessage::new(SmsgCharCreate {
         result: 0x2F, // TODO: Enum
@@ -93,75 +69,10 @@ async fn handle_cmsg_char_create(data: Vec<u8>, session: Arc<WorldSession>) {
 }
 
 async fn handle_cmsg_char_enum(_data: Vec<u8>, session: Arc<WorldSession>) {
-    fn fetch_chars(conn: PooledConnection<SqliteConnectionManager>) -> Vec<CharEnumData> {
-        let mut stmt = conn.prepare_cached("SELECT guid, name, race, class, gender, skin, face, hairstyle, haircolor, facialstyle FROM characters WHERE account_id = 1").unwrap(); // FIXME: Account id
-        let chars = stmt
-            .query_map([], |row| {
-                let equipment = vec![
-                    InventoryType::Head,
-                    InventoryType::Neck,
-                    InventoryType::Shoulders,
-                    InventoryType::Body,
-                    InventoryType::Chest,
-                    InventoryType::Waist,
-                    InventoryType::Legs,
-                    InventoryType::Feet,
-                    InventoryType::Wrists,
-                    InventoryType::Hands,
-                    InventoryType::Finger,
-                    InventoryType::Finger,
-                    InventoryType::Trinket,
-                    InventoryType::Trinket,
-                    InventoryType::Cloak,
-                    InventoryType::WeaponMainHand,
-                    InventoryType::WeaponOffHand,
-                    InventoryType::Ranged,
-                    InventoryType::Tabard,
-                    InventoryType::NonEquip,
-                ]
-                .into_iter()
-                .map(|inv_type| CharEnumEquip::none(inv_type))
-                .collect();
-
-                Ok(CharEnumData {
-                    guid: row.get("guid").unwrap(),
-                    name: row.get::<&str, String>("name").unwrap().try_into().unwrap(),
-                    race: row.get("race").unwrap(),
-                    class: row.get("class").unwrap(),
-                    gender: row.get("gender").unwrap(),
-                    skin: row.get("skin").unwrap(),
-                    face: row.get("face").unwrap(),
-                    hairstyle: row.get("hairstyle").unwrap(),
-                    haircolor: row.get("haircolor").unwrap(),
-                    facialstyle: row.get("facialstyle").unwrap(),
-                    level: 70,
-                    area: 85,
-                    map: 0,
-                    position_x: 0.0,
-                    position_y: 0.0,
-                    position_z: 0.0,
-                    guild_id: 0,
-                    flags: 0,
-                    first_login: 1, // FIXME: bool
-                    pet_display_id: 0,
-                    pet_level: 0,
-                    pet_family: 0,
-                    equipment,
-                })
-            })
-            .unwrap();
-
-        chars
-            .filter(|res| res.is_ok())
-            .map(|res| res.unwrap())
-            .into_iter()
-            .collect()
-    }
-
     trace!("Received CMSG_CHAR_ENUM");
 
     let conn = session.db_pool_char.get().unwrap();
-    let character_data = fetch_chars(conn);
+    let character_data = CharacterRepository::fetch_characters(conn, session.account_id);
 
     let packet = ServerMessage::new(SmsgCharEnum {
         number_of_characters: character_data.len() as u8,
@@ -176,26 +87,12 @@ async fn handle_cmsg_char_enum(_data: Vec<u8>, session: Arc<WorldSession>) {
 }
 
 async fn handle_cmsg_char_delete(data: Vec<u8>, session: Arc<WorldSession>) {
-    fn delete_char(conn: PooledConnection<SqliteConnectionManager>, source: CmsgCharDelete) {
-        let mut stmt_delete = conn
-            .prepare_cached(
-                "DELETE FROM characters WHERE guid = :guid AND account_id = :account_id",
-            )
-            .unwrap();
-        stmt_delete
-            .execute(named_params! {
-                ":guid": source.guid,
-                ":account_id": 1, /* FIXME: Add account id to WorldSession */
-            })
-            .unwrap();
-    }
-
     trace!("Received CMSG_CHAR_DELETE");
     let mut reader = Cursor::new(data);
     let cmsg_char_delete: CmsgCharDelete = reader.read_le().unwrap();
 
     let conn = session.db_pool_char.get().unwrap();
-    delete_char(conn, cmsg_char_delete);
+    CharacterRepository::delete_character(conn, cmsg_char_delete, session.account_id);
 
     let packet = ServerMessage::new(SmsgCharDelete {
         result: 0x3B, // TODO: Enum - CHAR_DELETE_SUCCESS
@@ -209,35 +106,6 @@ async fn handle_cmsg_char_delete(data: Vec<u8>, session: Arc<WorldSession>) {
 }
 
 async fn handle_cmsg_player_login(data: Vec<u8>, session: Arc<WorldSession>) {
-    fn fetch_basic_char_data(
-        conn: &mut PooledConnection<SqliteConnectionManager>,
-        guid: u64,
-    ) -> Option<(u8, u8, u8, u32, u32, u32, u32)> {
-        let mut stmt = conn
-            .prepare("SELECT race, class, gender, haircolor, hairstyle, face, skin FROM characters WHERE guid = :guid AND account_id = :account_id")
-            .unwrap();
-        let mut rows = stmt
-            .query(named_params! {
-                ":guid": guid,
-                ":account_id": 1
-            })
-            .unwrap(); // FIXME: Add account id to WorldSession
-
-        if let Some(row) = rows.next().unwrap() {
-            Some((
-                row.get("race").unwrap(),
-                row.get("class").unwrap(),
-                row.get("gender").unwrap(),
-                row.get("haircolor").unwrap(),
-                row.get("hairstyle").unwrap(),
-                row.get("face").unwrap(),
-                row.get("gender").unwrap(),
-            ))
-        } else {
-            None
-        }
-    }
-
     trace!("Received CMSG_PLAYER_LOGIN");
     let mut reader = Cursor::new(data);
     let cmsg_player_login: CmsgPlayerLogin = reader.read_le().unwrap();
@@ -289,7 +157,7 @@ async fn handle_cmsg_player_login(data: Vec<u8>, session: Arc<WorldSession>) {
 
     let smsg_motd = ServerMessage::new(SmsgMotd {
         line_count: 1,
-        message: NullString::from("MOTD"),
+        message: NullString::from("MOTD"), // TODO: store this in config file
     });
 
     smsg_motd
@@ -349,7 +217,12 @@ async fn handle_cmsg_player_login(data: Vec<u8>, session: Arc<WorldSession>) {
     trace!("Sent SMSG_LOGIN_SETTIMESPEED");
 
     let mut conn = session.db_pool_char.get().unwrap();
-    let character = fetch_basic_char_data(&mut conn, cmsg_player_login.guid).unwrap();
+    let character = CharacterRepository::fetch_basic_character_data(
+        &mut conn,
+        cmsg_player_login.guid,
+        session.account_id,
+    )
+    .unwrap();
 
     let mut update_data_builder = UpdateDataBuilder::new();
     update_data_builder.add_u64(ObjectFields::ObjectFieldGuid.into(), cmsg_player_login.guid);

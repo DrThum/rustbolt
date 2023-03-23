@@ -1,5 +1,6 @@
 use crate::protocol::client::ClientMessage;
 use crate::protocol::server::ServerMessage;
+use crate::repositories::account::AccountRepository;
 use std::sync::Arc;
 
 use crate::protocol::packets::{CmsgAuthSession, SmsgAuthChallenge, SmsgAuthResponse};
@@ -11,7 +12,6 @@ use protocol::client::ClientMessageHeader;
 use protocol::handlers;
 use r2d2::Pool;
 use r2d2_sqlite::SqliteConnectionManager;
-use rusqlite::Connection;
 use tokio::io::AsyncReadExt;
 use tokio::net::TcpStream;
 use tokio::sync::Mutex;
@@ -22,6 +22,7 @@ use wow_srp::tbc_header::ProofSeed;
 mod constants;
 mod entities;
 mod protocol;
+mod repositories;
 pub mod world_session;
 
 // TypeState pattern (https://yoric.github.io/post/rust-typestate/)
@@ -140,11 +141,12 @@ impl WorldSocketState<ServerSentAuthChallenge> {
 
         let mut reader = Cursor::new(auth_session_client_message.payload);
         let cmsg_auth_session: CmsgAuthSession = reader.read_le()?;
-        let username: String = cmsg_auth_session._username.to_string();
+        let username: String = cmsg_auth_session.username.to_string();
         let username: NormalizedString = NormalizedString::new(username).unwrap();
 
         let mut conn = self.state.db_pool_auth.get()?;
-        let session_key = fetch_session_key(&mut conn, username.to_string()).unwrap();
+        let (account_id, session_key) =
+            AccountRepository::fetch_id_and_session_key(&mut conn, username.to_string()).unwrap();
         let session_key: [u8; 40] = <Vec<u8>>::from_hex(session_key)
             .unwrap()
             .try_into()
@@ -179,6 +181,7 @@ impl WorldSocketState<ServerSentAuthChallenge> {
                     encryption,
                     db_pool_auth: self.state.db_pool_auth,
                     db_pool_char: self.state.db_pool_char,
+                    account_id,
                 }),
             },
         })
@@ -262,18 +265,5 @@ pub async fn process(
 
     loop {
         state.handle_packet().await?;
-    }
-}
-
-fn fetch_session_key(conn: &mut Connection, username: String) -> Option<String> {
-    let mut stmt = conn
-        .prepare("SELECT session_key FROM accounts WHERE UPPER(username) = :username")
-        .unwrap();
-    let mut rows = stmt.query(&[(":username", &username)]).unwrap();
-
-    if let Some(row) = rows.next().unwrap() {
-        Some(row.get("session_key").unwrap())
-    } else {
-        None
     }
 }

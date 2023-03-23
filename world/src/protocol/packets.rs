@@ -16,7 +16,7 @@ pub struct SmsgAuthChallenge {
 pub struct CmsgAuthSession {
     pub _build: u32,
     pub _server_id: u32,
-    pub _username: NullString,
+    pub username: NullString,
     pub _client_seed: u32,
     pub _client_proof: [u8; 20],
     pub _decompressed_addon_info_size: u32,

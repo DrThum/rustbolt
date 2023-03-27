@@ -17,6 +17,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use wow_srp::server::SrpProof;
 
+pub mod config;
 mod packets;
 
 // TypeState pattern (https://yoric.github.io/post/rust-typestate/)

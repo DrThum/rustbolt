@@ -74,6 +74,7 @@ impl UpdateDataBuilder {
         }
     }
 
+    #[allow(dead_code)]
     pub fn add_u16(&mut self, index: usize, offset: u8, value: u16) {
         // Set the bit in the mask even if it's already set for this offset, and add this u8 to the
         // correct offset to the existing value with & (or 0 if it's not defined yet)

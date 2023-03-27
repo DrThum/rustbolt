@@ -1,0 +1,13 @@
+[common]
+[common.data]
+directory = "./data"
+
+[auth]
+[auth.network]
+host = "127.0.0.1"
+port = "3724"
+
+[world]
+[world.network]
+host = "127.0.0.1"
+port = "8085"

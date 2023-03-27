@@ -2,7 +2,7 @@ use env_logger::Env;
 use log::trace;
 use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::Connection;
-use rustbolt_auth::{AuthError, Realm, RealmType};
+use rustbolt_auth::{config::AuthConfig, AuthError, Realm, RealmType};
 use std::sync::Arc;
 use tokio::net::TcpListener;
 
@@ -13,15 +13,21 @@ mod embedded {
 
 #[tokio::main]
 async fn main() {
+    // Load config
+    let config = AuthConfig::load().expect("Error in config file");
+
     // Setup logging
     env_logger::Builder::from_env(Env::default().default_filter_or("debug")).init();
 
     // Setup database connection pool and execute migrations
-    let sqlite_connection_manager = SqliteConnectionManager::file("./data/databases/auth.db")
-        .with_init(|c| {
-            embedded::migrations::runner().run(c).unwrap();
-            Ok(())
-        });
+    let sqlite_connection_manager = SqliteConnectionManager::file(format!(
+        "{}/databases/auth.db",
+        config.common.data.directory
+    ))
+    .with_init(|c| {
+        embedded::migrations::runner().run(c).unwrap();
+        Ok(())
+    });
     let db_pool = r2d2::Pool::new(sqlite_connection_manager)
         .expect("Failed to create r2d2 SQlite connection pool");
     let db_pool = Arc::new(db_pool);
@@ -31,7 +37,12 @@ async fn main() {
     let realms = load_realms_from_db(&mut conn);
 
     // Bind the listener to the address
-    let listener = TcpListener::bind("127.0.0.1:3724").await.unwrap();
+    let listener = TcpListener::bind(format!(
+        "{}:{}",
+        config.auth.network.host, config.auth.network.port
+    ))
+    .await
+    .unwrap();
 
     loop {
         // The second item contains the IP and port of the new connection

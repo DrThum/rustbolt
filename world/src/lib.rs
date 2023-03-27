@@ -20,6 +20,7 @@ use world_session::WorldSession;
 use wow_srp::normalized_string::NormalizedString;
 use wow_srp::tbc_header::ProofSeed;
 
+pub mod config;
 mod constants;
 mod entities;
 mod protocol;

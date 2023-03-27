@@ -2,3 +2,4 @@
 /data
 *.MPQ
 *.dbc
+config.toml

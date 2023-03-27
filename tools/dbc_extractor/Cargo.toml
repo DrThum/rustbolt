@@ -1,0 +1,13 @@
+[package]
+name = "dbc_extractor"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+binrw = "0.11.1"
+bytemuck = "1.13.1"
+bzip2 = "0.4.4"
+log = "0.4.17"
+miniz_oxide = "0.7.1"

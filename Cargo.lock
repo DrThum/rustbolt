@@ -982,6 +982,7 @@ name = "rustbolt-world"
 version = "0.1.0"
 dependencies = [
  "binrw",
+ "bytemuck",
  "config",
  "env_logger",
  "fixedbitset",

@@ -46,8 +46,10 @@ async fn main() {
     .await
     .unwrap();
 
-    let world = World::new();
+    let world = Box::leak(Box::new(World::new(&config)));
     world.start().await;
+
+    let world = Arc::new(&*world);
 
     loop {
         // The second item contains the IP and port of the new connection
@@ -56,12 +58,14 @@ async fn main() {
         // Spawn a new task for each inbound socket
         let db_pool_auth_copy = Arc::clone(&db_pool_auth);
         let db_pool_char_copy = Arc::clone(&db_pool_char);
+        let world = Arc::clone(&world);
 
         tokio::spawn(async move {
             rustbolt_world::process(
                 Arc::new(Mutex::new(socket)),
                 db_pool_auth_copy,
                 db_pool_char_copy,
+                world,
             )
             .await
             .expect("World socket error");

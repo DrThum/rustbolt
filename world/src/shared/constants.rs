@@ -30,3 +30,9 @@ pub enum InventoryType {
     Quiver = 27,
     Relic = 28,
 }
+
+#[allow(dead_code)]
+pub enum Gender {
+    Male = 0,
+    Female = 1,
+}

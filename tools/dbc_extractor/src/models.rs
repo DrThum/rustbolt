@@ -88,6 +88,7 @@ impl MPQFile {
         let entry: MPQBlockTableEntry = reader.read_le().unwrap();
         entry
     }
+
     pub fn get_file_data(&mut self, entry: &MPQBlockTableEntry) -> Result<Vec<u8>, std::io::Error> {
         let mut buffer = Vec::new();
         buffer.resize(entry.compressed_file_size as usize, 0);

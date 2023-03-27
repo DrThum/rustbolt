@@ -3,8 +3,8 @@ use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::named_params;
 
 use crate::{
-    constants::InventoryType,
     protocol::packets::{CharEnumData, CharEnumEquip, CmsgCharCreate, CmsgCharDelete},
+    shared::constants::InventoryType,
 };
 
 pub struct CharacterRepository;
@@ -138,9 +138,9 @@ impl CharacterRepository {
         conn: &mut PooledConnection<SqliteConnectionManager>,
         guid: u64,
         account_id: u32,
-    ) -> Option<(u8, u8, u8, u32, u32, u32, u32)> {
+    ) -> Option<(u8, u8, u8, u8, u8, u8, u8, u8)> {
         let mut stmt = conn
-            .prepare("SELECT race, class, gender, haircolor, hairstyle, face, skin FROM characters WHERE guid = :guid AND account_id = :account_id")
+            .prepare("SELECT race, class, gender, haircolor, hairstyle, face, skin, facialstyle FROM characters WHERE guid = :guid AND account_id = :account_id")
             .unwrap();
         let mut rows = stmt
             .query(named_params! {
@@ -157,7 +157,8 @@ impl CharacterRepository {
                 row.get("haircolor").unwrap(),
                 row.get("hairstyle").unwrap(),
                 row.get("face").unwrap(),
-                row.get("gender").unwrap(),
+                row.get("skin").unwrap(),
+                row.get("facialstyle").unwrap(),
             ))
         } else {
             None

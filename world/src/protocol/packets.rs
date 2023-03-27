@@ -1,4 +1,4 @@
-use crate::constants::InventoryType;
+use crate::shared::constants::InventoryType;
 
 use super::opcodes::Opcode;
 use super::server::ServerMessagePayload;

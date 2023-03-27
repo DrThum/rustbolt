@@ -10,6 +10,7 @@ use crate::entities::update_fields::{ObjectFields, UnitFields};
 use crate::protocol::packets::*;
 use crate::protocol::server::ServerMessage;
 use crate::repositories::character::CharacterRepository;
+use crate::shared::constants::Gender;
 use crate::shared::response_codes::ResponseCodes;
 use crate::world_session::WorldSession;
 
@@ -233,6 +234,19 @@ async fn handle_cmsg_player_login(data: Vec<u8>, session: Arc<WorldSession>) {
     )
     .unwrap();
 
+    let chr_races_record = session
+        .world
+        .data_store
+        .chr_races
+        .get(&(character.0 as u32))
+        .unwrap();
+
+    let display_id = if character.2 == Gender::Male as u8 {
+        chr_races_record.male_display_id
+    } else {
+        chr_races_record.female_display_id
+    };
+
     let mut update_data_builder = UpdateDataBuilder::new();
     update_data_builder.add_u64(ObjectFields::ObjectFieldGuid.into(), cmsg_player_login.guid);
     update_data_builder.add_u32(ObjectFields::ObjectFieldType.into(), 25);
@@ -245,8 +259,15 @@ async fn handle_cmsg_player_login(data: Vec<u8>, session: Arc<WorldSession>) {
     update_data_builder.add_u8(UnitFields::UnitFieldBytes0.into(), 1, character.1); // class
     update_data_builder.add_u8(UnitFields::UnitFieldBytes0.into(), 2, character.2); // gender
     update_data_builder.add_u8(UnitFields::UnitFieldBytes0.into(), 3, 0); // powertype, 0 = MANA
-    update_data_builder.add_u32(UnitFields::UnitFieldDisplayid.into(), 1478);
-    update_data_builder.add_u32(UnitFields::UnitFieldNativedisplayid.into(), 1478);
+    update_data_builder.add_u8(UnitFields::PlayerBytes.into(), 0, character.6);
+    update_data_builder.add_u8(UnitFields::PlayerBytes.into(), 1, character.5);
+    update_data_builder.add_u8(UnitFields::PlayerBytes.into(), 2, character.4);
+    update_data_builder.add_u8(UnitFields::PlayerBytes.into(), 3, character.3);
+    update_data_builder.add_u8(UnitFields::PlayerBytes2.into(), 0, character.7);
+    update_data_builder.add_u8(UnitFields::PlayerBytes2.into(), 3, 0x02); // Unk
+    update_data_builder.add_u8(UnitFields::PlayerBytes3.into(), 0, character.2);
+    update_data_builder.add_u32(UnitFields::UnitFieldDisplayid.into(), display_id);
+    update_data_builder.add_u32(UnitFields::UnitFieldNativedisplayid.into(), display_id);
     let update_data = update_data_builder.build();
 
     let smsg_update_object = ServerMessage::new(SmsgUpdateObject {

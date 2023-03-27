@@ -7,6 +7,7 @@ use std::sync::Arc;
 use crate::protocol::packets::{CmsgAuthSession, SmsgAuthChallenge, SmsgAuthResponse};
 use binrw::io::Cursor;
 use binrw::BinReaderExt;
+use game::world::World;
 use hex::FromHex;
 use log::{error, trace};
 use protocol::client::ClientMessageHeader;
@@ -21,7 +22,7 @@ use wow_srp::normalized_string::NormalizedString;
 use wow_srp::tbc_header::ProofSeed;
 
 pub mod config;
-mod constants;
+mod datastore;
 mod entities;
 pub mod game;
 mod protocol;
@@ -34,12 +35,14 @@ struct SocketOpened {
     socket: Arc<Mutex<TcpStream>>,
     db_pool_auth: Arc<Pool<SqliteConnectionManager>>,
     db_pool_char: Arc<Pool<SqliteConnectionManager>>,
+    world: Arc<&'static World>,
 }
 struct ServerSentAuthChallenge {
     seed: ProofSeed,
     socket: Arc<Mutex<TcpStream>>,
     db_pool_auth: Arc<Pool<SqliteConnectionManager>>,
     db_pool_char: Arc<Pool<SqliteConnectionManager>>,
+    world: Arc<&'static World>,
 }
 struct ServerSentAuthResponse {
     session: Arc<WorldSession>,
@@ -94,6 +97,7 @@ impl WorldSocketState<SocketOpened> {
                 socket: self.state.socket,
                 db_pool_auth: self.state.db_pool_auth,
                 db_pool_char: self.state.db_pool_char,
+                world: self.state.world,
             },
         })
     }
@@ -186,6 +190,7 @@ impl WorldSocketState<ServerSentAuthChallenge> {
                     db_pool_auth: self.state.db_pool_auth,
                     db_pool_char: self.state.db_pool_char,
                     account_id,
+                    world: self.state.world,
                 }),
             },
         })
@@ -254,12 +259,14 @@ pub async fn process(
     socket: Arc<Mutex<TcpStream>>,
     db_pool_auth: Arc<Pool<SqliteConnectionManager>>,
     db_pool_char: Arc<Pool<SqliteConnectionManager>>,
+    world: Arc<&'static World>,
 ) -> Result<(), WorldSocketError> {
     let mut state = WorldSocketState {
         state: SocketOpened {
             socket,
             db_pool_auth,
             db_pool_char,
+            world,
         },
     }
     .send_challenge()

@@ -2,19 +2,23 @@ use std::time::{Duration, SystemTime};
 
 use tokio::time::interval;
 
-pub struct World {}
+use crate::{config::WorldConfig, datastore::DataStore};
+
+pub struct World {
+    pub data_store: DataStore,
+}
 
 impl World {
-    pub fn new() -> Self {
-        World {}
+    pub fn new(config: &WorldConfig) -> Self {
+        let data_store = DataStore::load_dbcs(&config.common.data).expect("Unable to load DBCs");
+
+        World { data_store }
     }
 
-    pub async fn start(self) {
+    pub async fn start(&'static self) {
         tokio::spawn(async move {
             self.game_loop().await;
-        })
-        .await
-        .expect("World loop error");
+        });
     }
 
     async fn game_loop(&self) {
@@ -33,5 +37,5 @@ impl World {
         }
     }
 
-    fn tick(&self, diff: Duration) {}
+    fn tick(&self, _diff: Duration) {}
 }

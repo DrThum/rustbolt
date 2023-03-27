@@ -23,6 +23,7 @@ use wow_srp::tbc_header::ProofSeed;
 pub mod config;
 mod constants;
 mod entities;
+pub mod game;
 mod protocol;
 mod repositories;
 mod shared;

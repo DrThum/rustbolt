@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use env_logger::Env;
 use r2d2_sqlite::SqliteConnectionManager;
-use rustbolt_world::config::WorldConfig;
+use rustbolt_world::{config::WorldConfig, game::world::World};
 use tokio::{net::TcpListener, sync::Mutex};
 
 mod embedded {
@@ -46,6 +46,9 @@ async fn main() {
     .await
     .unwrap();
 
+    let world = World::new();
+    world.start().await;
+
     loop {
         // The second item contains the IP and port of the new connection
         let (socket, _) = listener.accept().await.unwrap();
@@ -61,7 +64,7 @@ async fn main() {
                 db_pool_char_copy,
             )
             .await
-            .expect("World error");
+            .expect("World socket error");
         });
     }
 }

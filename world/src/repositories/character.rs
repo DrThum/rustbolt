@@ -53,7 +53,7 @@ impl CharacterRepository {
         conn: PooledConnection<SqliteConnectionManager>,
         account_id: u32,
     ) -> Vec<CharEnumData> {
-        let mut stmt = conn.prepare_cached("SELECT guid, name, race, class, gender, skin, face, hairstyle, haircolor, facialstyle FROM characters WHERE account_id = :account_id").unwrap();
+        let mut stmt = conn.prepare_cached("SELECT guid, name, race, class, level, gender, skin, face, hairstyle, haircolor, facialstyle FROM characters WHERE account_id = :account_id").unwrap();
         let chars = stmt
             .query_map(named_params! { ":account_id": account_id }, |row| {
                 let equipment = vec![
@@ -93,7 +93,7 @@ impl CharacterRepository {
                     hairstyle: row.get("hairstyle").unwrap(),
                     haircolor: row.get("haircolor").unwrap(),
                     facialstyle: row.get("facialstyle").unwrap(),
-                    level: 70,
+                    level: row.get("level").unwrap(),
                     area: 85,
                     map: 0,
                     position_x: 0.0,
@@ -139,9 +139,9 @@ impl CharacterRepository {
         conn: &mut PooledConnection<SqliteConnectionManager>,
         guid: u64,
         account_id: u32,
-    ) -> Option<(u8, u8, u8, PlayerVisualFeatures)> {
+    ) -> Option<CharacterRecord> {
         let mut stmt = conn
-            .prepare("SELECT race, class, gender, haircolor, hairstyle, face, skin, facialstyle FROM characters WHERE guid = :guid AND account_id = :account_id")
+            .prepare("SELECT race, class, level, gender, haircolor, hairstyle, face, skin, facialstyle FROM characters WHERE guid = :guid AND account_id = :account_id")
             .unwrap();
         let mut rows = stmt
             .query(named_params! {
@@ -151,20 +151,29 @@ impl CharacterRepository {
             .unwrap();
 
         if let Some(row) = rows.next().unwrap() {
-            Some((
-                row.get("race").unwrap(),
-                row.get("class").unwrap(),
-                row.get("gender").unwrap(),
-                PlayerVisualFeatures {
+            Some(CharacterRecord {
+                race: row.get("race").unwrap(),
+                class: row.get("class").unwrap(),
+                level: row.get("level").unwrap(),
+                gender: row.get("gender").unwrap(),
+                visual_features: PlayerVisualFeatures {
                     haircolor: row.get("haircolor").unwrap(),
                     hairstyle: row.get("hairstyle").unwrap(),
                     face: row.get("face").unwrap(),
                     skin: row.get("skin").unwrap(),
                     facialstyle: row.get("facialstyle").unwrap(),
                 },
-            ))
+            })
         } else {
             None
         }
     }
+}
+
+pub struct CharacterRecord {
+    pub race: u8,
+    pub class: u8,
+    pub level: u8,
+    pub gender: u8,
+    pub visual_features: PlayerVisualFeatures,
 }

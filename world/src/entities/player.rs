@@ -9,6 +9,7 @@ pub struct Player {
     guid: Option<u64>,
     race: Option<CharacterRace>,
     class: Option<CharacterClass>,
+    level: Option<u8>,
     gender: Option<Gender>,
     visual_features: Option<PlayerVisualFeatures>,
     display_id: Option<u32>,
@@ -21,6 +22,7 @@ impl Player {
             guid: None,
             race: None,
             class: None,
+            level: None,
             gender: None,
             visual_features: None,
             display_id: None,
@@ -33,6 +35,7 @@ impl Player {
         guid: u64,
         race: CharacterRace,
         class: CharacterClass,
+        level: u8,
         gender: Gender,
         visual_features: PlayerVisualFeatures,
         display_id: u32,
@@ -40,6 +43,7 @@ impl Player {
         self.guid = Some(guid);
         self.race = Some(race);
         self.class = Some(class);
+        self.level = Some(level);
         self.gender = Some(gender);
         self.visual_features = Some(visual_features);
         self.display_id = Some(display_id);
@@ -62,6 +66,12 @@ impl Player {
         self.class
             .as_ref()
             .expect("Player class uninitialized. Is the player in world?")
+    }
+
+    pub fn level(&self) -> &u8 {
+        self.level
+            .as_ref()
+            .expect("Player level uninitialized. Is the player in world?")
     }
 
     pub fn gender(&self) -> &Gender {
@@ -97,8 +107,8 @@ impl Player {
         update_data_builder.add_f32(ObjectFields::ObjectFieldScaleX.into(), 1.0);
         update_data_builder.add_u32(UnitFields::UnitFieldHealth.into(), 100);
         update_data_builder.add_u32(UnitFields::UnitFieldMaxhealth.into(), 100);
-        update_data_builder.add_u32(UnitFields::UnitFieldLevel.into(), 1);
-        update_data_builder.add_u32(UnitFields::UnitFieldFactiontemplate.into(), 469);
+        update_data_builder.add_u32(UnitFields::UnitFieldLevel.into(), *self.level() as u32);
+        update_data_builder.add_u32(UnitFields::UnitFieldFactiontemplate.into(), 469); // FIXME
         update_data_builder.add_u8(UnitFields::UnitFieldBytes0.into(), 0, *self.race() as u8);
         update_data_builder.add_u8(UnitFields::UnitFieldBytes0.into(), 1, *self.class() as u8);
         update_data_builder.add_u8(UnitFields::UnitFieldBytes0.into(), 2, *self.gender() as u8);

@@ -243,10 +243,10 @@ async fn handle_cmsg_player_login(data: Vec<u8>, session: Arc<Mutex<WorldSession
         .world
         .data_store
         .chr_races
-        .get(&(character.0 as u32))
+        .get(&(character.race as u32))
         .unwrap();
 
-    let display_id = if character.2 == Gender::Male as u8 {
+    let display_id = if character.gender == Gender::Male as u8 {
         chr_races_record.male_display_id
     } else {
         chr_races_record.female_display_id
@@ -254,10 +254,11 @@ async fn handle_cmsg_player_login(data: Vec<u8>, session: Arc<Mutex<WorldSession
 
     session.player.setup_entering_world(
         cmsg_player_login.guid,
-        CharacterRace::n(character.0).expect("Invalid race id found in characters table"),
-        CharacterClass::n(character.1).expect("Invalid class id found in characters table"),
-        Gender::n(character.2).expect("Invalid gender found in characters table"),
-        character.3,
+        CharacterRace::n(character.race).expect("Invalid race id found in characters table"),
+        CharacterClass::n(character.class).expect("Invalid class id found in characters table"),
+        character.level,
+        Gender::n(character.gender).expect("Invalid gender found in characters table"),
+        character.visual_features,
         display_id,
     );
 

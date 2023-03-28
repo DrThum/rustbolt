@@ -3,6 +3,7 @@ use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::named_params;
 
 use crate::{
+    entities::player::PlayerVisualFeatures,
     protocol::packets::{CharEnumData, CharEnumEquip, CmsgCharCreate, CmsgCharDelete},
     shared::constants::InventoryType,
 };
@@ -138,7 +139,7 @@ impl CharacterRepository {
         conn: &mut PooledConnection<SqliteConnectionManager>,
         guid: u64,
         account_id: u32,
-    ) -> Option<(u8, u8, u8, u8, u8, u8, u8, u8)> {
+    ) -> Option<(u8, u8, u8, PlayerVisualFeatures)> {
         let mut stmt = conn
             .prepare("SELECT race, class, gender, haircolor, hairstyle, face, skin, facialstyle FROM characters WHERE guid = :guid AND account_id = :account_id")
             .unwrap();
@@ -154,11 +155,13 @@ impl CharacterRepository {
                 row.get("race").unwrap(),
                 row.get("class").unwrap(),
                 row.get("gender").unwrap(),
-                row.get("haircolor").unwrap(),
-                row.get("hairstyle").unwrap(),
-                row.get("face").unwrap(),
-                row.get("skin").unwrap(),
-                row.get("facialstyle").unwrap(),
+                PlayerVisualFeatures {
+                    haircolor: row.get("haircolor").unwrap(),
+                    hairstyle: row.get("hairstyle").unwrap(),
+                    face: row.get("face").unwrap(),
+                    skin: row.get("skin").unwrap(),
+                    facialstyle: row.get("facialstyle").unwrap(),
+                },
             ))
         } else {
             None

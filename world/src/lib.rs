@@ -1,3 +1,4 @@
+use crate::entities::player::Player;
 use crate::protocol::client::ClientMessage;
 use crate::protocol::server::ServerMessage;
 use crate::repositories::account::AccountRepository;
@@ -45,7 +46,7 @@ struct ServerSentAuthChallenge {
     world: Arc<&'static World>,
 }
 struct ServerSentAuthResponse {
-    session: Arc<WorldSession>,
+    session: Arc<Mutex<WorldSession>>,
 }
 
 struct WorldSocketState<S> {
@@ -184,14 +185,15 @@ impl WorldSocketState<ServerSentAuthChallenge> {
 
         Ok(WorldSocketState {
             state: ServerSentAuthResponse {
-                session: Arc::new(WorldSession {
+                session: Arc::new(Mutex::new(WorldSession {
                     socket: self.state.socket,
                     encryption,
                     db_pool_auth: self.state.db_pool_auth,
                     db_pool_char: self.state.db_pool_char,
                     account_id,
                     world: self.state.world,
-                }),
+                    player: Player::new(),
+                })),
             },
         })
     }
@@ -200,7 +202,8 @@ impl WorldSocketState<ServerSentAuthChallenge> {
 impl WorldSocketState<ServerSentAuthResponse> {
     async fn read_socket(&mut self) -> Result<ClientMessage, WorldSocketError> {
         let mut buf = [0_u8; 6];
-        let mut socket = self.state.session.socket.lock().await;
+        let session = self.state.session.lock().await;
+        let mut socket = session.socket.lock().await;
 
         match socket.read(&mut buf[..6]).await {
             Ok(0) => {
@@ -215,7 +218,7 @@ impl WorldSocketState<ServerSentAuthResponse> {
                 )));
             }
             Ok(_) => {
-                let mut encryption = self.state.session.encryption.lock().await;
+                let mut encryption = session.encryption.lock().await;
                 let client_header: ClientMessageHeader =
                     encryption.decrypt_client_header(buf).into();
 

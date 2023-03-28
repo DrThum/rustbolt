@@ -4,13 +4,12 @@ use futures::future::{BoxFuture, FutureExt};
 use lazy_static::lazy_static;
 use log::{error, trace};
 use std::{collections::HashMap, sync::Arc};
+use tokio::sync::Mutex;
 
-use crate::entities::update::UpdateDataBuilder;
-use crate::entities::update_fields::{ObjectFields, UnitFields};
 use crate::protocol::packets::*;
 use crate::protocol::server::ServerMessage;
 use crate::repositories::character::CharacterRepository;
-use crate::shared::constants::Gender;
+use crate::shared::constants::{CharacterClass, CharacterRace, Gender};
 use crate::shared::response_codes::ResponseCodes;
 use crate::world_session::WorldSession;
 
@@ -20,14 +19,14 @@ macro_rules! define_handler {
     ($opcode:expr, $handler:expr) => {
         (
             $opcode as u32,
-            Box::new(|data, session: Arc<WorldSession>| $handler(data, session).boxed())
+            Box::new(|data, session: Arc<Mutex<WorldSession>>| $handler(data, session).boxed())
                 as PacketHandler,
         )
     };
 }
 
 type PacketHandler =
-    Box<dyn Send + Sync + Fn(Vec<u8>, Arc<WorldSession>) -> BoxFuture<'static, ()>>;
+    Box<dyn Send + Sync + Fn(Vec<u8>, Arc<Mutex<WorldSession>>) -> BoxFuture<'static, ()>>;
 lazy_static! {
     static ref HANDLERS: HashMap<u32, PacketHandler> = HashMap::from([
         define_handler!(Opcode::MsgNullAction, unhandled),
@@ -51,8 +50,9 @@ pub fn get_handler(opcode: u32) -> &'static PacketHandler {
     })
 }
 
-async fn handle_cmsg_char_create(data: Vec<u8>, session: Arc<WorldSession>) {
+async fn handle_cmsg_char_create(data: Vec<u8>, session: Arc<Mutex<WorldSession>>) {
     trace!("Received CMSG_CHAR_CREATE");
+    let session = session.lock().await;
 
     let mut reader = Cursor::new(data);
     let cmsg_char_create: CmsgCharCreate = reader.read_le().unwrap();
@@ -78,8 +78,9 @@ async fn handle_cmsg_char_create(data: Vec<u8>, session: Arc<WorldSession>) {
     trace!("Sent SMSG_CHAR_CREATE");
 }
 
-async fn handle_cmsg_char_enum(_data: Vec<u8>, session: Arc<WorldSession>) {
+async fn handle_cmsg_char_enum(_data: Vec<u8>, session: Arc<Mutex<WorldSession>>) {
     trace!("Received CMSG_CHAR_ENUM");
+    let session = session.lock().await;
 
     let conn = session.db_pool_char.get().unwrap();
     let character_data = CharacterRepository::fetch_characters(conn, session.account_id);
@@ -96,8 +97,10 @@ async fn handle_cmsg_char_enum(_data: Vec<u8>, session: Arc<WorldSession>) {
     trace!("Sent SMSG_CHAR_ENUM");
 }
 
-async fn handle_cmsg_char_delete(data: Vec<u8>, session: Arc<WorldSession>) {
+async fn handle_cmsg_char_delete(data: Vec<u8>, session: Arc<Mutex<WorldSession>>) {
     trace!("Received CMSG_CHAR_DELETE");
+    let session = session.lock().await;
+
     let mut reader = Cursor::new(data);
     let cmsg_char_delete: CmsgCharDelete = reader.read_le().unwrap();
 
@@ -115,8 +118,10 @@ async fn handle_cmsg_char_delete(data: Vec<u8>, session: Arc<WorldSession>) {
     trace!("Sent SMSG_CHAR_DELETE");
 }
 
-async fn handle_cmsg_player_login(data: Vec<u8>, session: Arc<WorldSession>) {
+async fn handle_cmsg_player_login(data: Vec<u8>, session: Arc<Mutex<WorldSession>>) {
     trace!("Received CMSG_PLAYER_LOGIN");
+    let mut session = session.lock().await;
+
     let mut reader = Cursor::new(data);
     let cmsg_player_login: CmsgPlayerLogin = reader.read_le().unwrap();
 
@@ -247,28 +252,16 @@ async fn handle_cmsg_player_login(data: Vec<u8>, session: Arc<WorldSession>) {
         chr_races_record.female_display_id
     };
 
-    let mut update_data_builder = UpdateDataBuilder::new();
-    update_data_builder.add_u64(ObjectFields::ObjectFieldGuid.into(), cmsg_player_login.guid);
-    update_data_builder.add_u32(ObjectFields::ObjectFieldType.into(), 25);
-    update_data_builder.add_f32(ObjectFields::ObjectFieldScaleX.into(), 1.0);
-    update_data_builder.add_u32(UnitFields::UnitFieldHealth.into(), 100);
-    update_data_builder.add_u32(UnitFields::UnitFieldMaxhealth.into(), 100);
-    update_data_builder.add_u32(UnitFields::UnitFieldLevel.into(), 70);
-    update_data_builder.add_u32(UnitFields::UnitFieldFactiontemplate.into(), 469);
-    update_data_builder.add_u8(UnitFields::UnitFieldBytes0.into(), 0, character.0); // race
-    update_data_builder.add_u8(UnitFields::UnitFieldBytes0.into(), 1, character.1); // class
-    update_data_builder.add_u8(UnitFields::UnitFieldBytes0.into(), 2, character.2); // gender
-    update_data_builder.add_u8(UnitFields::UnitFieldBytes0.into(), 3, 0); // powertype, 0 = MANA
-    update_data_builder.add_u8(UnitFields::PlayerBytes.into(), 0, character.6);
-    update_data_builder.add_u8(UnitFields::PlayerBytes.into(), 1, character.5);
-    update_data_builder.add_u8(UnitFields::PlayerBytes.into(), 2, character.4);
-    update_data_builder.add_u8(UnitFields::PlayerBytes.into(), 3, character.3);
-    update_data_builder.add_u8(UnitFields::PlayerBytes2.into(), 0, character.7);
-    update_data_builder.add_u8(UnitFields::PlayerBytes2.into(), 3, 0x02); // Unk
-    update_data_builder.add_u8(UnitFields::PlayerBytes3.into(), 0, character.2);
-    update_data_builder.add_u32(UnitFields::UnitFieldDisplayid.into(), display_id);
-    update_data_builder.add_u32(UnitFields::UnitFieldNativedisplayid.into(), display_id);
-    let update_data = update_data_builder.build();
+    session.player.setup_entering_world(
+        cmsg_player_login.guid,
+        CharacterRace::n(character.0).expect("Invalid race id found in characters table"),
+        CharacterClass::n(character.1).expect("Invalid class id found in characters table"),
+        Gender::n(character.2).expect("Invalid gender found in characters table"),
+        character.3,
+        display_id,
+    );
+
+    let update_data = session.player.gen_update_data();
 
     let smsg_update_object = ServerMessage::new(SmsgUpdateObject {
         // Note: Mangos uses COMPRESSED if data.len() > 100
@@ -278,7 +271,7 @@ async fn handle_cmsg_player_login(data: Vec<u8>, session: Arc<WorldSession>) {
         packed_guid_mask: 1, // TODO: Properly implement packed guids
         packed_guid_guid: cmsg_player_login.guid as u8,
         object_type: 4,
-        flags: 0x71, // PDATEFLAG_HIGHGUID | UPDATEFLAG_LIVING |
+        flags: 0x71, // UPDATEFLAG_HIGHGUID | UPDATEFLAG_LIVING |
         // UPDATEFLAG_STATIONARY_POSITION = 0x10 | 0x20 | 0x40 = 0x70 |
         // UPDATEFLAG_SELF = 0x1 = 0x71
         movement_flags: 0,
@@ -331,10 +324,12 @@ async fn handle_cmsg_player_login(data: Vec<u8>, session: Arc<WorldSession>) {
     trace!("Sent SMSG_TIME_SYNC_REQ");
 }
 
-async fn unhandled(_data: Vec<u8>, _session: Arc<WorldSession>) {}
+async fn unhandled(_data: Vec<u8>, _session: Arc<Mutex<WorldSession>>) {}
 
-async fn handle_cmsg_realm_split(data: Vec<u8>, session: Arc<WorldSession>) {
+async fn handle_cmsg_realm_split(data: Vec<u8>, session: Arc<Mutex<WorldSession>>) {
     trace!("Received CMSG_REALM_SPLIT");
+    let session = session.lock().await;
+
     let mut reader = Cursor::new(data);
     let cmsg_realm_split: CmsgRealmSplit = reader.read_le().unwrap();
 
@@ -351,8 +346,10 @@ async fn handle_cmsg_realm_split(data: Vec<u8>, session: Arc<WorldSession>) {
     trace!("Sent SMSG_REALM_SPLIT");
 }
 
-async fn handle_cmsg_ping(data: Vec<u8>, session: Arc<WorldSession>) {
+async fn handle_cmsg_ping(data: Vec<u8>, session: Arc<Mutex<WorldSession>>) {
     trace!("Received CMSG_PING");
+    let session = session.lock().await;
+
     let mut reader = Cursor::new(data);
     let cmsg_ping: CmsgPing = reader.read_le().unwrap();
 
@@ -367,8 +364,10 @@ async fn handle_cmsg_ping(data: Vec<u8>, session: Arc<WorldSession>) {
     trace!("Sent SMSG_PONG");
 }
 
-async fn handle_cmsg_update_account_data(data: Vec<u8>, session: Arc<WorldSession>) {
+async fn handle_cmsg_update_account_data(data: Vec<u8>, session: Arc<Mutex<WorldSession>>) {
     trace!("Received CMSG_UPDATE_ACCOUNT_DATA");
+    let session = session.lock().await;
+
     let mut reader = Cursor::new(data);
     let cmsg_update_account_data: CmsgUpdateAccountData = reader.read_le().unwrap();
 

@@ -1,5 +1,3 @@
-use super::dbc::LocalizedString;
-
 #[derive(Debug)]
 pub struct ChrRacesRecord {
     // _flags: u32,

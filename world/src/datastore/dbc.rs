@@ -1,5 +1,4 @@
 use std::{
-    collections::HashMap,
     fs::File,
     io::{Read, Seek, SeekFrom},
     mem::size_of,
@@ -11,9 +10,9 @@ use super::{data_types::ChrRacesRecord, DbcStore};
 
 #[derive(Debug)]
 pub struct Dbc {
-    header: DbcHeader,
+    _header: DbcHeader,
     records: Vec<DbcRecord>,
-    strings: DbcStringBlock,
+    _strings: DbcStringBlock,
 }
 
 impl Dbc {
@@ -25,9 +24,9 @@ impl Dbc {
         let strings = DbcStringBlock::read(&mut file, &header)?;
 
         Ok(Dbc {
-            header,
+            _header: header,
             records,
-            strings,
+            _strings: strings,
         })
     }
 
@@ -54,7 +53,7 @@ impl Dbc {
 #[derive(Debug)]
 pub struct DbcHeader {
     record_count: u32,
-    field_count: u32, // Field count per record
+    _field_count: u32, // Field count per record
     record_size: u32,
     string_block_size: u32,
 }
@@ -71,7 +70,7 @@ impl DbcHeader {
             let buffer: Vec<u32> = cast_slice(&buffer).to_vec();
             Ok(DbcHeader {
                 record_count: buffer[1],
-                field_count: buffer[2],
+                _field_count: buffer[2],
                 record_size: buffer[3],
                 string_block_size: buffer[4],
             })
@@ -86,7 +85,7 @@ impl DbcHeader {
 
 #[derive(Debug)]
 pub struct DbcRecord {
-    fields: Vec<u32>,
+    fields: Vec<u32>, // TODO: Use a union to allow u32, f32, i32 and other fields
 }
 
 impl DbcRecord {
@@ -113,7 +112,7 @@ impl DbcRecord {
 
 #[derive(Debug)]
 pub struct DbcStringBlock {
-    strings: Vec<String>,
+    _strings: Vec<String>,
 }
 
 impl DbcStringBlock {
@@ -138,7 +137,7 @@ impl DbcStringBlock {
             .map(|bytes| std::str::from_utf8(&bytes).unwrap().to_owned())
             .collect();
 
-        Ok(DbcStringBlock { strings })
+        Ok(DbcStringBlock { _strings: strings })
     }
 }
 

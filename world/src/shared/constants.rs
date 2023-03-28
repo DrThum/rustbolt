@@ -1,4 +1,7 @@
+use enumn::N;
+
 #[allow(dead_code)]
+#[derive(Clone, Copy, N)]
 pub enum InventoryType {
     NonEquip = 0,
     Head = 1,
@@ -32,7 +35,45 @@ pub enum InventoryType {
 }
 
 #[allow(dead_code)]
+#[derive(Clone, Copy, N)]
 pub enum Gender {
     Male = 0,
     Female = 1,
+}
+
+#[allow(dead_code)]
+#[derive(Clone, Copy, N)]
+pub enum CharacterRace {
+    None = 0,
+    Human = 1,
+    Orc = 2,
+    Dwarf = 3,
+    NightElf = 4,
+    UndeadPlayer = 5,
+    Tauren = 6,
+    Gnome = 7,
+    Troll = 8,
+    //Goblin         = 9,
+    BloodElf = 10,
+    Draenei = 11,
+    //FelOrc        = 12,
+    //Naga           = 13,
+    //Broken         = 14,
+    //Skeleton       = 15,
+    //ForestTroll   = 18,
+}
+
+#[allow(dead_code)]
+#[derive(Clone, Copy, N)]
+pub enum CharacterClass {
+    None = 0,
+    Warrior = 1,
+    Paladin = 2,
+    Hunter = 3,
+    Rogue = 4,
+    Priest = 5,
+    Shaman = 7,
+    Mage = 8,
+    Warlock = 9,
+    Druid = 11,
 }

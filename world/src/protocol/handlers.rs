@@ -36,6 +36,7 @@ lazy_static! {
         define_handler!(Opcode::CmsgPlayerLogin, handle_cmsg_player_login),
         define_handler!(Opcode::CmsgPing, handle_cmsg_ping),
         define_handler!(Opcode::CmsgRealmSplit, handle_cmsg_realm_split),
+        define_handler!(Opcode::CmsgLogoutRequest, handle_cmsg_logout_request),
         define_handler!(
             Opcode::CmsgUpdateAccountData,
             handle_cmsg_update_account_data
@@ -382,4 +383,28 @@ async fn handle_cmsg_update_account_data(data: Vec<u8>, session: Arc<Mutex<World
         .await
         .unwrap();
     trace!("Sent SMSG_UPDATE_ACCOUNT_DATA_ID");
+}
+
+async fn handle_cmsg_logout_request(_data: Vec<u8>, session: Arc<Mutex<WorldSession>>) {
+    trace!("Received CMSG_LOGOUT_REQUEST");
+    let session = session.lock().await;
+
+    let packet = ServerMessage::new(SmsgLogoutResponse {
+        reason: 0,
+        is_instant_logout: 1,
+    });
+
+    packet
+        .send(&session.socket, &session.encryption)
+        .await
+        .unwrap();
+    trace!("Sent SMSG_LOGOUT_RESPONSE");
+
+    let packet = ServerMessage::new(SmsgLogoutComplete {});
+
+    packet
+        .send(&session.socket, &session.encryption)
+        .await
+        .unwrap();
+    trace!("Sent SMSG_LOGOUT_COMPLETE");
 }

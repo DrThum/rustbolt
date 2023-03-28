@@ -278,3 +278,17 @@ pub struct SmsgInitWorldStates {
     pub area_id: u32,
     pub block_count: u16, // 0 for now
 }
+
+#[binread]
+pub struct CmsgLogoutRequest {}
+
+#[binwrite]
+#[server_opcode]
+pub struct SmsgLogoutResponse {
+    pub reason: u32, // 0 for success, anything else will show "You can't logout right now"
+    pub is_instant_logout: u8, // Boolean
+}
+
+#[binwrite]
+#[server_opcode]
+pub struct SmsgLogoutComplete {}

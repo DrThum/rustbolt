@@ -117,6 +117,14 @@ impl Player {
         update_data_builder.add_f32(ObjectFields::ObjectFieldScaleX.into(), 1.0);
         update_data_builder.add_u32(UnitFields::UnitFieldHealth.into(), 100);
         update_data_builder.add_u32(UnitFields::UnitFieldMaxhealth.into(), 100);
+        update_data_builder.add_u32(
+            UnitFields::UnitFieldPower1 as usize + *self.power_type() as usize,
+            100,
+        );
+        update_data_builder.add_u32(
+            UnitFields::UnitFieldMaxpower1 as usize + *self.power_type() as usize,
+            100,
+        );
         update_data_builder.add_u32(UnitFields::UnitFieldLevel.into(), *self.level() as u32);
         update_data_builder.add_u32(UnitFields::UnitFieldFactiontemplate.into(), 469); // FIXME
         update_data_builder.add_u8(UnitFields::UnitFieldBytes0.into(), 0, *self.race() as u8);

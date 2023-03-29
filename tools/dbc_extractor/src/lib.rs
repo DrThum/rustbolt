@@ -17,7 +17,7 @@ pub mod utils;
 //      - WoW base folder
 //      - output directory
 // - Implement MPQ chaining (sort by priority and stop whenever a file is found)
-pub fn extract(mpq_path: &str, file_name: &str) -> Result<(), std::io::Error> {
+pub fn extract(mpq_path: &str, file_name: &str, output_dir: &str) -> Result<(), std::io::Error> {
     trace!("Preparing crypto table...");
     let mut crypt_table = [0_u32; 0x500];
     utils::crypto::prepare_crypt_table(&mut crypt_table);
@@ -33,7 +33,7 @@ pub fn extract(mpq_path: &str, file_name: &str) -> Result<(), std::io::Error> {
     let mut file = fs::OpenOptions::new()
         .create(true)
         .write(true)
-        .open("ChrRaces.dbc")
+        .open(format!("{}/ChrRaces.dbc", output_dir))
         .unwrap();
 
     file.write_all(&file_data).unwrap();
@@ -41,7 +41,8 @@ pub fn extract(mpq_path: &str, file_name: &str) -> Result<(), std::io::Error> {
 }
 
 fn open_archive(path: &str, crypt_table: &[u32; 0x500]) -> Result<MPQFile, std::io::Error> {
-    let mut file = File::open(path)?;
+    let mut file =
+        File::open(path).expect("Required MPQ archives not found. Check your WoW install.");
     let mpq_header = utils::mpq::get_header(&mut file)?;
 
     let mut buffer: Vec<u8> = Vec::new();

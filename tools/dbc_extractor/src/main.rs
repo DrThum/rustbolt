@@ -12,6 +12,7 @@ fn main() -> Result<(), std::io::Error> {
         vec![
             "DBFilesClient\\ChrRaces.dbc",
             "DBFilesClient\\ChrClasses.dbc",
+            "DBFilesClient\\CharStartOutfit.dbc",
         ],
         args.output_dir.to_str().unwrap(),
     )

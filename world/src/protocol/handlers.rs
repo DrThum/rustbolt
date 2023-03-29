@@ -9,7 +9,7 @@ use tokio::sync::Mutex;
 use crate::protocol::packets::*;
 use crate::protocol::server::ServerMessage;
 use crate::repositories::character::CharacterRepository;
-use crate::shared::constants::{CharacterClass, CharacterRace, Gender};
+use crate::shared::constants::{CharacterClass, CharacterRace, Gender, PowerType};
 use crate::shared::response_codes::ResponseCodes;
 use crate::world_session::WorldSession;
 
@@ -253,6 +253,14 @@ async fn handle_cmsg_player_login(data: Vec<u8>, session: Arc<Mutex<WorldSession
         chr_races_record.female_display_id
     };
 
+    let power_type = session
+        .world
+        .data_store
+        .chr_classes
+        .get(&(character.class as u32))
+        .map(|cl| PowerType::n(cl.power_type).unwrap())
+        .unwrap();
+
     session.player.setup_entering_world(
         cmsg_player_login.guid,
         CharacterRace::n(character.race).expect("Invalid race id found in characters table"),
@@ -261,6 +269,7 @@ async fn handle_cmsg_player_login(data: Vec<u8>, session: Arc<Mutex<WorldSession
         Gender::n(character.gender).expect("Invalid gender found in characters table"),
         character.visual_features,
         display_id,
+        power_type,
     );
 
     let update_data = session.player.gen_update_data();

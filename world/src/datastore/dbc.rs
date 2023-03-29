@@ -6,9 +6,8 @@ use std::{
 
 use bytemuck::cast_slice;
 
-use super::{data_types::ChrRacesRecord, DbcStore};
+use super::{data_types::DbcTypedRecord, DbcStore};
 
-#[derive(Debug)]
 pub struct Dbc {
     _header: DbcHeader,
     records: Vec<DbcRecord>,
@@ -30,27 +29,14 @@ impl Dbc {
         })
     }
 
-    pub fn as_store(&self) -> DbcStore<ChrRacesRecord /* T */> {
+    pub fn as_store<T: DbcTypedRecord>(&self) -> DbcStore<T> {
         self.records
             .iter()
-            .map(|dbc_record| {
-                let key = dbc_record.fields[0];
-
-                let record = ChrRacesRecord {
-                    _faction_id: dbc_record.fields[2],
-                    male_display_id: dbc_record.fields[4],
-                    female_display_id: dbc_record.fields[5],
-                    _res_sickness_spell_id: dbc_record.fields[9],
-                    _required_expansion: dbc_record.fields[19],
-                };
-
-                (key, record)
-            })
+            .map(|dbc_record| T::from_record(dbc_record))
             .collect()
     }
 }
 
-#[derive(Debug)]
 pub struct DbcHeader {
     record_count: u32,
     _field_count: u32, // Field count per record
@@ -83,9 +69,8 @@ impl DbcHeader {
     }
 }
 
-#[derive(Debug)]
 pub struct DbcRecord {
-    fields: Vec<u32>, // TODO: Use a union to allow u32, f32, i32 and other fields
+    pub fields: Vec<DbcValue>,
 }
 
 impl DbcRecord {
@@ -102,6 +87,8 @@ impl DbcRecord {
             file.read(&mut buffer)?;
 
             let fields: Vec<u32> = cast_slice(&buffer).to_vec();
+            let fields: Vec<DbcValue> =
+                fields.into_iter().map(|u| DbcValue { as_u32: u }).collect();
             let record = DbcRecord { fields };
             records.push(record);
         }
@@ -110,7 +97,12 @@ impl DbcRecord {
     }
 }
 
-#[derive(Debug)]
+pub union DbcValue {
+    pub as_u32: u32,
+    pub as_i32: i32,
+    pub as_f32: f32,
+}
+
 pub struct DbcStringBlock {
     _strings: Vec<String>,
 }

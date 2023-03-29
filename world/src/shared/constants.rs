@@ -77,3 +77,12 @@ pub enum CharacterClass {
     Warlock = 9,
     Druid = 11,
 }
+
+#[allow(dead_code)]
+#[derive(Clone, Copy, N)]
+pub enum PowerType {
+    Mana = 0,
+    Rage = 1,
+    Focus = 2,
+    Energy = 3,
+}

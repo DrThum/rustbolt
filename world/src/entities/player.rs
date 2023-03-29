@@ -1,4 +1,4 @@
-use crate::shared::constants::{CharacterClass, CharacterRace, Gender};
+use crate::shared::constants::{CharacterClass, CharacterRace, Gender, PowerType};
 
 use super::{
     update::{UpdateData, UpdateDataBuilder},
@@ -14,6 +14,7 @@ pub struct Player {
     visual_features: Option<PlayerVisualFeatures>,
     display_id: Option<u32>,
     native_display_id: Option<u32>,
+    power_type: Option<PowerType>,
 }
 
 impl Player {
@@ -27,6 +28,7 @@ impl Player {
             visual_features: None,
             display_id: None,
             native_display_id: None,
+            power_type: None,
         }
     }
 
@@ -39,6 +41,7 @@ impl Player {
         gender: Gender,
         visual_features: PlayerVisualFeatures,
         display_id: u32,
+        power_type: PowerType,
     ) {
         self.guid = Some(guid);
         self.race = Some(race);
@@ -48,6 +51,7 @@ impl Player {
         self.visual_features = Some(visual_features);
         self.display_id = Some(display_id);
         self.native_display_id = Some(display_id);
+        self.power_type = Some(power_type);
     }
 
     pub fn guid(&self) -> &u64 {
@@ -98,6 +102,12 @@ impl Player {
             .expect("Player native display id uninitialized. Is the player in world?")
     }
 
+    pub fn power_type(&self) -> &PowerType {
+        self.power_type
+            .as_ref()
+            .expect("Player power type uninitialized. Is the player in world?")
+    }
+
     pub fn gen_update_data(&self) -> UpdateData {
         let mut update_data_builder = UpdateDataBuilder::new();
         let visual_features = self.visual_features();
@@ -112,7 +122,11 @@ impl Player {
         update_data_builder.add_u8(UnitFields::UnitFieldBytes0.into(), 0, *self.race() as u8);
         update_data_builder.add_u8(UnitFields::UnitFieldBytes0.into(), 1, *self.class() as u8);
         update_data_builder.add_u8(UnitFields::UnitFieldBytes0.into(), 2, *self.gender() as u8);
-        update_data_builder.add_u8(UnitFields::UnitFieldBytes0.into(), 3, 0); // powertype, 0 = MANA // TODO: ChrClasses.dbc
+        update_data_builder.add_u8(
+            UnitFields::UnitFieldBytes0.into(),
+            3,
+            *self.power_type() as u8,
+        );
         update_data_builder.add_u8(UnitFields::PlayerBytes.into(), 0, visual_features.skin);
         update_data_builder.add_u8(UnitFields::PlayerBytes.into(), 1, visual_features.face);
         update_data_builder.add_u8(UnitFields::PlayerBytes.into(), 2, visual_features.hairstyle);

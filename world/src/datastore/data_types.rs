@@ -1,3 +1,5 @@
+use crate::shared::constants::InventoryType;
+
 use super::dbc::DbcRecord;
 
 pub trait DbcTypedRecord {
@@ -62,6 +64,57 @@ impl DbcTypedRecord for ChrClassesRecord {
 
             let record = ChrClassesRecord {
                 power_type: record.fields[2].as_u32,
+            };
+
+            (key, record)
+        }
+    }
+}
+
+pub const MAX_OUTFIT_ITEMS: usize = 12;
+#[derive(Clone, Copy)]
+pub struct CharStartItem {
+    pub id: u32,
+    pub display_id: u32,
+    pub inventory_type: InventoryType,
+}
+
+pub struct CharStartOutfitRecord {
+    pub race_class_gender: u32, // 0x00GGCCRR (G = gender, C = class, R = race)
+    pub items: Vec<CharStartItem>,
+}
+
+impl DbcTypedRecord for CharStartOutfitRecord {
+    fn from_record(record: &DbcRecord) -> (u32, Self) {
+        unsafe {
+            // (outfit_id << 24 | gender << 16 | class << 8 | race)
+            // where outfit_id is always 0
+            let key = record.fields[1].as_u32;
+
+            let mut items: Vec<CharStartItem> = Vec::new();
+            items.reserve(MAX_OUTFIT_ITEMS);
+            for index in 0..MAX_OUTFIT_ITEMS {
+                if record.fields[2 + index].as_i32 < 1 {
+                    // 0 and -1 represent empty slots
+                    continue;
+                }
+
+                let id = record.fields[2 + index].as_u32;
+                let display_id = record.fields[2 + MAX_OUTFIT_ITEMS + index].as_u32;
+                let inventory_type =
+                    InventoryType::n(record.fields[2 + (2 * MAX_OUTFIT_ITEMS) + index].as_u32)
+                        .expect("Invalid inventory type found in CharStartOutfit.dbc");
+
+                items.push(CharStartItem {
+                    id,
+                    display_id,
+                    inventory_type,
+                })
+            }
+
+            let record = CharStartOutfitRecord {
+                race_class_gender: key,
+                items,
             };
 
             (key, record)

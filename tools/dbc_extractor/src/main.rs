@@ -5,11 +5,14 @@ use dbc_extractor::extract;
 
 fn main() -> Result<(), std::io::Error> {
     let mut args = Cli::parse();
-    args.client_base_dir.push("Data/frFR/patch-frFR-2.MPQ");
+    args.client_base_dir.push("Data");
 
     extract(
         args.client_base_dir.to_str().unwrap(),
-        "DBFilesClient\\ChrRaces.dbc",
+        vec![
+            "DBFilesClient\\ChrRaces.dbc",
+            "DBFilesClient\\ChrClasses.dbc",
+        ],
         args.output_dir.to_str().unwrap(),
     )
 }

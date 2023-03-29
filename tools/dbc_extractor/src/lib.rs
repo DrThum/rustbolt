@@ -17,32 +17,76 @@ pub mod utils;
 //      - WoW base folder
 //      - output directory
 // - Implement MPQ chaining (sort by priority and stop whenever a file is found)
-pub fn extract(mpq_path: &str, file_name: &str, output_dir: &str) -> Result<(), std::io::Error> {
+pub fn extract(
+    client_data_dir: &str,
+    files_to_extract: Vec<&str>,
+    output_dir: &str,
+) -> Result<(), std::io::Error> {
+    let mpqs_by_priority: Vec<String> = vec![
+        "/frFR/patch-frFR-2.MPQ",
+        "/frFR/patch-frFR.MPQ",
+        "/frFR/base-frFR.MPQ",
+        "/frFR/speech-frFR.MPQ",
+        "/frFR/locale-frFR.MPQ",
+        "/patch-2.MPQ",
+        "/patch.MPQ",
+        "/common.MPQ",
+    ]
+    .into_iter()
+    .map(|suffix| {
+        let mut full_path = client_data_dir.to_owned();
+        full_path.push_str(suffix);
+        full_path
+    })
+    .collect();
+
     trace!("Preparing crypto table...");
     let mut crypt_table = [0_u32; 0x500];
     utils::crypto::prepare_crypt_table(&mut crypt_table);
 
-    let mut mpq: MPQFile = open_archive(mpq_path, &crypt_table)?;
+    let mut mpqs: Vec<MPQFile> = mpqs_by_priority
+        .into_iter()
+        .map(|mpq_path| {
+            open_archive(&mpq_path, &crypt_table)
+                .expect(&format!("{} not found, check your WoW install.", mpq_path))
+        })
+        .collect();
 
-    let hash_table_entry = mpq.find_hash_table_entry(file_name, &crypt_table);
+    for file_to_extract in files_to_extract {
+        for mpq in &mut mpqs {
+            let maybe_file_data = mpq
+                .find_hash_table_entry(file_to_extract, &crypt_table)
+                .map(|hash_table_entry| {
+                    let block_table_entry =
+                        mpq.get_block_table_entry_at(hash_table_entry.block_index);
+                    mpq.get_file_data(&block_table_entry).unwrap()
+                });
 
-    let block_table_entry = mpq.get_block_table_entry_at(hash_table_entry.unwrap().block_index);
+            if let Some(file_data) = maybe_file_data {
+                let mut file = fs::OpenOptions::new()
+                    .create(true)
+                    .write(true)
+                    .open(format!(
+                        "{}/{}",
+                        output_dir,
+                        file_to_extract.rsplit_once('\\').unwrap().1
+                    ))
+                    .unwrap();
 
-    let file_data = mpq.get_file_data(&block_table_entry)?;
+                file.write_all(&file_data).unwrap();
+                break;
+            }
+        }
+    }
 
-    let mut file = fs::OpenOptions::new()
-        .create(true)
-        .write(true)
-        .open(format!("{}/ChrRaces.dbc", output_dir))
-        .unwrap();
-
-    file.write_all(&file_data).unwrap();
     Ok(())
 }
 
 fn open_archive(path: &str, crypt_table: &[u32; 0x500]) -> Result<MPQFile, std::io::Error> {
-    let mut file =
-        File::open(path).expect("Required MPQ archives not found. Check your WoW install.");
+    let mut file = File::open(path).expect(&format!(
+        "Required MPQ archive {} not found. Check your WoW install.",
+        path
+    ));
     let mpq_header = utils::mpq::get_header(&mut file)?;
 
     let mut buffer: Vec<u8> = Vec::new();

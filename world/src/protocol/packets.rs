@@ -192,15 +192,12 @@ pub struct SmsgMotd {
 }
 
 #[binwrite]
-#[server_opcode]
-pub struct SmsgUpdateObject {
-    pub block_count: u32,
-    pub has_transport: u8,
-    pub update_type: u8, // CREATE_NEW_OBJECT2 = 3
+pub struct ObjectUpdate {
+    pub update_type: u8,
     pub packed_guid_mask: u8,
     pub packed_guid_guid: u8,
-    pub object_type: u8, // PLAYER = 4
-    pub flags: u8,       // 0x71 for now
+    pub object_type: u8,
+    pub flags: u8,
     pub movement_flags: u32,
     pub movement_flags2: u8, // Always 0 in 2.4.3
     pub timestamp: u32,
@@ -216,11 +213,19 @@ pub struct SmsgUpdateObject {
     pub speed_swim_backward: f32,
     pub speed_flight: f32,
     pub speed_flight_backward: f32,
-    pub speed_turn: f32, // PI (3.1415)
-    pub unk_highguid: u32,
+    pub speed_turn: f32,
+    pub unk_highguid: Option<u32>,
     pub num_mask_blocks: u8,
     pub mask_blocks: Vec<u32>,
     pub data: Vec<[u8; 4]>,
+}
+
+#[binwrite]
+#[server_opcode]
+pub struct SmsgUpdateObject {
+    pub updates_count: u32,
+    pub has_transport: u8,
+    pub updates: Vec<ObjectUpdate>,
 }
 
 #[binwrite]

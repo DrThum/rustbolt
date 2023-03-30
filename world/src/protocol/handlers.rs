@@ -8,6 +8,7 @@ use tokio::sync::Mutex;
 
 use crate::datastore::DataStore;
 use crate::entities::player::Player;
+use crate::entities::update::UpdatableEntity;
 use crate::protocol::packets::*;
 use crate::protocol::server::ServerMessage;
 use crate::repositories::character::CharacterRepository;
@@ -246,39 +247,46 @@ async fn handle_cmsg_player_login(data: Vec<u8>, session: Arc<Mutex<WorldSession
         .player
         .load(&conn, account_id, cmsg_player_login.guid, data_store);
 
-    let update_data = session.player.gen_update_data();
+    let object_updates: Vec<ObjectUpdate> = session
+        .player
+        .get_create_data()
+        .iter()
+        .map(|update_data| {
+            ObjectUpdate {
+                update_type: update_data.update_type as u8,
+                packed_guid_mask: update_data.packed_guid_mask, // TODO: Properly implement packed guids
+                packed_guid_guid: update_data.packed_guid_guid,
+                object_type: update_data.object_type as u8,
+                flags: update_data.flags,
+                movement_flags: update_data.movement_flags,
+                movement_flags2: 0, // Always 0 in TBC
+                timestamp: 0,
+                position_x: update_data.position.x,
+                position_y: update_data.position.y,
+                position_z: update_data.position.z,
+                orientation: update_data.position.o,
+                fall_time: update_data.fall_time,
+                speed_walk: update_data.speed_walk,
+                speed_run: update_data.speed_run,
+                speed_run_backward: update_data.speed_run_backward,
+                speed_swim: update_data.speed_swim,
+                speed_swim_backward: update_data.speed_swim_backward,
+                speed_flight: update_data.speed_flight,
+                speed_flight_backward: update_data.speed_flight_backward,
+                speed_turn: update_data.speed_turn,
+                unk_highguid: Some(0), // FIXME: Some if flags & UPDATEFLAG_HIGHGUID != 0
+                num_mask_blocks: update_data.blocks[0].num_masks,
+                mask_blocks: update_data.blocks[0].block_masks.clone(), // FIXME
+                data: update_data.blocks[0].data.clone(),               // FIXME
+            }
+        })
+        .collect();
 
     let smsg_update_object = ServerMessage::new(SmsgUpdateObject {
         // Note: Mangos uses COMPRESSED if data.len() > 100
-        block_count: 1,
+        updates_count: object_updates.len() as u32,
         has_transport: 0,
-        update_type: 3,
-        packed_guid_mask: 1, // TODO: Properly implement packed guids
-        packed_guid_guid: cmsg_player_login.guid as u8,
-        object_type: 4,
-        flags: 0x71, // UPDATEFLAG_HIGHGUID | UPDATEFLAG_LIVING |
-        // UPDATEFLAG_STATIONARY_POSITION = 0x10 | 0x20 | 0x40 = 0x70 |
-        // UPDATEFLAG_SELF = 0x1 = 0x71
-        movement_flags: 0,
-        movement_flags2: 0,
-        timestamp: 0,
-        position_x: -8953.95,
-        position_y: 521.019,
-        position_z: 96.5399,
-        orientation: 3.83972,
-        fall_time: 0,
-        speed_walk: 1.0,
-        speed_run: 70.0,
-        speed_run_backward: 4.5,
-        speed_swim: 0.0,
-        speed_swim_backward: 0.0,
-        speed_flight: 70.0,
-        speed_flight_backward: 4.5,
-        speed_turn: 3.1415,
-        unk_highguid: 0,
-        num_mask_blocks: update_data.num_masks,
-        mask_blocks: update_data.block_masks,
-        data: update_data.data,
+        updates: object_updates,
     });
 
     smsg_update_object

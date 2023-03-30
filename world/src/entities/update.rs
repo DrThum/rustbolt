@@ -1,22 +1,37 @@
 use fixedbitset::FixedBitSet;
 use log::error;
 
-// Represent a value to be updated on the client for an entity.
-//
-// index: check [update_fields] for possible values
-// value: all values are sent as 4 bytes, with padding if needed
-struct UpdateBlockValue {
-    pub index: usize,
-    pub value: [u8; 4],
+use super::{ObjectTypeId, Position};
+
+pub trait UpdatableEntity {
+    // FIXME:
+    //
+    // - Specify the target as it has an impact on the generated data (for example, a Player for
+    //   itself includes owned items)
+    // - Is this the right place to support out of range GUIDs?
+    fn get_create_data(&self) -> Vec<UpdateData>;
+    fn get_update_data(&self) -> Vec<UpdateData>;
 }
 
-impl UpdateBlockValue {
-    pub fn empty(index: usize) -> UpdateBlockValue {
-        UpdateBlockValue {
-            index,
-            value: [0_u8; 4],
-        }
-    }
+pub struct UpdateData {
+    pub has_transport: bool,
+    pub update_type: UpdateType,
+    pub packed_guid_mask: u8,
+    pub packed_guid_guid: u8, // TODO: Properly implement packed guids
+    pub object_type: ObjectTypeId,
+    pub flags: u8, // FIXME: use bitflags or enumflags2 crate and the UpdateFlag enum
+    pub movement_flags: u32, // FIXME: use bitflags or enumflags2 crate and enum MovementFlags from Mangos
+    pub position: Position,
+    pub fall_time: u32,
+    pub speed_walk: f32,
+    pub speed_run: f32,
+    pub speed_run_backward: f32,
+    pub speed_swim: f32,
+    pub speed_swim_backward: f32,
+    pub speed_flight: f32,
+    pub speed_flight_backward: f32,
+    pub speed_turn: f32,
+    pub blocks: Vec<UpdateBlock>,
 }
 
 pub struct UpdateBlockBuilder {
@@ -24,7 +39,7 @@ pub struct UpdateBlockBuilder {
     blocks: Vec<UpdateBlockValue>,
 }
 
-// Formatted update data for the client:
+// Formatted update block for the client:
 //
 // * num_masks represent the number of block_masks to expect
 // * block_masks contains bits whose index indicates which fields are being updated
@@ -160,4 +175,45 @@ impl UpdateBlockBuilder {
             data,
         }
     }
+}
+
+// Represent a value to be updated on the client for an entity.
+//
+// index: check [update_fields] for possible values
+// value: all values are sent as 4 bytes, with padding if needed
+struct UpdateBlockValue {
+    pub index: usize,
+    pub value: [u8; 4],
+}
+
+impl UpdateBlockValue {
+    pub fn empty(index: usize) -> UpdateBlockValue {
+        UpdateBlockValue {
+            index,
+            value: [0_u8; 4],
+        }
+    }
+}
+
+#[allow(dead_code)]
+#[derive(Clone, Copy)]
+pub enum UpdateType {
+    Values = 0,
+    Movement = 1,
+    CreateObject = 2,
+    CreateObject2 = 3,
+    OutOfRangeObjects = 4,
+    NearObjects = 5,
+}
+
+#[allow(dead_code)]
+pub enum UpdateFlag {
+    None = 0x0000,
+    SelfUpdate = 0x0001, // Self is a reserved keyword
+    Transport = 0x0002,
+    HasAttackingTarget = 0x0004,
+    LowGuid = 0x0008,
+    HighGuid = 0x0010,
+    Living = 0x0020,
+    HasPosition = 0x0040,
 }

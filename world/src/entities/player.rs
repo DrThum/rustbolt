@@ -12,8 +12,9 @@ use crate::{
 };
 
 use super::{
-    update::{UpdateBlock, UpdateBlockBuilder},
+    update::{UpdatableEntity, UpdateBlock, UpdateBlockBuilder, UpdateData, UpdateType},
     update_fields::*,
+    ObjectTypeId, Position,
 };
 
 pub struct Player {
@@ -263,4 +264,44 @@ pub struct PlayerVisualFeatures {
     pub face: u8,
     pub skin: u8,
     pub facialstyle: u8,
+}
+
+impl UpdatableEntity for Player {
+    fn get_create_data(&self) -> Vec<UpdateData> {
+        let position = Position {
+            x: -8953.95,
+            y: 521.019,
+            z: 96.5399,
+            o: 3.83972,
+        };
+
+        let player_update_data = UpdateData {
+            has_transport: false, // TODO: Implement transports
+            update_type: UpdateType::CreateObject2,
+            packed_guid_mask: 1,
+            packed_guid_guid: *self.guid() as u8, // TODO: Implement packed guids
+            object_type: ObjectTypeId::Player,
+            flags: 0x71, // FIXME: UPDATEFLAG_HIGHGUID | UPDATEFLAG_LIVING |
+            // UPDATEFLAG_STATIONARY_POSITION = 0x10 | 0x20 | 0x40 = 0x70 |
+            // UPDATEFLAG_SELF = 0x1 = 0x71
+            movement_flags: 0,
+            position, // self.position
+            fall_time: 0,
+            speed_walk: 1.0,
+            speed_run: 70.0,
+            speed_run_backward: 4.5,
+            speed_swim: 0.0,
+            speed_swim_backward: 0.0,
+            speed_flight: 70.0,
+            speed_flight_backward: 4.5,
+            speed_turn: 3.1415,
+            blocks: vec![self.gen_update_data()],
+        };
+
+        vec![player_update_data]
+    }
+
+    fn get_update_data(&self) -> Vec<UpdateData> {
+        todo!();
+    }
 }

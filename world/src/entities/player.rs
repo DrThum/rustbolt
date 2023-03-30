@@ -70,7 +70,10 @@ impl Player {
             // Note: this won't work for multiple rings or trinkets but it shouldn't happen with
             // starting gear
             let slot = match start_item.inventory_type {
-                InventoryType::NonEquip | InventoryType::Ammo | InventoryType::Thrown => {
+                InventoryType::NonEquip
+                | InventoryType::Ammo
+                | InventoryType::Thrown
+                | InventoryType::Bag => {
                     let res = current_bag_slot;
                     current_bag_slot += 1;
                     res
@@ -98,7 +101,7 @@ impl Player {
                     InventorySlot::EquipmentRanged as u32
                 }
                 InventoryType::Cloak => InventorySlot::EquipmentBack as u32,
-                InventoryType::Bag => InventorySlot::BAG_START,
+
                 InventoryType::Tabard => InventorySlot::EquipmentTabard as u32,
             };
 

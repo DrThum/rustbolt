@@ -54,7 +54,7 @@ pub enum PowerType {
 }
 
 #[allow(dead_code)]
-#[derive(Clone, Copy, N)]
+#[derive(Clone, Copy, N, Hash, Eq, PartialEq)]
 pub enum InventoryType {
     NonEquip = 0,
     Head = 1,

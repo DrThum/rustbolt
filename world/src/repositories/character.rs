@@ -1,11 +1,14 @@
+use std::collections::HashMap;
+
 use r2d2::PooledConnection;
 use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::{named_params, Transaction};
 
 use crate::{
+    datastore::{data_types::ItemRecord, DataStore},
     entities::player::PlayerVisualFeatures,
     protocol::packets::{CharEnumData, CharEnumEquip, CmsgCharCreate, CmsgCharDelete},
-    shared::constants::InventoryType,
+    shared::constants::{InventorySlot, InventoryType},
 };
 
 pub struct CharacterRepository;
@@ -51,13 +54,62 @@ impl CharacterRepository {
         transaction.last_insert_rowid() as u64
     }
 
+    // Note: don't use it for anything else than char enum, it's incomplete
+    fn to_inventory_type_for_enum(inv_slot: &InventorySlot) -> InventoryType {
+        match inv_slot {
+            InventorySlot::EquipmentHead => InventoryType::Head,
+            InventorySlot::EquipmentNeck => InventoryType::Neck,
+            InventorySlot::EquipmentShoulders => InventoryType::Shoulders,
+            InventorySlot::EquipmentBody => InventoryType::Body,
+            InventorySlot::EquipmentChest => InventoryType::Chest,
+            InventorySlot::EquipmentWaist => InventoryType::Waist,
+            InventorySlot::EquipmentLegs => InventoryType::Legs,
+            InventorySlot::EquipmentFeet => InventoryType::Feet,
+            InventorySlot::EquipmentWrists => InventoryType::Wrists,
+            InventorySlot::EquipmentHands => InventoryType::Hands,
+            InventorySlot::EquipmentFinger1 | InventorySlot::EquipmentFinger2 => {
+                InventoryType::Finger
+            }
+            InventorySlot::EquipmentTrinket1 | InventorySlot::EquipmentTrinket2 => {
+                InventoryType::Trinket
+            }
+            InventorySlot::EquipmentBack => InventoryType::Cloak,
+            InventorySlot::EquipmentMainhand => InventoryType::WeaponMainHand,
+            InventorySlot::EquipmentOffhand => InventoryType::WeaponOffHand,
+            InventorySlot::EquipmentRanged => InventoryType::Ranged,
+            InventorySlot::EquipmentTabard => InventoryType::Tabard,
+        }
+    }
+
     pub fn fetch_characters(
-        conn: PooledConnection<SqliteConnectionManager>,
+        conn: &PooledConnection<SqliteConnectionManager>,
         account_id: u32,
+        data_store: &DataStore,
     ) -> Vec<CharEnumData> {
         let mut stmt = conn.prepare_cached("SELECT guid, name, race, class, level, gender, skin, face, hairstyle, haircolor, facialstyle FROM characters WHERE account_id = :account_id").unwrap();
         let chars = stmt
             .query_map(named_params! { ":account_id": account_id }, |row| {
+                let char_guid: u64 = row.get("guid").unwrap();
+
+                let mut stmt_gear = conn.prepare_cached("SELECT items.entry, character_inventory.slot \
+                                                        FROM characters \
+                                                        JOIN character_inventory ON character_inventory.character_guid = characters.guid \
+                                                        JOIN items ON items.guid = character_inventory.item_guid \
+                                                        WHERE characters.guid = :guid AND character_inventory.slot BETWEEN :start AND :end").unwrap();
+
+                let equipment: HashMap<InventoryType, &ItemRecord> = stmt_gear.query_map(named_params! {
+                    ":guid": char_guid,
+                    ":start": InventorySlot::EquipmentHead as u32,
+                    ":end": InventorySlot::EquipmentTabard as u32,
+                }, |item_row| {
+                    let item_entry: u32 = item_row.get(0).unwrap();
+                    let inv_slot: InventorySlot = InventorySlot::n(item_row.get::<usize, u32>(1).unwrap()).unwrap();
+                    let inv_type = Self::to_inventory_type_for_enum(&inv_slot);
+                    let item_dbc = data_store.get_item(item_entry).expect("Unknown item found in CharacterRepository::fetch_characters");
+
+                    Ok((inv_type, item_dbc))
+                }).unwrap().into_iter().map(|res| res.unwrap()).collect();
+
                 let equipment = vec![
                     InventoryType::Head,
                     InventoryType::Neck,
@@ -81,7 +133,13 @@ impl CharacterRepository {
                     InventoryType::NonEquip,
                 ]
                 .into_iter()
-                .map(|inv_type| CharEnumEquip::none(inv_type))
+                .map(|inv_type| equipment.get(&inv_type).map(|&item_record| {
+                    CharEnumEquip {
+                        display_id: item_record.display_id,
+                        slot: item_record.inventory_type as u8,
+                        enchant_id: 0, // Enchants not implemented yet
+                    }
+                }).unwrap_or(CharEnumEquip::none(inv_type)))
                 .collect();
 
                 Ok(CharEnumData {
@@ -120,7 +178,7 @@ impl CharacterRepository {
     }
 
     pub fn delete_character(
-        conn: PooledConnection<SqliteConnectionManager>,
+        conn: &PooledConnection<SqliteConnectionManager>,
         source: CmsgCharDelete,
         account_id: u32,
     ) {

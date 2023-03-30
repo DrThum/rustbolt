@@ -86,9 +86,11 @@ async fn handle_cmsg_char_create(data: Vec<u8>, session: Arc<Mutex<WorldSession>
 async fn handle_cmsg_char_enum(_data: Vec<u8>, session: Arc<Mutex<WorldSession>>) {
     trace!("Received CMSG_CHAR_ENUM");
     let session = session.lock().await;
+    let data_store: &DataStore = &session.world.data_store;
 
     let conn = session.db_pool_char.get().unwrap();
-    let character_data = CharacterRepository::fetch_characters(conn, session.account_id);
+    let character_data =
+        CharacterRepository::fetch_characters(&conn, session.account_id, data_store);
 
     let packet = ServerMessage::new(SmsgCharEnum {
         number_of_characters: character_data.len() as u8,
@@ -110,7 +112,7 @@ async fn handle_cmsg_char_delete(data: Vec<u8>, session: Arc<Mutex<WorldSession>
     let cmsg_char_delete: CmsgCharDelete = reader.read_le().unwrap();
 
     let conn = session.db_pool_char.get().unwrap();
-    CharacterRepository::delete_character(conn, cmsg_char_delete, session.account_id);
+    CharacterRepository::delete_character(&conn, cmsg_char_delete, session.account_id);
 
     let packet = ServerMessage::new(SmsgCharDelete {
         result: ResponseCodes::CharDeleteSuccess as u8,

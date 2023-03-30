@@ -28,9 +28,11 @@ pub struct CmsgAuthSession {
 #[server_opcode]
 pub struct SmsgAuthResponse {
     pub result: u8,
-    pub _billing_time: u32,
-    pub _billing_flags: u8,
-    pub _billing_rested: u32,
+    pub billing_time: u32,
+    pub billing_flags: u8,
+    pub billing_rested: u32,
+    pub expansion: u8, // 0 = Vanilla, 1 = TBC
+    pub position_in_queue: u32,
 }
 
 #[binwrite]

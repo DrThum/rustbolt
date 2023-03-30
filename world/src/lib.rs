@@ -175,9 +175,11 @@ impl WorldSocketState<ServerSentAuthChallenge> {
 
         let packet = ServerMessage::new(SmsgAuthResponse {
             result: ResponseCodes::AuthOk as u8,
-            _billing_time: 0,
-            _billing_flags: 0,
-            _billing_rested: 0,
+            billing_time: 0,
+            billing_flags: 0,
+            billing_rested: 0,
+            expansion: 1,
+            position_in_queue: 0,
         });
 
         packet.send(&self.state.socket, &encryption).await?;

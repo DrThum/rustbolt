@@ -15,13 +15,17 @@ pub struct DataStore {
     pub char_start_outfit: DbcStore<CharStartOutfitRecord>,
 }
 
+macro_rules! parse_dbc {
+    ($config_dir:expr, $dbc_name:expr) => {
+        Dbc::parse(format!("{}/dbcs/{}.dbc", $config_dir, $dbc_name))?.as_store()
+    };
+}
+
 impl DataStore {
     pub fn load_dbcs(config: &DataSection) -> Result<DataStore, std::io::Error> {
-        let chr_races = Dbc::parse(format!("{}/dbcs/ChrRaces.dbc", config.directory))?.as_store();
-        let chr_classes =
-            Dbc::parse(format!("{}/dbcs/ChrClasses.dbc", config.directory))?.as_store();
-        let char_start_outfit =
-            Dbc::parse(format!("{}/dbcs/CharStartOutfit.dbc", config.directory))?.as_store();
+        let chr_races = parse_dbc!(config.directory, "ChrRaces");
+        let chr_classes = parse_dbc!(config.directory, "ChrClasses");
+        let char_start_outfit = parse_dbc!(config.directory, "CharStartOutfit");
 
         Ok(DataStore {
             chr_races,

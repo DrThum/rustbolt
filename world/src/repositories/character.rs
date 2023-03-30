@@ -1,6 +1,6 @@
 use r2d2::PooledConnection;
 use r2d2_sqlite::SqliteConnectionManager;
-use rusqlite::named_params;
+use rusqlite::{named_params, Transaction};
 
 use crate::{
     entities::player::PlayerVisualFeatures,
@@ -28,11 +28,11 @@ impl CharacterRepository {
     }
 
     pub fn create_character(
-        conn: &PooledConnection<SqliteConnectionManager>,
-        source: CmsgCharCreate,
+        transaction: &Transaction,
+        source: &CmsgCharCreate,
         account_id: u32,
-    ) {
-        let mut stmt_create = conn.prepare_cached("INSERT INTO characters (guid, account_id, name, race, class, gender, skin, face, hairstyle, haircolor, facialstyle) VALUES (NULL, :account_id, :name, :race, :class, :gender, :skin, :face, :hairstyle, :haircolor, :facialstyle)").unwrap();
+    ) -> u64 {
+        let mut stmt_create = transaction.prepare_cached("INSERT INTO characters (guid, account_id, name, race, class, gender, skin, face, hairstyle, haircolor, facialstyle) VALUES (NULL, :account_id, :name, :race, :class, :gender, :skin, :face, :hairstyle, :haircolor, :facialstyle)").unwrap();
         stmt_create
             .execute(named_params! {
                 ":account_id": account_id,
@@ -47,6 +47,8 @@ impl CharacterRepository {
                 ":facialstyle": source.facialstyle,
             })
             .unwrap();
+
+        transaction.last_insert_rowid() as u64
     }
 
     pub fn fetch_characters(
@@ -136,12 +138,12 @@ impl CharacterRepository {
     }
 
     pub fn fetch_basic_character_data(
-        conn: &mut PooledConnection<SqliteConnectionManager>,
+        conn: &PooledConnection<SqliteConnectionManager>,
         guid: u64,
         account_id: u32,
     ) -> Option<CharacterRecord> {
         let mut stmt = conn
-            .prepare("SELECT race, class, level, gender, haircolor, hairstyle, face, skin, facialstyle FROM characters WHERE guid = :guid AND account_id = :account_id")
+            .prepare_cached("SELECT race, class, level, gender, haircolor, hairstyle, face, skin, facialstyle FROM characters WHERE guid = :guid AND account_id = :account_id")
             .unwrap();
         let mut rows = stmt
             .query(named_params! {
@@ -167,6 +169,21 @@ impl CharacterRepository {
         } else {
             None
         }
+    }
+
+    pub fn add_item_to_inventory(
+        transaction: &Transaction,
+        character_guid: u64,
+        item_guid: u64,
+        slot: u32,
+    ) {
+        let mut stmt = transaction.prepare_cached("INSERT INTO character_inventory(character_guid, item_guid, slot) VALUES (:character_guid, :item_guid, :slot)").unwrap();
+        stmt.execute(named_params! {
+            ":character_guid": character_guid,
+            ":item_guid": item_guid,
+            ":slot": slot,
+        })
+        .unwrap();
     }
 }
 

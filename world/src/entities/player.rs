@@ -1,10 +1,14 @@
 use r2d2::PooledConnection;
 use r2d2_sqlite::SqliteConnectionManager;
+use rusqlite::Error;
 
 use crate::{
     datastore::DataStore,
-    repositories::character::CharacterRepository,
-    shared::constants::{CharacterClass, CharacterRace, Gender, PowerType},
+    protocol::packets::CmsgCharCreate,
+    repositories::{character::CharacterRepository, item::ItemRepository},
+    shared::constants::{
+        CharacterClass, CharacterRace, Gender, InventorySlot, InventoryType, PowerType,
+    },
 };
 
 use super::{
@@ -39,9 +43,79 @@ impl Player {
         }
     }
 
+    pub fn create(
+        conn: &mut PooledConnection<SqliteConnectionManager>,
+        creation_payload: &CmsgCharCreate,
+        account_id: u32,
+        data_store: &DataStore,
+    ) -> Result<(), Error> {
+        let transaction = conn.transaction()?;
+
+        let character_guid =
+            CharacterRepository::create_character(&transaction, creation_payload, account_id);
+
+        let start_items = data_store
+            .get_char_start_outfit(
+                creation_payload.race,
+                creation_payload.class,
+                creation_payload.gender,
+            )
+            .map(|outfit| &outfit.items)
+            .expect("Attempt to create a character with no corresponding CharStartOutfit");
+
+        let mut current_bag_slot: u32 = InventorySlot::BACKPACK_START;
+        for start_item in start_items {
+            let item_guid = ItemRepository::create(&transaction, start_item.id);
+
+            // Note: this won't work for multiple rings or trinkets but it shouldn't happen with
+            // starting gear
+            let slot = match start_item.inventory_type {
+                InventoryType::NonEquip | InventoryType::Ammo | InventoryType::Thrown => {
+                    let res = current_bag_slot;
+                    current_bag_slot += 1;
+                    res
+                }
+                InventoryType::Head => InventorySlot::EquipmentHead as u32,
+                InventoryType::Neck => InventorySlot::EquipmentNeck as u32,
+                InventoryType::Shoulders => InventorySlot::EquipmentShoulders as u32,
+                InventoryType::Body => InventorySlot::EquipmentBody as u32,
+                InventoryType::Chest | InventoryType::Robe => InventorySlot::EquipmentChest as u32,
+                InventoryType::Waist => InventorySlot::EquipmentWaist as u32,
+                InventoryType::Legs => InventorySlot::EquipmentLegs as u32,
+                InventoryType::Feet => InventorySlot::EquipmentFeet as u32,
+                InventoryType::Wrists => InventorySlot::EquipmentWrists as u32,
+                InventoryType::Hands => InventorySlot::EquipmentHands as u32,
+                InventoryType::Finger => InventorySlot::EquipmentFinger1 as u32,
+                InventoryType::Trinket => InventorySlot::EquipmentTrinket1 as u32,
+                InventoryType::Weapon
+                | InventoryType::Holdable
+                | InventoryType::TwoHandWeapon
+                | InventoryType::WeaponMainHand => InventorySlot::EquipmentMainhand as u32,
+                InventoryType::Shield | InventoryType::WeaponOffHand | InventoryType::Quiver => {
+                    InventorySlot::EquipmentOffhand as u32
+                }
+                InventoryType::Ranged | InventoryType::RangedRight | InventoryType::Relic => {
+                    InventorySlot::EquipmentRanged as u32
+                }
+                InventoryType::Cloak => InventorySlot::EquipmentBack as u32,
+                InventoryType::Bag => InventorySlot::BAG_START,
+                InventoryType::Tabard => InventorySlot::EquipmentTabard as u32,
+            };
+
+            CharacterRepository::add_item_to_inventory(
+                &transaction,
+                character_guid,
+                item_guid,
+                slot,
+            );
+        }
+
+        transaction.commit()
+    }
+
     pub fn load(
         &mut self,
-        conn: &mut PooledConnection<SqliteConnectionManager>,
+        conn: &PooledConnection<SqliteConnectionManager>,
         account_id: u32,
         guid: u64,
         data_store: &DataStore,

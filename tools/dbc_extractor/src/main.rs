@@ -13,6 +13,7 @@ fn main() -> Result<(), std::io::Error> {
             "DBFilesClient\\ChrRaces.dbc",
             "DBFilesClient\\ChrClasses.dbc",
             "DBFilesClient\\CharStartOutfit.dbc",
+            "DBFilesClient\\Item.dbc",
         ],
         args.output_dir.to_str().unwrap(),
     )

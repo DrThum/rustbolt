@@ -121,3 +121,28 @@ impl DbcTypedRecord for CharStartOutfitRecord {
         }
     }
 }
+
+#[derive(Clone, Copy)]
+pub struct ItemRecord {
+    pub id: u32,
+    pub display_id: u32,
+    pub inventory_type: InventoryType,
+    // _sheathe_type: u32,
+}
+
+impl DbcTypedRecord for ItemRecord {
+    fn from_record(record: &DbcRecord) -> (u32, Self) {
+        unsafe {
+            let key = record.fields[0].as_u32;
+
+            let record = ItemRecord {
+                id: record.fields[0].as_u32,
+                display_id: record.fields[1].as_u32,
+                inventory_type: InventoryType::n(record.fields[2].as_u32)
+                    .expect("Invalid InventoryType found in Item.dbc"),
+            };
+
+            (key, record)
+        }
+    }
+}

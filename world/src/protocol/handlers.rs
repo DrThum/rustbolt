@@ -7,10 +7,10 @@ use std::{collections::HashMap, sync::Arc};
 use tokio::sync::Mutex;
 
 use crate::datastore::DataStore;
+use crate::entities::player::Player;
 use crate::protocol::packets::*;
 use crate::protocol::server::ServerMessage;
 use crate::repositories::character::CharacterRepository;
-use crate::shared::constants::{CharacterClass, CharacterRace, Gender, PowerType};
 use crate::shared::response_codes::ResponseCodes;
 use crate::world_session::WorldSession;
 
@@ -58,13 +58,16 @@ async fn handle_cmsg_char_create(data: Vec<u8>, session: Arc<Mutex<WorldSession>
 
     let mut reader = Cursor::new(data);
     let cmsg_char_create: CmsgCharCreate = reader.read_le().unwrap();
-    let conn = session.db_pool_char.get().unwrap();
+    let mut conn = session.db_pool_char.get().unwrap();
 
     let name_available =
         CharacterRepository::is_name_available(&conn, cmsg_char_create.name.to_string());
+    let data_store = &session.world.data_store;
     let result = if name_available {
-        CharacterRepository::create_character(&conn, cmsg_char_create, session.account_id);
-        ResponseCodes::CharCreateSuccess
+        match Player::create(&mut conn, &cmsg_char_create, session.account_id, data_store) {
+            Ok(_) => ResponseCodes::CharCreateSuccess,
+            Err(_) => ResponseCodes::CharCreateFailed,
+        }
     } else {
         ResponseCodes::CharCreateNameInUse
     };
@@ -235,11 +238,11 @@ async fn handle_cmsg_player_login(data: Vec<u8>, session: Arc<Mutex<WorldSession
 
     let account_id = session.account_id;
     let data_store: &DataStore = &session.world.data_store;
-    let mut conn = session.db_pool_char.get().unwrap();
+    let conn = session.db_pool_char.get().unwrap();
 
     session
         .player
-        .load(&mut conn, account_id, cmsg_player_login.guid, data_store);
+        .load(&conn, account_id, cmsg_player_login.guid, data_store);
 
     let update_data = session.player.gen_update_data();
 

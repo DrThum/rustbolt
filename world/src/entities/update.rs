@@ -5,23 +5,23 @@ use log::error;
 //
 // index: check [update_fields] for possible values
 // value: all values are sent as 4 bytes, with padding if needed
-struct UpdateBlock {
+struct UpdateBlockValue {
     pub index: usize,
     pub value: [u8; 4],
 }
 
-impl UpdateBlock {
-    pub fn empty(index: usize) -> UpdateBlock {
-        UpdateBlock {
+impl UpdateBlockValue {
+    pub fn empty(index: usize) -> UpdateBlockValue {
+        UpdateBlockValue {
             index,
             value: [0_u8; 4],
         }
     }
 }
 
-pub struct UpdateDataBuilder {
+pub struct UpdateBlockBuilder {
     block_masks: Vec<FixedBitSet>,
-    blocks: Vec<UpdateBlock>,
+    blocks: Vec<UpdateBlockValue>,
 }
 
 // Formatted update data for the client:
@@ -29,15 +29,15 @@ pub struct UpdateDataBuilder {
 // * num_masks represent the number of block_masks to expect
 // * block_masks contains bits whose index indicates which fields are being updated
 // * data contains the data, one value for each bit set to 1 in the masks, in the same order
-pub struct UpdateData {
+pub struct UpdateBlock {
     pub num_masks: u8,
     pub block_masks: Vec<u32>,
     pub data: Vec<[u8; 4]>,
 }
 
-impl UpdateDataBuilder {
-    pub fn new() -> UpdateDataBuilder {
-        UpdateDataBuilder {
+impl UpdateBlockBuilder {
+    pub fn new() -> UpdateBlockBuilder {
+        UpdateBlockBuilder {
             block_masks: vec![],
             blocks: vec![],
         }
@@ -47,8 +47,8 @@ impl UpdateDataBuilder {
         // Set the bit in the mask even if it's already set for this offset, and add this u8 to the
         // correct offset to the existing value with & (or 0 if it's not defined yet)
         if offset < 4 {
-            let default_ub = UpdateBlock::empty(index);
-            let update_block: &UpdateBlock = self
+            let default_ub = UpdateBlockValue::empty(index);
+            let update_block: &UpdateBlockValue = self
                 .blocks
                 .iter()
                 .find(|ub| ub.index == index)
@@ -79,8 +79,8 @@ impl UpdateDataBuilder {
         // Set the bit in the mask even if it's already set for this offset, and add this u8 to the
         // correct offset to the existing value with & (or 0 if it's not defined yet)
         if offset < 2 {
-            let default_ub = UpdateBlock::empty(index);
-            let update_block: &UpdateBlock = self
+            let default_ub = UpdateBlockValue::empty(index);
+            let update_block: &UpdateBlockValue = self
                 .blocks
                 .iter()
                 .find(|ub| ub.index == index)
@@ -121,7 +121,7 @@ impl UpdateDataBuilder {
             self.blocks.retain(|ub| ub.index != index);
         }
 
-        self.blocks.push(UpdateBlock {
+        self.blocks.push(UpdateBlockValue {
             index,
             value: value.to_le_bytes(),
         });
@@ -144,7 +144,7 @@ impl UpdateDataBuilder {
         self.add_u32(index, as_u32);
     }
 
-    pub fn build(mut self) -> UpdateData {
+    pub fn build(mut self) -> UpdateBlock {
         let block_masks: Vec<u32> = self
             .block_masks
             .iter()
@@ -154,7 +154,7 @@ impl UpdateDataBuilder {
         self.blocks.sort_by_key(|b| b.index);
         let data: Vec<[u8; 4]> = self.blocks.into_iter().map(|b| b.value).collect();
 
-        UpdateData {
+        UpdateBlock {
             num_masks: self.block_masks.len() as u8,
             block_masks,
             data,

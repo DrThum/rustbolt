@@ -12,7 +12,7 @@ use crate::{
 };
 
 use super::{
-    update::{UpdateData, UpdateDataBuilder},
+    update::{UpdateBlock, UpdateBlockBuilder},
     update_fields::*,
 };
 
@@ -209,8 +209,8 @@ impl Player {
             .expect("Player power type uninitialized. Is the player in world?")
     }
 
-    pub fn gen_update_data(&self) -> UpdateData {
-        let mut update_data_builder = UpdateDataBuilder::new();
+    pub fn gen_update_data(&self) -> UpdateBlock {
+        let mut update_data_builder = UpdateBlockBuilder::new();
         let visual_features = self.visual_features();
 
         update_data_builder.add_u64(ObjectFields::ObjectFieldGuid.into(), *self.guid());

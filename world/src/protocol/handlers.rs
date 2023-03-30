@@ -6,6 +6,7 @@ use log::{error, trace};
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::Mutex;
 
+use crate::datastore::DataStore;
 use crate::protocol::packets::*;
 use crate::protocol::server::ServerMessage;
 use crate::repositories::character::CharacterRepository;
@@ -232,43 +233,13 @@ async fn handle_cmsg_player_login(data: Vec<u8>, session: Arc<Mutex<WorldSession
         .unwrap();
     trace!("Sent SMSG_LOGIN_SETTIMESPEED");
 
+    let account_id = session.account_id;
+    let data_store: &DataStore = &session.world.data_store;
     let mut conn = session.db_pool_char.get().unwrap();
-    let character = CharacterRepository::fetch_basic_character_data(
-        &mut conn,
-        cmsg_player_login.guid,
-        session.account_id,
-    )
-    .unwrap();
 
-    let chr_races_record = session
-        .world
-        .data_store
-        .get_race_record(character.race as u32)
-        .expect("Cannot load character because it has an invalid race id in DB");
-
-    let display_id = if character.gender == Gender::Male as u8 {
-        chr_races_record.male_display_id
-    } else {
-        chr_races_record.female_display_id
-    };
-
-    let power_type = session
-        .world
-        .data_store
-        .get_class_record(character.class as u32)
-        .map(|cl| PowerType::n(cl.power_type).unwrap())
-        .expect("Cannot load character because it has an invalid class id in DB");
-
-    session.player.setup_entering_world(
-        cmsg_player_login.guid,
-        CharacterRace::n(character.race).expect("Invalid race id found in characters table"),
-        CharacterClass::n(character.class).expect("Invalid class id found in characters table"),
-        character.level,
-        Gender::n(character.gender).expect("Invalid gender found in characters table"),
-        character.visual_features,
-        display_id,
-        power_type,
-    );
+    session
+        .player
+        .load(&mut conn, account_id, cmsg_player_login.guid, data_store);
 
     let update_data = session.player.gen_update_data();
 

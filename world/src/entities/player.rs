@@ -1,4 +1,11 @@
-use crate::shared::constants::{CharacterClass, CharacterRace, Gender, PowerType};
+use r2d2::PooledConnection;
+use r2d2_sqlite::SqliteConnectionManager;
+
+use crate::{
+    datastore::DataStore,
+    repositories::character::CharacterRepository,
+    shared::constants::{CharacterClass, CharacterRace, Gender, PowerType},
+};
 
 use super::{
     update::{UpdateData, UpdateDataBuilder},
@@ -32,23 +39,40 @@ impl Player {
         }
     }
 
-    pub fn setup_entering_world(
+    pub fn load(
         &mut self,
+        conn: &mut PooledConnection<SqliteConnectionManager>,
+        account_id: u32,
         guid: u64,
-        race: CharacterRace,
-        class: CharacterClass,
-        level: u8,
-        gender: Gender,
-        visual_features: PlayerVisualFeatures,
-        display_id: u32,
-        power_type: PowerType,
+        data_store: &DataStore,
     ) {
+        let character = CharacterRepository::fetch_basic_character_data(conn, guid, account_id)
+            .expect("Failed to load character from DB");
+
+        let chr_races_record = data_store
+            .get_race_record(character.race as u32)
+            .expect("Cannot load character because it has an invalid race id in DB");
+
+        let display_id = if character.gender == Gender::Male as u8 {
+            chr_races_record.male_display_id
+        } else {
+            chr_races_record.female_display_id
+        };
+
+        let power_type = data_store
+            .get_class_record(character.class as u32)
+            .map(|cl| PowerType::n(cl.power_type).unwrap())
+            .expect("Cannot load character because it has an invalid class id in DB");
+
         self.guid = Some(guid);
-        self.race = Some(race);
-        self.class = Some(class);
-        self.level = Some(level);
-        self.gender = Some(gender);
-        self.visual_features = Some(visual_features);
+        self.race =
+            Some(CharacterRace::n(character.race).expect("Character has invalid race id in DB"));
+        self.class =
+            Some(CharacterClass::n(character.class).expect("Character has invalid class id in DB"));
+        self.level = Some(character.level);
+        self.gender =
+            Some(Gender::n(character.gender).expect("Character has invalid gender in DB"));
+        self.visual_features = Some(character.visual_features);
         self.display_id = Some(display_id);
         self.native_display_id = Some(display_id);
         self.power_type = Some(power_type);

@@ -10,9 +10,9 @@ pub mod dbc;
 pub type DbcStore<T> = HashMap<u32, T>;
 
 pub struct DataStore {
-    pub chr_races: DbcStore<ChrRacesRecord>,
-    pub chr_classes: DbcStore<ChrClassesRecord>,
-    pub char_start_outfit: DbcStore<CharStartOutfitRecord>,
+    chr_races: DbcStore<ChrRacesRecord>,
+    chr_classes: DbcStore<ChrClassesRecord>,
+    char_start_outfit: DbcStore<CharStartOutfitRecord>,
 }
 
 macro_rules! parse_dbc {
@@ -32,5 +32,23 @@ impl DataStore {
             chr_classes,
             char_start_outfit,
         })
+    }
+
+    pub fn get_race_record(&self, id: u32) -> Option<&ChrRacesRecord> {
+        self.chr_races.get(&id)
+    }
+
+    pub fn get_class_record(&self, id: u32) -> Option<&ChrClassesRecord> {
+        self.chr_classes.get(&id)
+    }
+
+    pub fn get_char_start_outfit(
+        &self,
+        race: u8,
+        class: u8,
+        gender: u8,
+    ) -> Option<&CharStartOutfitRecord> {
+        let key: u32 = race as u32 | ((class as u32) << 8) | ((gender as u32) << 16);
+        self.char_start_outfit.get(&key)
     }
 }

@@ -243,9 +243,8 @@ async fn handle_cmsg_player_login(data: Vec<u8>, session: Arc<Mutex<WorldSession
     let chr_races_record = session
         .world
         .data_store
-        .chr_races
-        .get(&(character.race as u32))
-        .unwrap();
+        .get_race_record(character.race as u32)
+        .expect("Cannot load character because it has an invalid race id in DB");
 
     let display_id = if character.gender == Gender::Male as u8 {
         chr_races_record.male_display_id
@@ -256,10 +255,9 @@ async fn handle_cmsg_player_login(data: Vec<u8>, session: Arc<Mutex<WorldSession
     let power_type = session
         .world
         .data_store
-        .chr_classes
-        .get(&(character.class as u32))
+        .get_class_record(character.class as u32)
         .map(|cl| PowerType::n(cl.power_type).unwrap())
-        .unwrap();
+        .expect("Cannot load character because it has an invalid class id in DB");
 
     session.player.setup_entering_world(
         cmsg_player_login.guid,

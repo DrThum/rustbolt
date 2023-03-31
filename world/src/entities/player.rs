@@ -7,18 +7,20 @@ use crate::{
     protocol::packets::CmsgCharCreate,
     repositories::{character::CharacterRepository, item::ItemRepository},
     shared::constants::{
-        CharacterClass, CharacterRace, Gender, InventorySlot, InventoryType, PowerType,
+        CharacterClass, CharacterRace, Gender, HighGuidType, InventorySlot, InventoryType,
+        PowerType,
     },
 };
 
 use super::{
+    object_guid::ObjectGuid,
     update::{UpdatableEntity, UpdateBlock, UpdateBlockBuilder, UpdateData, UpdateType},
     update_fields::*,
     ObjectTypeId, Position,
 };
 
 pub struct Player {
-    guid: Option<u64>,
+    guid: Option<ObjectGuid>,
     race: Option<CharacterRace>,
     class: Option<CharacterClass>,
     level: Option<u8>,
@@ -142,7 +144,7 @@ impl Player {
             .map(|cl| PowerType::n(cl.power_type).unwrap())
             .expect("Cannot load character because it has an invalid class id in DB");
 
-        self.guid = Some(guid);
+        self.guid = Some(ObjectGuid::new(HighGuidType::Player, guid as u32));
         self.race =
             Some(CharacterRace::n(character.race).expect("Character has invalid race id in DB"));
         self.class =
@@ -156,7 +158,7 @@ impl Player {
         self.power_type = Some(power_type);
     }
 
-    pub fn guid(&self) -> &u64 {
+    pub fn guid(&self) -> &ObjectGuid {
         self.guid
             .as_ref()
             .expect("Player guid uninitialized. Is the player in world?")
@@ -214,7 +216,7 @@ impl Player {
         let mut update_data_builder = UpdateBlockBuilder::new();
         let visual_features = self.visual_features();
 
-        update_data_builder.add_u64(ObjectFields::ObjectFieldGuid.into(), *self.guid());
+        update_data_builder.add_u64(ObjectFields::ObjectFieldGuid.into(), self.guid().raw());
         update_data_builder.add_u32(ObjectFields::ObjectFieldType.into(), 25);
         update_data_builder.add_f32(ObjectFields::ObjectFieldScaleX.into(), 1.0);
         update_data_builder.add_u32(UnitFields::UnitFieldHealth.into(), 100);
@@ -278,8 +280,7 @@ impl UpdatableEntity for Player {
         let player_update_data = UpdateData {
             has_transport: false, // TODO: Implement transports
             update_type: UpdateType::CreateObject2,
-            packed_guid_mask: 1,
-            packed_guid_guid: *self.guid() as u8, // TODO: Implement packed guids
+            packed_guid: self.guid().pack(),
             object_type: ObjectTypeId::Player,
             flags: 0x71, // FIXME: UPDATEFLAG_HIGHGUID | UPDATEFLAG_LIVING |
             // UPDATEFLAG_STATIONARY_POSITION = 0x10 | 0x20 | 0x40 = 0x70 |

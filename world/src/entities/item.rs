@@ -31,8 +31,7 @@ impl UpdatableEntity for Item {
         let update_data = UpdateData {
             has_transport: false,
             update_type: UpdateType::CreateObject,
-            packed_guid_mask: todo!(),
-            packed_guid_guid: todo!(),
+            packed_guid: todo!(),
             object_type: ObjectTypeId::Item,
             flags: todo!(),
             movement_flags: 0,

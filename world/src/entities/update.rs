@@ -1,7 +1,7 @@
 use fixedbitset::FixedBitSet;
 use log::error;
 
-use super::{ObjectTypeId, Position};
+use super::{object_guid::PackedObjectGuid, ObjectTypeId, Position};
 
 pub trait UpdatableEntity {
     // FIXME:
@@ -16,8 +16,7 @@ pub trait UpdatableEntity {
 pub struct UpdateData {
     pub has_transport: bool,
     pub update_type: UpdateType,
-    pub packed_guid_mask: u8,
-    pub packed_guid_guid: u8, // TODO: Properly implement packed guids
+    pub packed_guid: PackedObjectGuid,
     pub object_type: ObjectTypeId,
     pub flags: u8, // FIXME: use bitflags or enumflags2 crate and the UpdateFlag enum
     pub movement_flags: u32, // FIXME: use bitflags or enumflags2 crate and enum MovementFlags from Mangos

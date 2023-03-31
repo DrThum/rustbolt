@@ -1,4 +1,4 @@
-use crate::shared::constants::InventoryType;
+use crate::{entities::object_guid::PackedObjectGuid, shared::constants::InventoryType};
 
 use super::opcodes::Opcode;
 use super::server::ServerMessagePayload;
@@ -194,8 +194,7 @@ pub struct SmsgMotd {
 #[binwrite]
 pub struct ObjectUpdate {
     pub update_type: u8,
-    pub packed_guid_mask: u8,
-    pub packed_guid_guid: u8,
+    pub packed_guid: PackedObjectGuid,
     pub object_type: u8,
     pub flags: u8,
     pub movement_flags: u32,

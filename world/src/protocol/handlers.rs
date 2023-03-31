@@ -250,12 +250,11 @@ async fn handle_cmsg_player_login(data: Vec<u8>, session: Arc<Mutex<WorldSession
     let object_updates: Vec<ObjectUpdate> = session
         .player
         .get_create_data()
-        .iter()
+        .into_iter()
         .map(|update_data| {
             ObjectUpdate {
                 update_type: update_data.update_type as u8,
-                packed_guid_mask: update_data.packed_guid_mask, // TODO: Properly implement packed guids
-                packed_guid_guid: update_data.packed_guid_guid,
+                packed_guid: update_data.packed_guid,
                 object_type: update_data.object_type as u8,
                 flags: update_data.flags,
                 movement_flags: update_data.movement_flags,

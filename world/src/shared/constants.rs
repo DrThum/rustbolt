@@ -141,3 +141,18 @@ impl InventorySlot {
     pub const KEY_RING_START: u32 = 86;
     pub const KEY_RING_END: u32 = 118;
 }
+
+#[allow(dead_code)]
+#[derive(Clone, Copy, N)]
+pub enum HighGuidType {
+    ItemOrContainer = 0x4000,
+    Player = 0x0000,
+    Gameobject = 0xF110,
+    Transport = 0xF120, // for GAMEOBJECT_TYPE_TRANSPORT
+    Unit = 0xF130,
+    Pet = 0xF140,
+    Dynamicobject = 0xF100,
+    Corpse = 0xF101,
+    MoTransport = 0x1FC0, // for GAMEOBJECT_TYPE_MO_TRANSPORT
+    Group = 0x1F50,
+}

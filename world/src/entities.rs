@@ -1,6 +1,7 @@
 pub mod update;
 pub mod update_fields;
 
+pub mod item;
 pub mod player;
 
 #[allow(dead_code)]

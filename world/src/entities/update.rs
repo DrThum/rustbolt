@@ -16,7 +16,6 @@ pub trait UpdatableEntity {
 }
 
 pub struct UpdateData {
-    pub has_transport: bool,
     pub update_type: UpdateType,
     pub packed_guid: PackedObjectGuid,
     pub object_type: ObjectTypeId,

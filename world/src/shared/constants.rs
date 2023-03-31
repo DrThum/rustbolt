@@ -1,3 +1,4 @@
+use enumflags2::bitflags;
 use enumn::N;
 
 #[allow(dead_code)]
@@ -155,4 +156,19 @@ pub enum HighGuidType {
     Corpse = 0xF101,
     MoTransport = 0x1FC0, // for GAMEOBJECT_TYPE_MO_TRANSPORT
     Group = 0x1F50,
+}
+
+#[allow(dead_code)]
+#[bitflags]
+#[repr(u32)]
+#[derive(Clone, Copy, N)]
+pub enum ObjectTypeMask {
+    Object = 0x0001,
+    Item = 0x0002,
+    Container = 0x0004,
+    Unit = 0x0008,
+    Player = 0x0010,
+    Gameobject = 0x0020,
+    Dynamicobject = 0x0040,
+    Corpse = 0x0080,
 }

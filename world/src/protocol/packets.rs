@@ -211,7 +211,7 @@ pub struct ObjectUpdate {
 #[server_opcode]
 pub struct SmsgUpdateObject {
     pub updates_count: u32,
-    pub has_transport: u8,
+    pub has_transport: u8, // TODO: bool
     pub updates: Vec<ObjectUpdate>,
 }
 

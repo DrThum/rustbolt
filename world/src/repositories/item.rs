@@ -17,33 +17,35 @@ impl ItemRepository {
         transaction.last_insert_rowid() as u64
     }
 
-    pub fn load(
+    pub fn load_player_inventory(
         conn: &PooledConnection<SqliteConnectionManager>,
-        guid: u64,
-    ) -> Option<ItemDbRecord> {
-        let mut stmt = conn.prepare_cached("SELECT items.entry, character_inventory LEFT JOIN character_inventory ON character_inventory.item_guid = items.guid FROM items WHERE items.guid = :guid").unwrap();
+        player_guid: u32,
+    ) -> Vec<ItemDbRecord> {
+        let mut stmt = conn.prepare_cached("SELECT items.guid, items.entry, character_inventory.character_guid, character_inventory.slot FROM items JOIN character_inventory ON character_inventory.item_guid = items.guid WHERE character_inventory.character_guid = :player_guid").unwrap();
 
-        let mut result = stmt
-            .query_map(named_params! { ":guid": guid }, |row| {
-                let item_entry: u32 = row.get(0).unwrap();
-                let owned_guid: Option<u64> = row.get(1).unwrap();
+        let result = stmt
+            .query_map(named_params! { ":player_guid": player_guid }, |row| {
+                let guid: u32 = row.get(0).unwrap();
+                let item_entry: u32 = row.get(1).unwrap();
+                let owner_guid: u64 = row.get(2).unwrap();
+                let slot: u32 = row.get(3).unwrap();
 
-                Ok((item_entry, owned_guid))
+                Ok(ItemDbRecord {
+                    guid,
+                    entry: item_entry,
+                    owner_guid: Some(owner_guid),
+                    slot
+                })
             })
             .unwrap();
 
-        if let Ok(item) = result.next().unwrap() {
-            Some(ItemDbRecord {
-                entry: item.0,
-                owned_guid: item.1,
-            })
-        } else {
-            None
-        }
+        result.filter(|res| res.is_ok()).map(|res| res.unwrap()).into_iter().collect()
     }
 }
 
 pub struct ItemDbRecord {
+    pub guid: u32,
     pub entry: u32,
-    pub owned_guid: Option<u64>,
+    pub owner_guid: Option<u64>,
+    pub slot: u32,
 }

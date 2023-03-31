@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use enumflags2::make_bitflags;
 use r2d2::PooledConnection;
 use r2d2_sqlite::SqliteConnectionManager;
@@ -9,11 +11,12 @@ use crate::{
     repositories::{character::CharacterRepository, item::ItemRepository},
     shared::constants::{
         CharacterClass, CharacterRace, Gender, HighGuidType, InventorySlot, InventoryType,
-        PowerType,
+        ObjectTypeMask, PowerType,
     },
 };
 
 use super::{
+    item::Item,
     object_guid::ObjectGuid,
     update::{
         MovementUpdateData, UpdatableEntity, UpdateBlock, UpdateBlockBuilder, UpdateData,
@@ -22,6 +25,8 @@ use super::{
     update_fields::*,
     ObjectTypeId, Position,
 };
+
+pub type PlayerInventory = HashMap<u32, Item>; // Key is slot
 
 pub struct Player {
     guid: Option<ObjectGuid>,
@@ -33,6 +38,7 @@ pub struct Player {
     display_id: Option<u32>,
     native_display_id: Option<u32>,
     power_type: Option<PowerType>,
+    inventory: PlayerInventory,
 }
 
 impl Player {
@@ -47,6 +53,7 @@ impl Player {
             display_id: None,
             native_display_id: None,
             power_type: None,
+            inventory: HashMap::new(),
         }
     }
 
@@ -160,6 +167,19 @@ impl Player {
         self.display_id = Some(display_id);
         self.native_display_id = Some(display_id);
         self.power_type = Some(power_type);
+
+        let inventory: HashMap<u32, Item> =
+            ItemRepository::load_player_inventory(&conn, guid as u32)
+                .into_iter()
+                .map(|record| {
+                    (
+                        record.slot,
+                        Item::new(record.guid, record.entry, record.owner_guid.unwrap()),
+                    )
+                })
+                .collect();
+
+        self.inventory = inventory;
     }
 
     pub fn guid(&self) -> &ObjectGuid {
@@ -216,51 +236,74 @@ impl Player {
             .expect("Player power type uninitialized. Is the player in world?")
     }
 
-    pub fn gen_update_data(&self) -> UpdateBlock {
-        let mut update_data_builder = UpdateBlockBuilder::new();
+    fn gen_create_data(&self) -> UpdateBlock {
+        let mut update_builder = UpdateBlockBuilder::new();
         let visual_features = self.visual_features();
+        let object_type = make_bitflags!(ObjectTypeMask::{Object | Unit | Player}).bits();
 
-        update_data_builder.add_u64(ObjectFields::ObjectFieldGuid.into(), self.guid().raw());
-        update_data_builder.add_u32(ObjectFields::ObjectFieldType.into(), 25);
-        update_data_builder.add_f32(ObjectFields::ObjectFieldScaleX.into(), 1.0);
-        update_data_builder.add_u32(UnitFields::UnitFieldHealth.into(), 100);
-        update_data_builder.add_u32(UnitFields::UnitFieldMaxhealth.into(), 100);
-        update_data_builder.add_u32(
+        update_builder.add_u64(ObjectFields::ObjectFieldGuid.into(), self.guid().raw());
+        update_builder.add_u32(ObjectFields::ObjectFieldType.into(), object_type);
+        update_builder.add_f32(ObjectFields::ObjectFieldScaleX.into(), 1.0);
+        update_builder.add_u32(UnitFields::UnitFieldHealth.into(), 100);
+        update_builder.add_u32(UnitFields::UnitFieldMaxhealth.into(), 100);
+        update_builder.add_u32(
             UnitFields::UnitFieldPower1 as usize + *self.power_type() as usize,
             100,
         );
-        update_data_builder.add_u32(
+        update_builder.add_u32(
             UnitFields::UnitFieldMaxpower1 as usize + *self.power_type() as usize,
             100,
         );
-        update_data_builder.add_u32(UnitFields::UnitFieldLevel.into(), *self.level() as u32);
-        update_data_builder.add_u32(UnitFields::UnitFieldFactiontemplate.into(), 469); // FIXME
-        update_data_builder.add_u8(UnitFields::UnitFieldBytes0.into(), 0, *self.race() as u8);
-        update_data_builder.add_u8(UnitFields::UnitFieldBytes0.into(), 1, *self.class() as u8);
-        update_data_builder.add_u8(UnitFields::UnitFieldBytes0.into(), 2, *self.gender() as u8);
-        update_data_builder.add_u8(
+        update_builder.add_u32(UnitFields::UnitFieldLevel.into(), *self.level() as u32);
+        update_builder.add_u32(UnitFields::UnitFieldFactiontemplate.into(), 469); // FIXME
+        update_builder.add_u8(UnitFields::UnitFieldBytes0.into(), 0, *self.race() as u8);
+        update_builder.add_u8(UnitFields::UnitFieldBytes0.into(), 1, *self.class() as u8);
+        update_builder.add_u8(UnitFields::UnitFieldBytes0.into(), 2, *self.gender() as u8);
+        update_builder.add_u8(
             UnitFields::UnitFieldBytes0.into(),
             3,
             *self.power_type() as u8,
         );
-        update_data_builder.add_u8(UnitFields::PlayerBytes.into(), 0, visual_features.skin);
-        update_data_builder.add_u8(UnitFields::PlayerBytes.into(), 1, visual_features.face);
-        update_data_builder.add_u8(UnitFields::PlayerBytes.into(), 2, visual_features.hairstyle);
-        update_data_builder.add_u8(UnitFields::PlayerBytes.into(), 3, visual_features.haircolor);
-        update_data_builder.add_u8(
+        update_builder.add_u32(UnitFields::UnitFieldBytes2.into(), 0x28); // Unk
+        update_builder.add_u8(UnitFields::PlayerBytes.into(), 0, visual_features.skin);
+        update_builder.add_u8(UnitFields::PlayerBytes.into(), 1, visual_features.face);
+        update_builder.add_u8(UnitFields::PlayerBytes.into(), 2, visual_features.hairstyle);
+        update_builder.add_u8(UnitFields::PlayerBytes.into(), 3, visual_features.haircolor);
+        update_builder.add_u8(
             UnitFields::PlayerBytes2.into(),
             0,
             visual_features.facialstyle,
         );
-        update_data_builder.add_u8(UnitFields::PlayerBytes2.into(), 3, 0x02); // Unk
-        update_data_builder.add_u8(UnitFields::PlayerBytes3.into(), 0, *self.gender() as u8);
-        update_data_builder.add_u32(UnitFields::UnitFieldDisplayid.into(), *self.display_id());
-        update_data_builder.add_u32(
+        update_builder.add_u8(UnitFields::PlayerBytes2.into(), 3, 0x02); // Unk
+        update_builder.add_u8(UnitFields::PlayerBytes3.into(), 0, *self.gender() as u8);
+        update_builder.add_u32(UnitFields::UnitFieldDisplayid.into(), *self.display_id());
+        update_builder.add_u32(
             UnitFields::UnitFieldNativedisplayid.into(),
             *self.native_display_id(),
         );
 
-        update_data_builder.build()
+        for item in &self.inventory {
+            println!(
+                "Item {} to inv slot {}",
+                item.1.entry(),
+                UnitFields::PlayerFieldInvSlotHead as usize + (2 * item.0) as usize
+            );
+            update_builder.add_u64(
+                UnitFields::PlayerFieldInvSlotHead as usize + (2 * item.0) as usize,
+                item.1.guid().raw(),
+            );
+
+            // Visible bits
+            if *item.0 >= InventorySlot::EQUIPMENT_START && *item.0 < InventorySlot::EQUIPMENT_END {
+                update_builder.add_u32(
+                    UnitFields::PlayerVisibleItem1_0 as usize
+                        + (item.0 * 16/* MAX_VISIBLE_ITEM_OFFSET */) as usize,
+                    *item.1.entry(),
+                );
+            }
+        }
+
+        update_builder.build()
     }
 }
 
@@ -297,8 +340,7 @@ impl UpdatableEntity for Player {
             speed_turn: 3.1415,
         });
 
-        let player_update_data = UpdateData {
-            has_transport: false, // TODO: Implement transports
+        let mut player_update_data = vec![UpdateData {
             update_type: UpdateType::CreateObject2,
             packed_guid: self.guid().pack(),
             object_type: ObjectTypeId::Player,
@@ -306,10 +348,17 @@ impl UpdatableEntity for Player {
             movement,
             low_guid_part: None,
             high_guid_part: Some(HighGuidType::Player as u32),
-            blocks: vec![self.gen_update_data()],
-        };
+            blocks: vec![self.gen_create_data()],
+        }];
 
-        vec![player_update_data]
+        let inventory_updates: Vec<UpdateData> = self
+            .inventory
+            .iter()
+            .flat_map(|item| item.1.get_create_data())
+            .collect();
+
+        player_update_data.extend(inventory_updates);
+        player_update_data
     }
 
     fn get_update_data(&self) -> Vec<UpdateData> {

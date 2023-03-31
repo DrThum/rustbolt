@@ -257,23 +257,8 @@ async fn handle_cmsg_player_login(data: Vec<u8>, session: Arc<Mutex<WorldSession
                 packed_guid: update_data.packed_guid,
                 object_type: update_data.object_type as u8,
                 flags: update_data.flags.bits(),
-                movement_flags: update_data.movement_flags,
-                movement_flags2: 0, // Always 0 in TBC
-                timestamp: 0,
-                position_x: update_data.position.x,
-                position_y: update_data.position.y,
-                position_z: update_data.position.z,
-                orientation: update_data.position.o,
-                fall_time: update_data.fall_time,
-                speed_walk: update_data.speed_walk,
-                speed_run: update_data.speed_run,
-                speed_run_backward: update_data.speed_run_backward,
-                speed_swim: update_data.speed_swim,
-                speed_swim_backward: update_data.speed_swim_backward,
-                speed_flight: update_data.speed_flight,
-                speed_flight_backward: update_data.speed_flight_backward,
-                speed_turn: update_data.speed_turn,
-                unk_highguid: Some(0), // FIXME: Some if flags & UPDATEFLAG_HIGHGUID != 0
+                movement_update: update_data.movement,
+                high_guid_part: Some(0), // FIXME: Some if flags & UPDATEFLAG_HIGHGUID != 0
                 num_mask_blocks: update_data.blocks[0].num_masks,
                 mask_blocks: update_data.blocks[0].block_masks.clone(), // FIXME
                 data: update_data.blocks[0].data.clone(),               // FIXME

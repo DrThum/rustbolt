@@ -16,7 +16,8 @@ use crate::{
 use super::{
     object_guid::ObjectGuid,
     update::{
-        UpdatableEntity, UpdateBlock, UpdateBlockBuilder, UpdateData, UpdateFlag, UpdateType,
+        MovementUpdateData, UpdatableEntity, UpdateBlock, UpdateBlockBuilder, UpdateData,
+        UpdateFlag, UpdateType,
     },
     update_fields::*,
     ObjectTypeId, Position,
@@ -280,14 +281,11 @@ impl UpdatableEntity for Player {
             o: 3.83972,
         };
 
-        let player_update_data = UpdateData {
-            has_transport: false, // TODO: Implement transports
-            update_type: UpdateType::CreateObject2,
-            packed_guid: self.guid().pack(),
-            object_type: ObjectTypeId::Player,
-            flags: make_bitflags!(UpdateFlag::{HighGuid | Living | HasPosition | SelfUpdate}), // FIXME: SelfUpdate only if target == this
+        let movement = Some(MovementUpdateData {
             movement_flags: 0,
-            position, // self.position
+            movement_flags2: 0, // Always 0 in 2.4.3
+            timestamp: 0,
+            position,
             fall_time: 0,
             speed_walk: 1.0,
             speed_run: 70.0,
@@ -297,6 +295,17 @@ impl UpdatableEntity for Player {
             speed_flight: 70.0,
             speed_flight_backward: 4.5,
             speed_turn: 3.1415,
+        });
+
+        let player_update_data = UpdateData {
+            has_transport: false, // TODO: Implement transports
+            update_type: UpdateType::CreateObject2,
+            packed_guid: self.guid().pack(),
+            object_type: ObjectTypeId::Player,
+            flags: make_bitflags!(UpdateFlag::{HighGuid | Living | HasPosition | SelfUpdate}), // FIXME: SelfUpdate only if target == this
+            movement,
+            low_guid_part: None,
+            high_guid_part: Some(HighGuidType::Player as u32),
             blocks: vec![self.gen_update_data()],
         };
 

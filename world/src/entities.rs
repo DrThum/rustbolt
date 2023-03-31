@@ -1,3 +1,5 @@
+use binrw::binwrite;
+
 pub mod object_guid;
 pub mod update;
 pub mod update_fields;
@@ -19,6 +21,7 @@ pub enum ObjectTypeId {
 }
 
 // FIXME: not sure this is the best place
+#[binwrite]
 #[derive(Copy, Clone)]
 pub struct Position {
     pub x: f32,

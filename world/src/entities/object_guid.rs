@@ -19,6 +19,7 @@ impl ObjectGuid {
     }
 
     pub fn with_entry(high_guid_type: HighGuidType, entry: u32, counter: u32) -> ObjectGuid {
+        // TODO: Validate that this HighGuidType has an entry part
         let raw = ((high_guid_type as u64) << 48) | ((entry as u64) << 24) | counter as u64;
 
         ObjectGuid {

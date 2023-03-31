@@ -1,3 +1,4 @@
+use binrw::binwrite;
 use enumflags2::{bitflags, BitFlags};
 use fixedbitset::FixedBitSet;
 use log::error;
@@ -20,17 +21,10 @@ pub struct UpdateData {
     pub packed_guid: PackedObjectGuid,
     pub object_type: ObjectTypeId,
     pub flags: BitFlags<UpdateFlag>,
-    pub movement_flags: u32, // FIXME: use bitflags or enumflags2 crate and enum MovementFlags from Mangos
-    pub position: Position,
-    pub fall_time: u32,
-    pub speed_walk: f32,
-    pub speed_run: f32,
-    pub speed_run_backward: f32,
-    pub speed_swim: f32,
-    pub speed_swim_backward: f32,
-    pub speed_flight: f32,
-    pub speed_flight_backward: f32,
-    pub speed_turn: f32,
+    pub movement: Option<MovementUpdateData>, // Only if flags & UpdateFlag::Living
+    // pub position: Option<PositionUpdateData>, // Only if flags & UpdateFlag::HasPosition
+    pub low_guid_part: Option<u32>, // Only if flags & UpdateFlag::LowGuid
+    pub high_guid_part: Option<u32>, // Only if flags & UpdateFlag::HighGuid
     pub blocks: Vec<UpdateBlock>,
 }
 
@@ -193,6 +187,23 @@ impl UpdateBlockValue {
             value: [0_u8; 4],
         }
     }
+}
+
+#[binwrite]
+pub struct MovementUpdateData {
+    pub movement_flags: u32,
+    pub movement_flags2: u8, // Always 0 in 2.4.3
+    pub timestamp: u32,
+    pub position: Position,
+    pub fall_time: u32,
+    pub speed_walk: f32,
+    pub speed_run: f32,
+    pub speed_run_backward: f32,
+    pub speed_swim: f32,
+    pub speed_swim_backward: f32,
+    pub speed_flight: f32,
+    pub speed_flight_backward: f32,
+    pub speed_turn: f32,
 }
 
 #[allow(dead_code)]

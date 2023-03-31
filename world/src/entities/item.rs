@@ -1,15 +1,17 @@
+use enumflags2::make_bitflags;
 use r2d2::PooledConnection;
 use r2d2_sqlite::SqliteConnectionManager;
 
-use crate::repositories::item::ItemRepository;
+use crate::{repositories::item::ItemRepository, shared::constants::HighGuidType};
 
 use super::{
-    update::{UpdatableEntity, UpdateData, UpdateType},
+    object_guid::ObjectGuid,
+    update::{UpdatableEntity, UpdateData, UpdateFlag, UpdateType},
     ObjectTypeId,
 };
 
 pub struct Item {
-    guid: u64,
+    guid: ObjectGuid,
     entry: u32,
     owner_guid: Option<u64>,
 }
@@ -19,7 +21,7 @@ impl Item {
         let item_db_record = ItemRepository::load(&conn, guid).expect("Item not found in DB");
 
         Item {
-            guid,
+            guid: ObjectGuid::new(HighGuidType::ItemOrContainer, guid as u32),
             entry: item_db_record.entry,
             owner_guid: item_db_record.owned_guid,
         }
@@ -31,20 +33,12 @@ impl UpdatableEntity for Item {
         let update_data = UpdateData {
             has_transport: false,
             update_type: UpdateType::CreateObject,
-            packed_guid: todo!(),
+            packed_guid: self.guid.pack(),
             object_type: ObjectTypeId::Item,
-            flags: todo!(),
-            movement_flags: 0,
-            position: todo!(), // TODO: make this dependent on UPDATEFLAGS_HAS_POSITION
-            fall_time: todo!(),
-            speed_walk: todo!(),
-            speed_run: todo!(),
-            speed_run_backward: todo!(),
-            speed_swim: todo!(),
-            speed_swim_backward: todo!(),
-            speed_flight: todo!(),
-            speed_flight_backward: todo!(),
-            speed_turn: todo!(),
+            flags: make_bitflags!(UpdateFlag::{LowGuid | HighGuid}),
+            movement: None,
+            low_guid_part: Some(self.guid.counter()),
+            high_guid_part: Some(HighGuidType::ItemOrContainer as u32),
             blocks: todo!(),
         };
 

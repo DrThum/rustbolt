@@ -1,4 +1,7 @@
-use crate::{entities::object_guid::PackedObjectGuid, shared::constants::InventoryType};
+use crate::{
+    entities::{object_guid::PackedObjectGuid, update::MovementUpdateData},
+    shared::constants::InventoryType,
+};
 
 use super::opcodes::Opcode;
 use super::server::ServerMessagePayload;
@@ -197,23 +200,8 @@ pub struct ObjectUpdate {
     pub packed_guid: PackedObjectGuid,
     pub object_type: u8,
     pub flags: u8,
-    pub movement_flags: u32,
-    pub movement_flags2: u8, // Always 0 in 2.4.3
-    pub timestamp: u32,
-    pub position_x: f32,
-    pub position_y: f32,
-    pub position_z: f32,
-    pub orientation: f32,
-    pub fall_time: u32,
-    pub speed_walk: f32,
-    pub speed_run: f32,
-    pub speed_run_backward: f32,
-    pub speed_swim: f32,
-    pub speed_swim_backward: f32,
-    pub speed_flight: f32,
-    pub speed_flight_backward: f32,
-    pub speed_turn: f32,
-    pub unk_highguid: Option<u32>,
+    pub movement_update: Option<MovementUpdateData>, // Only if UpdateFlag::Living
+    pub high_guid_part: Option<u32>,                 // Only if UpdateFlag::HighGuid
     pub num_mask_blocks: u8,
     pub mask_blocks: Vec<u32>,
     pub data: Vec<[u8; 4]>,

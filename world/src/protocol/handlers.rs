@@ -256,7 +256,7 @@ async fn handle_cmsg_player_login(data: Vec<u8>, session: Arc<Mutex<WorldSession
                 update_type: update_data.update_type as u8,
                 packed_guid: update_data.packed_guid,
                 object_type: update_data.object_type as u8,
-                flags: update_data.flags,
+                flags: update_data.flags.bits(),
                 movement_flags: update_data.movement_flags,
                 movement_flags2: 0, // Always 0 in TBC
                 timestamp: 0,

@@ -1,3 +1,4 @@
+use enumflags2::make_bitflags;
 use r2d2::PooledConnection;
 use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::Error;
@@ -14,7 +15,9 @@ use crate::{
 
 use super::{
     object_guid::ObjectGuid,
-    update::{UpdatableEntity, UpdateBlock, UpdateBlockBuilder, UpdateData, UpdateType},
+    update::{
+        UpdatableEntity, UpdateBlock, UpdateBlockBuilder, UpdateData, UpdateFlag, UpdateType,
+    },
     update_fields::*,
     ObjectTypeId, Position,
 };
@@ -282,9 +285,7 @@ impl UpdatableEntity for Player {
             update_type: UpdateType::CreateObject2,
             packed_guid: self.guid().pack(),
             object_type: ObjectTypeId::Player,
-            flags: 0x71, // FIXME: UPDATEFLAG_HIGHGUID | UPDATEFLAG_LIVING |
-            // UPDATEFLAG_STATIONARY_POSITION = 0x10 | 0x20 | 0x40 = 0x70 |
-            // UPDATEFLAG_SELF = 0x1 = 0x71
+            flags: make_bitflags!(UpdateFlag::{HighGuid | Living | HasPosition | SelfUpdate}), // FIXME: SelfUpdate only if target == this
             movement_flags: 0,
             position, // self.position
             fall_time: 0,

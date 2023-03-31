@@ -1,3 +1,4 @@
+use enumflags2::{bitflags, BitFlags};
 use fixedbitset::FixedBitSet;
 use log::error;
 
@@ -18,7 +19,7 @@ pub struct UpdateData {
     pub update_type: UpdateType,
     pub packed_guid: PackedObjectGuid,
     pub object_type: ObjectTypeId,
-    pub flags: u8, // FIXME: use bitflags or enumflags2 crate and the UpdateFlag enum
+    pub flags: BitFlags<UpdateFlag>,
     pub movement_flags: u32, // FIXME: use bitflags or enumflags2 crate and enum MovementFlags from Mangos
     pub position: Position,
     pub fall_time: u32,
@@ -206,13 +207,15 @@ pub enum UpdateType {
 }
 
 #[allow(dead_code)]
+#[bitflags]
+#[repr(u8)]
+#[derive(Clone, Copy)]
 pub enum UpdateFlag {
-    None = 0x0000,
-    SelfUpdate = 0x0001, // Self is a reserved keyword
-    Transport = 0x0002,
-    HasAttackingTarget = 0x0004,
-    LowGuid = 0x0008,
-    HighGuid = 0x0010,
-    Living = 0x0020,
-    HasPosition = 0x0040,
+    SelfUpdate = 0x01, // Self is a reserved keyword
+    Transport = 0x02,
+    HasAttackingTarget = 0x04,
+    LowGuid = 0x08,
+    HighGuid = 0x10,
+    Living = 0x20,
+    HasPosition = 0x40,
 }

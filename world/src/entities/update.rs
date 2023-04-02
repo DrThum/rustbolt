@@ -20,10 +20,10 @@ pub struct UpdateData {
     pub packed_guid: PackedObjectGuid,
     pub object_type: ObjectTypeId,
     pub flags: BitFlags<UpdateFlag>,
-    pub movement: Option<MovementUpdateData>, // Only if flags & UpdateFlag::Living
-    // pub position: Option<PositionUpdateData>, // Only if flags & UpdateFlag::HasPosition
-    pub low_guid_part: Option<u32>, // Only if flags & UpdateFlag::LowGuid
-    pub high_guid_part: Option<u32>, // Only if flags & UpdateFlag::HighGuid
+    pub movement: Option<MovementUpdateData>, // Only if flags & Living
+    // pub position: Option<PositionUpdateData>, // Only if flags & HasPosition and !Living
+    pub low_guid_part: Option<u32>,  // Only if flags & LowGuid
+    pub high_guid_part: Option<u32>, // Only if flags & HighGuid
     pub blocks: Vec<UpdateBlock>,
 }
 

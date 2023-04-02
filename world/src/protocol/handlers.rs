@@ -262,7 +262,8 @@ async fn handle_cmsg_player_login(data: Vec<u8>, session: Arc<Mutex<WorldSession
                 object_type: update_data.object_type as u8,
                 flags: update_data.flags.bits(),
                 movement_update: update_data.movement,
-                high_guid_part: Some(0), // FIXME: Some if flags & UPDATEFLAG_HIGHGUID != 0
+                low_guid_part: update_data.low_guid_part,
+                high_guid_part: update_data.high_guid_part,
                 num_mask_blocks: update_data.blocks[0].num_masks,
                 mask_blocks: update_data.blocks[0].block_masks.clone(), // FIXME
                 data: update_data.blocks[0].data.clone(),               // FIXME
@@ -271,7 +272,6 @@ async fn handle_cmsg_player_login(data: Vec<u8>, session: Arc<Mutex<WorldSession
         .collect();
 
     let smsg_update_object = ServerMessage::new(SmsgUpdateObject {
-        // Note: Mangos uses COMPRESSED if data.len() > 100
         updates_count: object_updates.len() as u32,
         has_transport: 0,
         updates: object_updates,

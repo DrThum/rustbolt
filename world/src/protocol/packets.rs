@@ -201,6 +201,7 @@ pub struct ObjectUpdate {
     pub object_type: u8,
     pub flags: u8,
     pub movement_update: Option<MovementUpdateData>, // Only if UpdateFlag::Living
+    pub low_guid_part: Option<u32>,                  // Only if flags & UpdateFlag::LowGuid
     pub high_guid_part: Option<u32>,                 // Only if UpdateFlag::HighGuid
     pub num_mask_blocks: u8,
     pub mask_blocks: Vec<u32>,

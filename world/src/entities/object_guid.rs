@@ -19,7 +19,11 @@ impl ObjectGuid {
     }
 
     pub fn with_entry(high_guid_type: HighGuidType, entry: u32, counter: u32) -> ObjectGuid {
-        // TODO: Validate that this HighGuidType has an entry part
+        assert!(
+            Self::has_entry_part(high_guid_type),
+            "Attempt to create an ObjectGuid with an entry for a HighGuidType with no entry part"
+        );
+
         let raw = ((high_guid_type as u64) << 48) | ((entry as u64) << 24) | counter as u64;
 
         ObjectGuid {
@@ -37,23 +41,16 @@ impl ObjectGuid {
     }
 
     pub fn entry_part(&self) -> Option<u32> {
-        match self.high_guid_type {
-            HighGuidType::ItemOrContainer
-            | HighGuidType::Player
-            | HighGuidType::Dynamicobject
-            | HighGuidType::Corpse
-            | HighGuidType::MoTransport
-            | HighGuidType::Group => None,
-            HighGuidType::Transport
-            | HighGuidType::Unit
-            | HighGuidType::Pet
-            | HighGuidType::Gameobject => Some(((self.raw >> 24) & 0xFFFFFF) as u32),
+        if Self::has_entry_part(self.high_guid_type) {
+            Some(((self.raw >> 24) & 0xFFFFFF) as u32)
+        } else {
+            None
         }
     }
 
     pub fn counter(&self) -> u32 {
         // Counter is 6 bytes if Guid has entry, 8 bytes otherwise
-        if let Some(_) = self.entry_part() {
+        if Self::has_entry_part(self.high_guid_type) {
             (self.raw & 0xFFFFFF) as u32
         } else {
             (self.raw & 0xFFFFFFFF) as u32
@@ -75,6 +72,21 @@ impl ObjectGuid {
         PackedObjectGuid {
             mask: *mask.as_slice().first().unwrap() as u8,
             bytes,
+        }
+    }
+
+    fn has_entry_part(high_guid_type: HighGuidType) -> bool {
+        match high_guid_type {
+            HighGuidType::ItemOrContainer
+            | HighGuidType::Player
+            | HighGuidType::Dynamicobject
+            | HighGuidType::Corpse
+            | HighGuidType::MoTransport
+            | HighGuidType::Group => false,
+            HighGuidType::Transport
+            | HighGuidType::Unit
+            | HighGuidType::Pet
+            | HighGuidType::Gameobject => true,
         }
     }
 }

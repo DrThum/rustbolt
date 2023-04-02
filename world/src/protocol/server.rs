@@ -11,8 +11,6 @@ use wow_srp::tbc_header::HeaderCrypto;
 
 use crate::protocol::opcodes::Opcode;
 
-use super::packets::SmsgUpdateObject;
-
 #[binwrite]
 struct ServerMessageHeader {
     #[bw(big)]

@@ -20,7 +20,7 @@ pub struct Item {
 impl Item {
     pub fn new(guid: u32, entry: u32, owner_guid: u64) -> Item {
         Item {
-            guid: ObjectGuid::with_entry(HighGuidType::ItemOrContainer, entry, guid),
+            guid: ObjectGuid::new(HighGuidType::ItemOrContainer, guid),
             entry,
             owner_guid: Some(owner_guid),
         }

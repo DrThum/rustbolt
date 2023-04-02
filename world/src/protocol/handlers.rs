@@ -48,7 +48,11 @@ lazy_static! {
 
 pub fn get_handler(opcode: u32) -> &'static PacketHandler {
     HANDLERS.get(&opcode).unwrap_or_else(|| {
-        error!("Received unhandled opcode {:#X}", opcode);
+        error!(
+            "Received unhandled opcode {:?} ({:#X})",
+            Opcode::n(opcode).unwrap(),
+            opcode
+        );
         HANDLERS.get(&(Opcode::MsgNullAction as u32)).unwrap()
     })
 }

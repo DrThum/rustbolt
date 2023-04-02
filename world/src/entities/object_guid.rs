@@ -60,12 +60,12 @@ impl ObjectGuid {
         }
     }
 
-    pub fn pack(&self) -> PackedObjectGuid {
+    pub fn as_packed(&self) -> PackedObjectGuid {
         let mut mask = FixedBitSet::with_capacity(8);
         let mut bytes: Vec<u8> = Vec::new();
 
         for i in 0..8 {
-            let current_byte: u8 = (self.raw & (0xFF << (i * 8))) as u8;
+            let current_byte: u8 = ((self.raw & (0xFF << (i * 8))) >> (i * 8)) as u8;
             if current_byte != 0 {
                 mask.set(i, true);
                 bytes.push(current_byte);
@@ -86,6 +86,7 @@ impl ObjectGuid {
 //   byte in the full guid
 // - `bytes` contains the bytes to transmit from least to most significant
 #[binwrite]
+#[derive(Debug)]
 pub struct PackedObjectGuid {
     mask: u8,
     bytes: Vec<u8>,

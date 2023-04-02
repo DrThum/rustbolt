@@ -337,7 +337,7 @@ impl UpdatableEntity for Player {
 
         let mut player_update_data = vec![UpdateData {
             update_type: UpdateType::CreateObject2,
-            packed_guid: self.guid().pack(),
+            packed_guid: self.guid().as_packed(),
             object_type: ObjectTypeId::Player,
             flags: make_bitflags!(UpdateFlag::{HighGuid | Living | HasPosition | SelfUpdate}), // FIXME: SelfUpdate only if target == this
             movement,

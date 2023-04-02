@@ -56,7 +56,7 @@ impl UpdatableEntity for Item {
     fn get_create_data(&self) -> Vec<UpdateData> {
         let update_data = UpdateData {
             update_type: UpdateType::CreateObject,
-            packed_guid: self.guid.pack(),
+            packed_guid: self.guid.as_packed(),
             object_type: ObjectTypeId::Item,
             flags: make_bitflags!(UpdateFlag::{LowGuid | HighGuid}),
             movement: None,

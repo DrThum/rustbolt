@@ -34,12 +34,16 @@ impl ItemRepository {
                     guid,
                     entry: item_entry,
                     owner_guid: Some(owner_guid),
-                    slot
+                    slot,
                 })
             })
             .unwrap();
 
-        result.filter(|res| res.is_ok()).map(|res| res.unwrap()).into_iter().collect()
+        result
+            .filter(|res| res.is_ok())
+            .map(|res| res.unwrap())
+            .into_iter()
+            .collect()
     }
 }
 

@@ -1127,6 +1127,7 @@ dependencies = [
  "hex",
  "lazy_static",
  "log",
+ "miniz_oxide",
  "opcode_derive",
  "r2d2",
  "r2d2_sqlite",

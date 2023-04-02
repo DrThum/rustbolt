@@ -283,11 +283,6 @@ impl Player {
         );
 
         for item in &self.inventory {
-            println!(
-                "Item {} to inv slot {}",
-                item.1.entry(),
-                UnitFields::PlayerFieldInvSlotHead as usize + (2 * item.0) as usize
-            );
             update_builder.add_u64(
                 UnitFields::PlayerFieldInvSlotHead as usize + (2 * item.0) as usize,
                 item.1.guid().raw(),

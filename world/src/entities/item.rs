@@ -65,7 +65,8 @@ impl UpdatableEntity for Item {
             blocks: vec![self.gen_create_data()],
         };
 
-        vec![update_data]
+        // vec![update_data]
+        Vec::new()
     }
 
     fn get_update_data(&self) -> Vec<UpdateData> {

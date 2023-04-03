@@ -105,7 +105,7 @@ impl CharacterRepository {
                     let item_entry: u32 = item_row.get(0).unwrap();
                     let inv_slot: InventorySlot = InventorySlot::n(item_row.get::<usize, u32>(1).unwrap()).unwrap();
                     let inv_type = Self::to_inventory_type_for_enum(&inv_slot);
-                    let item_dbc = data_store.get_item(item_entry).expect("Unknown item found in CharacterRepository::fetch_characters");
+                    let item_dbc = data_store.get_item_record(item_entry).expect("Unknown item found in CharacterRepository::fetch_characters");
 
                     Ok((inv_type, item_dbc))
                 }).unwrap().into_iter().map(|res| res.unwrap()).collect();

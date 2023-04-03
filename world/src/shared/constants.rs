@@ -172,3 +172,8 @@ pub enum ObjectTypeMask {
     Dynamicobject = 0x0040,
     Corpse = 0x0080,
 }
+
+pub const MAX_ITEM_TEMPLATE_STATS: u32 = 10;
+pub const MAX_ITEM_TEMPLATE_DAMAGES: u32 = 5;
+pub const MAX_ITEM_TEMPLATE_SPELLS: u32 = 5;
+pub const MAX_ITEM_TEMPLATE_SOCKETS: u32 = 3;

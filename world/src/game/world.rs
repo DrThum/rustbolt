@@ -1,5 +1,10 @@
-use std::time::{Duration, SystemTime};
+use std::{
+    sync::Arc,
+    time::{Duration, SystemTime},
+};
 
+use r2d2::Pool;
+use r2d2_sqlite::SqliteConnectionManager;
 use tokio::time::interval;
 
 use crate::{config::WorldConfig, datastore::DataStore};
@@ -9,8 +14,10 @@ pub struct World {
 }
 
 impl World {
-    pub fn new(config: &WorldConfig) -> Self {
-        let data_store = DataStore::load_dbcs(&config.common.data).expect("Unable to load DBCs");
+    pub fn new(config: &WorldConfig, pool: Arc<Pool<SqliteConnectionManager>>) -> Self {
+        let conn = pool.get().unwrap();
+        let data_store = DataStore::load_data(&config.common.data, &conn)
+            .expect("Error when loading static data");
 
         World { data_store }
     }

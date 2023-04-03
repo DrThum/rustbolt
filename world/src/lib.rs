@@ -36,6 +36,7 @@ struct SocketOpened {
     socket: Arc<Mutex<TcpStream>>,
     db_pool_auth: Arc<Pool<SqliteConnectionManager>>,
     db_pool_char: Arc<Pool<SqliteConnectionManager>>,
+    db_pool_world: Arc<Pool<SqliteConnectionManager>>,
     world: Arc<&'static World>,
 }
 struct ServerSentAuthChallenge {
@@ -43,6 +44,7 @@ struct ServerSentAuthChallenge {
     socket: Arc<Mutex<TcpStream>>,
     db_pool_auth: Arc<Pool<SqliteConnectionManager>>,
     db_pool_char: Arc<Pool<SqliteConnectionManager>>,
+    db_pool_world: Arc<Pool<SqliteConnectionManager>>,
     world: Arc<&'static World>,
 }
 struct ServerSentAuthResponse {
@@ -98,6 +100,7 @@ impl WorldSocketState<SocketOpened> {
                 socket: self.state.socket,
                 db_pool_auth: self.state.db_pool_auth,
                 db_pool_char: self.state.db_pool_char,
+                db_pool_world: self.state.db_pool_world,
                 world: self.state.world,
             },
         })
@@ -192,6 +195,7 @@ impl WorldSocketState<ServerSentAuthChallenge> {
                     encryption,
                     db_pool_auth: self.state.db_pool_auth,
                     db_pool_char: self.state.db_pool_char,
+                    db_pool_world: self.state.db_pool_world,
                     account_id,
                     world: self.state.world,
                     player: Player::new(),
@@ -264,6 +268,7 @@ pub async fn process(
     socket: Arc<Mutex<TcpStream>>,
     db_pool_auth: Arc<Pool<SqliteConnectionManager>>,
     db_pool_char: Arc<Pool<SqliteConnectionManager>>,
+    db_pool_world: Arc<Pool<SqliteConnectionManager>>,
     world: Arc<&'static World>,
 ) -> Result<(), WorldSocketError> {
     let mut state = WorldSocketState {
@@ -271,6 +276,7 @@ pub async fn process(
             socket,
             db_pool_auth,
             db_pool_char,
+            db_pool_world,
             world,
         },
     }

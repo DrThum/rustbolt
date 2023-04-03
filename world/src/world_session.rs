@@ -12,6 +12,7 @@ pub struct WorldSession {
     pub encryption: Arc<Mutex<HeaderCrypto>>,
     pub db_pool_auth: Arc<Pool<SqliteConnectionManager>>,
     pub db_pool_char: Arc<Pool<SqliteConnectionManager>>,
+    pub db_pool_world: Arc<Pool<SqliteConnectionManager>>,
     pub account_id: u32,
     pub world: Arc<&'static World>,
     pub player: Player,

@@ -1,19 +1,26 @@
 use std::collections::HashMap;
 
-use crate::{config::DataSection, datastore::dbc::Dbc};
+use r2d2::PooledConnection;
+use r2d2_sqlite::SqliteConnectionManager;
 
-use self::data_types::{CharStartOutfitRecord, ChrClassesRecord, ChrRacesRecord, ItemRecord};
+use crate::{config::DataSection, datastore::dbc::Dbc, repositories::item::ItemRepository};
+
+use self::data_types::{
+    CharStartOutfitRecord, ChrClassesRecord, ChrRacesRecord, ItemRecord, ItemTemplate,
+};
 
 pub mod data_types;
 pub mod dbc;
 
 pub type DbcStore<T> = HashMap<u32, T>;
+pub type SqlStore<T> = HashMap<u32, T>;
 
 pub struct DataStore {
     chr_races: DbcStore<ChrRacesRecord>,
     chr_classes: DbcStore<ChrClassesRecord>,
     char_start_outfit: DbcStore<CharStartOutfitRecord>,
     item: DbcStore<ItemRecord>,
+    item_templates: SqlStore<ItemTemplate>,
 }
 
 macro_rules! parse_dbc {
@@ -23,17 +30,28 @@ macro_rules! parse_dbc {
 }
 
 impl DataStore {
-    pub fn load_dbcs(config: &DataSection) -> Result<DataStore, std::io::Error> {
+    pub fn load_data(
+        config: &DataSection,
+        conn: &PooledConnection<SqliteConnectionManager>,
+    ) -> Result<DataStore, std::io::Error> {
+        // DBC stores
         let chr_races = parse_dbc!(config.directory, "ChrRaces");
         let chr_classes = parse_dbc!(config.directory, "ChrClasses");
         let char_start_outfit = parse_dbc!(config.directory, "CharStartOutfit");
         let item = parse_dbc!(config.directory, "Item");
+
+        // SQL stores
+        let item_templates: SqlStore<ItemTemplate> = ItemRepository::load_templates(conn)
+            .into_iter()
+            .map(|template| (template.entry, template))
+            .collect();
 
         Ok(DataStore {
             chr_races,
             chr_classes,
             char_start_outfit,
             item,
+            item_templates,
         })
     }
 
@@ -55,7 +73,11 @@ impl DataStore {
         self.char_start_outfit.get(&key)
     }
 
-    pub fn get_item(&self, entry: u32) -> Option<&ItemRecord> {
+    pub fn get_item_record(&self, entry: u32) -> Option<&ItemRecord> {
         self.item.get(&entry)
+    }
+
+    pub fn get_item_template(&self, entry: u32) -> Option<&ItemTemplate> {
+        self.item_templates.get(&entry)
     }
 }

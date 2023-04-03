@@ -3,11 +3,19 @@ use std::sync::Arc;
 use env_logger::Env;
 use r2d2_sqlite::SqliteConnectionManager;
 use rustbolt_world::{config::WorldConfig, game::world::World};
-use tokio::{net::TcpListener, sync::Mutex};
+use tokio::{
+    net::TcpListener,
+    sync::{Mutex, Semaphore},
+};
 
-mod embedded {
+mod embedded_characters {
     use refinery::embed_migrations;
     embed_migrations!("../sql_migrations/characters");
+}
+
+mod embedded_world {
+    use refinery::embed_migrations;
+    embed_migrations!("../sql_migrations/world");
 }
 
 #[tokio::main]
@@ -26,17 +34,35 @@ async fn main() {
     .expect("Failed to create r2d2 SQlite connection pool (Auth DB)");
     let db_pool_auth = Arc::new(db_pool_auth);
 
+    let mutex = Semaphore::new(1);
     let sqlite_connection_manager_char = SqliteConnectionManager::file(format!(
         "{}/databases/characters.db",
         config.common.data.directory
     ))
-    .with_init(|c| {
-        embedded::migrations::runner().run(c).unwrap();
+    .with_init(move |c| {
+        if let Ok(_) = mutex.try_acquire() {
+            embedded_characters::migrations::runner().run(c).unwrap();
+        }
         Ok(())
     });
     let db_pool_char = r2d2::Pool::new(sqlite_connection_manager_char)
         .expect("Failed to create r2d2 SQlite connection pool (Characters DB)");
     let db_pool_char = Arc::new(db_pool_char);
+
+    let mutex = Semaphore::new(1);
+    let sqlite_connection_manager_world = SqliteConnectionManager::file(format!(
+        "{}/databases/world.db",
+        config.common.data.directory
+    ))
+    .with_init(move |c| {
+        if let Ok(_) = mutex.try_acquire() {
+            embedded_world::migrations::runner().run(c).unwrap();
+        }
+        Ok(())
+    });
+    let db_pool_world = r2d2::Pool::new(sqlite_connection_manager_world)
+        .expect("Failed to create r2d2 SQlite connection pool (World DB)");
+    let db_pool_world = Arc::new(db_pool_world);
 
     // Bind the listener to the address
     let listener = TcpListener::bind(format!(
@@ -46,7 +72,8 @@ async fn main() {
     .await
     .unwrap();
 
-    let world = Box::leak(Box::new(World::new(&config)));
+    let db_pool_world_copy = Arc::clone(&db_pool_world);
+    let world = Box::leak(Box::new(World::new(&config, db_pool_world_copy)));
     world.start().await;
 
     let world = Arc::new(&*world);
@@ -58,6 +85,7 @@ async fn main() {
         // Spawn a new task for each inbound socket
         let db_pool_auth_copy = Arc::clone(&db_pool_auth);
         let db_pool_char_copy = Arc::clone(&db_pool_char);
+        let db_pool_world_copy = Arc::clone(&db_pool_world);
         let world = Arc::clone(&world);
 
         tokio::spawn(async move {
@@ -65,6 +93,7 @@ async fn main() {
                 Arc::new(Mutex::new(socket)),
                 db_pool_auth_copy,
                 db_pool_char_copy,
+                db_pool_world_copy,
                 world,
             )
             .await

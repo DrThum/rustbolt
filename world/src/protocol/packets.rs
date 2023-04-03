@@ -54,7 +54,7 @@ pub struct CharEnumData {
     pub haircolor: u8,
     pub facialstyle: u8,
     pub level: u8,
-    pub area: u32,
+    pub zone: u32,
     pub map: u32,
     pub position_x: f32,
     pub position_y: f32,

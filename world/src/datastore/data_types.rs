@@ -222,3 +222,14 @@ pub struct ItemTemplate {
     pub max_money_loot: u32,
     pub duration: u32,
 }
+
+pub struct PlayerCreatePosition {
+    pub race: u32,
+    pub class: u32,
+    pub map: u32,
+    pub zone: u32,
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+    pub o: f32,
+}

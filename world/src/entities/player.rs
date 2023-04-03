@@ -6,7 +6,7 @@ use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::Error;
 
 use crate::{
-    datastore::DataStore,
+    datastore::{data_types::PlayerCreatePosition, DataStore},
     protocol::packets::CmsgCharCreate,
     repositories::{character::CharacterRepository, item::ItemRepository},
     shared::constants::{
@@ -23,7 +23,7 @@ use super::{
         UpdateFlag, UpdateType,
     },
     update_fields::*,
-    ObjectTypeId, Position,
+    ObjectTypeId, Position, WorldPosition,
 };
 
 pub type PlayerInventory = HashMap<u32, Item>; // Key is slot
@@ -34,6 +34,7 @@ pub struct Player {
     class: Option<CharacterClass>,
     level: Option<u8>,
     gender: Option<Gender>,
+    position: Option<WorldPosition>,
     visual_features: Option<PlayerVisualFeatures>,
     display_id: Option<u32>,
     native_display_id: Option<u32>,
@@ -49,6 +50,7 @@ impl Player {
             class: None,
             level: None,
             gender: None,
+            position: None,
             visual_features: None,
             display_id: None,
             native_display_id: None,
@@ -65,8 +67,16 @@ impl Player {
     ) -> Result<(), Error> {
         let transaction = conn.transaction()?;
 
-        let character_guid =
-            CharacterRepository::create_character(&transaction, creation_payload, account_id);
+        let create_position: &PlayerCreatePosition = data_store
+            .get_player_create_position(creation_payload.race as u32, creation_payload.class as u32)
+            .expect("Missing player create position in DB");
+
+        let character_guid = CharacterRepository::create_character(
+            &transaction,
+            creation_payload,
+            account_id,
+            create_position,
+        );
 
         let start_items = data_store
             .get_char_start_outfit(
@@ -163,6 +173,7 @@ impl Player {
         self.level = Some(character.level);
         self.gender =
             Some(Gender::n(character.gender).expect("Character has invalid gender in DB"));
+        self.position = Some(character.position);
         self.visual_features = Some(character.visual_features);
         self.display_id = Some(display_id);
         self.native_display_id = Some(display_id);
@@ -210,6 +221,12 @@ impl Player {
         self.gender
             .as_ref()
             .expect("Player gender uninitialized. Is the player in world?")
+    }
+
+    pub fn position(&self) -> &WorldPosition {
+        self.position
+            .as_ref()
+            .expect("Player position uninitialized. Is the player in world?")
     }
 
     pub fn visual_features(&self) -> &PlayerVisualFeatures {
@@ -312,18 +329,17 @@ pub struct PlayerVisualFeatures {
 
 impl UpdatableEntity for Player {
     fn get_create_data(&self) -> Vec<UpdateData> {
-        let position = Position {
-            x: -8953.95,
-            y: 521.019,
-            z: 96.5399,
-            o: 3.83972,
-        };
-
         let movement = Some(MovementUpdateData {
             movement_flags: 0,
             movement_flags2: 0, // Always 0 in 2.4.3
             timestamp: 0,
-            position,
+            position: Position {
+                // FIXME: Into impl?
+                x: self.position().x,
+                y: self.position().y,
+                z: self.position().z,
+                o: self.position().o,
+            },
             fall_time: 0,
             speed_walk: 1.0,
             speed_run: 70.0,

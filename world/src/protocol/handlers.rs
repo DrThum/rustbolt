@@ -138,6 +138,14 @@ async fn handle_cmsg_player_login(data: Vec<u8>, session: Arc<Mutex<WorldSession
     let mut reader = Cursor::new(data);
     let cmsg_player_login: CmsgPlayerLogin = reader.read_le().unwrap();
 
+    let account_id = session.account_id;
+    let data_store: &DataStore = &session.world.data_store;
+    let conn = session.db_pool_char.get().unwrap();
+
+    session
+        .player
+        .load(&conn, account_id, cmsg_player_login.guid, data_store);
+
     let msg_set_dungeon_difficulty = ServerMessage::new(MsgSetDungeonDifficulty {
         difficulty: 0, // FIXME
         unk: 1,
@@ -150,12 +158,13 @@ async fn handle_cmsg_player_login(data: Vec<u8>, session: Arc<Mutex<WorldSession
         .unwrap();
     trace!("Sent MSG_SET_DUNGEON_DIFFICULTY");
 
+    let player_position = session.player.position();
     let smsg_login_verify_world = ServerMessage::new(SmsgLoginVerifyWorld {
-        map: 0,
-        position_x: -8953.95,
-        position_y: 521.019,
-        position_z: 96.5399,
-        orientation: 3.83972,
+        map: player_position.map,
+        position_x: player_position.x,
+        position_y: player_position.y,
+        position_z: player_position.z,
+        orientation: player_position.o,
     });
 
     smsg_login_verify_world
@@ -202,6 +211,7 @@ async fn handle_cmsg_player_login(data: Vec<u8>, session: Arc<Mutex<WorldSession
         .unwrap();
     trace!("Sent SMSG_SET_REST_START");
 
+    // TODO
     let smsg_bindpointupdate = ServerMessage::new(SmsgBindpointupdate {
         homebind_x: -8953.95,
         homebind_y: 521.019,
@@ -243,14 +253,6 @@ async fn handle_cmsg_player_login(data: Vec<u8>, session: Arc<Mutex<WorldSession
         .await
         .unwrap();
     trace!("Sent SMSG_LOGIN_SETTIMESPEED");
-
-    let account_id = session.account_id;
-    let data_store: &DataStore = &session.world.data_store;
-    let conn = session.db_pool_char.get().unwrap();
-
-    session
-        .player
-        .load(&conn, account_id, cmsg_player_login.guid, data_store);
 
     let update_data = session.player.get_create_data();
     let smsg_update_object = ServerMessage::new(SmsgUpdateObject {

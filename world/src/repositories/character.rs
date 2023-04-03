@@ -5,8 +5,11 @@ use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::{named_params, Transaction};
 
 use crate::{
-    datastore::{data_types::ItemRecord, DataStore},
-    entities::player::PlayerVisualFeatures,
+    datastore::{
+        data_types::{ItemRecord, PlayerCreatePosition},
+        DataStore,
+    },
+    entities::{player::PlayerVisualFeatures, WorldPosition},
     protocol::packets::{CharEnumData, CharEnumEquip, CmsgCharCreate, CmsgCharDelete},
     shared::constants::{InventorySlot, InventoryType},
 };
@@ -34,8 +37,9 @@ impl CharacterRepository {
         transaction: &Transaction,
         source: &CmsgCharCreate,
         account_id: u32,
+        create_position: &PlayerCreatePosition,
     ) -> u64 {
-        let mut stmt_create = transaction.prepare_cached("INSERT INTO characters (guid, account_id, name, race, class, gender, skin, face, hairstyle, haircolor, facialstyle) VALUES (NULL, :account_id, :name, :race, :class, :gender, :skin, :face, :hairstyle, :haircolor, :facialstyle)").unwrap();
+        let mut stmt_create = transaction.prepare_cached("INSERT INTO characters (guid, account_id, name, race, class, gender, skin, face, hairstyle, haircolor, facialstyle, map_id, zone_id, position_x, position_y, position_z, orientation) VALUES (NULL, :account_id, :name, :race, :class, :gender, :skin, :face, :hairstyle, :haircolor, :facialstyle, :map, :zone, :x, :y, :z, :o)").unwrap();
         stmt_create
             .execute(named_params! {
                 ":account_id": account_id,
@@ -48,6 +52,12 @@ impl CharacterRepository {
                 ":hairstyle": source.hairstyle,
                 ":haircolor": source.haircolor,
                 ":facialstyle": source.facialstyle,
+                ":map": create_position.map,
+                ":zone": create_position.zone,
+                ":x": create_position.x,
+                ":y": create_position.y,
+                ":z": create_position.z,
+                ":o": create_position.o,
             })
             .unwrap();
 
@@ -86,7 +96,7 @@ impl CharacterRepository {
         account_id: u32,
         data_store: &DataStore,
     ) -> Vec<CharEnumData> {
-        let mut stmt = conn.prepare_cached("SELECT guid, name, race, class, level, gender, skin, face, hairstyle, haircolor, facialstyle FROM characters WHERE account_id = :account_id").unwrap();
+        let mut stmt = conn.prepare_cached("SELECT guid, name, race, class, level, gender, skin, face, hairstyle, haircolor, facialstyle, map_id, zone_id, position_x, position_y, position_z FROM characters WHERE account_id = :account_id").unwrap();
         let chars = stmt
             .query_map(named_params! { ":account_id": account_id }, |row| {
                 let char_guid: u64 = row.get("guid").unwrap();
@@ -154,11 +164,11 @@ impl CharacterRepository {
                     haircolor: row.get("haircolor").unwrap(),
                     facialstyle: row.get("facialstyle").unwrap(),
                     level: row.get("level").unwrap(),
-                    area: 85,
-                    map: 0,
-                    position_x: 0.0,
-                    position_y: 0.0,
-                    position_z: 0.0,
+                    zone: row.get("zone_id").unwrap(),
+                    map: row.get("map_id").unwrap(),
+                    position_x: row.get("position_x").unwrap(),
+                    position_y: row.get("position_y").unwrap(),
+                    position_z: row.get("position_z").unwrap(),
                     guild_id: 0,
                     flags: 0,
                     first_login: 1, // FIXME: bool
@@ -201,7 +211,7 @@ impl CharacterRepository {
         account_id: u32,
     ) -> Option<CharacterRecord> {
         let mut stmt = conn
-            .prepare_cached("SELECT race, class, level, gender, haircolor, hairstyle, face, skin, facialstyle FROM characters WHERE guid = :guid AND account_id = :account_id")
+            .prepare_cached("SELECT race, class, level, gender, haircolor, hairstyle, face, skin, facialstyle, map_id, zone_id, position_x, position_y, position_z, orientation FROM characters WHERE guid = :guid AND account_id = :account_id")
             .unwrap();
         let mut rows = stmt
             .query(named_params! {
@@ -222,6 +232,14 @@ impl CharacterRepository {
                     face: row.get("face").unwrap(),
                     skin: row.get("skin").unwrap(),
                     facialstyle: row.get("facialstyle").unwrap(),
+                },
+                position: WorldPosition {
+                    map: row.get("map_id").unwrap(),
+                    zone: row.get("zone_id").unwrap(),
+                    x: row.get("position_x").unwrap(),
+                    y: row.get("position_y").unwrap(),
+                    z: row.get("position_z").unwrap(),
+                    o: row.get("orientation").unwrap(),
                 },
             })
         } else {
@@ -250,5 +268,6 @@ pub struct CharacterRecord {
     pub class: u8,
     pub level: u8,
     pub gender: u8,
+    pub position: WorldPosition,
     pub visual_features: PlayerVisualFeatures,
 }

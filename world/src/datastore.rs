@@ -5,7 +5,11 @@ use std::collections::HashMap;
 use r2d2::PooledConnection;
 use r2d2_sqlite::SqliteConnectionManager;
 
-use crate::{config::DataSection, datastore::dbc::Dbc, repositories::item::ItemRepository};
+use crate::{
+    config::DataSection,
+    datastore::{data_types::PlayerCreatePosition, dbc::Dbc},
+    repositories::{item::ItemRepository, player_creation::PlayerCreationRepository},
+};
 
 use self::data_types::{
     CharStartOutfitRecord, ChrClassesRecord, ChrRacesRecord, ItemRecord, ItemTemplate,
@@ -23,6 +27,7 @@ pub struct DataStore {
     char_start_outfit: DbcStore<CharStartOutfitRecord>,
     item: DbcStore<ItemRecord>,
     item_templates: SqlStore<ItemTemplate>,
+    player_create_positions: SqlStore<PlayerCreatePosition>,
 }
 
 macro_rules! parse_dbc {
@@ -55,12 +60,24 @@ impl DataStore {
             .map(|template| (template.entry, template))
             .collect();
 
+        println!("Loading player creation positions...");
+        let player_create_positions = PlayerCreationRepository::load_positions(conn);
+        let player_create_positions: SqlStore<PlayerCreatePosition> = player_create_positions
+            .into_iter()
+            .map(|pcp| {
+                let key: u32 = (pcp.race << 8) | pcp.class;
+
+                (key, pcp)
+            })
+            .collect();
+
         Ok(DataStore {
             chr_races,
             chr_classes,
             char_start_outfit,
             item,
             item_templates,
+            player_create_positions,
         })
     }
 
@@ -88,5 +105,15 @@ impl DataStore {
 
     pub fn get_item_template(&self, entry: u32) -> Option<&ItemTemplate> {
         self.item_templates.get(&entry)
+    }
+
+    pub fn get_player_create_position(
+        &self,
+        race: u32,
+        class: u32,
+    ) -> Option<&PlayerCreatePosition> {
+        let key: u32 = (race << 8) | class;
+
+        self.player_create_positions.get(&key)
     }
 }

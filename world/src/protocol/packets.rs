@@ -406,3 +406,21 @@ impl ServerMessagePayload<{ Opcode::SmsgItemQuerySingleResponse as u16 }>
     for SmsgItemQuerySingleResponse<'_>
 {
 }
+
+#[binread]
+pub struct CmsgNameQuery {
+    pub guid: u64,
+}
+
+#[binwrite]
+#[server_opcode]
+pub struct SmsgNameQueryResponse {
+    pub guid: u64,
+    pub name: NullString,
+    pub realm_name: u8, // Use 0, intended for cross-realm battlegrounds
+    pub race: u32,
+    pub class: u32,
+    pub gender: u32,
+    pub is_name_declined: u8, // bool, use 0
+    // pub declined_names: [NullString, 5],
+}

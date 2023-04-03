@@ -147,8 +147,10 @@ impl Player {
         guid: u64,
         data_store: &DataStore,
     ) {
-        let character = CharacterRepository::fetch_basic_character_data(conn, guid, account_id)
+        let character = CharacterRepository::fetch_basic_character_data(conn, guid)
             .expect("Failed to load character from DB");
+
+        assert!(character.account_id == account_id, "Attempt to load a character belonging to another account");
 
         let chr_races_record = data_store
             .get_race_record(character.race as u32)

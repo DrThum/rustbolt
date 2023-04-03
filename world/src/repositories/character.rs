@@ -208,24 +208,25 @@ impl CharacterRepository {
     pub fn fetch_basic_character_data(
         conn: &PooledConnection<SqliteConnectionManager>,
         guid: u64,
-        account_id: u32,
     ) -> Option<CharacterRecord> {
         let mut stmt = conn
-            .prepare_cached("SELECT race, class, level, gender, haircolor, hairstyle, face, skin, facialstyle, map_id, zone_id, position_x, position_y, position_z, orientation FROM characters WHERE guid = :guid AND account_id = :account_id")
+            .prepare_cached("SELECT account_id, race, class, level, gender, name, haircolor, hairstyle, face, skin, facialstyle, map_id, zone_id, position_x, position_y, position_z, orientation FROM characters WHERE guid = :guid")
             .unwrap();
         let mut rows = stmt
             .query(named_params! {
                 ":guid": guid,
-                ":account_id": account_id,
             })
             .unwrap();
 
         if let Some(row) = rows.next().unwrap() {
             Some(CharacterRecord {
+                guid,
+                account_id: row.get("account_id").unwrap(),
                 race: row.get("race").unwrap(),
                 class: row.get("class").unwrap(),
                 level: row.get("level").unwrap(),
                 gender: row.get("gender").unwrap(),
+                name: row.get("name").unwrap(),
                 visual_features: PlayerVisualFeatures {
                     haircolor: row.get("haircolor").unwrap(),
                     hairstyle: row.get("hairstyle").unwrap(),
@@ -264,10 +265,13 @@ impl CharacterRepository {
 }
 
 pub struct CharacterRecord {
+    pub guid: u64,
+    pub account_id: u32,
     pub race: u8,
     pub class: u8,
     pub level: u8,
     pub gender: u8,
+    pub name: String,
     pub position: WorldPosition,
     pub visual_features: PlayerVisualFeatures,
 }

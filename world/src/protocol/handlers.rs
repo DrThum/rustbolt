@@ -40,6 +40,7 @@ lazy_static! {
         define_handler!(Opcode::CmsgRealmSplit, handle_cmsg_realm_split),
         define_handler!(Opcode::CmsgLogoutRequest, handle_cmsg_logout_request),
         define_handler!(Opcode::CmsgItemQuerySingle, handle_cmsg_item_query_single),
+        define_handler!(Opcode::CmsgNameQuery, handle_cmsg_name_query),
         define_handler!(
             Opcode::CmsgUpdateAccountData,
             handle_cmsg_update_account_data
@@ -465,4 +466,45 @@ async fn handle_cmsg_item_query_single(data: Vec<u8>, session: Arc<Mutex<WorldSe
         .unwrap();
 
     trace!("Sent SMSG_ITEM_QUERY_SINGLE_RESPONSE");
+}
+
+async fn handle_cmsg_name_query(data: Vec<u8>, session: Arc<Mutex<WorldSession>>) {
+    trace!("Received CMSG_NAME_QUERY");
+
+    let mut reader = Cursor::new(data);
+    let cmsg_name_query: CmsgNameQuery = reader.read_le().unwrap();
+
+    let session = session.lock().await;
+    let conn = session.db_pool_char.get().unwrap();
+
+    let char_data = CharacterRepository::fetch_basic_character_data(&conn, cmsg_name_query.guid);
+
+    let packet = if let Some(char_data) = char_data {
+        ServerMessage::new(SmsgNameQueryResponse {
+            guid: char_data.guid,
+            name: char_data.name.into(),
+            realm_name: 0,
+            race: char_data.race as u32,
+            class: char_data.class as u32,
+            gender: char_data.gender as u32,
+            is_name_declined: 0,
+        })
+    } else {
+        ServerMessage::new(SmsgNameQueryResponse {
+            guid: cmsg_name_query.guid,
+            name: "<non-existing character>".into(),
+            realm_name: 0,
+            race: 0,
+            class: 0,
+            gender: 0,
+            is_name_declined: 0,
+        })
+    };
+
+    packet
+        .send(&session.socket, &session.encryption)
+        .await
+        .unwrap();
+
+    trace!("Sent SMSG_NAME_QUERY_RESPONSE");
 }

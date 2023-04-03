@@ -1,3 +1,5 @@
+use indicatif::ProgressBar;
+use log::info;
 use std::collections::HashMap;
 
 use r2d2::PooledConnection;
@@ -24,9 +26,14 @@ pub struct DataStore {
 }
 
 macro_rules! parse_dbc {
-    ($config_dir:expr, $dbc_name:expr) => {
-        Dbc::parse(format!("{}/dbcs/{}.dbc", $config_dir, $dbc_name))?.as_store()
-    };
+    ($config_dir:expr, $dbc_name:expr) => {{
+        info!("{}", format!("Loading {}.dbc...", $dbc_name));
+        let dbc = Dbc::parse(format!("{}/dbcs/{}.dbc", $config_dir, $dbc_name))?;
+        let bar = ProgressBar::new(dbc.length() as u64);
+        let store = dbc.as_store(&bar);
+        bar.finish();
+        store
+    }};
 }
 
 impl DataStore {
@@ -41,7 +48,9 @@ impl DataStore {
         let item = parse_dbc!(config.directory, "Item");
 
         // SQL stores
-        let item_templates: SqlStore<ItemTemplate> = ItemRepository::load_templates(conn)
+        info!("Loading item templates...");
+        let item_templates = ItemRepository::load_templates(conn);
+        let item_templates: SqlStore<ItemTemplate> = item_templates
             .into_iter()
             .map(|template| (template.entry, template))
             .collect();

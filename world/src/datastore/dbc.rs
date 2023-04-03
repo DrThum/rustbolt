@@ -5,11 +5,12 @@ use std::{
 };
 
 use bytemuck::cast_slice;
+use indicatif::ProgressBar;
 
 use super::{data_types::DbcTypedRecord, DbcStore};
 
 pub struct Dbc {
-    _header: DbcHeader,
+    header: DbcHeader,
     records: Vec<DbcRecord>,
     _strings: DbcStringBlock,
 }
@@ -23,17 +24,25 @@ impl Dbc {
         let strings = DbcStringBlock::read(&mut file, &header)?;
 
         Ok(Dbc {
-            _header: header,
+            header,
             records,
             _strings: strings,
         })
     }
 
-    pub fn as_store<T: DbcTypedRecord>(&self) -> DbcStore<T> {
+    pub fn as_store<T: DbcTypedRecord>(&self, bar: &ProgressBar) -> DbcStore<T> {
         self.records
             .iter()
-            .map(|dbc_record| T::from_record(dbc_record))
+            .map(|dbc_record| {
+                let res = T::from_record(dbc_record);
+                bar.inc(1);
+                res
+            })
             .collect()
+    }
+
+    pub fn length(&self) -> u32 {
+        self.header.record_count
     }
 }
 

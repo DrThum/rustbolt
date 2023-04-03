@@ -1,3 +1,4 @@
+use indicatif::ProgressBar;
 use r2d2::PooledConnection;
 use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::{named_params, Transaction};
@@ -58,6 +59,14 @@ impl ItemRepository {
     }
 
     pub fn load_templates(conn: &PooledConnection<SqliteConnectionManager>) -> Vec<ItemTemplate> {
+        let mut stmt = conn
+            .prepare_cached("SELECT COUNT(entry) FROM item_templates")
+            .unwrap();
+        let mut count = stmt.query_map([], |row| row.get::<usize, u64>(0)).unwrap();
+
+        let count = count.next().unwrap().unwrap_or(0);
+        let bar = ProgressBar::new(count);
+
         let mut stmt = conn.prepare_cached("SELECT entry, class, subclass, unk0, name, display_id, quality, flags, buy_count, buy_price, sell_price, inventory_type, allowable_class, allowable_race, item_level, required_level, required_skill, required_skill_rank, required_spell, required_honor_rank, required_city_rank, required_reputation_faction, required_reputation_rank, max_count, max_stack_count, container_slots, stat_type1, stat_value1, stat_type2, stat_value2, stat_type3, stat_value3, stat_type4, stat_value4, stat_type5, stat_value5, stat_type6, stat_value6, stat_type7, stat_value7, stat_type8, stat_value8, stat_type9, stat_value9, stat_type10, stat_value10, dmg_min1, dmg_max1, dmg_type1, dmg_min2, dmg_max2, dmg_type2, dmg_min3, dmg_max3, dmg_type3, dmg_min4, dmg_max4, dmg_type4, dmg_min5, dmg_max5, dmg_type5, armor, holy_res, fire_res, nature_res, frost_res, shadow_res, arcane_res, delay, ammo_type, ranged_mod_range, spellid_1, spelltrigger_1, spellcharges_1, spellppm_rate_1, spellcooldown_1, spellcategory_1, spellcategorycooldown_1, spellid_2, spelltrigger_2, spellcharges_2, spellppm_rate_2, spellcooldown_2, spellcategory_2, spellcategorycooldown_2, spellid_3, spelltrigger_3, spellcharges_3, spellppm_rate_3, spellcooldown_3, spellcategory_3, spellcategorycooldown_3, spellid_4, spelltrigger_4, spellcharges_4, spellppm_rate_4, spellcooldown_4, spellcategory_4, spellcategorycooldown_4, spellid_5, spelltrigger_5, spellcharges_5, spellppm_rate_5, spellcooldown_5, spellcategory_5, spellcategorycooldown_5, bonding, description, page_text, language_id, page_material, start_quest, lock_id, material, sheath, random_property, random_suffix, block, itemset, max_durability, area, map, bag_family, totem_category, socket_color_1, socket_content_1, socket_color_2, socket_content_2, socket_color_3, socket_content_3, socket_bonus, gem_properties, required_disenchant_skill, armor_damage_modifier, disenchant_id, food_type, min_money_loot, max_money_loot, duration FROM item_templates ORDER BY entry").unwrap();
 
         let result = stmt
@@ -109,6 +118,11 @@ impl ItemRepository {
                             .unwrap(),
                     })
                     .collect();
+
+                bar.inc(1);
+                if bar.position() == count {
+                    bar.finish();
+                }
 
                 Ok(ItemTemplate {
                     entry: row.get("entry").unwrap(),

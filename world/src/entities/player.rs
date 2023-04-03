@@ -282,18 +282,18 @@ impl Player {
             *self.native_display_id(),
         );
 
-        for item in &self.inventory {
+        for (&slot, ref item) in &self.inventory {
             update_builder.add_u64(
-                UnitFields::PlayerFieldInvSlotHead as usize + (2 * item.0) as usize,
-                item.1.guid().raw(),
+                UnitFields::PlayerFieldInvSlotHead as usize + (2 * slot) as usize,
+                item.guid().raw(),
             );
 
             // Visible bits
-            if *item.0 >= InventorySlot::EQUIPMENT_START && *item.0 < InventorySlot::EQUIPMENT_END {
+            if slot >= InventorySlot::EQUIPMENT_START && slot < InventorySlot::EQUIPMENT_END {
                 update_builder.add_u32(
                     UnitFields::PlayerVisibleItem1_0 as usize
-                        + (item.0 * 16/* MAX_VISIBLE_ITEM_OFFSET */) as usize,
-                    *item.1.entry(),
+                        + (slot * MAX_PLAYER_VISIBLE_ITEM_OFFSET) as usize,
+                    *item.entry(),
                 );
             }
         }

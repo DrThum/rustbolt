@@ -404,6 +404,8 @@ impl Into<usize> for UnitFields {
 const UNIT_END: isize = OBJECT_END + 0x00E4;
 #[allow(dead_code)]
 const PLAYER_END: isize = UNIT_END + 0x054E;
+#[allow(dead_code)]
+pub const MAX_PLAYER_VISIBLE_ITEM_OFFSET: u32 = 16;
 
 #[allow(dead_code)]
 pub enum GameObjectFields {

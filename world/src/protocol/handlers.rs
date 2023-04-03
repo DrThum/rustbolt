@@ -251,30 +251,11 @@ async fn handle_cmsg_player_login(data: Vec<u8>, session: Arc<Mutex<WorldSession
         .player
         .load(&conn, account_id, cmsg_player_login.guid, data_store);
 
-    let object_updates: Vec<ObjectUpdate> = session
-        .player
-        .get_create_data()
-        .into_iter()
-        .map(|update_data| {
-            ObjectUpdate {
-                update_type: update_data.update_type as u8,
-                packed_guid: update_data.packed_guid,
-                object_type: update_data.object_type as u8,
-                flags: update_data.flags.bits(),
-                movement_update: update_data.movement,
-                low_guid_part: update_data.low_guid_part,
-                high_guid_part: update_data.high_guid_part,
-                num_mask_blocks: update_data.blocks[0].num_masks,
-                mask_blocks: update_data.blocks[0].block_masks.clone(), // FIXME
-                data: update_data.blocks[0].data.clone(),               // FIXME
-            }
-        })
-        .collect();
-
+    let update_data = session.player.get_create_data();
     let smsg_update_object = ServerMessage::new(SmsgUpdateObject {
-        updates_count: object_updates.len() as u32,
+        updates_count: update_data.len() as u32,
         has_transport: 0,
-        updates: object_updates,
+        updates: update_data,
     });
 
     smsg_update_object

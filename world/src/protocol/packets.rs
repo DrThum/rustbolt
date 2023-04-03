@@ -1,5 +1,8 @@
 use crate::{
-    entities::{object_guid::PackedObjectGuid, update::MovementUpdateData},
+    entities::{
+        object_guid::PackedObjectGuid,
+        update::{MovementUpdateData, UpdateData},
+    },
     shared::constants::InventoryType,
 };
 
@@ -213,7 +216,7 @@ pub struct ObjectUpdate {
 pub struct SmsgUpdateObject {
     pub updates_count: u32,
     pub has_transport: u8, // TODO: bool
-    pub updates: Vec<ObjectUpdate>,
+    pub updates: Vec<UpdateData>,
 }
 
 #[binwrite]

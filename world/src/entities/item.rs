@@ -62,11 +62,10 @@ impl UpdatableEntity for Item {
             movement: None,
             low_guid_part: Some(self.guid.counter()),
             high_guid_part: Some(HighGuidType::ItemOrContainer as u32),
-            blocks: vec![self.gen_create_data()],
+            blocks: self.gen_create_data(),
         };
 
         vec![update_data]
-        // Vec::new()
     }
 
     fn get_update_data(&self) -> Vec<UpdateData> {

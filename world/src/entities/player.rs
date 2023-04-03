@@ -343,7 +343,7 @@ impl UpdatableEntity for Player {
             movement,
             low_guid_part: None,
             high_guid_part: Some(HighGuidType::Player as u32),
-            blocks: vec![self.gen_create_data()],
+            blocks: self.gen_create_data(),
         }];
 
         let inventory_updates: Vec<UpdateData> = self

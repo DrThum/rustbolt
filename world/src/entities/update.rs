@@ -15,16 +15,20 @@ pub trait UpdatableEntity {
     fn get_update_data(&self) -> Vec<UpdateData>;
 }
 
+#[binwrite]
 pub struct UpdateData {
+    #[bw(map = |ut: &UpdateType| *ut as u8)]
     pub update_type: UpdateType,
     pub packed_guid: PackedObjectGuid,
+    #[bw(map = |ot: &ObjectTypeId| *ot as u8)]
     pub object_type: ObjectTypeId,
+    #[bw(map = |bf: &BitFlags<UpdateFlag>| bf.bits())]
     pub flags: BitFlags<UpdateFlag>,
     pub movement: Option<MovementUpdateData>, // Only if flags & Living
     // pub position: Option<PositionUpdateData>, // Only if flags & HasPosition and !Living
     pub low_guid_part: Option<u32>,  // Only if flags & LowGuid
     pub high_guid_part: Option<u32>, // Only if flags & HighGuid
-    pub blocks: Vec<UpdateBlock>,
+    pub blocks: UpdateBlock,
 }
 
 pub struct UpdateBlockBuilder {
@@ -37,6 +41,7 @@ pub struct UpdateBlockBuilder {
 // * num_masks represent the number of block_masks to expect
 // * block_masks contains bits whose index indicates which fields are being updated
 // * data contains the data, one value for each bit set to 1 in the masks, in the same order
+#[binwrite]
 pub struct UpdateBlock {
     pub num_masks: u8,
     pub block_masks: Vec<u32>,

@@ -171,7 +171,7 @@ impl CharacterRepository {
                     position_z: row.get("position_z").unwrap(),
                     guild_id: 0,
                     flags: 0,
-                    first_login: 1, // FIXME: bool
+                    first_login: true, // TODO: Set to false after first login
                     pet_display_id: 0,
                     pet_level: 0,
                     pet_family: 0,

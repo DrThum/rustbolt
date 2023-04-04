@@ -258,7 +258,7 @@ async fn handle_cmsg_player_login(data: Vec<u8>, session: Arc<Mutex<WorldSession
     let update_data = session.player.get_create_data(session.player.guid().raw());
     let smsg_update_object = ServerMessage::new(SmsgUpdateObject {
         updates_count: update_data.len() as u32,
-        has_transport: 0,
+        has_transport: false,
         updates: update_data,
     });
 
@@ -487,7 +487,7 @@ async fn handle_cmsg_name_query(data: Vec<u8>, session: Arc<Mutex<WorldSession>>
             race: char_data.race as u32,
             class: char_data.class as u32,
             gender: char_data.gender as u32,
-            is_name_declined: 0,
+            is_name_declined: false,
         })
     } else {
         ServerMessage::new(SmsgNameQueryResponse {
@@ -497,7 +497,7 @@ async fn handle_cmsg_name_query(data: Vec<u8>, session: Arc<Mutex<WorldSession>>
             race: 0,
             class: 0,
             gender: 0,
-            is_name_declined: 0,
+            is_name_declined: false,
         })
     };
 

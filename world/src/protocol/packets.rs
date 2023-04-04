@@ -61,7 +61,8 @@ pub struct CharEnumData {
     pub position_z: f32,
     pub guild_id: u32,
     pub flags: u32,
-    pub first_login: u8, // FIXME: bool
+    #[bw(map = |b: &bool| if *b { 1_u8 } else { 0_u8 })]
+    pub first_login: bool,
     pub pet_display_id: u32,
     pub pet_level: u32,
     pub pet_family: u32,
@@ -215,7 +216,8 @@ pub struct ObjectUpdate {
 #[server_opcode]
 pub struct SmsgUpdateObject {
     pub updates_count: u32,
-    pub has_transport: u8, // TODO: bool
+    #[bw(map = |b: &bool| if *b { 1_u8 } else { 0_u8 })]
+    pub has_transport: bool,
     pub updates: Vec<UpdateData>,
 }
 
@@ -421,6 +423,7 @@ pub struct SmsgNameQueryResponse {
     pub race: u32,
     pub class: u32,
     pub gender: u32,
-    pub is_name_declined: u8, // bool, use 0
-                              // pub declined_names: [NullString, 5],
+    #[bw(map = |b: &bool| if *b { 1_u8 } else { 0_u8 })]
+    pub is_name_declined: bool, // use false
+                                // pub declined_names: [NullString, 5],
 }

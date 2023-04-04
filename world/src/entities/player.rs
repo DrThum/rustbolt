@@ -8,6 +8,7 @@ use rusqlite::Error;
 
 use crate::{
     datastore::{data_types::PlayerCreatePosition, DataStore},
+    game::world::World,
     protocol::packets::CmsgCharCreate,
     repositories::{character::CharacterRepository, item::ItemRepository},
     shared::constants::{
@@ -386,11 +387,11 @@ pub struct PlayerVisualFeatures {
 }
 
 impl UpdatableEntity for Player {
-    fn get_create_data(&self, recipient_guid: u64) -> Vec<UpdateData> {
+    fn get_create_data(&self, recipient_guid: u64, world: &World) -> Vec<UpdateData> {
         let movement = Some(MovementUpdateData {
             movement_flags: 0,
-            movement_flags2: 0, // Always 0 in 2.4.3
-            timestamp: 0,
+            movement_flags2: 0,                              // Always 0 in 2.4.3
+            timestamp: world.game_time().as_millis() as u32, // Will overflow every 49.7 days
             position: Position {
                 // FIXME: Into impl?
                 x: self.position().x,
@@ -429,14 +430,14 @@ impl UpdatableEntity for Player {
         let inventory_updates: Vec<UpdateData> = self
             .inventory
             .iter()
-            .flat_map(|item| item.1.get_create_data(self.guid().raw()))
+            .flat_map(|item| item.1.get_create_data(self.guid().raw(), world))
             .collect();
 
         player_update_data.extend(inventory_updates);
         player_update_data
     }
 
-    fn get_update_data(&self, _recipient_guid: u64) -> Vec<UpdateData> {
+    fn get_update_data(&self, _recipient_guid: u64, _world: &World) -> Vec<UpdateData> {
         todo!();
     }
 }

@@ -1,6 +1,6 @@
 use std::{
     sync::Arc,
-    time::{Duration, SystemTime},
+    time::{Duration, Instant},
 };
 
 use r2d2::Pool;
@@ -11,6 +11,7 @@ use crate::{config::WorldConfig, datastore::DataStore};
 
 pub struct World {
     pub data_store: DataStore,
+    start_time: Instant,
 }
 
 impl World {
@@ -19,7 +20,10 @@ impl World {
         let data_store = DataStore::load_data(&config.common.data, &conn)
             .expect("Error when loading static data");
 
-        World { data_store }
+        World {
+            data_store,
+            start_time: Instant::now(),
+        }
     }
 
     pub async fn start(&'static self) {
@@ -28,17 +32,22 @@ impl World {
         });
     }
 
+    // Return the elapsed time since the World started
+    pub fn game_time(&self) -> Duration {
+        self.start_time.elapsed()
+    }
+
     async fn game_loop(&self) {
         let mut interval = interval(Duration::from_millis(50));
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
-        let mut time = SystemTime::now();
+        let mut time = Instant::now();
 
         loop {
-            let new_time = SystemTime::now();
-            if let Ok(diff) = new_time.duration_since(time) {
-                time = new_time;
-                self.tick(diff);
-            }
+            let new_time = Instant::now();
+            let diff = new_time.duration_since(time);
+
+            time = new_time;
+            self.tick(diff);
 
             interval.tick().await;
         }

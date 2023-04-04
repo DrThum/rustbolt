@@ -255,7 +255,9 @@ async fn handle_cmsg_player_login(data: Vec<u8>, session: Arc<Mutex<WorldSession
         .unwrap();
     trace!("Sent SMSG_LOGIN_SETTIMESPEED");
 
-    let update_data = session.player.get_create_data(session.player.guid().raw());
+    let update_data = session
+        .player
+        .get_create_data(session.player.guid().raw(), *session.world);
     let smsg_update_object = ServerMessage::new(SmsgUpdateObject {
         updates_count: update_data.len() as u32,
         has_transport: false,

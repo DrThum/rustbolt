@@ -3,14 +3,16 @@ use enumflags2::{bitflags, BitFlags};
 use fixedbitset::FixedBitSet;
 use log::error;
 
+use crate::game::world::World;
+
 use super::{object_guid::PackedObjectGuid, ObjectTypeId, Position};
 
 pub trait UpdatableEntity {
     // FIXME:
     //
     // - Is this the right place to support out of range GUIDs?
-    fn get_create_data(&self, recipient_guid: u64) -> Vec<UpdateData>;
-    fn get_update_data(&self, recipient_guid: u64) -> Vec<UpdateData>;
+    fn get_create_data(&self, recipient_guid: u64, world: &World) -> Vec<UpdateData>;
+    fn get_update_data(&self, recipient_guid: u64, world: &World) -> Vec<UpdateData>;
 }
 
 #[binwrite]

@@ -12,10 +12,11 @@ use crate::{config::WorldConfig, datastore::DataStore};
 pub struct World {
     pub data_store: DataStore,
     start_time: Instant,
+    config: Arc<WorldConfig>,
 }
 
 impl World {
-    pub fn new(config: &WorldConfig, pool: Arc<Pool<SqliteConnectionManager>>) -> Self {
+    pub fn new(config: Arc<WorldConfig>, pool: Arc<Pool<SqliteConnectionManager>>) -> Self {
         let conn = pool.get().unwrap();
         let data_store = DataStore::load_data(&config.common.data, &conn)
             .expect("Error when loading static data");
@@ -23,6 +24,7 @@ impl World {
         World {
             data_store,
             start_time: Instant::now(),
+            config,
         }
     }
 
@@ -35,6 +37,10 @@ impl World {
     // Return the elapsed time since the World started
     pub fn game_time(&self) -> Duration {
         self.start_time.elapsed()
+    }
+
+    pub fn config(&self) -> &WorldConfig {
+        &self.config
     }
 
     async fn game_loop(&self) {

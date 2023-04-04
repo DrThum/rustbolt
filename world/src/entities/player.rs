@@ -153,7 +153,7 @@ impl Player {
         conn: &PooledConnection<SqliteConnectionManager>,
         account_id: u32,
         guid: u64,
-        data_store: &DataStore,
+        world: &World,
     ) {
         self.values.reset();
 
@@ -165,7 +165,8 @@ impl Player {
             "Attempt to load a character belonging to another account"
         );
 
-        let chr_races_record = data_store
+        let chr_races_record = world
+            .data_store
             .get_race_record(character.race as u32)
             .expect("Cannot load character because it has an invalid race id in DB");
 
@@ -175,7 +176,8 @@ impl Player {
             chr_races_record.female_display_id
         };
 
-        let power_type = data_store
+        let power_type = world
+            .data_store
             .get_class_record(character.class as u32)
             .map(|cl| PowerType::n(cl.power_type).unwrap())
             .expect("Cannot load character because it has an invalid class id in DB");
@@ -194,6 +196,10 @@ impl Player {
 
         self.values
             .set_u32(UnitFields::UnitFieldLevel.into(), character.level as u32);
+        self.values.set_u32(
+            UnitFields::PlayerFieldMaxLevel.into(),
+            world.config().world.game.player.maxlevel,
+        );
 
         let race = CharacterRace::n(character.race).expect("Character has invalid race id in DB");
         self.values

@@ -73,7 +73,8 @@ async fn main() {
     .unwrap();
 
     let db_pool_world_copy = Arc::clone(&db_pool_world);
-    let world = Box::leak(Box::new(World::new(&config, db_pool_world_copy)));
+    let config = Arc::new(config);
+    let world = Box::leak(Box::new(World::new(config, db_pool_world_copy)));
     world.start().await;
 
     let world = Arc::new(&*world);

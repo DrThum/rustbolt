@@ -11,3 +11,6 @@ port = "3724"
 [world.network]
 host = "127.0.0.1"
 port = "8085"
+
+[world.game.player]
+maxlevel = 70

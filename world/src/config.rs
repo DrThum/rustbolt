@@ -27,6 +27,7 @@ pub struct CommonSection {
 #[derive(Debug, Deserialize)]
 pub struct WorldSection {
     pub network: NetworkSection,
+    pub game: GameSection,
 }
 
 #[derive(Debug, Deserialize)]
@@ -38,4 +39,14 @@ pub struct DataSection {
 pub struct NetworkSection {
     pub host: String,
     pub port: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct GameSection {
+    pub player: PlayerSection,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct PlayerSection {
+    pub maxlevel: u32,
 }

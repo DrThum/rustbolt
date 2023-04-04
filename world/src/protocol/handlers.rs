@@ -140,12 +140,12 @@ async fn handle_cmsg_player_login(data: Vec<u8>, session: Arc<Mutex<WorldSession
     let cmsg_player_login: CmsgPlayerLogin = reader.read_le().unwrap();
 
     let account_id = session.account_id;
-    let data_store: &DataStore = &session.world.data_store;
+    let world = *(session.world);
     let conn = session.db_pool_char.get().unwrap();
 
     session
         .player
-        .load(&conn, account_id, cmsg_player_login.guid, data_store);
+        .load(&conn, account_id, cmsg_player_login.guid, world);
 
     let msg_set_dungeon_difficulty = ServerMessage::new(MsgSetDungeonDifficulty {
         difficulty: 0, // FIXME

@@ -58,7 +58,7 @@ impl Item {
 }
 
 impl UpdatableEntity for Item {
-    fn get_create_data(&self) -> Vec<UpdateData> {
+    fn get_create_data(&self, _recipient_guid: u64) -> Vec<UpdateData> {
         let update_data = UpdateData {
             update_type: UpdateType::CreateObject,
             packed_guid: self.guid.as_packed(),
@@ -73,7 +73,7 @@ impl UpdatableEntity for Item {
         vec![update_data]
     }
 
-    fn get_update_data(&self) -> Vec<UpdateData> {
+    fn get_update_data(&self, _recipient_guid: u64) -> Vec<UpdateData> {
         todo!()
     }
 }

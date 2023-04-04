@@ -8,11 +8,9 @@ use super::{object_guid::PackedObjectGuid, ObjectTypeId, Position};
 pub trait UpdatableEntity {
     // FIXME:
     //
-    // - Specify the target as it has an impact on the generated data (for example, a Player for
-    //   itself includes owned items)
     // - Is this the right place to support out of range GUIDs?
-    fn get_create_data(&self) -> Vec<UpdateData>;
-    fn get_update_data(&self) -> Vec<UpdateData>;
+    fn get_create_data(&self, recipient_guid: u64) -> Vec<UpdateData>;
+    fn get_update_data(&self, recipient_guid: u64) -> Vec<UpdateData>;
 }
 
 #[binwrite]

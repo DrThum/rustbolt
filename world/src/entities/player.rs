@@ -359,7 +359,7 @@ pub struct PlayerVisualFeatures {
 }
 
 impl UpdatableEntity for Player {
-    fn get_create_data(&self) -> Vec<UpdateData> {
+    fn get_create_data(&self, recipient_guid: u64) -> Vec<UpdateData> {
         let movement = Some(MovementUpdateData {
             movement_flags: 0,
             movement_flags2: 0, // Always 0 in 2.4.3
@@ -382,11 +382,17 @@ impl UpdatableEntity for Player {
             speed_turn: 3.1415,
         });
 
+        let flags = if recipient_guid == self.guid().raw() {
+            make_bitflags!(UpdateFlag::{HighGuid | Living | HasPosition | SelfUpdate})
+        } else {
+            make_bitflags!(UpdateFlag::{HighGuid | Living | HasPosition})
+        };
+
         let mut player_update_data = vec![UpdateData {
             update_type: UpdateType::CreateObject2,
             packed_guid: self.guid().as_packed(),
             object_type: ObjectTypeId::Player,
-            flags: make_bitflags!(UpdateFlag::{HighGuid | Living | HasPosition | SelfUpdate}), // FIXME: SelfUpdate only if target == this
+            flags,
             movement,
             low_guid_part: None,
             high_guid_part: Some(HighGuidType::Player as u32),
@@ -396,14 +402,14 @@ impl UpdatableEntity for Player {
         let inventory_updates: Vec<UpdateData> = self
             .inventory
             .iter()
-            .flat_map(|item| item.1.get_create_data())
+            .flat_map(|item| item.1.get_create_data(self.guid().raw()))
             .collect();
 
         player_update_data.extend(inventory_updates);
         player_update_data
     }
 
-    fn get_update_data(&self) -> Vec<UpdateData> {
+    fn get_update_data(&self, _recipient_guid: u64) -> Vec<UpdateData> {
         todo!();
     }
 }

@@ -427,3 +427,10 @@ pub struct SmsgNameQueryResponse {
     pub is_name_declined: bool, // use false
                                 // pub declined_names: [NullString, 5],
 }
+
+#[binwrite]
+#[server_opcode]
+pub struct SmsgQueryTimeResponse {
+    pub seconds_since_epoch: u32,
+    pub seconds_until_daily_quests_reset: u32,
+}

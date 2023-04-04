@@ -3,6 +3,7 @@ use binrw::{BinReaderExt, NullString};
 use futures::future::{BoxFuture, FutureExt};
 use lazy_static::lazy_static;
 use log::{error, trace};
+use std::time::{SystemTime, UNIX_EPOCH};
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::Mutex;
 
@@ -41,6 +42,7 @@ lazy_static! {
         define_handler!(Opcode::CmsgLogoutRequest, handle_cmsg_logout_request),
         define_handler!(Opcode::CmsgItemQuerySingle, handle_cmsg_item_query_single),
         define_handler!(Opcode::CmsgNameQuery, handle_cmsg_name_query),
+        define_handler!(Opcode::CmsgQueryTime, handle_cmsg_query_time),
         define_handler!(
             Opcode::CmsgUpdateAccountData,
             handle_cmsg_update_account_data
@@ -509,4 +511,26 @@ async fn handle_cmsg_name_query(data: Vec<u8>, session: Arc<Mutex<WorldSession>>
         .unwrap();
 
     trace!("Sent SMSG_NAME_QUERY_RESPONSE");
+}
+
+async fn handle_cmsg_query_time(_data: Vec<u8>, session: Arc<Mutex<WorldSession>>) {
+    trace!("Received CMSG_QUERY_TIME");
+
+    let now = SystemTime::now();
+    let seconds_since_epoch = now
+        .duration_since(UNIX_EPOCH)
+        .expect("Time went backward")
+        .as_secs() as u32; // Hi from the past, how's 2038?
+    let packet = ServerMessage::new(SmsgQueryTimeResponse {
+        seconds_since_epoch,
+        seconds_until_daily_quests_reset: 0, // TODO: Change this when implementing daily quests
+    });
+
+    let session = session.lock().await;
+    packet
+        .send(&session.socket, &session.encryption)
+        .await
+        .unwrap();
+
+    trace!("Sent SMSG_QUERY_TIME_RESPONSE");
 }

@@ -134,6 +134,8 @@ impl Player {
         guid: u64,
         data_store: &DataStore,
     ) {
+        self.values.reset();
+
         let character = CharacterRepository::fetch_basic_character_data(conn, guid)
             .expect("Failed to load character from DB");
 

@@ -12,6 +12,11 @@ impl InternalValues {
         InternalValues { size, values }
     }
 
+    pub fn reset(&mut self) {
+        self.values.clear();
+        self.values.resize(self.size, Value { as_u32: 0 });
+    }
+
     // TODO:
     // - set_dirty(index: usize)
     // - get_dirty_indexes()

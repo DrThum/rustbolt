@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use enumflags2::make_bitflags;
+use log::error;
 use r2d2::PooledConnection;
 use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::Error;
@@ -11,7 +12,7 @@ use crate::{
     repositories::{character::CharacterRepository, item::ItemRepository},
     shared::constants::{
         CharacterClass, CharacterRace, Gender, HighGuidType, InventorySlot, InventoryType,
-        ObjectTypeMask, PowerType,
+        ItemClass, ItemSubclassConsumable, ObjectTypeMask, PowerType,
     },
 };
 
@@ -76,52 +77,71 @@ impl Player {
 
         let mut current_bag_slot: u32 = InventorySlot::BACKPACK_START;
         for start_item in start_items {
-            let item_guid = ItemRepository::create(&transaction, start_item.id);
+            if let Some(template) = data_store.get_item_template(start_item.id) {
+                let stack_count = match (
+                    ItemClass::n(template.class),
+                    ItemSubclassConsumable::n(template.subclass),
+                ) {
+                    (Some(ItemClass::Consumable), Some(ItemSubclassConsumable::Food)) => {
+                        match template.spells[0].category {
+                            11 => 4, // Food
+                            59 => 2, // Drink
+                            _ => template.buy_count,
+                        }
+                    }
+                    _ => template.buy_count,
+                };
+                let item_guid = ItemRepository::create(&transaction, start_item.id, stack_count);
 
-            // Note: this won't work for multiple rings or trinkets but it shouldn't happen with
-            // starting gear
-            let slot = match start_item.inventory_type {
-                InventoryType::NonEquip
-                | InventoryType::Ammo
-                | InventoryType::Thrown
-                | InventoryType::Bag => {
-                    let res = current_bag_slot;
-                    current_bag_slot += 1;
-                    res
-                }
-                InventoryType::Head => InventorySlot::EquipmentHead as u32,
-                InventoryType::Neck => InventorySlot::EquipmentNeck as u32,
-                InventoryType::Shoulders => InventorySlot::EquipmentShoulders as u32,
-                InventoryType::Body => InventorySlot::EquipmentBody as u32,
-                InventoryType::Chest | InventoryType::Robe => InventorySlot::EquipmentChest as u32,
-                InventoryType::Waist => InventorySlot::EquipmentWaist as u32,
-                InventoryType::Legs => InventorySlot::EquipmentLegs as u32,
-                InventoryType::Feet => InventorySlot::EquipmentFeet as u32,
-                InventoryType::Wrists => InventorySlot::EquipmentWrists as u32,
-                InventoryType::Hands => InventorySlot::EquipmentHands as u32,
-                InventoryType::Finger => InventorySlot::EquipmentFinger1 as u32,
-                InventoryType::Trinket => InventorySlot::EquipmentTrinket1 as u32,
-                InventoryType::Weapon
-                | InventoryType::Holdable
-                | InventoryType::TwoHandWeapon
-                | InventoryType::WeaponMainHand => InventorySlot::EquipmentMainhand as u32,
-                InventoryType::Shield | InventoryType::WeaponOffHand | InventoryType::Quiver => {
-                    InventorySlot::EquipmentOffhand as u32
-                }
-                InventoryType::Ranged | InventoryType::RangedRight | InventoryType::Relic => {
-                    InventorySlot::EquipmentRanged as u32
-                }
-                InventoryType::Cloak => InventorySlot::EquipmentBack as u32,
+                // Note: this won't work for multiple rings or trinkets but it shouldn't happen with
+                // starting gear
+                let slot = match start_item.inventory_type {
+                    InventoryType::NonEquip
+                    | InventoryType::Ammo
+                    | InventoryType::Thrown
+                    | InventoryType::Bag => {
+                        let res = current_bag_slot;
+                        current_bag_slot += 1;
+                        res
+                    }
+                    InventoryType::Head => InventorySlot::EquipmentHead as u32,
+                    InventoryType::Neck => InventorySlot::EquipmentNeck as u32,
+                    InventoryType::Shoulders => InventorySlot::EquipmentShoulders as u32,
+                    InventoryType::Body => InventorySlot::EquipmentBody as u32,
+                    InventoryType::Chest | InventoryType::Robe => {
+                        InventorySlot::EquipmentChest as u32
+                    }
+                    InventoryType::Waist => InventorySlot::EquipmentWaist as u32,
+                    InventoryType::Legs => InventorySlot::EquipmentLegs as u32,
+                    InventoryType::Feet => InventorySlot::EquipmentFeet as u32,
+                    InventoryType::Wrists => InventorySlot::EquipmentWrists as u32,
+                    InventoryType::Hands => InventorySlot::EquipmentHands as u32,
+                    InventoryType::Finger => InventorySlot::EquipmentFinger1 as u32,
+                    InventoryType::Trinket => InventorySlot::EquipmentTrinket1 as u32,
+                    InventoryType::Weapon
+                    | InventoryType::Holdable
+                    | InventoryType::TwoHandWeapon
+                    | InventoryType::WeaponMainHand => InventorySlot::EquipmentMainhand as u32,
+                    InventoryType::Shield
+                    | InventoryType::WeaponOffHand
+                    | InventoryType::Quiver => InventorySlot::EquipmentOffhand as u32,
+                    InventoryType::Ranged | InventoryType::RangedRight | InventoryType::Relic => {
+                        InventorySlot::EquipmentRanged as u32
+                    }
+                    InventoryType::Cloak => InventorySlot::EquipmentBack as u32,
 
-                InventoryType::Tabard => InventorySlot::EquipmentTabard as u32,
-            };
+                    InventoryType::Tabard => InventorySlot::EquipmentTabard as u32,
+                };
 
-            CharacterRepository::add_item_to_inventory(
-                &transaction,
-                character_guid,
-                item_guid,
-                slot,
-            );
+                CharacterRepository::add_item_to_inventory(
+                    &transaction,
+                    character_guid,
+                    item_guid,
+                    slot,
+                );
+            } else {
+                error!("Unknown item {} in CharStartOutfit", start_item.id);
+            }
         }
 
         transaction.commit()
@@ -251,7 +271,12 @@ impl Player {
             ItemRepository::load_player_inventory(&conn, self.guid().raw() as u32)
                 .into_iter()
                 .map(|record| {
-                    let item = Item::new(record.guid, record.entry, record.owner_guid.unwrap());
+                    let item = Item::new(
+                        record.guid,
+                        record.entry,
+                        record.owner_guid.unwrap(),
+                        record.stack_count,
+                    );
                     self.values.set_u64(
                         UnitFields::PlayerFieldInvSlotHead as usize + (2 * record.slot) as usize,
                         item.guid().raw(),

@@ -177,3 +177,208 @@ pub const MAX_ITEM_TEMPLATE_STATS: u32 = 10;
 pub const MAX_ITEM_TEMPLATE_DAMAGES: u32 = 5;
 pub const MAX_ITEM_TEMPLATE_SPELLS: u32 = 5;
 pub const MAX_ITEM_TEMPLATE_SOCKETS: u32 = 3;
+
+#[allow(dead_code)]
+#[derive(N)]
+pub enum ItemClass {
+    Consumable = 0,
+    Container = 1,
+    Weapon = 2,
+    Gem = 3,
+    Armor = 4,
+    Reagent = 5,
+    Projectile = 6,
+    TradeGoods = 7,
+    Generic = 8,
+    Recipe = 9,
+    Money = 10,
+    Quiver = 11,
+    Quest = 12,
+    Key = 13,
+    Permanent = 14,
+    Misc = 15,
+}
+
+#[allow(dead_code)]
+#[derive(N)]
+pub enum ItemSubclassConsumable {
+    Consumable = 0,
+    Potion = 1,
+    Elixir = 2,
+    Flask = 3,
+    Scroll = 4,
+    Food = 5,
+    ItemEnhancement = 6,
+    Bandage = 7,
+    ConsumableOther = 8,
+}
+
+#[allow(dead_code)]
+#[derive(N)]
+pub enum ItemSubclassContainer {
+    Container = 0,
+    SoulContainer = 1,
+    HerbContainer = 2,
+    EnchantingContainer = 3,
+    EngineeringContainer = 4,
+    GemContainer = 5,
+    MiningContainer = 6,
+    LeatherworkingContainer = 7,
+}
+
+#[allow(dead_code)]
+#[derive(N)]
+pub enum ItemSubclassWeapon {
+    Axe = 0,
+    Axe2 = 1,
+    Bow = 2,
+    Gun = 3,
+    Mace = 4,
+    Mace2 = 5,
+    Polearm = 6,
+    Sword = 7,
+    Sword2 = 8,
+    Obsolete = 9,
+    Staff = 10,
+    Exotic = 11,
+    Exotic2 = 12,
+    Fist = 13,
+    Misc = 14,
+    Dagger = 15,
+    Thrown = 16,
+    Spear = 17,
+    Crossbow = 18,
+    Wand = 19,
+    FishingPole = 20,
+}
+
+#[allow(dead_code)]
+#[derive(N)]
+pub enum ItemSubclassGem {
+    Red = 0,
+    Blue = 1,
+    Yellow = 2,
+    Purple = 3,
+    Green = 4,
+    Orange = 5,
+    Meta = 6,
+    Simple = 7,
+    Prismatic = 8,
+}
+
+#[allow(dead_code)]
+#[derive(N)]
+pub enum ItemSubclassArmor {
+    Misc = 0,
+    Cloth = 1,
+    Leather = 2,
+    Mail = 3,
+    Plate = 4,
+    Buckler = 5,
+    Shield = 6,
+    Libram = 7,
+    Idol = 8,
+    Totem = 9,
+}
+
+#[allow(dead_code)]
+#[derive(N)]
+pub enum ItemSubclassReagent {
+    Reagent = 0,
+}
+
+#[allow(dead_code)]
+#[derive(N)]
+pub enum ItemSubclassProjectile {
+    Wand = 0,
+    Bolt = 1,
+    Arrow = 2,
+    Bullet = 3,
+    Thrown = 4,
+}
+
+#[allow(dead_code)]
+#[derive(N)]
+pub enum ItemSubclassTradeGoods {
+    TradeGoods = 0,
+    Parts = 1,
+    Explosives = 2,
+    Devices = 3,
+    Jewelcrafting = 4,
+    Cloth = 5,
+    Leather = 6,
+    MetalStone = 7,
+    Meat = 8,
+    Herb = 9,
+    Elemental = 10,
+    TradeGoodsOther = 11,
+    Enchanting = 12,
+    Material = 13,
+}
+
+#[allow(dead_code)]
+#[derive(N)]
+pub enum ItemSubclassGeneric {
+    Generic = 0,
+}
+
+#[allow(dead_code)]
+#[derive(N)]
+pub enum ItemSubclassRecipe {
+    Book = 0,
+    LeatherworkingPattern = 1,
+    TailoringPattern = 2,
+    EngineeringSchematic = 3,
+    Blacksmithing = 4,
+    CookingRecipe = 5,
+    AlchemyRecipe = 6,
+    FirstAidManual = 7,
+    EnchantingFormula = 8,
+    FishingManual = 9,
+    JewelcraftingRecipe = 10,
+}
+
+#[allow(dead_code)]
+#[derive(N)]
+pub enum ItemSubclassMoney {
+    Money = 0,
+}
+
+#[allow(dead_code)]
+#[derive(N)]
+pub enum ItemSubclassQuiver {
+    Quiver0 = 0,
+    Quiver1 = 1,
+    Quiver = 2,
+    AmmoPouch = 3,
+}
+
+#[allow(dead_code)]
+#[derive(N)]
+pub enum ItemSubclassQuest {
+    Quest = 0,
+}
+
+#[allow(dead_code)]
+#[derive(N)]
+pub enum ItemSubclassKey {
+    Key = 0,
+    Lockpick = 1,
+}
+
+#[allow(dead_code)]
+#[derive(N)]
+pub enum ItemSubclassPermanent {
+    Permanent = 0,
+}
+
+#[allow(dead_code)]
+#[derive(N)]
+pub enum ItemSubclassJunk {
+    Junk = 0,
+    JunkReagent = 1,
+    JunkPet = 2,
+    JunkHoliday = 3,
+    JunkOther = 4,
+    JunkMount = 5,
+}

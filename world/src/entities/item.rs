@@ -18,7 +18,7 @@ pub struct Item {
 }
 
 impl Item {
-    pub fn new(guid: u32, entry: u32, owner_guid: u64) -> Item {
+    pub fn new(guid: u32, entry: u32, owner_guid: u64, stack_count: u32) -> Item {
         let guid = ObjectGuid::new(HighGuidType::ItemOrContainer, guid);
         let object_type = make_bitflags!(ObjectTypeMask::{Object | Item}).bits();
 
@@ -30,7 +30,7 @@ impl Item {
         values.set_f32(ObjectFields::ObjectFieldScaleX.into(), 1.0);
         values.set_u64(ItemFields::ItemFieldOwner.into(), owner_guid);
         values.set_u64(ItemFields::ItemFieldContained.into(), owner_guid); // Not in all cases
-        values.set_u32(ItemFields::ItemFieldStackCount.into(), 1); // FIXME
+        values.set_u32(ItemFields::ItemFieldStackCount.into(), stack_count);
 
         Item { guid, values }
     }

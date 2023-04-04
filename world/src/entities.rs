@@ -22,7 +22,6 @@ pub enum ObjectTypeId {
     Corpse = 7,
 }
 
-// FIXME: not sure this is the best place
 #[binwrite]
 #[derive(Copy, Clone)]
 pub struct Position {

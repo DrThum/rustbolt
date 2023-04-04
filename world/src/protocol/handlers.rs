@@ -318,10 +318,12 @@ async fn handle_cmsg_realm_split(data: Vec<u8>, session: Arc<Mutex<WorldSession>
 
 async fn handle_cmsg_ping(data: Vec<u8>, session: Arc<Mutex<WorldSession>>) {
     trace!("Received CMSG_PING");
-    let session = session.lock().await;
+    let mut session = session.lock().await;
 
     let mut reader = Cursor::new(data);
     let cmsg_ping: CmsgPing = reader.read_le().unwrap();
+
+    session.client_latency = cmsg_ping.latency;
 
     let packet = ServerMessage::new(SmsgPong {
         ping: cmsg_ping.ping,

@@ -199,6 +199,7 @@ impl WorldSocketState<ServerSentAuthChallenge> {
                     account_id,
                     world: self.state.world,
                     player: Player::new(),
+                    client_latency: 0,
                 })),
             },
         })

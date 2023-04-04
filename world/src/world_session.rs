@@ -16,4 +16,5 @@ pub struct WorldSession {
     pub account_id: u32,
     pub world: Arc<&'static World>,
     pub player: Player,
+    pub client_latency: u32,
 }

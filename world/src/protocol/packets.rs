@@ -110,7 +110,7 @@ pub struct SmsgRealmSplit {
 #[binread]
 pub struct CmsgPing {
     pub ping: u32,
-    _latency: u32,
+    pub latency: u32,
 }
 
 #[binwrite]

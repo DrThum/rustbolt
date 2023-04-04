@@ -3,50 +3,55 @@ use enumflags2::make_bitflags;
 use crate::shared::constants::{HighGuidType, ObjectTypeMask};
 
 use super::{
+    internal_values::InternalValues,
     object_guid::ObjectGuid,
     update::{
         UpdatableEntity, UpdateBlock, UpdateBlockBuilder, UpdateData, UpdateFlag, UpdateType,
     },
-    update_fields::{ItemFields, ObjectFields},
+    update_fields::{ItemFields, ObjectFields, ITEM_END},
     ObjectTypeId,
 };
 
 pub struct Item {
     guid: ObjectGuid,
-    entry: u32,
-    owner_guid: Option<u64>,
+    values: InternalValues,
 }
 
 impl Item {
     pub fn new(guid: u32, entry: u32, owner_guid: u64) -> Item {
-        Item {
-            guid: ObjectGuid::new(HighGuidType::ItemOrContainer, guid),
-            entry,
-            owner_guid: Some(owner_guid),
-        }
+        let guid = ObjectGuid::new(HighGuidType::ItemOrContainer, guid);
+        let object_type = make_bitflags!(ObjectTypeMask::{Object | Item}).bits();
+
+        let mut values = InternalValues::new(ITEM_END as usize);
+
+        values.set_u64(ObjectFields::ObjectFieldGuid.into(), guid.raw());
+        values.set_u32(ObjectFields::ObjectFieldType.into(), object_type);
+        values.set_u32(ObjectFields::ObjectFieldEntry.into(), entry);
+        values.set_f32(ObjectFields::ObjectFieldScaleX.into(), 1.0);
+        values.set_u64(ItemFields::ItemFieldOwner.into(), owner_guid);
+        values.set_u64(ItemFields::ItemFieldContained.into(), owner_guid); // Not in all cases
+        values.set_u32(ItemFields::ItemFieldStackCount.into(), 1); // FIXME
+
+        Item { guid, values }
     }
 
     pub fn guid(&self) -> &ObjectGuid {
         &self.guid
     }
 
-    pub fn entry(&self) -> &u32 {
-        &self.entry
+    pub fn entry(&self) -> u32 {
+        self.values.get_u32(ObjectFields::ObjectFieldEntry.into())
     }
 
     fn gen_create_data(&self) -> UpdateBlock {
         let mut update_builder = UpdateBlockBuilder::new();
-        let object_type = make_bitflags!(ObjectTypeMask::{Object | Item}).bits();
 
-        update_builder.add_u64(ObjectFields::ObjectFieldGuid.into(), self.guid.raw());
-        update_builder.add_u32(ObjectFields::ObjectFieldType.into(), object_type);
-        update_builder.add_u32(ObjectFields::ObjectFieldEntry.into(), self.entry);
-        update_builder.add_f32(ObjectFields::ObjectFieldScaleX.into(), 1.0);
-        if let Some(owner_guid) = self.owner_guid {
-            update_builder.add_u64(ItemFields::ItemFieldOwner.into(), owner_guid);
-            update_builder.add_u64(ItemFields::ItemFieldContained.into(), owner_guid);
+        for index in 0..ITEM_END {
+            let value = self.values.get_u32(index as usize);
+            if value != 0 {
+                update_builder.add_u32(index as usize, value);
+            }
         }
-        update_builder.add_u32(ItemFields::ItemFieldStackCount.into(), 1);
 
         update_builder.build()
     }

@@ -141,8 +141,3 @@ impl DbcStringBlock {
         Ok(DbcStringBlock { _strings: strings })
     }
 }
-
-pub struct LocalizedString {
-    locales: [String; 16],
-    bitmask: u32, // Not sure that it's 4 bytes
-}

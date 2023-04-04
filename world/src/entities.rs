@@ -7,6 +7,8 @@ pub mod update_fields;
 pub mod item;
 pub mod player;
 
+mod internal_values;
+
 #[allow(dead_code)]
 #[derive(Copy, Clone)]
 pub enum ObjectTypeId {

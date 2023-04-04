@@ -422,5 +422,5 @@ pub struct SmsgNameQueryResponse {
     pub class: u32,
     pub gender: u32,
     pub is_name_declined: u8, // bool, use 0
-    // pub declined_names: [NullString, 5],
+                              // pub declined_names: [NullString, 5],
 }

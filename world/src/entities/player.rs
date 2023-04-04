@@ -16,6 +16,7 @@ use crate::{
 };
 
 use super::{
+    internal_values::InternalValues,
     item::Item,
     object_guid::ObjectGuid,
     update::{
@@ -30,15 +31,8 @@ pub type PlayerInventory = HashMap<u32, Item>; // Key is slot
 
 pub struct Player {
     guid: Option<ObjectGuid>,
-    race: Option<CharacterRace>,
-    class: Option<CharacterClass>,
-    level: Option<u8>,
-    gender: Option<Gender>,
+    values: InternalValues,
     position: Option<WorldPosition>,
-    visual_features: Option<PlayerVisualFeatures>,
-    display_id: Option<u32>,
-    native_display_id: Option<u32>,
-    power_type: Option<PowerType>,
     inventory: PlayerInventory,
 }
 
@@ -46,15 +40,8 @@ impl Player {
     pub fn new() -> Self {
         Self {
             guid: None,
-            race: None,
-            class: None,
-            level: None,
-            gender: None,
+            values: InternalValues::new(PLAYER_END as usize),
             position: None,
-            visual_features: None,
-            display_id: None,
-            native_display_id: None,
-            power_type: None,
             inventory: HashMap::new(),
         }
     }
@@ -150,7 +137,10 @@ impl Player {
         let character = CharacterRepository::fetch_basic_character_data(conn, guid)
             .expect("Failed to load character from DB");
 
-        assert!(character.account_id == account_id, "Attempt to load a character belonging to another account");
+        assert!(
+            character.account_id == account_id,
+            "Attempt to load a character belonging to another account"
+        );
 
         let chr_races_record = data_store
             .get_race_record(character.race as u32)
@@ -167,28 +157,116 @@ impl Player {
             .map(|cl| PowerType::n(cl.power_type).unwrap())
             .expect("Cannot load character because it has an invalid class id in DB");
 
-        self.guid = Some(ObjectGuid::new(HighGuidType::Player, guid as u32));
-        self.race =
-            Some(CharacterRace::n(character.race).expect("Character has invalid race id in DB"));
-        self.class =
-            Some(CharacterClass::n(character.class).expect("Character has invalid class id in DB"));
-        self.level = Some(character.level);
-        self.gender =
-            Some(Gender::n(character.gender).expect("Character has invalid gender in DB"));
+        let guid = ObjectGuid::new(HighGuidType::Player, guid as u32);
+        self.guid = Some(guid);
+        self.values
+            .set_u64(ObjectFields::ObjectFieldGuid.into(), self.guid().raw());
+
+        let object_type = make_bitflags!(ObjectTypeMask::{Object | Unit | Player}).bits();
+        self.values
+            .set_u32(ObjectFields::ObjectFieldType.into(), object_type);
+
+        self.values
+            .set_f32(ObjectFields::ObjectFieldScaleX.into(), 1.0);
+
+        self.values
+            .set_u32(UnitFields::UnitFieldLevel.into(), character.level as u32);
+
+        let race = CharacterRace::n(character.race).expect("Character has invalid race id in DB");
+        self.values
+            .set_u8(UnitFields::UnitFieldBytes0.into(), 0, race as u8);
+
+        let class =
+            CharacterClass::n(character.class).expect("Character has invalid class id in DB");
+        self.values
+            .set_u8(UnitFields::UnitFieldBytes0.into(), 1, class as u8);
+
+        let gender = Gender::n(character.gender).expect("Character has invalid gender in DB");
+        self.values
+            .set_u8(UnitFields::UnitFieldBytes0.into(), 2, gender as u8);
+
+        self.values
+            .set_u8(UnitFields::UnitFieldBytes0.into(), 3, power_type as u8);
+
+        self.values
+            .set_u32(UnitFields::UnitFieldBytes2.into(), 0x28); // Unk
+
         self.position = Some(character.position);
-        self.visual_features = Some(character.visual_features);
-        self.display_id = Some(display_id);
-        self.native_display_id = Some(display_id);
-        self.power_type = Some(power_type);
+
+        self.values.set_u8(
+            UnitFields::PlayerBytes.into(),
+            0,
+            character.visual_features.skin,
+        );
+        self.values.set_u8(
+            UnitFields::PlayerBytes.into(),
+            1,
+            character.visual_features.face,
+        );
+        self.values.set_u8(
+            UnitFields::PlayerBytes.into(),
+            2,
+            character.visual_features.hairstyle,
+        );
+        self.values.set_u8(
+            UnitFields::PlayerBytes.into(),
+            3,
+            character.visual_features.haircolor,
+        );
+        self.values.set_u8(
+            UnitFields::PlayerBytes2.into(),
+            0,
+            character.visual_features.facialstyle,
+        );
+        self.values.set_u8(UnitFields::PlayerBytes2.into(), 3, 0x02); // Unk
+        self.values
+            .set_u8(UnitFields::PlayerBytes3.into(), 0, gender as u8);
+
+        self.values
+            .set_u32(UnitFields::UnitFieldDisplayid.into(), display_id);
+        self.values
+            .set_u32(UnitFields::UnitFieldNativedisplayid.into(), display_id);
+
+        /* BEGIN TO REFACTOR LATER */
+        self.values.set_u32(UnitFields::UnitFieldHealth.into(), 100);
+        self.values
+            .set_u32(UnitFields::UnitFieldMaxhealth.into(), 100);
+
+        self.values.set_u32(
+            UnitFields::UnitFieldPower1 as usize + power_type as usize,
+            100,
+        );
+        self.values.set_u32(
+            UnitFields::UnitFieldMaxpower1 as usize + power_type as usize,
+            100,
+        );
+
+        self.values
+            .set_u32(UnitFields::UnitFieldFactiontemplate.into(), 469);
+        /* END TO REFACTOR LATER */
 
         let inventory: HashMap<u32, Item> =
-            ItemRepository::load_player_inventory(&conn, guid as u32)
+            ItemRepository::load_player_inventory(&conn, self.guid().raw() as u32)
                 .into_iter()
                 .map(|record| {
-                    (
-                        record.slot,
-                        Item::new(record.guid, record.entry, record.owner_guid.unwrap()),
-                    )
+                    let item = Item::new(record.guid, record.entry, record.owner_guid.unwrap());
+                    self.values.set_u64(
+                        UnitFields::PlayerFieldInvSlotHead as usize + (2 * record.slot) as usize,
+                        item.guid().raw(),
+                    );
+
+                    // Visible bits
+                    if record.slot >= InventorySlot::EQUIPMENT_START
+                        && record.slot < InventorySlot::EQUIPMENT_END
+                    {
+                        self.values.set_u32(
+                            UnitFields::PlayerVisibleItem1_0 as usize
+                                + (record.slot * MAX_PLAYER_VISIBLE_ITEM_OFFSET) as usize,
+                            item.entry(),
+                        );
+                    }
+
+                    (record.slot, item)
                 })
                 .collect();
 
@@ -201,27 +279,28 @@ impl Player {
             .expect("Player guid uninitialized. Is the player in world?")
     }
 
-    pub fn race(&self) -> &CharacterRace {
-        self.race
-            .as_ref()
+    pub fn race(&self) -> CharacterRace {
+        let race_id = self.values.get_u8(UnitFields::UnitFieldBytes0.into(), 0);
+        CharacterRace::n(race_id)
+            .to_owned()
             .expect("Player race uninitialized. Is the player in world?")
     }
 
-    pub fn class(&self) -> &CharacterClass {
-        self.class
-            .as_ref()
+    pub fn class(&self) -> CharacterClass {
+        let class_id = self.values.get_u8(UnitFields::UnitFieldBytes0.into(), 1);
+        CharacterClass::n(class_id)
+            .to_owned()
             .expect("Player class uninitialized. Is the player in world?")
     }
 
-    pub fn level(&self) -> &u8 {
-        self.level
-            .as_ref()
-            .expect("Player level uninitialized. Is the player in world?")
+    pub fn level(&self) -> u8 {
+        self.values.get_u32(UnitFields::UnitFieldLevel.into()) as u8
     }
 
-    pub fn gender(&self) -> &Gender {
-        self.gender
-            .as_ref()
+    pub fn gender(&self) -> Gender {
+        let gender_id = self.values.get_u8(UnitFields::UnitFieldBytes0.into(), 2);
+        Gender::n(gender_id)
+            .to_owned()
             .expect("Player gender uninitialized. Is the player in world?")
     }
 
@@ -231,89 +310,39 @@ impl Player {
             .expect("Player position uninitialized. Is the player in world?")
     }
 
-    pub fn visual_features(&self) -> &PlayerVisualFeatures {
-        self.visual_features
-            .as_ref()
-            .expect("Player visual features uninitialized. Is the player in world?")
+    pub fn visual_features(&self) -> PlayerVisualFeatures {
+        PlayerVisualFeatures {
+            haircolor: self.values.get_u8(UnitFields::PlayerBytes.into(), 3),
+            hairstyle: self.values.get_u8(UnitFields::PlayerBytes.into(), 2),
+            face: self.values.get_u8(UnitFields::PlayerBytes.into(), 1),
+            skin: self.values.get_u8(UnitFields::PlayerBytes.into(), 0),
+            facialstyle: self.values.get_u8(UnitFields::PlayerBytes2.into(), 0),
+        }
     }
 
-    pub fn display_id(&self) -> &u32 {
-        self.display_id
-            .as_ref()
-            .expect("Player display id uninitialized. Is the player in world?")
+    pub fn display_id(&self) -> u32 {
+        self.values.get_u32(UnitFields::UnitFieldDisplayid.into())
     }
 
-    pub fn native_display_id(&self) -> &u32 {
-        self.native_display_id
-            .as_ref()
-            .expect("Player native display id uninitialized. Is the player in world?")
+    pub fn native_display_id(&self) -> u32 {
+        self.values
+            .get_u32(UnitFields::UnitFieldNativedisplayid.into())
     }
 
-    pub fn power_type(&self) -> &PowerType {
-        self.power_type
-            .as_ref()
+    pub fn power_type(&self) -> PowerType {
+        let power_type_id = self.values.get_u8(UnitFields::UnitFieldBytes0.into(), 3);
+        PowerType::n(power_type_id)
+            .to_owned()
             .expect("Player power type uninitialized. Is the player in world?")
     }
 
     fn gen_create_data(&self) -> UpdateBlock {
         let mut update_builder = UpdateBlockBuilder::new();
-        let visual_features = self.visual_features();
-        let object_type = make_bitflags!(ObjectTypeMask::{Object | Unit | Player}).bits();
 
-        update_builder.add_u64(ObjectFields::ObjectFieldGuid.into(), self.guid().raw());
-        update_builder.add_u32(ObjectFields::ObjectFieldType.into(), object_type);
-        update_builder.add_f32(ObjectFields::ObjectFieldScaleX.into(), 1.0);
-        update_builder.add_u32(UnitFields::UnitFieldHealth.into(), 100);
-        update_builder.add_u32(UnitFields::UnitFieldMaxhealth.into(), 100);
-        update_builder.add_u32(
-            UnitFields::UnitFieldPower1 as usize + *self.power_type() as usize,
-            100,
-        );
-        update_builder.add_u32(
-            UnitFields::UnitFieldMaxpower1 as usize + *self.power_type() as usize,
-            100,
-        );
-        update_builder.add_u32(UnitFields::UnitFieldLevel.into(), *self.level() as u32);
-        update_builder.add_u32(UnitFields::UnitFieldFactiontemplate.into(), 469); // FIXME
-        update_builder.add_u8(UnitFields::UnitFieldBytes0.into(), 0, *self.race() as u8);
-        update_builder.add_u8(UnitFields::UnitFieldBytes0.into(), 1, *self.class() as u8);
-        update_builder.add_u8(UnitFields::UnitFieldBytes0.into(), 2, *self.gender() as u8);
-        update_builder.add_u8(
-            UnitFields::UnitFieldBytes0.into(),
-            3,
-            *self.power_type() as u8,
-        );
-        update_builder.add_u32(UnitFields::UnitFieldBytes2.into(), 0x28); // Unk
-        update_builder.add_u8(UnitFields::PlayerBytes.into(), 0, visual_features.skin);
-        update_builder.add_u8(UnitFields::PlayerBytes.into(), 1, visual_features.face);
-        update_builder.add_u8(UnitFields::PlayerBytes.into(), 2, visual_features.hairstyle);
-        update_builder.add_u8(UnitFields::PlayerBytes.into(), 3, visual_features.haircolor);
-        update_builder.add_u8(
-            UnitFields::PlayerBytes2.into(),
-            0,
-            visual_features.facialstyle,
-        );
-        update_builder.add_u8(UnitFields::PlayerBytes2.into(), 3, 0x02); // Unk
-        update_builder.add_u8(UnitFields::PlayerBytes3.into(), 0, *self.gender() as u8);
-        update_builder.add_u32(UnitFields::UnitFieldDisplayid.into(), *self.display_id());
-        update_builder.add_u32(
-            UnitFields::UnitFieldNativedisplayid.into(),
-            *self.native_display_id(),
-        );
-
-        for (&slot, ref item) in &self.inventory {
-            update_builder.add_u64(
-                UnitFields::PlayerFieldInvSlotHead as usize + (2 * slot) as usize,
-                item.guid().raw(),
-            );
-
-            // Visible bits
-            if slot >= InventorySlot::EQUIPMENT_START && slot < InventorySlot::EQUIPMENT_END {
-                update_builder.add_u32(
-                    UnitFields::PlayerVisibleItem1_0 as usize
-                        + (slot * MAX_PLAYER_VISIBLE_ITEM_OFFSET) as usize,
-                    *item.entry(),
-                );
+        for index in 0..PLAYER_END {
+            let value = self.values.get_u32(index as usize);
+            if value != 0 {
+                update_builder.add_u32(index as usize, value);
             }
         }
 

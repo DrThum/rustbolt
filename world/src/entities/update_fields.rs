@@ -14,7 +14,7 @@ impl Into<usize> for ObjectFields {
 }
 
 #[allow(dead_code)]
-const OBJECT_END: isize = 0x0006;
+pub const OBJECT_END: isize = 0x0006;
 
 #[allow(dead_code)]
 pub enum ItemFields {
@@ -41,7 +41,7 @@ impl Into<usize> for ItemFields {
 }
 
 #[allow(dead_code)]
-const ITEM_END: isize = OBJECT_END + 0x0036;
+pub const ITEM_END: isize = OBJECT_END + 0x0036;
 
 #[allow(dead_code)]
 pub enum ContainerFields {
@@ -57,7 +57,7 @@ impl Into<usize> for ContainerFields {
 }
 
 #[allow(dead_code)]
-const CONTAINER_END: isize = ITEM_END + 0x004A;
+pub const CONTAINER_END: isize = ITEM_END + 0x004A;
 
 #[allow(dead_code)]
 pub enum UnitFields {
@@ -401,9 +401,9 @@ impl Into<usize> for UnitFields {
 }
 
 #[allow(dead_code)]
-const UNIT_END: isize = OBJECT_END + 0x00E4;
+pub const UNIT_END: isize = OBJECT_END + 0x00E4;
 #[allow(dead_code)]
-const PLAYER_END: isize = UNIT_END + 0x054E;
+pub const PLAYER_END: isize = UNIT_END + 0x054E;
 #[allow(dead_code)]
 pub const MAX_PLAYER_VISIBLE_ITEM_OFFSET: u32 = 16;
 
@@ -434,7 +434,7 @@ impl Into<usize> for GameObjectFields {
 }
 
 #[allow(dead_code)]
-const GAME_OBJECT_END: isize = OBJECT_END + 0x0014;
+pub const GAME_OBJECT_END: isize = OBJECT_END + 0x0014;
 
 #[allow(dead_code)]
 pub enum DynamicObjectFields {
@@ -456,7 +456,7 @@ impl Into<usize> for DynamicObjectFields {
 }
 
 #[allow(dead_code)]
-const DYNAMIC_OBJECT_END: isize = OBJECT_END + 0x000A;
+pub const DYNAMIC_OBJECT_END: isize = OBJECT_END + 0x000A;
 
 #[allow(dead_code)]
 pub enum CorpseFields {
@@ -483,4 +483,4 @@ impl Into<usize> for CorpseFields {
 }
 
 #[allow(dead_code)]
-const CORPSE_END: isize = OBJECT_END + 0x0022;
+pub const CORPSE_END: isize = OBJECT_END + 0x0022;

@@ -5,7 +5,7 @@ use r2d2_sqlite::SqliteConnectionManager;
 use rustbolt_world::{config::WorldConfig, game::world::World};
 use tokio::{
     net::TcpListener,
-    sync::{Mutex, Semaphore},
+    sync::{Mutex, RwLock, Semaphore},
 };
 
 mod embedded_characters {
@@ -77,7 +77,7 @@ async fn main() {
     let world = Box::leak(Box::new(World::new(config, db_pool_world_copy)));
     world.start().await;
 
-    let world = Arc::new(&*world);
+    let world: Arc<RwLock<&'static mut World>> = Arc::new(RwLock::new(&mut *world));
 
     loop {
         // The second item contains the IP and port of the new connection

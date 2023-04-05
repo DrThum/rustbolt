@@ -18,7 +18,7 @@ struct ServerMessageHeader {
     pub opcode: u16,
 }
 
-pub struct ServerMessage<const OPCODE: u16, Payload: ServerMessagePayload<OPCODE> + BinWrite> {
+pub struct ServerMessage<const OPCODE: u16, Payload: ServerMessagePayload<OPCODE>> {
     payload: Payload,
 }
 
@@ -65,7 +65,7 @@ impl<const OPCODE: u16, Payload: ServerMessagePayload<OPCODE> + BinWrite>
         encryption: &Arc<Mutex<HeaderCrypto>>,
     ) -> Result<(), binrw::Error>
     where
-        for<'a> <Payload as BinWrite>::Args<'a>: Default,
+        for<'a> <Payload>::Args<'a>: Default,
     {
         let mut socket = socket.lock().await;
         let mut encryption = encryption.lock().await;

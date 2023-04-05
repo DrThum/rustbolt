@@ -71,7 +71,7 @@ async fn handle_cmsg_char_create(data: Vec<u8>, session: Arc<Mutex<WorldSession>
 
     let name_available =
         CharacterRepository::is_name_available(&conn, cmsg_char_create.name.to_string());
-    let data_store = &session.world.data_store;
+    let data_store = &session.world.read().await.data_store;
     let result = if name_available {
         match Player::create(&mut conn, &cmsg_char_create, session.account_id, data_store) {
             Ok(_) => ResponseCodes::CharCreateSuccess,
@@ -85,10 +85,7 @@ async fn handle_cmsg_char_create(data: Vec<u8>, session: Arc<Mutex<WorldSession>
         result: result as u8,
     });
 
-    packet
-        .send(&session.socket, &session.encryption)
-        .await
-        .unwrap();
+    session.send(packet).await.unwrap();
     trace!("Sent SMSG_CHAR_CREATE");
 }
 
@@ -285,6 +282,15 @@ async fn handle_cmsg_player_login(data: Vec<u8>, session: Arc<Mutex<WorldSession
         .unwrap();
     trace!("Sent SMSG_INIT_WORLD_STATES");
 
+    // TODO:
+    // - move this to WorldSession and store the counter
+    // - send this every 10 seconds
+    // - increment the counter each time the packet is sent
+    // - implement CmsgTimeSyncResp and check the difference between client and server counters
+    // - LATER: reset the counter after every teleport (is that really necessary?)
+    //
+    // implement WorldSession::reset_time_sync() and WorldSession::send_time_sync()
+    // How to handle the timer?
     let smsg_time_sync_req = ServerMessage::new(SmsgTimeSyncReq { sync_counter: 0 });
 
     smsg_time_sync_req

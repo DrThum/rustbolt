@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     sync::Arc,
     time::{Duration, Instant},
 };
@@ -7,12 +8,13 @@ use r2d2::Pool;
 use r2d2_sqlite::SqliteConnectionManager;
 use tokio::time::interval;
 
-use crate::{config::WorldConfig, datastore::DataStore};
+use crate::{config::WorldConfig, datastore::DataStore, world_session::WorldSession};
 
 pub struct World {
     pub data_store: DataStore,
     start_time: Instant,
     config: Arc<WorldConfig>,
+    sessions: HashMap<u32, WorldSession>,
 }
 
 impl World {
@@ -25,6 +27,7 @@ impl World {
             data_store,
             start_time: Instant::now(),
             config,
+            sessions: HashMap::new(),
         }
     }
 
@@ -32,6 +35,14 @@ impl World {
         tokio::spawn(async move {
             self.game_loop().await;
         });
+    }
+
+    pub async fn insert_session(&mut self, session: WorldSession) -> Option<WorldSession> {
+        self.sessions.insert(session.account_id, session)
+    }
+
+    pub async fn get_session_for_account(&self, account_id: u32) -> Option<&WorldSession> {
+        self.sessions.get(&account_id)
     }
 
     // Return the elapsed time since the World started

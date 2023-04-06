@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use r2d2::PooledConnection;
 use r2d2_sqlite::SqliteConnectionManager;
@@ -94,7 +94,7 @@ impl CharacterRepository {
     pub fn fetch_characters(
         conn: &PooledConnection<SqliteConnectionManager>,
         account_id: u32,
-        data_store: &DataStore,
+        data_store: Arc<DataStore>,
     ) -> Vec<CharEnumData> {
         let mut stmt = conn.prepare_cached("SELECT guid, name, race, class, level, gender, skin, face, hairstyle, haircolor, facialstyle, map_id, zone_id, position_x, position_y, position_z FROM characters WHERE account_id = :account_id").unwrap();
         let chars = stmt

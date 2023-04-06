@@ -2,8 +2,6 @@ use std::{collections::HashMap, sync::Arc};
 
 use futures::future::{BoxFuture, FutureExt};
 use log::{error, trace};
-use r2d2::Pool;
-use r2d2_sqlite::SqliteConnectionManager;
 use tokio::{
     io::AsyncReadExt,
     net::TcpStream,
@@ -19,82 +17,73 @@ use crate::{
         opcodes::Opcode,
         server::{ServerMessage, ServerMessagePayload},
     },
+    world_context::WorldContext,
     WorldSocketError,
 };
 
-pub type PacketHandler =
-    Box<dyn Send + Sync + FnMut(&mut WorldSession, Vec<u8>) -> BoxFuture<'static, ()>>;
+pub type PacketHandler = Box<
+    dyn Send
+        + Sync
+        + Fn(Arc<RwLock<WorldSession>>, Arc<WorldContext>, Vec<u8>) -> BoxFuture<'static, ()>,
+>;
 
 macro_rules! define_handler {
     ($opcode:expr, $handler:expr) => {
         (
             $opcode as u32,
-            Box::new(|session, data| $handler(session, data).boxed()) as PacketHandler,
+            Box::new(|session, ctx, data| $handler(session, ctx, data).boxed()) as PacketHandler,
         )
     };
 }
 
-pub struct WorldSession {
-    pub socket: Arc<Mutex<TcpStream>>,
-    pub encryption: Arc<Mutex<HeaderCrypto>>,
-    pub db_pool_auth: Arc<Pool<SqliteConnectionManager>>,
-    pub db_pool_char: Arc<Pool<SqliteConnectionManager>>,
-    pub db_pool_world: Arc<Pool<SqliteConnectionManager>>,
-    pub account_id: u32,
-    pub world: Arc<RwLock<&'static mut World>>,
-    pub player: Player,
-    pub client_latency: u32,
-    time_sync_counter: u32,
+pub struct OpcodeHandler {
     handlers: HashMap<u32, PacketHandler>,
 }
 
-impl WorldSession {
-    pub fn new(
-        socket: Arc<Mutex<TcpStream>>,
-        encryption: Arc<Mutex<HeaderCrypto>>,
-        db_pool_auth: Arc<Pool<SqliteConnectionManager>>,
-        db_pool_char: Arc<Pool<SqliteConnectionManager>>,
-        db_pool_world: Arc<Pool<SqliteConnectionManager>>,
-        account_id: u32,
-        world: Arc<RwLock<&'static mut World>>,
-    ) -> WorldSession {
-        WorldSession {
-            socket,
-            encryption,
-            db_pool_auth,
-            db_pool_char,
-            db_pool_world,
-            account_id,
-            world,
-            player: Player::new(),
-            client_latency: 0,
-            time_sync_counter: 0,
+impl OpcodeHandler {
+    pub fn new() -> Self {
+        Self {
             handlers: HashMap::from([
-                define_handler!(Opcode::MsgNullAction, Self::unhandled),
-                define_handler!(Opcode::CmsgCharCreate, Self::handle_cmsg_char_create),
-                define_handler!(Opcode::CmsgCharEnum, Self::handle_cmsg_char_enum),
-                define_handler!(Opcode::CmsgCharDelete, Self::handle_cmsg_char_delete),
-                define_handler!(Opcode::CmsgPlayerLogin, Self::handle_cmsg_player_login),
-                define_handler!(Opcode::CmsgPing, Self::handle_cmsg_ping),
-                define_handler!(Opcode::CmsgRealmSplit, Self::handle_cmsg_realm_split),
-                define_handler!(Opcode::CmsgLogoutRequest, Self::handle_cmsg_logout_request),
+                define_handler!(Opcode::MsgNullAction, WorldSession::unhandled),
+                define_handler!(
+                    Opcode::CmsgCharCreate,
+                    WorldSession::handle_cmsg_char_create
+                ),
+                define_handler!(Opcode::CmsgCharEnum, WorldSession::handle_cmsg_char_enum),
+                define_handler!(
+                    Opcode::CmsgCharDelete,
+                    WorldSession::handle_cmsg_char_delete
+                ),
+                define_handler!(
+                    Opcode::CmsgPlayerLogin,
+                    WorldSession::handle_cmsg_player_login
+                ),
+                define_handler!(Opcode::CmsgPing, WorldSession::handle_cmsg_ping),
+                define_handler!(
+                    Opcode::CmsgRealmSplit,
+                    WorldSession::handle_cmsg_realm_split
+                ),
+                define_handler!(
+                    Opcode::CmsgLogoutRequest,
+                    WorldSession::handle_cmsg_logout_request
+                ),
                 define_handler!(
                     Opcode::CmsgItemQuerySingle,
-                    Self::handle_cmsg_item_query_single
+                    WorldSession::handle_cmsg_item_query_single
                 ),
-                define_handler!(Opcode::CmsgNameQuery, Self::handle_cmsg_name_query),
-                define_handler!(Opcode::CmsgQueryTime, Self::handle_cmsg_query_time),
+                define_handler!(Opcode::CmsgNameQuery, WorldSession::handle_cmsg_name_query),
+                define_handler!(Opcode::CmsgQueryTime, WorldSession::handle_cmsg_query_time),
                 define_handler!(
                     Opcode::CmsgUpdateAccountData,
-                    Self::handle_cmsg_update_account_data
+                    WorldSession::handle_cmsg_update_account_data
                 ),
             ]),
         }
     }
 
-    pub fn get_handler(&self, opcode: u32) -> &'static PacketHandler {
+    pub fn get_handler(&self, opcode: u32) -> &PacketHandler {
         self.handlers
-            .get_mut(&opcode)
+            .get(&opcode)
             .map(|h| {
                 trace!("Received {:?} ({:#X})", Opcode::n(opcode).unwrap(), opcode);
                 h
@@ -105,10 +94,34 @@ impl WorldSession {
                     Opcode::n(opcode).unwrap(),
                     opcode
                 );
-                self.handlers
-                    .get_mut(&(Opcode::MsgNullAction as u32))
-                    .unwrap()
+                self.handlers.get(&(Opcode::MsgNullAction as u32)).unwrap()
             })
+    }
+}
+
+pub struct WorldSession {
+    pub socket: Arc<Mutex<TcpStream>>,
+    pub encryption: Arc<Mutex<HeaderCrypto>>,
+    pub account_id: u32,
+    pub player: Player,
+    pub client_latency: u32,
+    time_sync_counter: u32,
+}
+
+impl WorldSession {
+    pub fn new(
+        socket: Arc<Mutex<TcpStream>>,
+        encryption: Arc<Mutex<HeaderCrypto>>,
+        account_id: u32,
+    ) -> WorldSession {
+        WorldSession {
+            socket,
+            encryption,
+            account_id,
+            player: Player::new(),
+            client_latency: 0,
+            time_sync_counter: 0,
+        }
     }
 
     pub async fn send<const OPCODE: u16, Payload: ServerMessagePayload<OPCODE>>(
@@ -119,11 +132,22 @@ impl WorldSession {
         packet.send(&self.socket, &self.encryption).await
     }
 
-    pub async fn process_incoming_packet(&mut self) -> Result<(), WorldSocketError> {
-        let client_message = self.read_socket().await?;
-        let handler = &mut self.get_handler(client_message.header.opcode);
+    pub async fn process_incoming_packet(
+        session_lock: Arc<RwLock<WorldSession>>,
+        world_context: Arc<WorldContext>,
+    ) -> Result<(), WorldSocketError> {
+        let mut session = session_lock.write().await;
+        let client_message = session.read_socket().await?;
+        let handler = world_context
+            .opcode_handler
+            .get_handler(client_message.header.opcode);
 
-        handler(self, client_message.payload).await;
+        handler(
+            session_lock.clone(),
+            world_context.clone(),
+            client_message.payload,
+        )
+        .await;
 
         Ok(())
     }

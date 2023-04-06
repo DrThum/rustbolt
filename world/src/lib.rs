@@ -4,44 +4,43 @@ use crate::repositories::account::AccountRepository;
 use crate::shared::response_codes::ResponseCodes;
 use std::sync::Arc;
 
+pub use crate::datastore::DataStore;
 use crate::protocol::packets::{CmsgAuthSession, SmsgAuthChallenge, SmsgAuthResponse};
 use binrw::io::Cursor;
 use binrw::BinReaderExt;
-use game::world::World;
 use hex::FromHex;
 use log::{error, trace};
 use protocol::client::ClientMessageHeader;
-use r2d2::Pool;
-use r2d2_sqlite::SqliteConnectionManager;
+pub use session_holder::SessionHolder;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio::sync::{Mutex, RwLock};
+use world_context::WorldContext;
 use world_session::WorldSession;
 use wow_srp::normalized_string::NormalizedString;
 use wow_srp::tbc_header::ProofSeed;
 
 pub mod config;
+pub mod database_context;
 mod datastore;
 mod entities;
 pub mod game;
 mod protocol;
 mod repositories;
+mod session_holder;
 mod shared;
+pub mod world_context;
 pub mod world_session;
 
 // TypeState pattern (https://yoric.github.io/post/rust-typestate/)
 struct SocketOpened {
     socket: Arc<Mutex<TcpStream>>,
-    db_pool_auth: Arc<Pool<SqliteConnectionManager>>,
-    db_pool_char: Arc<Pool<SqliteConnectionManager>>,
-    db_pool_world: Arc<Pool<SqliteConnectionManager>>,
+    world_context: Arc<WorldContext>,
 }
 struct ServerSentAuthChallenge {
     seed: ProofSeed,
     socket: Arc<Mutex<TcpStream>>,
-    db_pool_auth: Arc<Pool<SqliteConnectionManager>>,
-    db_pool_char: Arc<Pool<SqliteConnectionManager>>,
-    db_pool_world: Arc<Pool<SqliteConnectionManager>>,
+    world_context: Arc<WorldContext>,
 }
 struct ServerSentAuthResponse {
     pub account_id: u32,
@@ -95,9 +94,7 @@ impl WorldSocketState<SocketOpened> {
             state: ServerSentAuthChallenge {
                 seed,
                 socket: self.state.socket,
-                db_pool_auth: self.state.db_pool_auth,
-                db_pool_char: self.state.db_pool_char,
-                db_pool_world: self.state.db_pool_world,
+                world_context: self.state.world_context,
             },
         })
     }
@@ -144,7 +141,7 @@ impl WorldSocketState<ServerSentAuthChallenge> {
 
     async fn handle_auth_session(
         mut self,
-        world: Arc<RwLock<&'static mut World>>,
+        session_holder: Arc<RwLock<SessionHolder>>,
     ) -> Result<WorldSocketState<ServerSentAuthResponse>, WorldSocketError> {
         let auth_session_client_message = self.read_socket_plain().await?;
 
@@ -153,7 +150,7 @@ impl WorldSocketState<ServerSentAuthChallenge> {
         let username: String = cmsg_auth_session.username.to_string();
         let username: NormalizedString = NormalizedString::new(username).unwrap();
 
-        let mut conn = self.state.db_pool_auth.get()?;
+        let mut conn = self.state.world_context.database.auth.get()?;
         let (account_id, session_key) =
             AccountRepository::fetch_id_and_session_key(&mut conn, username.to_string()).unwrap();
         let session_key: [u8; 40] = <Vec<u8>>::from_hex(session_key)
@@ -185,23 +182,19 @@ impl WorldSocketState<ServerSentAuthChallenge> {
         packet.send(&self.state.socket, &encryption).await?;
         trace!("Sent SMSG_AUTH_RESPONSE");
 
-        let session_world = Arc::clone(&world);
-        let session = WorldSession::new(
-            self.state.socket,
-            encryption,
-            self.state.db_pool_auth,
-            self.state.db_pool_char,
-            self.state.db_pool_world,
-            account_id,
-            session_world,
-        );
+        let session = WorldSession::new(self.state.socket, encryption, account_id);
 
         {
-            let mut world = world.write().await;
+            let mut session_holder = session_holder.write().await;
 
-            if let Some(previous_session) = world.insert_session(session).await {
+            if let Some(previous_session) = session_holder.insert_session(session).await {
+                let previous_session = previous_session.write().await;
                 let mut socket = previous_session.socket.lock().await;
-                socket.shutdown();
+
+                socket
+                    .shutdown()
+                    .await
+                    .expect("Duplicate WorldSession: failed to close the old socket");
             }
         }
 
@@ -213,29 +206,26 @@ impl WorldSocketState<ServerSentAuthChallenge> {
 
 pub async fn process(
     socket: Arc<Mutex<TcpStream>>,
-    db_pool_auth: Arc<Pool<SqliteConnectionManager>>,
-    db_pool_char: Arc<Pool<SqliteConnectionManager>>,
-    db_pool_world: Arc<Pool<SqliteConnectionManager>>,
-    world: Arc<RwLock<&'static mut World>>,
+    world_context: Arc<WorldContext>,
+    session_holder: Arc<RwLock<SessionHolder>>,
 ) -> Result<(), WorldSocketError> {
     let state = WorldSocketState {
         state: SocketOpened {
             socket,
-            db_pool_auth,
-            db_pool_char,
-            db_pool_world,
+            world_context: world_context.clone(),
         },
     }
     .send_challenge()
     .await?
-    .handle_auth_session(Arc::clone(&world))
+    .handle_auth_session(session_holder.clone())
     .await?;
 
     let account_id = state.state.account_id;
-    let mut world = world.write().await;
-    if let Some(session) = world.get_session_for_account(account_id).await {
+    let session_holder_w = session_holder.write().await;
+    if let Some(session) = session_holder_w.get_session_for_account(account_id).await {
         loop {
-            session.process_incoming_packet().await?;
+            let session = session.clone();
+            WorldSession::process_incoming_packet(session, world_context.clone()).await?;
         }
     } else {
         Err(WorldSocketError::SessionNotFound)

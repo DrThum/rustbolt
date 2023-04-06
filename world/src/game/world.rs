@@ -1,57 +1,26 @@
 use std::{
-    collections::HashMap,
     sync::Arc,
     time::{Duration, Instant},
 };
 
-use r2d2::Pool;
-use r2d2_sqlite::SqliteConnectionManager;
-use tokio::time::interval;
+use tokio::{sync::RwLock, time::interval};
 
-use crate::{config::WorldConfig, datastore::DataStore, world_session::WorldSession};
+use crate::config::WorldConfig;
 
 pub struct World {
-    pub data_store: DataStore,
     start_time: Instant,
     config: Arc<WorldConfig>,
-    sessions: HashMap<u32, WorldSession>,
 }
 
 impl World {
-    pub fn new(config: Arc<WorldConfig>, pool: Arc<Pool<SqliteConnectionManager>>) -> Self {
-        let conn = pool.get().unwrap();
-        let data_store = DataStore::load_data(&config.common.data, &conn)
-            .expect("Error when loading static data");
-
-        World {
-            data_store,
-            start_time: Instant::now(),
-            config,
-            sessions: HashMap::new(),
-        }
+    pub fn new(start_time: Instant, config: Arc<WorldConfig>) -> Self {
+        World { start_time, config }
     }
 
-    pub async fn start(&'static self) {
+    pub async fn start(world: Arc<RwLock<World>>) {
         tokio::spawn(async move {
-            self.game_loop().await;
+            world.read().await.game_loop().await;
         });
-    }
-
-    pub async fn insert_session(&mut self, session: WorldSession) -> Option<WorldSession> {
-        self.sessions.insert(session.account_id, session)
-    }
-
-    pub async fn get_session_for_account(&mut self, account_id: u32) -> Option<&mut WorldSession> {
-        self.sessions.get_mut(&account_id)
-    }
-
-    // Return the elapsed time since the World started
-    pub fn game_time(&self) -> Duration {
-        self.start_time.elapsed()
-    }
-
-    pub fn config(&self) -> &WorldConfig {
-        &self.config
     }
 
     async fn game_loop(&self) {

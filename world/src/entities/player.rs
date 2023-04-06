@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use enumflags2::make_bitflags;
 use log::error;
@@ -15,6 +15,7 @@ use crate::{
         CharacterClass, CharacterRace, Gender, HighGuidType, InventorySlot, InventoryType,
         ItemClass, ItemSubclassConsumable, ObjectTypeMask, PowerType,
     },
+    world_context::WorldContext,
 };
 
 use super::{
@@ -52,7 +53,7 @@ impl Player {
         conn: &mut PooledConnection<SqliteConnectionManager>,
         creation_payload: &CmsgCharCreate,
         account_id: u32,
-        data_store: &DataStore,
+        data_store: Arc<DataStore>,
     ) -> Result<(), Error> {
         let transaction = conn.transaction()?;
 
@@ -153,7 +154,7 @@ impl Player {
         conn: &PooledConnection<SqliteConnectionManager>,
         account_id: u32,
         guid: u64,
-        world: &World,
+        world_context: Arc<WorldContext>,
     ) {
         self.values.reset();
 
@@ -165,7 +166,7 @@ impl Player {
             "Attempt to load a character belonging to another account"
         );
 
-        let chr_races_record = world
+        let chr_races_record = world_context
             .data_store
             .get_race_record(character.race as u32)
             .expect("Cannot load character because it has an invalid race id in DB");
@@ -176,7 +177,7 @@ impl Player {
             chr_races_record.female_display_id
         };
 
-        let power_type = world
+        let power_type = world_context
             .data_store
             .get_class_record(character.class as u32)
             .map(|cl| PowerType::n(cl.power_type).unwrap())
@@ -198,7 +199,7 @@ impl Player {
             .set_u32(UnitFields::UnitFieldLevel.into(), character.level as u32);
         self.values.set_u32(
             UnitFields::PlayerFieldMaxLevel.into(),
-            world.config().world.game.player.maxlevel,
+            world_context.config.world.game.player.maxlevel,
         );
 
         let race = CharacterRace::n(character.race).expect("Character has invalid race id in DB");
@@ -393,11 +394,15 @@ pub struct PlayerVisualFeatures {
 }
 
 impl UpdatableEntity for Player {
-    fn get_create_data(&self, recipient_guid: u64, world: &World) -> Vec<UpdateData> {
+    fn get_create_data(
+        &self,
+        recipient_guid: u64,
+        world_context: Arc<WorldContext>,
+    ) -> Vec<UpdateData> {
         let movement = Some(MovementUpdateData {
             movement_flags: 0,
-            movement_flags2: 0,                              // Always 0 in 2.4.3
-            timestamp: world.game_time().as_millis() as u32, // Will overflow every 49.7 days
+            movement_flags2: 0, // Always 0 in 2.4.3
+            timestamp: world_context.game_time().as_millis() as u32, // Will overflow every 49.7 days
             position: Position {
                 // FIXME: Into impl?
                 x: self.position().x,
@@ -436,14 +441,21 @@ impl UpdatableEntity for Player {
         let inventory_updates: Vec<UpdateData> = self
             .inventory
             .iter()
-            .flat_map(|item| item.1.get_create_data(self.guid().raw(), world))
+            .flat_map(|item| {
+                item.1
+                    .get_create_data(self.guid().raw(), world_context.clone())
+            })
             .collect();
 
         player_update_data.extend(inventory_updates);
         player_update_data
     }
 
-    fn get_update_data(&self, _recipient_guid: u64, _world: &World) -> Vec<UpdateData> {
+    fn get_update_data(
+        &self,
+        _recipient_guid: u64,
+        _world_context: Arc<WorldContext>,
+    ) -> Vec<UpdateData> {
         todo!();
     }
 }

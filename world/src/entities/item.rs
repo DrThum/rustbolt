@@ -1,8 +1,11 @@
+use std::sync::Arc;
+
 use enumflags2::make_bitflags;
 
 use crate::{
     game::world::World,
     shared::constants::{HighGuidType, ObjectTypeMask},
+    world_context::WorldContext,
 };
 
 use super::{
@@ -61,7 +64,11 @@ impl Item {
 }
 
 impl UpdatableEntity for Item {
-    fn get_create_data(&self, _recipient_guid: u64, _world: &World) -> Vec<UpdateData> {
+    fn get_create_data(
+        &self,
+        _recipient_guid: u64,
+        _world_context: Arc<WorldContext>,
+    ) -> Vec<UpdateData> {
         let update_data = UpdateData {
             update_type: UpdateType::CreateObject,
             packed_guid: self.guid.as_packed(),
@@ -76,7 +83,11 @@ impl UpdatableEntity for Item {
         vec![update_data]
     }
 
-    fn get_update_data(&self, _recipient_guid: u64, _world: &World) -> Vec<UpdateData> {
+    fn get_update_data(
+        &self,
+        _recipient_guid: u64,
+        _world_context: Arc<WorldContext>,
+    ) -> Vec<UpdateData> {
         todo!()
     }
 }

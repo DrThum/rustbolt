@@ -1,27 +1,40 @@
 use binrw::io::Cursor;
 use binrw::{BinReaderExt, NullString};
+use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
+use tokio::sync::RwLock;
 
 use crate::datastore::DataStore;
 use crate::entities::player::Player;
 use crate::entities::update::UpdatableEntity;
+use crate::game::world::World;
 use crate::protocol::packets::*;
 use crate::protocol::server::ServerMessage;
 use crate::repositories::character::CharacterRepository;
 use crate::shared::response_codes::ResponseCodes;
+use crate::world_context::WorldContext;
 use crate::world_session::WorldSession;
 
 impl WorldSession {
-    pub(crate) async fn handle_cmsg_char_create(&mut self, data: Vec<u8>) {
+    pub(crate) async fn handle_cmsg_char_create(
+        session: Arc<RwLock<WorldSession>>,
+        world_context: Arc<WorldContext>,
+        data: Vec<u8>,
+    ) {
         let mut reader = Cursor::new(data);
         let cmsg_char_create: CmsgCharCreate = reader.read_le().unwrap();
-        let mut conn = self.db_pool_char.get().unwrap();
+        let session = session.read().await;
+        let mut conn = world_context.database.characters.get().unwrap();
 
         let name_available =
             CharacterRepository::is_name_available(&conn, cmsg_char_create.name.to_string());
-        let data_store = &self.world.read().await.data_store;
         let result = if name_available {
-            match Player::create(&mut conn, &cmsg_char_create, self.account_id, data_store) {
+            match Player::create(
+                &mut conn,
+                &cmsg_char_create,
+                session.account_id,
+                world_context.data_store.clone(),
+            ) {
                 Ok(_) => ResponseCodes::CharCreateSuccess,
                 Err(_) => ResponseCodes::CharCreateFailed,
             }
@@ -33,48 +46,68 @@ impl WorldSession {
             result: result as u8,
         });
 
-        self.send(packet).await.unwrap();
+        session.send(packet).await.unwrap();
     }
 
-    pub(crate) async fn handle_cmsg_char_enum(&mut self, _data: Vec<u8>) {
-        let data_store: &DataStore = &self.world.read().await.data_store;
+    pub(crate) async fn handle_cmsg_char_enum(
+        session: Arc<RwLock<WorldSession>>,
+        world_context: Arc<WorldContext>,
+        _data: Vec<u8>,
+    ) {
+        let session = session.read().await;
 
-        let conn = self.db_pool_char.get().unwrap();
-        let character_data =
-            CharacterRepository::fetch_characters(&conn, self.account_id, data_store);
+        let conn = world_context.database.characters.get().unwrap();
+        let character_data = CharacterRepository::fetch_characters(
+            &conn,
+            session.account_id,
+            world_context.data_store.clone(),
+        );
 
         let packet = ServerMessage::new(SmsgCharEnum {
             number_of_characters: character_data.len() as u8,
             character_data,
         });
 
-        self.send(packet).await.unwrap();
+        session.send(packet).await.unwrap();
     }
 
-    pub(crate) async fn handle_cmsg_char_delete(&mut self, data: Vec<u8>) {
+    pub(crate) async fn handle_cmsg_char_delete(
+        session: Arc<RwLock<WorldSession>>,
+        world_context: Arc<WorldContext>,
+        data: Vec<u8>,
+    ) {
         let mut reader = Cursor::new(data);
         let cmsg_char_delete: CmsgCharDelete = reader.read_le().unwrap();
+        let session = session.read().await;
 
-        let conn = self.db_pool_char.get().unwrap();
-        CharacterRepository::delete_character(&conn, cmsg_char_delete, self.account_id);
+        let conn = world_context.database.characters.get().unwrap();
+        CharacterRepository::delete_character(&conn, cmsg_char_delete, session.account_id);
 
         let packet = ServerMessage::new(SmsgCharDelete {
             result: ResponseCodes::CharDeleteSuccess as u8,
         });
 
-        self.send(packet).await.unwrap();
+        session.send(packet).await.unwrap();
     }
 
-    pub(crate) async fn handle_cmsg_player_login(&mut self, data: Vec<u8>) {
+    pub(crate) async fn handle_cmsg_player_login(
+        session: Arc<RwLock<WorldSession>>,
+        world_context: Arc<WorldContext>,
+        data: Vec<u8>,
+    ) {
         let mut reader = Cursor::new(data);
         let cmsg_player_login: CmsgPlayerLogin = reader.read_le().unwrap();
+        let mut session = session.write().await;
 
-        let account_id = self.account_id;
-        let world = self.world.write().await;
-        let conn = self.db_pool_char.get().unwrap();
+        let account_id = session.account_id;
+        let conn = world_context.database.characters.get().unwrap();
 
-        self.player
-            .load(&conn, account_id, cmsg_player_login.guid, &world);
+        session.player.load(
+            &conn,
+            account_id,
+            cmsg_player_login.guid,
+            world_context.clone(),
+        );
 
         let msg_set_dungeon_difficulty = ServerMessage::new(MsgSetDungeonDifficulty {
             difficulty: 0, // FIXME
@@ -82,9 +115,9 @@ impl WorldSession {
             is_in_group: 0, // FIXME after group implementation
         });
 
-        self.send(msg_set_dungeon_difficulty).await.unwrap();
+        session.send(msg_set_dungeon_difficulty).await.unwrap();
 
-        let player_position = self.player.position();
+        let player_position = session.player.position();
         let smsg_login_verify_world = ServerMessage::new(SmsgLoginVerifyWorld {
             map: player_position.map,
             position_x: player_position.x,
@@ -93,30 +126,30 @@ impl WorldSession {
             orientation: player_position.o,
         });
 
-        self.send(smsg_login_verify_world).await.unwrap();
+        session.send(smsg_login_verify_world).await.unwrap();
 
         let smsg_account_data_times =
             ServerMessage::new(SmsgAccountDataTimes { data: [0_u32; 32] });
 
-        self.send(smsg_account_data_times).await.unwrap();
+        session.send(smsg_account_data_times).await.unwrap();
 
         let smsg_feature_system_status = ServerMessage::new(SmsgFeatureSystemStatus {
             unk: 2,
             voice_chat_enabled: 0,
         });
 
-        self.send(smsg_feature_system_status).await.unwrap();
+        session.send(smsg_feature_system_status).await.unwrap();
 
         let smsg_motd = ServerMessage::new(SmsgMotd {
             line_count: 1,
             message: NullString::from("MOTD"), // TODO: store this in config file
         });
 
-        self.send(smsg_motd).await.unwrap();
+        session.send(smsg_motd).await.unwrap();
 
         let smsg_set_rest_start = ServerMessage::new(SmsgSetRestStart { rest_start: 0 });
 
-        self.send(smsg_set_rest_start).await.unwrap();
+        session.send(smsg_set_rest_start).await.unwrap();
 
         // TODO
         let smsg_bindpointupdate = ServerMessage::new(SmsgBindpointupdate {
@@ -127,7 +160,7 @@ impl WorldSession {
             homebind_area_id: 85,
         });
 
-        self.send(smsg_bindpointupdate).await.unwrap();
+        session.send(smsg_bindpointupdate).await.unwrap();
 
         let smsg_tutorial_flags = ServerMessage::new(SmsgTutorialFlags {
             tutorial_data0: 0, // FIXME: 0xFFFFFFFF to disable tutorials
@@ -140,26 +173,25 @@ impl WorldSession {
             tutorial_data7: 0,
         });
 
-        self.send(smsg_tutorial_flags).await.unwrap();
+        session.send(smsg_tutorial_flags).await.unwrap();
 
         let smsg_login_settimespeed = ServerMessage::new(SmsgLoginSettimespeed {
             timestamp: 0, // Maybe not zero?
             game_speed: 0.01666667,
         });
 
-        self.send(smsg_login_settimespeed).await.unwrap();
+        session.send(smsg_login_settimespeed).await.unwrap();
 
-        let world = self.world.read().await;
-        let update_data = self
+        let update_data = session
             .player
-            .get_create_data(self.player.guid().raw(), &world);
+            .get_create_data(session.player.guid().raw(), world_context.clone());
         let smsg_update_object = ServerMessage::new(SmsgUpdateObject {
             updates_count: update_data.len() as u32,
             has_transport: false,
             updates: update_data,
         });
 
-        self.send(smsg_update_object).await.unwrap();
+        session.send(smsg_update_object).await.unwrap();
 
         let smsg_init_world_states = ServerMessage::new(SmsgInitWorldStates {
             map_id: 0,
@@ -168,7 +200,7 @@ impl WorldSession {
             block_count: 0,
         });
 
-        self.send(smsg_init_world_states).await.unwrap();
+        session.send(smsg_init_world_states).await.unwrap();
 
         // TODO:
         // - move this to WorldSession and store the counter
@@ -181,14 +213,24 @@ impl WorldSession {
         // How to handle the timer?
         let smsg_time_sync_req = ServerMessage::new(SmsgTimeSyncReq { sync_counter: 0 });
 
-        self.send(smsg_time_sync_req).await.unwrap();
+        session.send(smsg_time_sync_req).await.unwrap();
     }
 
-    pub async fn unhandled(&mut self, _data: Vec<u8>) {}
+    pub async fn unhandled(
+        session: Arc<RwLock<WorldSession>>,
+        world_context: Arc<WorldContext>,
+        _data: Vec<u8>,
+    ) {
+    }
 
-    pub(crate) async fn handle_cmsg_realm_split(&mut self, data: Vec<u8>) {
+    pub(crate) async fn handle_cmsg_realm_split(
+        session: Arc<RwLock<WorldSession>>,
+        world_context: Arc<WorldContext>,
+        data: Vec<u8>,
+    ) {
         let mut reader = Cursor::new(data);
         let cmsg_realm_split: CmsgRealmSplit = reader.read_le().unwrap();
+        let session = session.read().await;
 
         let packet = ServerMessage::new(SmsgRealmSplit {
             client_state: cmsg_realm_split.client_state,
@@ -196,140 +238,166 @@ impl WorldSession {
             split_date: binrw::NullString::from("01/01/01"),
         });
 
-        self.send(packet).await.unwrap();
+        session.send(packet).await.unwrap();
     }
 
-    pub(crate) async fn handle_cmsg_ping(&mut self, data: Vec<u8>) {
+    pub(crate) async fn handle_cmsg_ping(
+        session: Arc<RwLock<WorldSession>>,
+        world_context: Arc<WorldContext>,
+        data: Vec<u8>,
+    ) {
         let mut reader = Cursor::new(data);
         let cmsg_ping: CmsgPing = reader.read_le().unwrap();
+        let mut session = session.write().await;
 
-        self.client_latency = cmsg_ping.latency;
+        session.client_latency = cmsg_ping.latency;
 
         let packet = ServerMessage::new(SmsgPong {
             ping: cmsg_ping.ping,
         });
 
-        self.send(packet).await.unwrap();
+        session.send(packet).await.unwrap();
     }
 
-    pub(crate) async fn handle_cmsg_update_account_data(&mut self, data: Vec<u8>) {
+    pub(crate) async fn handle_cmsg_update_account_data(
+        session: Arc<RwLock<WorldSession>>,
+        world_context: Arc<WorldContext>,
+        data: Vec<u8>,
+    ) {
         let mut reader = Cursor::new(data);
         let cmsg_update_account_data: CmsgUpdateAccountData = reader.read_le().unwrap();
+        let session = session.read().await;
 
         let packet = ServerMessage::new(SmsgUpdateAccountData {
             account_data_id: cmsg_update_account_data.account_data_id,
             data: 0,
         });
 
-        self.send(packet).await.unwrap();
+        session.send(packet).await.unwrap();
     }
 
-    pub(crate) async fn handle_cmsg_logout_request(&mut self, _data: Vec<u8>) {
+    pub(crate) async fn handle_cmsg_logout_request(
+        session: Arc<RwLock<WorldSession>>,
+        world_context: Arc<WorldContext>,
+        _data: Vec<u8>,
+    ) {
         let packet = ServerMessage::new(SmsgLogoutResponse {
             reason: 0,
             is_instant_logout: 1,
         });
 
-        self.send(packet).await.unwrap();
+        let session = session.read().await;
+        session.send(packet).await.unwrap();
 
         let packet = ServerMessage::new(SmsgLogoutComplete {});
 
-        self.send(packet).await.unwrap();
+        session.send(packet).await.unwrap();
     }
 
-    pub(crate) async fn handle_cmsg_item_query_single(&mut self, data: Vec<u8>) {
+    pub(crate) async fn handle_cmsg_item_query_single(
+        session: Arc<RwLock<WorldSession>>,
+        world_context: Arc<WorldContext>,
+        data: Vec<u8>,
+    ) {
         let mut reader = Cursor::new(data);
         let cmsg_item_query_single: CmsgItemQuerySingle = reader.read_le().unwrap();
 
-        let data_store = &self.world.read().await.data_store;
+        let session = session.read().await;
 
-        let packet =
-            if let Some(item) = data_store.get_item_template(cmsg_item_query_single.item_id) {
-                ServerMessage::new(SmsgItemQuerySingleResponse {
-                    result: None,
-                    template: Some(ItemQueryResponse {
-                        item_id: item.entry,
-                        item_class: item.class,
-                        item_subclass: item.subclass,
-                        item_unk: -1,
-                        name: item.name.clone().into(),
-                        name2: 0,
-                        name3: 0,
-                        name4: 0,
-                        display_id: item.display_id,
-                        quality: item.quality,
-                        flags: item.flags,
-                        buy_price: item.buy_price,
-                        sell_price: item.sell_price,
-                        inventory_type: item.inventory_type,
-                        allowable_class: item.allowable_class,
-                        allowable_race: item.allowable_race,
-                        item_level: item.item_level,
-                        required_level: item.required_level,
-                        required_skill: item.required_skill,
-                        required_skill_rank: item.required_skill,
-                        required_spell: item.required_spell,
-                        required_honor_rank: item.required_honor_rank,
-                        required_city_rank: item.required_city_rank,
-                        required_reputation_faction: item.required_reputation_faction,
-                        required_reputation_rank: item.required_reputation_rank,
-                        max_count: item.max_count,
-                        max_stack_count: item.max_stack_count,
-                        container_slots: item.container_slots,
-                        stats: &item.stats,
-                        damages: &item.damages,
-                        armor: item.armor,
-                        resist_holy: item.holy_res,
-                        resist_fire: item.fire_res,
-                        resist_nature: item.nature_res,
-                        resist_frost: item.frost_res,
-                        resist_shadow: item.shadow_res,
-                        resist_arcane: item.arcane_res,
-                        delay: item.delay,
-                        ammo_type: item.ammo_type,
-                        ranged_mod_range: item.ranged_mod_range,
-                        spells: &item.spells,
-                        bonding: item.bonding,
-                        description: item.description.clone().into(),
-                        page_text: item.page_text,
-                        language_id: item.language_id,
-                        page_material: item.page_material,
-                        start_quest: item.start_quest,
-                        lock_id: item.lock_id,
-                        material: item.material,
-                        sheath: item.sheath,
-                        random_property: item.random_property,
-                        random_suffix: item.random_suffix,
-                        block: item.block,
-                        item_set: item.itemset,
-                        max_durability: item.max_durability,
-                        area: item.area,
-                        map: item.map,
-                        bag_family: item.bag_family,
-                        totem_category: item.totem_category,
-                        sockets: &item.sockets,
-                        socket_bonus: item.socket_bonus,
-                        gem_properties: item.gem_properties,
-                        required_enchantment_skill: item.required_disenchant_skill as i32,
-                        armor_damage_modifier: item.armor_damage_modifier,
-                        duration: item.duration,
-                    }),
-                })
-            } else {
-                ServerMessage::new(SmsgItemQuerySingleResponse {
-                    result: Some(cmsg_item_query_single.item_id | 0x80000000),
-                    template: None,
-                })
-            };
+        let packet = if let Some(item) = world_context
+            .data_store
+            .get_item_template(cmsg_item_query_single.item_id)
+        {
+            ServerMessage::new(SmsgItemQuerySingleResponse {
+                result: None,
+                template: Some(ItemQueryResponse {
+                    item_id: item.entry,
+                    item_class: item.class,
+                    item_subclass: item.subclass,
+                    item_unk: -1,
+                    name: item.name.clone().into(),
+                    name2: 0,
+                    name3: 0,
+                    name4: 0,
+                    display_id: item.display_id,
+                    quality: item.quality,
+                    flags: item.flags,
+                    buy_price: item.buy_price,
+                    sell_price: item.sell_price,
+                    inventory_type: item.inventory_type,
+                    allowable_class: item.allowable_class,
+                    allowable_race: item.allowable_race,
+                    item_level: item.item_level,
+                    required_level: item.required_level,
+                    required_skill: item.required_skill,
+                    required_skill_rank: item.required_skill,
+                    required_spell: item.required_spell,
+                    required_honor_rank: item.required_honor_rank,
+                    required_city_rank: item.required_city_rank,
+                    required_reputation_faction: item.required_reputation_faction,
+                    required_reputation_rank: item.required_reputation_rank,
+                    max_count: item.max_count,
+                    max_stack_count: item.max_stack_count,
+                    container_slots: item.container_slots,
+                    stats: &item.stats,
+                    damages: &item.damages,
+                    armor: item.armor,
+                    resist_holy: item.holy_res,
+                    resist_fire: item.fire_res,
+                    resist_nature: item.nature_res,
+                    resist_frost: item.frost_res,
+                    resist_shadow: item.shadow_res,
+                    resist_arcane: item.arcane_res,
+                    delay: item.delay,
+                    ammo_type: item.ammo_type,
+                    ranged_mod_range: item.ranged_mod_range,
+                    spells: &item.spells,
+                    bonding: item.bonding,
+                    description: item.description.clone().into(),
+                    page_text: item.page_text,
+                    language_id: item.language_id,
+                    page_material: item.page_material,
+                    start_quest: item.start_quest,
+                    lock_id: item.lock_id,
+                    material: item.material,
+                    sheath: item.sheath,
+                    random_property: item.random_property,
+                    random_suffix: item.random_suffix,
+                    block: item.block,
+                    item_set: item.itemset,
+                    max_durability: item.max_durability,
+                    area: item.area,
+                    map: item.map,
+                    bag_family: item.bag_family,
+                    totem_category: item.totem_category,
+                    sockets: &item.sockets,
+                    socket_bonus: item.socket_bonus,
+                    gem_properties: item.gem_properties,
+                    required_enchantment_skill: item.required_disenchant_skill as i32,
+                    armor_damage_modifier: item.armor_damage_modifier,
+                    duration: item.duration,
+                }),
+            })
+        } else {
+            ServerMessage::new(SmsgItemQuerySingleResponse {
+                result: Some(cmsg_item_query_single.item_id | 0x80000000),
+                template: None,
+            })
+        };
 
-        self.send(packet).await.unwrap();
+        session.send(packet).await.unwrap();
     }
 
-    pub(crate) async fn handle_cmsg_name_query(&mut self, data: Vec<u8>) {
+    pub(crate) async fn handle_cmsg_name_query(
+        session: Arc<RwLock<WorldSession>>,
+        world_context: Arc<WorldContext>,
+        data: Vec<u8>,
+    ) {
         let mut reader = Cursor::new(data);
         let cmsg_name_query: CmsgNameQuery = reader.read_le().unwrap();
 
-        let conn = self.db_pool_char.get().unwrap();
+        let session = session.read().await;
+        let conn = world_context.database.characters.get().unwrap();
 
         let char_data =
             CharacterRepository::fetch_basic_character_data(&conn, cmsg_name_query.guid);
@@ -356,10 +424,14 @@ impl WorldSession {
             })
         };
 
-        self.send(packet).await.unwrap();
+        session.send(packet).await.unwrap();
     }
 
-    pub(crate) async fn handle_cmsg_query_time(&mut self, _data: Vec<u8>) {
+    pub(crate) async fn handle_cmsg_query_time(
+        session: Arc<RwLock<WorldSession>>,
+        world_context: Arc<WorldContext>,
+        _data: Vec<u8>,
+    ) {
         let now = SystemTime::now();
         let seconds_since_epoch = now
             .duration_since(UNIX_EPOCH)
@@ -370,6 +442,7 @@ impl WorldSession {
             seconds_until_daily_quests_reset: 0, // TODO: Change this when implementing daily quests
         });
 
-        self.send(packet).await.unwrap();
+        let session = session.read().await;
+        session.send(packet).await.unwrap();
     }
 }

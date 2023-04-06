@@ -60,7 +60,7 @@ impl DataStore {
             .map(|template| (template.entry, template))
             .collect();
 
-        println!("Loading player creation positions...");
+        info!("Loading player creation positions...");
         let player_create_positions = PlayerCreationRepository::load_positions(conn);
         let player_create_positions: SqlStore<PlayerCreatePosition> = player_create_positions
             .into_iter()

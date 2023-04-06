@@ -1,8 +1,11 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Instant};
 
 use env_logger::Env;
 use r2d2_sqlite::SqliteConnectionManager;
-use rustbolt_world::{config::WorldConfig, game::world::World};
+use rustbolt_world::{
+    config::WorldConfig, database_context::DatabaseContext, game::world::World,
+    world_context::WorldContext, world_session::OpcodeHandler, DataStore, SessionHolder,
+};
 use tokio::{
     net::TcpListener,
     sync::{Mutex, RwLock, Semaphore},
@@ -21,7 +24,7 @@ mod embedded_world {
 #[tokio::main]
 async fn main() {
     // Load config
-    let config = WorldConfig::load().expect("Error in config file");
+    let config = Arc::new(WorldConfig::load().expect("Error in config file"));
 
     // Setup logging
     env_logger::Builder::from_env(Env::default().default_filter_or("debug")).init();
@@ -64,6 +67,35 @@ async fn main() {
         .expect("Failed to create r2d2 SQlite connection pool (World DB)");
     let db_pool_world = Arc::new(db_pool_world);
 
+    let conn = db_pool_world.get().unwrap();
+    let data_store = Arc::new(
+        DataStore::load_data(&config.common.data, &conn).expect("Error when loading static data"),
+    );
+    let opcode_handler = Arc::new(OpcodeHandler::new());
+
+    let database_context = Arc::new(DatabaseContext {
+        auth: db_pool_auth.clone(),
+        characters: db_pool_char.clone(),
+        world: db_pool_world.clone(),
+    });
+
+    let start_time = Instant::now();
+
+    let world_context = Arc::new(WorldContext {
+        data_store,
+        database: database_context,
+        opcode_handler: opcode_handler.clone(),
+        config: config.clone(),
+        start_time,
+    });
+
+    let session_holder = Arc::new(RwLock::new(SessionHolder::new()));
+
+    let world = World::new(start_time, config.clone());
+
+    let world: Arc<RwLock<World>> = Arc::new(RwLock::new(world));
+    World::start(world.clone()).await;
+
     // Bind the listener to the address
     let listener = TcpListener::bind(format!(
         "{}:{}",
@@ -72,33 +104,26 @@ async fn main() {
     .await
     .unwrap();
 
-    let db_pool_world_copy = Arc::clone(&db_pool_world);
-    let config = Arc::new(config);
-    let world = Box::leak(Box::new(World::new(config, db_pool_world_copy)));
-    world.start().await;
+    tokio::spawn(async move {
+        loop {
+            // The second item contains the IP and port of the new connection
+            let (socket, _) = listener.accept().await.unwrap();
 
-    let world: Arc<RwLock<&'static mut World>> = Arc::new(RwLock::new(&mut *world));
+            let world_context = world_context.clone();
+            let session_holder = session_holder.clone();
 
-    loop {
-        // The second item contains the IP and port of the new connection
-        let (socket, _) = listener.accept().await.unwrap();
+            // Spawn a new task for each inbound socket
+            tokio::spawn(async move {
+                rustbolt_world::process(
+                    Arc::new(Mutex::new(socket)),
+                    world_context,
+                    session_holder,
+                )
+                .await
+                .expect("World socket error");
+            });
+        }
+    });
 
-        // Spawn a new task for each inbound socket
-        let db_pool_auth_copy = Arc::clone(&db_pool_auth);
-        let db_pool_char_copy = Arc::clone(&db_pool_char);
-        let db_pool_world_copy = Arc::clone(&db_pool_world);
-        let world = Arc::clone(&world);
-
-        tokio::spawn(async move {
-            rustbolt_world::process(
-                Arc::new(Mutex::new(socket)),
-                db_pool_auth_copy,
-                db_pool_char_copy,
-                db_pool_world_copy,
-                world,
-            )
-            .await
-            .expect("World socket error");
-        });
-    }
+    loop {}
 }

@@ -22,12 +22,8 @@ pub struct ServerMessage<const OPCODE: u16, Payload: ServerMessagePayload<OPCODE
     payload: Payload,
 }
 
-pub trait ServerMessagePayload<const OPCODE: u16> {
-    fn encode(&self) -> Result<Vec<u8>, binrw::Error>
-    where
-        Self: BinWrite,
-        for<'a> <Self as BinWrite>::Args<'a>: Default,
-    {
+pub trait ServerMessagePayload<const OPCODE: u16>: for<'a> BinWrite<Args<'a> = ()> {
+    fn encode(&self) -> Result<Vec<u8>, binrw::Error> {
         let mut writer = Cursor::new(Vec::new());
         writer.write_le(&self)?;
         Ok(writer.get_ref().to_vec())
@@ -41,10 +37,7 @@ impl<const OPCODE: u16, Payload: ServerMessagePayload<OPCODE> + BinWrite>
         ServerMessage { payload }
     }
 
-    pub async fn send_unencrypted(self, socket: &mut TcpStream) -> Result<(), binrw::Error>
-    where
-        for<'a> <Payload as BinWrite>::Args<'a>: Default,
-    {
+    pub async fn send_unencrypted(self, socket: &mut TcpStream) -> Result<(), binrw::Error> {
         let payload = self.payload.encode()?;
         let header = ServerMessageHeader {
             size: payload.len() as u16 + 2, // + 2 for the opcode size
@@ -63,10 +56,7 @@ impl<const OPCODE: u16, Payload: ServerMessagePayload<OPCODE> + BinWrite>
         self,
         socket: &Arc<Mutex<TcpStream>>,
         encryption: &Arc<Mutex<HeaderCrypto>>,
-    ) -> Result<(), binrw::Error>
-    where
-        for<'a> <Payload>::Args<'a>: Default,
-    {
+    ) -> Result<(), binrw::Error> {
         let mut socket = socket.lock().await;
         let mut encryption = encryption.lock().await;
 

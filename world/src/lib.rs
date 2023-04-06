@@ -11,7 +11,6 @@ use game::world::World;
 use hex::FromHex;
 use log::{error, trace};
 use protocol::client::ClientMessageHeader;
-use protocol::handlers;
 use r2d2::Pool;
 use r2d2_sqlite::SqliteConnectionManager;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -36,7 +35,6 @@ struct SocketOpened {
     db_pool_auth: Arc<Pool<SqliteConnectionManager>>,
     db_pool_char: Arc<Pool<SqliteConnectionManager>>,
     db_pool_world: Arc<Pool<SqliteConnectionManager>>,
-    world: Arc<RwLock<&'static mut World>>,
 }
 struct ServerSentAuthChallenge {
     seed: ProofSeed,
@@ -44,10 +42,9 @@ struct ServerSentAuthChallenge {
     db_pool_auth: Arc<Pool<SqliteConnectionManager>>,
     db_pool_char: Arc<Pool<SqliteConnectionManager>>,
     db_pool_world: Arc<Pool<SqliteConnectionManager>>,
-    world: Arc<RwLock<&'static mut World>>,
 }
-struct ServerSentAuthResponse<'a> {
-    session: Arc<Mutex<&'a WorldSession>>,
+struct ServerSentAuthResponse {
+    pub account_id: u32,
 }
 
 struct WorldSocketState<S> {
@@ -60,6 +57,7 @@ pub enum WorldSocketError {
     SocketError(std::io::Error),
     BinRwError(binrw::Error),
     DbError(r2d2::Error),
+    SessionNotFound,
 }
 
 impl From<std::io::Error> for WorldSocketError {
@@ -100,7 +98,6 @@ impl WorldSocketState<SocketOpened> {
                 db_pool_auth: self.state.db_pool_auth,
                 db_pool_char: self.state.db_pool_char,
                 db_pool_world: self.state.db_pool_world,
-                world: self.state.world,
             },
         })
     }
@@ -147,7 +144,8 @@ impl WorldSocketState<ServerSentAuthChallenge> {
 
     async fn handle_auth_session(
         mut self,
-    ) -> Result<WorldSocketState<ServerSentAuthResponse<'static>>, WorldSocketError> {
+        world: Arc<RwLock<&'static mut World>>,
+    ) -> Result<WorldSocketState<ServerSentAuthResponse>, WorldSocketError> {
         let auth_session_client_message = self.read_socket_plain().await?;
 
         let mut reader = Cursor::new(auth_session_client_message.payload);
@@ -187,7 +185,7 @@ impl WorldSocketState<ServerSentAuthChallenge> {
         packet.send(&self.state.socket, &encryption).await?;
         trace!("Sent SMSG_AUTH_RESPONSE");
 
-        let session_world = Arc::clone(&self.state.world);
+        let session_world = Arc::clone(&world);
         let session = WorldSession::new(
             self.state.socket,
             encryption,
@@ -198,79 +196,18 @@ impl WorldSocketState<ServerSentAuthChallenge> {
             session_world,
         );
 
-        let mut world = self.state.world.write().await;
+        {
+            let mut world = world.write().await;
 
-        if let Some(previous_session) = world.insert_session(session).await {
-            let mut socket = previous_session.socket.lock().await;
-            socket.shutdown();
+            if let Some(previous_session) = world.insert_session(session).await {
+                let mut socket = previous_session.socket.lock().await;
+                socket.shutdown();
+            }
         }
-
-        let session = world.get_session_for_account(account_id).await.unwrap();
 
         Ok(WorldSocketState {
-            state: ServerSentAuthResponse {
-                session: Arc::new(Mutex::new(session)),
-            },
+            state: ServerSentAuthResponse { account_id },
         })
-    }
-}
-
-impl WorldSocketState<ServerSentAuthResponse> {
-    async fn read_socket(&mut self) -> Result<ClientMessage, WorldSocketError> {
-        let mut buf = [0_u8; 6];
-        let session = self.state.session.lock().await;
-        let mut socket = session.socket.lock().await;
-
-        match socket.read(&mut buf[..6]).await {
-            Ok(0) => {
-                trace!("Client disconnected");
-                return Err(WorldSocketError::ClientDisconnected);
-            }
-            Ok(n) if n < 6 => {
-                error!("Received less than 6 bytes, need to handle partial header");
-                return Err(WorldSocketError::SocketError(std::io::Error::new(
-                    std::io::ErrorKind::InvalidData,
-                    "Received an incomplete client header",
-                )));
-            }
-            Ok(_) => {
-                let mut encryption = session.encryption.lock().await;
-                let client_header: ClientMessageHeader =
-                    encryption.decrypt_client_header(buf).into();
-
-                let bytes_to_read: usize = client_header.size as usize - 4; // Client opcode is u32
-                let mut buf_payload = [0_u8; 1024];
-                if bytes_to_read > 0 {
-                    socket
-                        .read(&mut buf_payload[..bytes_to_read])
-                        .await
-                        .unwrap();
-
-                    Ok(ClientMessage {
-                        header: client_header,
-                        payload: buf_payload[..bytes_to_read].to_vec(),
-                    })
-                } else {
-                    Ok(ClientMessage {
-                        header: client_header,
-                        payload: vec![],
-                    })
-                }
-            }
-            Err(e) => {
-                error!("Socket error, closing");
-                return Err(WorldSocketError::SocketError(e));
-            }
-        }
-    }
-
-    async fn handle_packet(&mut self) -> Result<(), WorldSocketError> {
-        let client_message = self.read_socket().await?;
-        let handler = handlers::get_handler(client_message.header.opcode);
-
-        handler(client_message.payload, Arc::clone(&self.state.session)).await;
-
-        Ok(())
     }
 }
 
@@ -281,21 +218,26 @@ pub async fn process(
     db_pool_world: Arc<Pool<SqliteConnectionManager>>,
     world: Arc<RwLock<&'static mut World>>,
 ) -> Result<(), WorldSocketError> {
-    let mut state = WorldSocketState {
+    let state = WorldSocketState {
         state: SocketOpened {
             socket,
             db_pool_auth,
             db_pool_char,
             db_pool_world,
-            world,
         },
     }
     .send_challenge()
     .await?
-    .handle_auth_session()
+    .handle_auth_session(Arc::clone(&world))
     .await?;
 
-    loop {
-        state.handle_packet().await?;
+    let account_id = state.state.account_id;
+    let mut world = world.write().await;
+    if let Some(session) = world.get_session_for_account(account_id).await {
+        loop {
+            session.process_incoming_packet().await?;
+        }
+    } else {
+        Err(WorldSocketError::SessionNotFound)
     }
 }

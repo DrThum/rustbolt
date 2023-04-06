@@ -41,8 +41,8 @@ impl World {
         self.sessions.insert(session.account_id, session)
     }
 
-    pub async fn get_session_for_account(&self, account_id: u32) -> Option<&WorldSession> {
-        self.sessions.get(&account_id)
+    pub async fn get_session_for_account(&mut self, account_id: u32) -> Option<&mut WorldSession> {
+        self.sessions.get_mut(&account_id)
     }
 
     // Return the elapsed time since the World started

@@ -1,4 +1,7 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::HashMap,
+    sync::{atomic::AtomicU32, Arc},
+};
 
 use futures::future::{BoxFuture, FutureExt};
 use log::{error, trace};
@@ -11,20 +14,18 @@ use wow_srp::tbc_header::HeaderCrypto;
 
 use crate::{
     entities::player::Player,
-    game::world::World,
     protocol::{
         client::{ClientMessage, ClientMessageHeader},
         opcodes::Opcode,
         server::{ServerMessage, ServerMessagePayload},
     },
     world_context::WorldContext,
+    world_socket::WorldSocket,
     WorldSocketError,
 };
 
 pub type PacketHandler = Box<
-    dyn Send
-        + Sync
-        + Fn(Arc<RwLock<WorldSession>>, Arc<WorldContext>, Vec<u8>) -> BoxFuture<'static, ()>,
+    dyn Send + Sync + Fn(Arc<WorldSession>, Arc<WorldContext>, Vec<u8>) -> BoxFuture<'static, ()>,
 >;
 
 macro_rules! define_handler {
@@ -100,50 +101,73 @@ impl OpcodeHandler {
 }
 
 pub struct WorldSession {
-    pub socket: Arc<Mutex<TcpStream>>,
-    pub encryption: Arc<Mutex<HeaderCrypto>>,
+    socket: WorldSocket,
     pub account_id: u32,
-    pub player: Player,
-    pub client_latency: u32,
+    pub player: Arc<RwLock<Player>>,
+    client_latency: AtomicU32,
     time_sync_counter: u32,
 }
 
 impl WorldSession {
-    pub fn new(
-        socket: Arc<Mutex<TcpStream>>,
-        encryption: Arc<Mutex<HeaderCrypto>>,
-        account_id: u32,
-    ) -> WorldSession {
-        WorldSession {
-            socket,
+    pub fn new(socket: TcpStream, encryption: HeaderCrypto, account_id: u32) -> WorldSession {
+        let (read_half, write_half) = tokio::io::split(socket);
+
+        let read_half = Arc::new(Mutex::new(read_half));
+        let write_half = Arc::new(Mutex::new(write_half));
+        let encryption = Arc::new(Mutex::new(encryption));
+
+        let socket = WorldSocket {
+            write_half,
+            read_half,
             encryption,
             account_id,
-            player: Player::new(),
-            client_latency: 0,
+        };
+
+        WorldSession {
+            socket,
+            account_id,
+            player: Arc::new(RwLock::new(Player::new())),
+            client_latency: AtomicU32::new(0),
             time_sync_counter: 0,
         }
+    }
+
+    pub async fn shutdown(&self) {
+        self.socket.shutdown().await;
+    }
+
+    pub fn client_latency(&self) -> u32 {
+        self.client_latency
+            .load(std::sync::atomic::Ordering::Relaxed)
+    }
+
+    pub fn update_client_latency(&self, latency: u32) {
+        self.client_latency
+            .store(latency, std::sync::atomic::Ordering::Relaxed);
     }
 
     pub async fn send<const OPCODE: u16, Payload: ServerMessagePayload<OPCODE>>(
         &self,
         packet: ServerMessage<OPCODE, Payload>,
     ) -> Result<(), binrw::Error> {
-        trace!("Sent {:?} ({:#X})", Opcode::n(OPCODE).unwrap(), OPCODE);
-        packet.send(&self.socket, &self.encryption).await
+        let mut socket = self.socket.write_half.lock().await;
+        let mut encryption = self.socket.encryption.lock().await;
+
+        trace!("Sending {:?} ({:#X})", Opcode::n(OPCODE).unwrap(), OPCODE);
+        packet.send(&mut socket, &mut encryption).await
     }
 
     pub async fn process_incoming_packet(
-        session_lock: Arc<RwLock<WorldSession>>,
+        session: Arc<WorldSession>,
         world_context: Arc<WorldContext>,
     ) -> Result<(), WorldSocketError> {
-        let mut session = session_lock.write().await;
         let client_message = session.read_socket().await?;
         let handler = world_context
             .opcode_handler
             .get_handler(client_message.header.opcode);
 
         handler(
-            session_lock.clone(),
+            session.clone(),
             world_context.clone(),
             client_message.payload,
         )
@@ -152,9 +176,9 @@ impl WorldSession {
         Ok(())
     }
 
-    async fn read_socket(&mut self) -> Result<ClientMessage, WorldSocketError> {
+    async fn read_socket(&self) -> Result<ClientMessage, WorldSocketError> {
         let mut buf = [0_u8; 6];
-        let mut socket = self.socket.lock().await;
+        let mut socket = self.socket.read_half.lock().await;
 
         match socket.read(&mut buf[..6]).await {
             Ok(0) => {
@@ -169,7 +193,7 @@ impl WorldSession {
                 )));
             }
             Ok(_) => {
-                let mut encryption = self.encryption.lock().await;
+                let mut encryption = self.socket.encryption.lock().await;
                 let client_header: ClientMessageHeader =
                     encryption.decrypt_client_header(buf).into();
 

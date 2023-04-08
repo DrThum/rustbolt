@@ -12,9 +12,9 @@ use hex::FromHex;
 use log::{error, trace};
 use protocol::client::ClientMessageHeader;
 pub use session_holder::SessionHolder;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::AsyncReadExt;
 use tokio::net::TcpStream;
-use tokio::sync::{Mutex, RwLock};
+use tokio::sync::RwLock;
 use world_context::WorldContext;
 use world_session::WorldSession;
 use wow_srp::normalized_string::NormalizedString;
@@ -31,19 +31,20 @@ mod session_holder;
 mod shared;
 pub mod world_context;
 pub mod world_session;
+mod world_socket;
 
 // TypeState pattern (https://yoric.github.io/post/rust-typestate/)
 struct SocketOpened {
-    socket: Arc<Mutex<TcpStream>>,
+    socket: TcpStream,
     world_context: Arc<WorldContext>,
 }
 struct ServerSentAuthChallenge {
     seed: ProofSeed,
-    socket: Arc<Mutex<TcpStream>>,
+    socket: TcpStream,
     world_context: Arc<WorldContext>,
 }
 struct ServerSentAuthResponse {
-    pub account_id: u32,
+    pub session: Arc<WorldSession>,
 }
 
 struct WorldSocketState<S> {
@@ -79,15 +80,13 @@ impl From<r2d2::Error> for WorldSocketError {
 
 impl WorldSocketState<SocketOpened> {
     async fn send_challenge(
-        self,
+        mut self,
     ) -> Result<WorldSocketState<ServerSentAuthChallenge>, WorldSocketError> {
         let seed = ProofSeed::new();
         let packet = ServerMessage::new(SmsgAuthChallenge {
             server_seed: seed.seed(),
         });
-        let mut socket_guard = self.state.socket.lock().await;
-        packet.send_unencrypted(&mut socket_guard).await?;
-        drop(socket_guard);
+        packet.send_unencrypted(&mut self.state.socket).await?;
         trace!("Sent SMSG_AUTH_CHALLENGE");
 
         Ok(WorldSocketState {
@@ -103,9 +102,9 @@ impl WorldSocketState<SocketOpened> {
 impl WorldSocketState<ServerSentAuthChallenge> {
     async fn read_socket_plain(&mut self) -> Result<ClientMessage, WorldSocketError> {
         let mut buf = [0_u8; 6];
-        let mut socket_guard = self.state.socket.lock().await;
+        // let mut socket_guard = self.state.socket.lock().await;
 
-        match socket_guard.read_exact(&mut buf[..6]).await {
+        match self.state.socket.read_exact(&mut buf[..6]).await {
             Ok(0) => {
                 trace!("Client disconnected");
                 return Err(WorldSocketError::ClientDisconnected);
@@ -122,7 +121,8 @@ impl WorldSocketState<ServerSentAuthChallenge> {
                 let client_header: ClientMessageHeader = reader.read_le()?;
                 let bytes_to_read: usize = client_header.size as usize - 4; // Client opcode is u32
                 let mut buf_payload = [0_u8; 1024];
-                socket_guard
+                self.state
+                    .socket
                     .read_exact(&mut buf_payload[..bytes_to_read])
                     .await
                     .unwrap();
@@ -168,7 +168,8 @@ impl WorldSocketState<ServerSentAuthChallenge> {
                 cmsg_auth_session._client_seed,
             )
             .unwrap();
-        let encryption = Arc::new(Mutex::new(encryption));
+
+        let session = WorldSession::new(self.state.socket, encryption, account_id);
 
         let packet = ServerMessage::new(SmsgAuthResponse {
             result: ResponseCodes::AuthOk as u8,
@@ -179,33 +180,31 @@ impl WorldSocketState<ServerSentAuthChallenge> {
             position_in_queue: 0,
         });
 
-        packet.send(&self.state.socket, &encryption).await?;
-        trace!("Sent SMSG_AUTH_RESPONSE");
-
-        let session = WorldSession::new(self.state.socket, encryption, account_id);
+        session.send(packet).await.unwrap();
 
         {
             let mut session_holder = session_holder.write().await;
 
             if let Some(previous_session) = session_holder.insert_session(session).await {
-                let previous_session = previous_session.write().await;
-                let mut socket = previous_session.socket.lock().await;
-
-                socket
-                    .shutdown()
-                    .await
-                    .expect("Duplicate WorldSession: failed to close the old socket");
+                previous_session.shutdown().await;
             }
         }
 
-        Ok(WorldSocketState {
-            state: ServerSentAuthResponse { account_id },
-        })
+        let session_holder = session_holder.read().await;
+        if let Some(session) = session_holder.get_session_for_account(account_id) {
+            Ok(WorldSocketState {
+                state: ServerSentAuthResponse {
+                    session: session.clone(),
+                },
+            })
+        } else {
+            Err(WorldSocketError::SessionNotFound)
+        }
     }
 }
 
 pub async fn process(
-    socket: Arc<Mutex<TcpStream>>,
+    socket: TcpStream,
     world_context: Arc<WorldContext>,
     session_holder: Arc<RwLock<SessionHolder>>,
 ) -> Result<(), WorldSocketError> {
@@ -220,14 +219,8 @@ pub async fn process(
     .handle_auth_session(session_holder.clone())
     .await?;
 
-    let account_id = state.state.account_id;
-    let session_holder_w = session_holder.write().await;
-    if let Some(session) = session_holder_w.get_session_for_account(account_id).await {
-        loop {
-            let session = session.clone();
-            WorldSession::process_incoming_packet(session, world_context.clone()).await?;
-        }
-    } else {
-        Err(WorldSocketError::SessionNotFound)
+    loop {
+        let session = state.state.session.clone();
+        WorldSession::process_incoming_packet(session, world_context.clone()).await?;
     }
 }

@@ -1,12 +1,10 @@
-use std::sync::Arc;
-
 use binrw::io::Cursor;
 use binrw::{binwrite, BinWrite, BinWriterExt};
 use log::trace;
 use miniz_oxide::deflate::CompressionLevel;
-use tokio::io::AsyncWriteExt;
+use tokio::io::{AsyncWriteExt, WriteHalf};
 use tokio::net::TcpStream;
-use tokio::sync::Mutex;
+use tokio::sync::MutexGuard;
 use wow_srp::tbc_header::HeaderCrypto;
 
 use crate::protocol::opcodes::Opcode;
@@ -54,12 +52,9 @@ impl<const OPCODE: u16, Payload: ServerMessagePayload<OPCODE> + BinWrite>
 
     pub async fn send(
         self,
-        socket: &Arc<Mutex<TcpStream>>,
-        encryption: &Arc<Mutex<HeaderCrypto>>,
+        socket: &mut MutexGuard<'_, WriteHalf<TcpStream>>,
+        encryption: &mut MutexGuard<'_, HeaderCrypto>,
     ) -> Result<(), binrw::Error> {
-        let mut socket = socket.lock().await;
-        let mut encryption = encryption.lock().await;
-
         let payload = self.payload.encode()?;
 
         // TODO: Write a specialized impl for SmsgUpdateObject

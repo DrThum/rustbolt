@@ -114,16 +114,12 @@ async fn main() {
 
             // Spawn a new task for each inbound socket
             tokio::spawn(async move {
-                rustbolt_world::process(
-                    Arc::new(Mutex::new(socket)),
-                    world_context,
-                    session_holder,
-                )
-                .await
-                .expect("World socket error");
+                rustbolt_world::process(socket, world_context, session_holder)
+                    .await
+                    .expect("World socket error");
             });
         }
     });
 
-    loop {}
+    loop {} // TODO: join
 }

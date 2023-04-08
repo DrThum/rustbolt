@@ -4,10 +4,8 @@ use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::RwLock;
 
-use crate::datastore::DataStore;
 use crate::entities::player::Player;
 use crate::entities::update::UpdatableEntity;
-use crate::game::world::World;
 use crate::protocol::packets::*;
 use crate::protocol::server::ServerMessage;
 use crate::repositories::character::CharacterRepository;
@@ -17,13 +15,12 @@ use crate::world_session::WorldSession;
 
 impl WorldSession {
     pub(crate) async fn handle_cmsg_char_create(
-        session: Arc<RwLock<WorldSession>>,
+        session: Arc<WorldSession>,
         world_context: Arc<WorldContext>,
         data: Vec<u8>,
     ) {
         let mut reader = Cursor::new(data);
         let cmsg_char_create: CmsgCharCreate = reader.read_le().unwrap();
-        let session = session.read().await;
         let mut conn = world_context.database.characters.get().unwrap();
 
         let name_available =
@@ -50,12 +47,10 @@ impl WorldSession {
     }
 
     pub(crate) async fn handle_cmsg_char_enum(
-        session: Arc<RwLock<WorldSession>>,
+        session: Arc<WorldSession>,
         world_context: Arc<WorldContext>,
         _data: Vec<u8>,
     ) {
-        let session = session.read().await;
-
         let conn = world_context.database.characters.get().unwrap();
         let character_data = CharacterRepository::fetch_characters(
             &conn,
@@ -72,14 +67,12 @@ impl WorldSession {
     }
 
     pub(crate) async fn handle_cmsg_char_delete(
-        session: Arc<RwLock<WorldSession>>,
+        session: Arc<WorldSession>,
         world_context: Arc<WorldContext>,
         data: Vec<u8>,
     ) {
         let mut reader = Cursor::new(data);
         let cmsg_char_delete: CmsgCharDelete = reader.read_le().unwrap();
-        let session = session.read().await;
-
         let conn = world_context.database.characters.get().unwrap();
         CharacterRepository::delete_character(&conn, cmsg_char_delete, session.account_id);
 
@@ -91,23 +84,25 @@ impl WorldSession {
     }
 
     pub(crate) async fn handle_cmsg_player_login(
-        session: Arc<RwLock<WorldSession>>,
+        session: Arc<WorldSession>,
         world_context: Arc<WorldContext>,
         data: Vec<u8>,
     ) {
         let mut reader = Cursor::new(data);
         let cmsg_player_login: CmsgPlayerLogin = reader.read_le().unwrap();
-        let mut session = session.write().await;
 
         let account_id = session.account_id;
         let conn = world_context.database.characters.get().unwrap();
 
-        session.player.load(
-            &conn,
-            account_id,
-            cmsg_player_login.guid,
-            world_context.clone(),
-        );
+        {
+            let mut player = session.player.write().await;
+            player.load(
+                &conn,
+                account_id,
+                cmsg_player_login.guid,
+                world_context.clone(),
+            );
+        }
 
         let msg_set_dungeon_difficulty = ServerMessage::new(MsgSetDungeonDifficulty {
             difficulty: 0, // FIXME
@@ -117,16 +112,19 @@ impl WorldSession {
 
         session.send(msg_set_dungeon_difficulty).await.unwrap();
 
-        let player_position = session.player.position();
-        let smsg_login_verify_world = ServerMessage::new(SmsgLoginVerifyWorld {
-            map: player_position.map,
-            position_x: player_position.x,
-            position_y: player_position.y,
-            position_z: player_position.z,
-            orientation: player_position.o,
-        });
+        {
+            let player = session.player.read().await;
+            let player_position = player.position();
+            let smsg_login_verify_world = ServerMessage::new(SmsgLoginVerifyWorld {
+                map: player_position.map,
+                position_x: player_position.x,
+                position_y: player_position.y,
+                position_z: player_position.z,
+                orientation: player_position.o,
+            });
 
-        session.send(smsg_login_verify_world).await.unwrap();
+            session.send(smsg_login_verify_world).await.unwrap();
+        }
 
         let smsg_account_data_times =
             ServerMessage::new(SmsgAccountDataTimes { data: [0_u32; 32] });
@@ -182,16 +180,17 @@ impl WorldSession {
 
         session.send(smsg_login_settimespeed).await.unwrap();
 
-        let update_data = session
-            .player
-            .get_create_data(session.player.guid().raw(), world_context.clone());
-        let smsg_update_object = ServerMessage::new(SmsgUpdateObject {
-            updates_count: update_data.len() as u32,
-            has_transport: false,
-            updates: update_data,
-        });
+        {
+            let player = session.player.read().await;
+            let update_data = player.get_create_data(player.guid().raw(), world_context.clone());
+            let smsg_update_object = ServerMessage::new(SmsgUpdateObject {
+                updates_count: update_data.len() as u32,
+                has_transport: false,
+                updates: update_data,
+            });
 
-        session.send(smsg_update_object).await.unwrap();
+            session.send(smsg_update_object).await.unwrap();
+        }
 
         let smsg_init_world_states = ServerMessage::new(SmsgInitWorldStates {
             map_id: 0,
@@ -217,20 +216,19 @@ impl WorldSession {
     }
 
     pub async fn unhandled(
-        session: Arc<RwLock<WorldSession>>,
-        world_context: Arc<WorldContext>,
+        _session: Arc<WorldSession>,
+        _world_context: Arc<WorldContext>,
         _data: Vec<u8>,
     ) {
     }
 
     pub(crate) async fn handle_cmsg_realm_split(
-        session: Arc<RwLock<WorldSession>>,
-        world_context: Arc<WorldContext>,
+        session: Arc<WorldSession>,
+        _world_context: Arc<WorldContext>,
         data: Vec<u8>,
     ) {
         let mut reader = Cursor::new(data);
         let cmsg_realm_split: CmsgRealmSplit = reader.read_le().unwrap();
-        let session = session.read().await;
 
         let packet = ServerMessage::new(SmsgRealmSplit {
             client_state: cmsg_realm_split.client_state,
@@ -242,15 +240,14 @@ impl WorldSession {
     }
 
     pub(crate) async fn handle_cmsg_ping(
-        session: Arc<RwLock<WorldSession>>,
-        world_context: Arc<WorldContext>,
+        session: Arc<WorldSession>,
+        _world_context: Arc<WorldContext>,
         data: Vec<u8>,
     ) {
         let mut reader = Cursor::new(data);
         let cmsg_ping: CmsgPing = reader.read_le().unwrap();
-        let mut session = session.write().await;
 
-        session.client_latency = cmsg_ping.latency;
+        session.update_client_latency(cmsg_ping.latency);
 
         let packet = ServerMessage::new(SmsgPong {
             ping: cmsg_ping.ping,
@@ -260,13 +257,12 @@ impl WorldSession {
     }
 
     pub(crate) async fn handle_cmsg_update_account_data(
-        session: Arc<RwLock<WorldSession>>,
-        world_context: Arc<WorldContext>,
+        session: Arc<WorldSession>,
+        _world_context: Arc<WorldContext>,
         data: Vec<u8>,
     ) {
         let mut reader = Cursor::new(data);
         let cmsg_update_account_data: CmsgUpdateAccountData = reader.read_le().unwrap();
-        let session = session.read().await;
 
         let packet = ServerMessage::new(SmsgUpdateAccountData {
             account_data_id: cmsg_update_account_data.account_data_id,
@@ -277,8 +273,8 @@ impl WorldSession {
     }
 
     pub(crate) async fn handle_cmsg_logout_request(
-        session: Arc<RwLock<WorldSession>>,
-        world_context: Arc<WorldContext>,
+        session: Arc<WorldSession>,
+        _world_context: Arc<WorldContext>,
         _data: Vec<u8>,
     ) {
         let packet = ServerMessage::new(SmsgLogoutResponse {
@@ -286,7 +282,6 @@ impl WorldSession {
             is_instant_logout: 1,
         });
 
-        let session = session.read().await;
         session.send(packet).await.unwrap();
 
         let packet = ServerMessage::new(SmsgLogoutComplete {});
@@ -295,14 +290,12 @@ impl WorldSession {
     }
 
     pub(crate) async fn handle_cmsg_item_query_single(
-        session: Arc<RwLock<WorldSession>>,
+        session: Arc<WorldSession>,
         world_context: Arc<WorldContext>,
         data: Vec<u8>,
     ) {
         let mut reader = Cursor::new(data);
         let cmsg_item_query_single: CmsgItemQuerySingle = reader.read_le().unwrap();
-
-        let session = session.read().await;
 
         let packet = if let Some(item) = world_context
             .data_store
@@ -389,14 +382,13 @@ impl WorldSession {
     }
 
     pub(crate) async fn handle_cmsg_name_query(
-        session: Arc<RwLock<WorldSession>>,
+        session: Arc<WorldSession>,
         world_context: Arc<WorldContext>,
         data: Vec<u8>,
     ) {
         let mut reader = Cursor::new(data);
         let cmsg_name_query: CmsgNameQuery = reader.read_le().unwrap();
 
-        let session = session.read().await;
         let conn = world_context.database.characters.get().unwrap();
 
         let char_data =
@@ -428,8 +420,8 @@ impl WorldSession {
     }
 
     pub(crate) async fn handle_cmsg_query_time(
-        session: Arc<RwLock<WorldSession>>,
-        world_context: Arc<WorldContext>,
+        session: Arc<WorldSession>,
+        _world_context: Arc<WorldContext>,
         _data: Vec<u8>,
     ) {
         let now = SystemTime::now();
@@ -442,7 +434,6 @@ impl WorldSession {
             seconds_until_daily_quests_reset: 0, // TODO: Change this when implementing daily quests
         });
 
-        let session = session.read().await;
         session.send(packet).await.unwrap();
     }
 }

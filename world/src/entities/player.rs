@@ -8,13 +8,13 @@ use rusqlite::Error;
 
 use crate::{
     datastore::{data_types::PlayerCreatePosition, DataStore},
+    game::world_context::WorldContext,
     protocol::packets::CmsgCharCreate,
     repositories::{character::CharacterRepository, item::ItemRepository},
     shared::constants::{
         CharacterClass, CharacterRace, Gender, HighGuidType, InventorySlot, InventoryType,
         ItemClass, ItemSubclassConsumable, ObjectTypeMask, PowerType,
     },
-    world_context::WorldContext,
 };
 
 use super::{

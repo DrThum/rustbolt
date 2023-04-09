@@ -8,15 +8,15 @@ pub use crate::datastore::DataStore;
 use crate::protocol::packets::{CmsgAuthSession, SmsgAuthChallenge, SmsgAuthResponse};
 use binrw::io::Cursor;
 use binrw::BinReaderExt;
+use game::world_context::WorldContext;
 use hex::FromHex;
 use log::{error, trace};
 use protocol::client::ClientMessageHeader;
-pub use session_holder::SessionHolder;
+pub use session::session_holder::SessionHolder;
+use session::world_session::WorldSession;
 use tokio::io::AsyncReadExt;
 use tokio::net::TcpStream;
 use tokio::sync::RwLock;
-use world_context::WorldContext;
-use world_session::WorldSession;
 use wow_srp::normalized_string::NormalizedString;
 use wow_srp::tbc_header::ProofSeed;
 
@@ -27,11 +27,8 @@ mod entities;
 pub mod game;
 mod protocol;
 mod repositories;
-mod session_holder;
+pub mod session;
 mod shared;
-pub mod world_context;
-pub mod world_session;
-mod world_socket;
 
 // TypeState pattern (https://yoric.github.io/post/rust-typestate/)
 struct SocketOpened {

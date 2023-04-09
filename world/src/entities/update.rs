@@ -4,7 +4,7 @@ use binrw::binwrite;
 use enumflags2::{bitflags, BitFlags};
 use fixedbitset::FixedBitSet;
 
-use crate::world_context::WorldContext;
+use crate::game::world_context::WorldContext;
 
 use super::{object_guid::PackedObjectGuid, ObjectTypeId, Position};
 

@@ -3,8 +3,8 @@ use std::sync::Arc;
 use enumflags2::make_bitflags;
 
 use crate::{
+    game::world_context::WorldContext,
     shared::constants::{HighGuidType, ObjectTypeMask},
-    world_context::WorldContext,
 };
 
 use super::{

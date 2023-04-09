@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
-use crate::world_session::WorldSession;
+use super::world_session::WorldSession;
 
 pub struct SessionHolder {
     sessions: HashMap<u32, Arc<WorldSession>>,

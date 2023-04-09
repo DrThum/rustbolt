@@ -4,7 +4,8 @@ use std::{
 };
 
 use crate::{
-    config::WorldConfig, database_context::DatabaseContext, world_session::OpcodeHandler, DataStore,
+    config::WorldConfig, database_context::DatabaseContext, session::opcode_handler::OpcodeHandler,
+    DataStore,
 };
 
 pub struct WorldContext {

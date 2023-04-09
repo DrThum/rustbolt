@@ -3,8 +3,11 @@ use std::{sync::Arc, time::Instant};
 use env_logger::Env;
 use r2d2_sqlite::SqliteConnectionManager;
 use rustbolt_world::{
-    config::WorldConfig, database_context::DatabaseContext, game::world::World,
-    world_context::WorldContext, world_session::OpcodeHandler, DataStore, SessionHolder,
+    config::WorldConfig,
+    database_context::DatabaseContext,
+    game::{world::World, world_context::WorldContext},
+    session::opcode_handler::OpcodeHandler,
+    DataStore, SessionHolder,
 };
 use tokio::{
     net::TcpListener,

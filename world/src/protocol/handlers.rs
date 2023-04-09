@@ -5,14 +5,15 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::entities::player::Player;
 use crate::entities::update::UpdatableEntity;
+use crate::game::world_context::WorldContext;
 use crate::protocol::packets::*;
 use crate::protocol::server::ServerMessage;
 use crate::repositories::character::CharacterRepository;
+use crate::session::opcode_handler::OpcodeHandler;
+use crate::session::world_session::WorldSession;
 use crate::shared::response_codes::ResponseCodes;
-use crate::world_context::WorldContext;
-use crate::world_session::WorldSession;
 
-impl WorldSession {
+impl OpcodeHandler {
     pub(crate) async fn handle_cmsg_char_create(
         session: Arc<WorldSession>,
         world_context: Arc<WorldContext>,

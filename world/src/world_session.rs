@@ -6,7 +6,6 @@ use std::{
 use futures::future::{BoxFuture, FutureExt};
 use log::{error, trace};
 use tokio::{
-    io::AsyncReadExt,
     net::TcpStream,
     sync::{Mutex, RwLock},
 };
@@ -15,7 +14,6 @@ use wow_srp::tbc_header::HeaderCrypto;
 use crate::{
     entities::player::Player,
     protocol::{
-        client::{ClientMessage, ClientMessageHeader},
         opcodes::Opcode,
         server::{ServerMessage, ServerMessagePayload},
     },
@@ -105,7 +103,6 @@ pub struct WorldSession {
     pub account_id: u32,
     pub player: Arc<RwLock<Player>>,
     client_latency: AtomicU32,
-    time_sync_counter: u32,
 }
 
 impl WorldSession {
@@ -128,7 +125,6 @@ impl WorldSession {
             account_id,
             player: Arc::new(RwLock::new(Player::new())),
             client_latency: AtomicU32::new(0),
-            time_sync_counter: 0,
         }
     }
 
@@ -161,7 +157,7 @@ impl WorldSession {
         session: Arc<WorldSession>,
         world_context: Arc<WorldContext>,
     ) -> Result<(), WorldSocketError> {
-        let client_message = session.read_socket().await?;
+        let client_message = session.socket.read_packet().await?;
         let handler = world_context
             .opcode_handler
             .get_handler(client_message.header.opcode);
@@ -174,52 +170,5 @@ impl WorldSession {
         .await;
 
         Ok(())
-    }
-
-    async fn read_socket(&self) -> Result<ClientMessage, WorldSocketError> {
-        let mut buf = [0_u8; 6];
-        let mut socket = self.socket.read_half.lock().await;
-
-        match socket.read(&mut buf[..6]).await {
-            Ok(0) => {
-                trace!("Client disconnected");
-                return Err(WorldSocketError::ClientDisconnected);
-            }
-            Ok(n) if n < 6 => {
-                error!("Received less than 6 bytes, need to handle partial header");
-                return Err(WorldSocketError::SocketError(std::io::Error::new(
-                    std::io::ErrorKind::InvalidData,
-                    "Received an incomplete client header",
-                )));
-            }
-            Ok(_) => {
-                let mut encryption = self.socket.encryption.lock().await;
-                let client_header: ClientMessageHeader =
-                    encryption.decrypt_client_header(buf).into();
-
-                let bytes_to_read: usize = client_header.size as usize - 4; // Client opcode is u32
-                let mut buf_payload = [0_u8; 1024];
-                if bytes_to_read > 0 {
-                    socket
-                        .read(&mut buf_payload[..bytes_to_read])
-                        .await
-                        .unwrap();
-
-                    Ok(ClientMessage {
-                        header: client_header,
-                        payload: buf_payload[..bytes_to_read].to_vec(),
-                    })
-                } else {
-                    Ok(ClientMessage {
-                        header: client_header,
-                        payload: vec![],
-                    })
-                }
-            }
-            Err(e) => {
-                error!("Socket error, closing");
-                return Err(WorldSocketError::SocketError(e));
-            }
-        }
     }
 }

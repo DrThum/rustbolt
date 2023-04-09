@@ -8,7 +8,6 @@ use rusqlite::Error;
 
 use crate::{
     datastore::{data_types::PlayerCreatePosition, DataStore},
-    game::world::World,
     protocol::packets::CmsgCharCreate,
     repositories::{character::CharacterRepository, item::ItemRepository},
     shared::constants::{
@@ -377,7 +376,7 @@ impl Player {
         for index in 0..PLAYER_END {
             let value = self.values.get_u32(index as usize);
             if value != 0 {
-                update_builder.add_u32(index as usize, value);
+                update_builder.add(index as usize, value);
             }
         }
 

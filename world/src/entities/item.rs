@@ -3,7 +3,6 @@ use std::sync::Arc;
 use enumflags2::make_bitflags;
 
 use crate::{
-    game::world::World,
     shared::constants::{HighGuidType, ObjectTypeMask},
     world_context::WorldContext,
 };
@@ -55,7 +54,7 @@ impl Item {
         for index in 0..ITEM_END {
             let value = self.values.get_u32(index as usize);
             if value != 0 {
-                update_builder.add_u32(index as usize, value);
+                update_builder.add(index as usize, value);
             }
         }
 

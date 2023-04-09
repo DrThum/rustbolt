@@ -2,7 +2,6 @@ use binrw::io::Cursor;
 use binrw::{BinReaderExt, NullString};
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
-use tokio::sync::RwLock;
 
 use crate::entities::player::Player;
 use crate::entities::update::UpdatableEntity;

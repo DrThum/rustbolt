@@ -7,14 +7,11 @@ use tokio::{sync::RwLock, time::interval};
 
 use crate::config::WorldConfig;
 
-pub struct World {
-    start_time: Instant,
-    config: Arc<WorldConfig>,
-}
+pub struct World {}
 
 impl World {
-    pub fn new(start_time: Instant, config: Arc<WorldConfig>) -> Self {
-        World { start_time, config }
+    pub fn new(_start_time: Instant, _config: Arc<WorldConfig>) -> Self {
+        World {}
     }
 
     pub async fn start(world: Arc<RwLock<World>>) {

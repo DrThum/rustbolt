@@ -21,7 +21,7 @@ pub struct WorldSocket {
 }
 
 impl WorldSocket {
-    pub async fn read(&mut self) -> Result<ClientMessage, WorldSocketError> {
+    pub async fn read_packet(&self) -> Result<ClientMessage, WorldSocketError> {
         let mut buf = [0_u8; 6];
         let mut socket = self.read_half.lock().await;
 

@@ -8,7 +8,7 @@ use rustbolt_world::{
 };
 use tokio::{
     net::TcpListener,
-    sync::{Mutex, RwLock, Semaphore},
+    sync::{RwLock, Semaphore},
 };
 
 mod embedded_characters {

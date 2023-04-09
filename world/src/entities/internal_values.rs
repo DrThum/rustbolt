@@ -63,6 +63,35 @@ impl InternalValues {
         unsafe { ((self.values[index].as_u32 >> (offset * 8)) & 0xFF) as u8 }
     }
 
+    #[allow(dead_code)]
+    pub fn set_u16(&mut self, index: usize, offset: u8, value: u16) {
+        assert!(index < self.size, "index is too high");
+        assert!(offset < 2, "offset is too high");
+
+        unsafe {
+            let existing_as_u32 = self.values[index].as_u32;
+            let reset_mask: u32 = match offset {
+                // Reset relevant bytes to zero first...
+                0 => 0xFFFF0000,
+                1 => 0x0000FFFF,
+                _ => 0xFFFFFFFF,
+            };
+
+            let updated_as_u32 = existing_as_u32 & reset_mask;
+            // ... Then, set them to the new value
+            let updated_as_u32 = updated_as_u32 | ((value as u32) << (offset * 16));
+            self.set_u32(index, updated_as_u32);
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn get_u16(&self, index: usize, offset: u8) -> u16 {
+        assert!(index < self.size, "index is too high");
+        assert!(offset < 2, "offset is too high");
+
+        unsafe { ((self.values[index].as_u32 >> (offset * 16)) & 0xFFFF) as u16 }
+    }
+
     pub fn set_u64(&mut self, index: usize, value: u64) {
         assert!(index < (self.size - 1), "index is too high");
 
@@ -70,6 +99,7 @@ impl InternalValues {
         self.set_u32(index + 1, ((value >> 32) & 0xFFFFFFFF) as u32);
     }
 
+    #[allow(dead_code)]
     pub fn get_u64(&mut self, index: usize) -> u64 {
         assert!(index < (self.size - 1), "index is too high");
 
@@ -82,6 +112,7 @@ impl InternalValues {
         self.values[index] = Value { as_f32: value };
     }
 
+    #[allow(dead_code)]
     pub fn get_f32(&self, index: usize) -> f32 {
         assert!(index < self.size, "index is too high");
 

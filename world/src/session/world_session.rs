@@ -7,6 +7,7 @@ use log::trace;
 use tokio::{
     net::TcpStream,
     sync::{Mutex, RwLock},
+    task::JoinHandle,
 };
 use wow_srp::tbc_header::HeaderCrypto;
 
@@ -29,6 +30,7 @@ pub struct WorldSession {
     pub player: Arc<RwLock<Player>>,
     client_latency: AtomicU32,
     server_time_sync: Mutex<TimeSync>,
+    pub time_sync_handle: Mutex<Option<JoinHandle<()>>>,
 }
 
 impl WorldSession {
@@ -62,9 +64,8 @@ impl WorldSession {
                 client_counter: 0,
                 client_last_sync_ticks: 0,
             }),
+            time_sync_handle: Mutex::new(None),
         });
-
-        WorldSession::schedule_time_sync(session.clone(), world_context).await;
 
         session
     }
@@ -141,24 +142,45 @@ impl WorldSession {
         Ok(())
     }
 
-    // TODO: Reset time sync after teleport?
-    async fn schedule_time_sync(session: Arc<WorldSession>, world_context: Arc<WorldContext>) {
+    async fn schedule_time_sync(
+        session: Arc<WorldSession>,
+        world_context: Arc<WorldContext>,
+    ) -> tokio::task::JoinHandle<()> {
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(Duration::from_secs(10));
 
             loop {
+                {
+                    let mut time_sync = session.server_time_sync.lock().await;
+
+                    let smsg_time_sync_req = ServerMessage::new(SmsgTimeSyncReq {
+                        sync_counter: time_sync.server_counter,
+                    });
+                    session.send(smsg_time_sync_req).await.unwrap();
+
+                    time_sync.server_counter += 1;
+                    time_sync.server_last_sync_ticks = world_context.game_time().as_millis() as u32;
+                }
+
                 interval.tick().await;
-                let mut time_sync = session.server_time_sync.lock().await;
-
-                let smsg_time_sync_req = ServerMessage::new(SmsgTimeSyncReq {
-                    sync_counter: time_sync.server_counter,
-                });
-                session.send(smsg_time_sync_req).await.unwrap();
-
-                time_sync.server_counter += 1;
-                time_sync.server_last_sync_ticks = world_context.game_time().as_millis() as u32;
             }
-        });
+        })
+    }
+
+    // TODO: Reset time sync after each teleport
+    pub async fn reset_time_sync(session: Arc<WorldSession>, world_context: Arc<WorldContext>) {
+        let mut guard = session.time_sync_handle.lock().await;
+        if let Some(handle) = guard.take() {
+            handle.abort();
+        }
+
+        {
+            let mut time_sync = session.server_time_sync.lock().await;
+            time_sync.reset();
+        }
+
+        let jh = WorldSession::schedule_time_sync(session.clone(), world_context).await;
+        *guard = Some(jh);
     }
 }
 
@@ -167,4 +189,13 @@ struct TimeSync {
     pub server_last_sync_ticks: u32,
     pub client_counter: u32,
     pub client_last_sync_ticks: u32,
+}
+
+impl TimeSync {
+    pub fn reset(&mut self) {
+        self.server_counter = 0;
+        self.server_last_sync_ticks = 0;
+        self.client_counter = 0;
+        self.client_last_sync_ticks = 0;
+    }
 }

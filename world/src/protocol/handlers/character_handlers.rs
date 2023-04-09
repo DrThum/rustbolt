@@ -217,6 +217,8 @@ impl OpcodeHandler {
         });
 
         session.send(smsg_init_world_states).await.unwrap();
+
+        WorldSession::reset_time_sync(session, world_context).await;
     }
 
     pub(crate) async fn handle_cmsg_logout_request(

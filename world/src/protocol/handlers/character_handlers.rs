@@ -1,4 +1,5 @@
 use binrw::NullString;
+use chrono::{Datelike, Timelike};
 use std::sync::Arc;
 
 use crate::entities::player::Player;
@@ -169,8 +170,28 @@ impl OpcodeHandler {
 
         session.send(smsg_tutorial_flags).await.unwrap();
 
+        // The client expects a specific format which is not unix timestamp
+        // See secsToTimeBitFields in MaNGOS
+        let timestamp: u32 = {
+            let now = chrono::Local::now();
+
+            let year = now.year() as u32;
+            let month = now.month();
+            let month_day = now.day() - 1;
+            let weekday = now.weekday().number_from_sunday();
+            let hour = now.hour();
+            let minutes = now.minute();
+
+            (year << 24)
+                | (month << 20)
+                | (month_day << 14)
+                | (weekday << 11)
+                | (hour << 6)
+                | minutes
+        };
+
         let smsg_login_settimespeed = ServerMessage::new(SmsgLoginSettimespeed {
-            timestamp: 0, // Maybe not zero?
+            timestamp,
             game_speed: 0.01666667,
         });
 

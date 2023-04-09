@@ -159,6 +159,19 @@ pub enum HighGuidType {
 }
 
 #[allow(dead_code)]
+#[derive(Copy, Clone)]
+pub enum ObjectTypeId {
+    Object = 0,
+    Item = 1,
+    Container = 2,
+    Unit = 3,
+    Player = 4,
+    GameObject = 5,
+    DynamicObject = 6,
+    Corpse = 7,
+}
+
+#[allow(dead_code)]
 #[bitflags]
 #[repr(u32)]
 #[derive(Clone, Copy, N)]

@@ -4,7 +4,7 @@ use enumflags2::make_bitflags;
 
 use crate::{
     game::world_context::WorldContext,
-    shared::constants::{HighGuidType, ObjectTypeMask},
+    shared::constants::{HighGuidType, ObjectTypeId, ObjectTypeMask},
 };
 
 use super::{
@@ -14,7 +14,6 @@ use super::{
         UpdatableEntity, UpdateBlock, UpdateBlockBuilder, UpdateData, UpdateFlag, UpdateType,
     },
     update_fields::{ItemFields, ObjectFields, ITEM_END},
-    ObjectTypeId,
 };
 
 pub struct Item {

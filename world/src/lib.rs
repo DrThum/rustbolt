@@ -23,12 +23,44 @@ use wow_srp::tbc_header::ProofSeed;
 pub mod config;
 pub mod database_context;
 mod datastore;
-mod entities;
-pub mod game;
-mod protocol;
-mod repositories;
-pub mod session;
-mod shared;
+mod entities {
+    pub mod object_guid;
+    pub mod position;
+    pub mod update;
+    pub mod update_fields;
+
+    pub mod item;
+    pub mod player;
+
+    mod internal_values;
+}
+pub mod game {
+    pub mod world;
+    pub mod world_context;
+}
+mod protocol {
+    pub mod client;
+    pub mod handlers;
+    pub mod opcodes;
+    pub mod packets;
+    pub mod server;
+}
+mod repositories {
+    pub mod account;
+    pub mod character;
+    pub mod item;
+    pub mod player_creation;
+}
+pub mod session {
+    pub mod opcode_handler;
+    pub mod session_holder;
+    pub mod world_session;
+    pub mod world_socket;
+}
+mod shared {
+    pub mod constants;
+    pub mod response_codes;
+}
 
 // TypeState pattern (https://yoric.github.io/post/rust-typestate/)
 struct SocketOpened {

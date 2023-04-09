@@ -4,9 +4,9 @@ use binrw::binwrite;
 use enumflags2::{bitflags, BitFlags};
 use fixedbitset::FixedBitSet;
 
-use crate::game::world_context::WorldContext;
+use crate::{game::world_context::WorldContext, shared::constants::ObjectTypeId};
 
-use super::{object_guid::PackedObjectGuid, ObjectTypeId, Position};
+use super::{object_guid::PackedObjectGuid, position::Position};
 
 pub trait UpdatableEntity {
     // FIXME:

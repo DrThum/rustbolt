@@ -9,7 +9,7 @@ use crate::{
         data_types::{ItemRecord, PlayerCreatePosition},
         DataStore,
     },
-    entities::{player::PlayerVisualFeatures, WorldPosition},
+    entities::{player::PlayerVisualFeatures, position::WorldPosition},
     protocol::packets::{CharEnumData, CharEnumEquip, CmsgCharCreate, CmsgCharDelete},
     shared::constants::{InventorySlot, InventoryType},
 };

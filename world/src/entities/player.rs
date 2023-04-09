@@ -13,7 +13,7 @@ use crate::{
     repositories::{character::CharacterRepository, item::ItemRepository},
     shared::constants::{
         CharacterClass, CharacterRace, Gender, HighGuidType, InventorySlot, InventoryType,
-        ItemClass, ItemSubclassConsumable, ObjectTypeMask, PowerType,
+        ItemClass, ItemSubclassConsumable, ObjectTypeId, ObjectTypeMask, PowerType,
     },
 };
 
@@ -21,12 +21,12 @@ use super::{
     internal_values::InternalValues,
     item::Item,
     object_guid::ObjectGuid,
+    position::{Position, WorldPosition},
     update::{
         MovementUpdateData, UpdatableEntity, UpdateBlock, UpdateBlockBuilder, UpdateData,
         UpdateFlag, UpdateType,
     },
     update_fields::*,
-    ObjectTypeId, Position, WorldPosition,
 };
 
 pub type PlayerInventory = HashMap<u32, Item>; // Key is slot

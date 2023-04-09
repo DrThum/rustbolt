@@ -43,4 +43,19 @@ impl OpcodeHandler {
 
         session.send(packet).await.unwrap();
     }
+
+    pub(crate) async fn handle_time_sync_resp(
+        session: Arc<WorldSession>,
+        world_context: Arc<WorldContext>,
+        data: Vec<u8>,
+    ) {
+        let cmsg_time_sync_resp: CmsgTimeSyncResp = ClientMessage::read_as(data).unwrap();
+        session
+            .handle_time_sync_resp(
+                cmsg_time_sync_resp.counter,
+                cmsg_time_sync_resp.ticks,
+                world_context.game_time().as_millis() as u32,
+            )
+            .await;
+    }
 }

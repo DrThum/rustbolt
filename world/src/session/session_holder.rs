@@ -13,9 +13,11 @@ impl SessionHolder {
         }
     }
 
-    pub async fn insert_session(&mut self, session: WorldSession) -> Option<Arc<WorldSession>> {
+    pub async fn insert_session(
+        &mut self,
+        session: Arc<WorldSession>,
+    ) -> Option<Arc<WorldSession>> {
         let account_id = session.account_id;
-        let session = Arc::new(session);
         self.sessions.insert(account_id, session)
     }
 

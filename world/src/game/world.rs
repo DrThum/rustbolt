@@ -1,9 +1,9 @@
-use std::{
-    sync::Arc,
-    time::{Duration, Instant},
-};
+use std::{sync::Arc, time::Duration};
 
-use tokio::{sync::RwLock, time::interval};
+use tokio::{
+    sync::RwLock,
+    time::{interval, Instant},
+};
 
 use crate::config::WorldConfig;
 

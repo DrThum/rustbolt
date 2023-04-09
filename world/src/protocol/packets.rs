@@ -434,3 +434,9 @@ pub struct SmsgQueryTimeResponse {
     pub seconds_since_epoch: u32,
     pub seconds_until_daily_quests_reset: u32,
 }
+
+#[binread]
+pub struct CmsgTimeSyncResp {
+    pub counter: u32,
+    pub ticks: u32, // Seconds since server start
+}

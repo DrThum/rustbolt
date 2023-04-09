@@ -196,19 +196,6 @@ impl OpcodeHandler {
         });
 
         session.send(smsg_init_world_states).await.unwrap();
-
-        // TODO:
-        // - move this to WorldSession and store the counter
-        // - send this every 10 seconds
-        // - increment the counter each time the packet is sent
-        // - implement CmsgTimeSyncResp and check the difference between client and server counters
-        // - LATER: reset the counter after every teleport (is that really necessary?)
-        //
-        // implement WorldSession::reset_time_sync() and WorldSession::send_time_sync()
-        // How to handle the timer?
-        let smsg_time_sync_req = ServerMessage::new(SmsgTimeSyncReq { sync_counter: 0 });
-
-        session.send(smsg_time_sync_req).await.unwrap();
     }
 
     pub(crate) async fn handle_cmsg_logout_request(

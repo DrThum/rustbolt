@@ -198,7 +198,13 @@ impl WorldSocketState<ServerSentAuthChallenge> {
             )
             .unwrap();
 
-        let session = WorldSession::new(self.state.socket, encryption, account_id);
+        let session = WorldSession::new(
+            self.state.socket,
+            encryption,
+            account_id,
+            self.state.world_context.clone(),
+        )
+        .await;
 
         let packet = ServerMessage::new(SmsgAuthResponse {
             result: ResponseCodes::AuthOk as u8,

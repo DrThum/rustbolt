@@ -62,6 +62,10 @@ impl OpcodeHandler {
                     Opcode::CmsgUpdateAccountData,
                     OpcodeHandler::handle_cmsg_update_account_data
                 ),
+                define_handler!(
+                    Opcode::CmsgTimeSyncResp,
+                    OpcodeHandler::handle_time_sync_resp
+                ),
             ]),
         }
     }

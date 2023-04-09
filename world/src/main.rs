@@ -1,4 +1,4 @@
-use std::{sync::Arc, time::Instant};
+use std::sync::Arc;
 
 use env_logger::Env;
 use r2d2_sqlite::SqliteConnectionManager;
@@ -12,6 +12,7 @@ use rustbolt_world::{
 use tokio::{
     net::TcpListener,
     sync::{RwLock, Semaphore},
+    time::Instant,
 };
 
 mod embedded_characters {

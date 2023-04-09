@@ -1,7 +1,6 @@
-use std::{
-    sync::Arc,
-    time::{Duration, Instant},
-};
+use std::{sync::Arc, time::Duration};
+
+use tokio::time::Instant;
 
 use crate::{
     config::WorldConfig, database_context::DatabaseContext, session::opcode_handler::OpcodeHandler,

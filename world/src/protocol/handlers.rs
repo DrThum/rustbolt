@@ -1,5 +1,4 @@
-use binrw::io::Cursor;
-use binrw::{BinReaderExt, NullString};
+use binrw::NullString;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -13,14 +12,15 @@ use crate::session::opcode_handler::OpcodeHandler;
 use crate::session::world_session::WorldSession;
 use crate::shared::response_codes::ResponseCodes;
 
+use super::client::ClientMessage;
+
 impl OpcodeHandler {
     pub(crate) async fn handle_cmsg_char_create(
         session: Arc<WorldSession>,
         world_context: Arc<WorldContext>,
         data: Vec<u8>,
     ) {
-        let mut reader = Cursor::new(data);
-        let cmsg_char_create: CmsgCharCreate = reader.read_le().unwrap();
+        let cmsg_char_create: CmsgCharCreate = ClientMessage::read_as(data).unwrap();
         let mut conn = world_context.database.characters.get().unwrap();
 
         let name_available =
@@ -71,8 +71,7 @@ impl OpcodeHandler {
         world_context: Arc<WorldContext>,
         data: Vec<u8>,
     ) {
-        let mut reader = Cursor::new(data);
-        let cmsg_char_delete: CmsgCharDelete = reader.read_le().unwrap();
+        let cmsg_char_delete: CmsgCharDelete = ClientMessage::read_as(data).unwrap();
         let conn = world_context.database.characters.get().unwrap();
         CharacterRepository::delete_character(&conn, cmsg_char_delete, session.account_id);
 
@@ -88,8 +87,7 @@ impl OpcodeHandler {
         world_context: Arc<WorldContext>,
         data: Vec<u8>,
     ) {
-        let mut reader = Cursor::new(data);
-        let cmsg_player_login: CmsgPlayerLogin = reader.read_le().unwrap();
+        let cmsg_player_login: CmsgPlayerLogin = ClientMessage::read_as(data).unwrap();
 
         let account_id = session.account_id;
         let conn = world_context.database.characters.get().unwrap();
@@ -227,8 +225,7 @@ impl OpcodeHandler {
         _world_context: Arc<WorldContext>,
         data: Vec<u8>,
     ) {
-        let mut reader = Cursor::new(data);
-        let cmsg_realm_split: CmsgRealmSplit = reader.read_le().unwrap();
+        let cmsg_realm_split: CmsgRealmSplit = ClientMessage::read_as(data).unwrap();
 
         let packet = ServerMessage::new(SmsgRealmSplit {
             client_state: cmsg_realm_split.client_state,
@@ -244,8 +241,7 @@ impl OpcodeHandler {
         _world_context: Arc<WorldContext>,
         data: Vec<u8>,
     ) {
-        let mut reader = Cursor::new(data);
-        let cmsg_ping: CmsgPing = reader.read_le().unwrap();
+        let cmsg_ping: CmsgPing = ClientMessage::read_as(data).unwrap();
 
         session.update_client_latency(cmsg_ping.latency);
 
@@ -261,8 +257,7 @@ impl OpcodeHandler {
         _world_context: Arc<WorldContext>,
         data: Vec<u8>,
     ) {
-        let mut reader = Cursor::new(data);
-        let cmsg_update_account_data: CmsgUpdateAccountData = reader.read_le().unwrap();
+        let cmsg_update_account_data: CmsgUpdateAccountData = ClientMessage::read_as(data).unwrap();
 
         let packet = ServerMessage::new(SmsgUpdateAccountData {
             account_data_id: cmsg_update_account_data.account_data_id,
@@ -294,8 +289,7 @@ impl OpcodeHandler {
         world_context: Arc<WorldContext>,
         data: Vec<u8>,
     ) {
-        let mut reader = Cursor::new(data);
-        let cmsg_item_query_single: CmsgItemQuerySingle = reader.read_le().unwrap();
+        let cmsg_item_query_single: CmsgItemQuerySingle = ClientMessage::read_as(data).unwrap();
 
         let packet = if let Some(item) = world_context
             .data_store
@@ -386,8 +380,7 @@ impl OpcodeHandler {
         world_context: Arc<WorldContext>,
         data: Vec<u8>,
     ) {
-        let mut reader = Cursor::new(data);
-        let cmsg_name_query: CmsgNameQuery = reader.read_le().unwrap();
+        let cmsg_name_query: CmsgNameQuery = ClientMessage::read_as(data).unwrap();
 
         let conn = world_context.database.characters.get().unwrap();
 

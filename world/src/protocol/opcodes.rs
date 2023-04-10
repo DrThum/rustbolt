@@ -1,7 +1,7 @@
 use enumn::N;
 
 #[allow(dead_code)]
-#[derive(Eq, Hash, PartialEq, Debug, N)]
+#[derive(Eq, Hash, PartialEq, Debug, N, Copy, Clone)]
 pub enum Opcode {
     MsgNullAction = 0x000,
     CmsgBootme = 0x001,

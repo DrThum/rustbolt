@@ -66,6 +66,10 @@ impl OpcodeHandler {
                     Opcode::CmsgTimeSyncResp,
                     OpcodeHandler::handle_time_sync_resp
                 ),
+                define_handler!(
+                    Opcode::MsgMoveStartForward,
+                    OpcodeHandler::handle_movement_packet(Opcode::MsgMoveStartForward)
+                ),
             ]),
         }
     }

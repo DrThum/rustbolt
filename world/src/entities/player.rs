@@ -410,14 +410,14 @@ impl UpdatableEntity for Player {
                 o: self.position().o,
             },
             fall_time: 0,
-            speed_walk: 1.0,
-            speed_run: 70.0,
+            speed_walk: 2.5,
+            speed_run: 7.0,
             speed_run_backward: 4.5,
-            speed_swim: 0.0,
-            speed_swim_backward: 0.0,
-            speed_flight: 70.0,
+            speed_swim: 4.722222,
+            speed_swim_backward: 2.5,
+            speed_flight: 7.0,
             speed_flight_backward: 4.5,
-            speed_turn: 3.1415,
+            speed_turn: 3.141594,
         });
 
         let flags = if recipient_guid == self.guid().raw() {

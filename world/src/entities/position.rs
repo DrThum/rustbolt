@@ -1,7 +1,7 @@
-use binrw::binwrite;
+use binrw::binrw;
 
-#[binwrite]
-#[derive(Copy, Clone)]
+#[binrw]
+#[derive(Copy, Clone, Debug)]
 pub struct Position {
     pub x: f32,
     pub y: f32,

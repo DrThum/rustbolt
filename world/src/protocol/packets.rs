@@ -1,6 +1,7 @@
 use crate::{
     entities::{
         object_guid::PackedObjectGuid,
+        position::Position,
         update::{MovementUpdateData, UpdateData},
     },
     shared::constants::InventoryType,
@@ -439,4 +440,23 @@ pub struct SmsgQueryTimeResponse {
 pub struct CmsgTimeSyncResp {
     pub counter: u32,
     pub ticks: u32, // Seconds since server start
+}
+
+#[binread]
+#[derive(Debug)]
+pub struct MovementInfo {
+    pub movement_flags: u32,
+    pub movement_flags2: u8,
+    pub timestamp: u32,
+    pub position: Position,
+    // TODO: Transport stuff
+    // pub pitch: f32, // if SWIMMING or FLYING2
+    pub fall_time: u32,
+    /* if FALLING: JumpInfo
+    velocity: f32,
+    sinAngle: f32,
+    cosAngle: f32,
+    xyspeed: f32
+    */
+    // pub unk: f32 // if SPLINE_ELEVATION
 }

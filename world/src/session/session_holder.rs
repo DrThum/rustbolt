@@ -4,7 +4,7 @@ use tokio::sync::RwLock;
 
 use crate::{
     entities::object_guid::ObjectGuid,
-    protocol::server::{ServerMessage, ServerMessagePayload},
+    protocol::{opcodes::Opcode, packets::MovementInfo},
 };
 
 use super::world_session::WorldSession;
@@ -31,24 +31,22 @@ impl SessionHolder {
         guard.get(&account_id).cloned()
     }
 
-    pub async fn send_around<const OPCODE: u16, Payload: ServerMessagePayload<OPCODE>>(
+    pub async fn broadcast_movement(
         &self,
-        packet: &ServerMessage<OPCODE, Payload>,
+        opcode: Opcode,
+        movement_info: &MovementInfo,
+        origin: &ObjectGuid,
     ) -> Result<(), binrw::Error> {
-        let guard = self.sessions.read().await;
-
-        // FIXME: Actually send only around once we have a map system
-        for (_, session) in &*guard {
-            if session.is_in_world().await {
-                session.send(packet).await?;
-            }
+        for session in self.nearby_sessions(origin).await {
+            session.send_movement(opcode, origin, movement_info).await?;
         }
+
         Ok(())
     }
 
     // All sessions around me except myself
     // FIXME: Use the future map system to only include nearby players
-    pub async fn sessions_around(&self, player_guid: &ObjectGuid) -> Vec<Arc<WorldSession>> {
+    pub async fn nearby_sessions(&self, player_guid: &ObjectGuid) -> Vec<Arc<WorldSession>> {
         let mut result = Vec::new();
 
         let guard = self.sessions.read().await;

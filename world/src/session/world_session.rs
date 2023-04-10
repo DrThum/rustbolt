@@ -1,3 +1,4 @@
+use binrw::{io::Cursor, BinWriterExt};
 use std::{
     sync::{atomic::AtomicU32, Arc},
     time::Duration,
@@ -5,6 +6,7 @@ use std::{
 
 use log::trace;
 use tokio::{
+    io::AsyncWriteExt,
     net::TcpStream,
     sync::{Mutex, RwLock},
     task::JoinHandle,
@@ -12,12 +14,12 @@ use tokio::{
 use wow_srp::tbc_header::HeaderCrypto;
 
 use crate::{
-    entities::player::Player,
+    entities::{object_guid::ObjectGuid, player::Player},
     game::world_context::WorldContext,
     protocol::{
         opcodes::Opcode,
-        packets::SmsgTimeSyncReq,
-        server::{ServerMessage, ServerMessagePayload},
+        packets::{MovementInfo, SmsgTimeSyncReq},
+        server::{ServerMessage, ServerMessageHeader, ServerMessagePayload},
     },
     WorldSocketError,
 };
@@ -134,6 +136,45 @@ impl WorldSession {
 
         trace!("Sending {:?} ({:#X})", Opcode::n(OPCODE).unwrap(), OPCODE);
         packet.send(&mut socket, &mut encryption).await
+    }
+
+    pub async fn send_movement(
+        &self,
+        opcode: Opcode,
+        origin_guid: &ObjectGuid,
+        movement_info: &MovementInfo,
+    ) -> Result<(), binrw::Error> {
+        let mut socket = self.socket.write_half.lock().await;
+        let mut encryption = self.socket.encryption.lock().await;
+
+        let mut writer = Cursor::new(Vec::new());
+        writer.write_le(&origin_guid.as_packed())?;
+        writer.write_le(movement_info)?;
+        let payload = writer.get_ref();
+
+        trace!(
+            "Sending {:?} ({:#X})",
+            Opcode::n(opcode as u16).unwrap(),
+            opcode as u16
+        );
+        let header = ServerMessageHeader {
+            size: payload.len() as u16 + 2, // + 2 for the opcode size
+            opcode: opcode as u16,
+        };
+        let mut encrypted_header: Vec<u8> = Vec::new();
+        encryption.write_encrypted_server_header(
+            &mut encrypted_header,
+            header.size,
+            header.opcode,
+        )?;
+
+        let mut writer = Cursor::new(Vec::new());
+        writer.write_le(&encrypted_header)?;
+        let packet = writer.get_mut();
+        trace!("Payload for opcode {:X}: {:X?}", header.opcode, payload);
+        packet.extend(payload);
+        socket.write(&packet).await?;
+        Ok(())
     }
 
     pub async fn process_incoming_packet(

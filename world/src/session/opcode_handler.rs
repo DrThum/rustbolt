@@ -21,6 +21,17 @@ macro_rules! define_handler {
     };
 }
 
+macro_rules! define_movement_handler {
+    ($opcode:expr) => {
+        (
+            $opcode as u32,
+            Box::new(|session, ctx, data| {
+                OpcodeHandler::handle_movement_packet($opcode)(session, ctx, data).boxed()
+            }) as PacketHandler,
+        )
+    };
+}
+
 pub struct OpcodeHandler {
     handlers: HashMap<u32, PacketHandler>,
 }
@@ -66,10 +77,33 @@ impl OpcodeHandler {
                     Opcode::CmsgTimeSyncResp,
                     OpcodeHandler::handle_time_sync_resp
                 ),
-                define_handler!(
-                    Opcode::MsgMoveStartForward,
-                    OpcodeHandler::handle_movement_packet(Opcode::MsgMoveStartForward)
-                ),
+                define_movement_handler!(Opcode::MsgMoveStartForward),
+                define_movement_handler!(Opcode::MsgMoveStartBackward),
+                define_movement_handler!(Opcode::MsgMoveStop),
+                define_movement_handler!(Opcode::MsgMoveStartStrafeLeft),
+                define_movement_handler!(Opcode::MsgMoveStartStrafeRight),
+                define_movement_handler!(Opcode::MsgMoveStopStrafe),
+                define_movement_handler!(Opcode::MsgMoveJump),
+                define_movement_handler!(Opcode::MsgMoveStartTurnLeft),
+                define_movement_handler!(Opcode::MsgMoveStartTurnRight),
+                define_movement_handler!(Opcode::MsgMoveStopTurn),
+                define_movement_handler!(Opcode::MsgMoveStartPitchUp),
+                define_movement_handler!(Opcode::MsgMoveStartPitchDown),
+                define_movement_handler!(Opcode::MsgMoveStopPitch),
+                define_movement_handler!(Opcode::MsgMoveSetRunMode),
+                define_movement_handler!(Opcode::MsgMoveSetWalkMode),
+                define_movement_handler!(Opcode::MsgMoveFallLand),
+                define_movement_handler!(Opcode::MsgMoveStartSwim),
+                define_movement_handler!(Opcode::MsgMoveStopSwim),
+                define_movement_handler!(Opcode::MsgMoveSetFacing),
+                define_movement_handler!(Opcode::MsgMoveSetPitch),
+                define_movement_handler!(Opcode::MsgMoveHeartbeat),
+                define_movement_handler!(Opcode::CmsgMoveFallReset),
+                define_movement_handler!(Opcode::CmsgMoveSetFly),
+                define_movement_handler!(Opcode::MsgMoveStartAscend),
+                define_movement_handler!(Opcode::MsgMoveStopAscend),
+                define_movement_handler!(Opcode::CmsgMoveChngTransport),
+                define_movement_handler!(Opcode::MsgMoveStartDescend),
             ]),
         }
     }

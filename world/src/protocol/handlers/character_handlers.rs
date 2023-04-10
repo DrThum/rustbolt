@@ -220,7 +220,7 @@ impl OpcodeHandler {
             // FIXME: this will be handled by the future map system
             for other_session in world_context
                 .session_holder
-                .sessions_around(player.guid())
+                .nearby_sessions(player.guid())
                 .await
             {
                 // Broadcast the new player to nearby players

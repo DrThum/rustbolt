@@ -9,7 +9,7 @@ use crate::{
 
 use super::opcodes::Opcode;
 use super::server::ServerMessagePayload;
-use binrw::{binread, binwrite, NullString};
+use binrw::{binread, binrw, binwrite, NullString};
 use opcode_derive::server_opcode;
 
 #[binwrite]
@@ -442,7 +442,7 @@ pub struct CmsgTimeSyncResp {
     pub ticks: u32, // Seconds since server start
 }
 
-#[binread]
+#[binrw]
 #[derive(Debug)]
 pub struct MovementInfo {
     pub movement_flags: u32,

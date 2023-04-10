@@ -10,7 +10,7 @@ use wow_srp::tbc_header::HeaderCrypto;
 use crate::protocol::opcodes::Opcode;
 
 #[binwrite]
-struct ServerMessageHeader {
+pub(crate) struct ServerMessageHeader {
     #[bw(big)]
     pub size: u16,
     pub opcode: u16,

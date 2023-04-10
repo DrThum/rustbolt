@@ -11,7 +11,7 @@ use super::{
     internal_values::InternalValues,
     object_guid::ObjectGuid,
     update::{
-        UpdatableEntity, UpdateBlock, UpdateBlockBuilder, UpdateData, UpdateFlag, UpdateType,
+        UpdatableEntity, UpdateBlock, UpdateBlockBuilder, CreateData, UpdateFlag, UpdateType, UpdateData,
     },
     update_fields::{ItemFields, ObjectFields, ITEM_END},
 };
@@ -66,8 +66,8 @@ impl UpdatableEntity for Item {
         &self,
         _recipient_guid: u64,
         _world_context: Arc<WorldContext>,
-    ) -> Vec<UpdateData> {
-        let update_data = UpdateData {
+    ) -> Vec<CreateData> {
+        let update_data = CreateData {
             update_type: UpdateType::CreateObject,
             packed_guid: self.guid.as_packed(),
             object_type: ObjectTypeId::Item,
@@ -87,5 +87,9 @@ impl UpdatableEntity for Item {
         _world_context: Arc<WorldContext>,
     ) -> Vec<UpdateData> {
         todo!()
+    }
+
+    fn has_updates(&self) -> bool {
+        self.values.has_dirty()
     }
 }

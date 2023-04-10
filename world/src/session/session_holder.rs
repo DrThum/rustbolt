@@ -3,8 +3,13 @@ use std::{collections::HashMap, sync::Arc};
 use tokio::sync::RwLock;
 
 use crate::{
-    entities::object_guid::ObjectGuid,
-    protocol::{opcodes::Opcode, packets::MovementInfo},
+    entities::{object_guid::ObjectGuid, update::UpdatableEntity},
+    game::world_context::WorldContext,
+    protocol::{
+        opcodes::Opcode,
+        packets::{MovementInfo, SmsgUpdateObject},
+        server::ServerMessage,
+    },
 };
 
 use super::world_session::WorldSession;
@@ -58,5 +63,46 @@ impl SessionHolder {
         }
 
         result
+    }
+
+    // FIXME: Handle object updates in (future) Map instead of here
+    // TODO: trait Ticking { fn tick }
+    pub async fn tick(&self, world_context: Arc<WorldContext>) {
+        let sessions = &*self.sessions.read().await;
+
+        for (account_id, session) in sessions {
+            let mut player = session.player.write().await;
+
+            if player.has_changed_since_last_update() {
+                // Send the player to themselves
+                let guid = player.guid().raw();
+                let update_data =
+                    player.get_update_data(guid, world_context.clone());
+                let smsg_update_object = ServerMessage::new(SmsgUpdateObject {
+                    updates_count: update_data.len() as u32,
+                    has_transport: false,
+                    updates: update_data,
+                });
+
+                session.send(&smsg_update_object).await.unwrap();
+
+                // FIXME: this will be handled by the future map system
+                for (_, other_session) in sessions.iter().filter(|s| s.0 != account_id) {
+                    // Broadcast the change to nearby players
+                    let other_player = other_session.player.read().await;
+                    let update_data =
+                        player.get_update_data(other_player.guid().raw(), world_context.clone());
+                    let smsg_update_object = ServerMessage::new(SmsgUpdateObject {
+                        updates_count: update_data.len() as u32,
+                        has_transport: false,
+                        updates: update_data,
+                    });
+
+                    other_session.send(&smsg_update_object).await.unwrap();
+                }
+
+                player.mark_as_up_to_date();
+            }
+        }
     }
 }

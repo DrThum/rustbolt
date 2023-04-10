@@ -1,8 +1,7 @@
 use crate::{
     entities::{
-        object_guid::PackedObjectGuid,
         position::Position,
-        update::{MovementUpdateData, UpdateData},
+        update::{CreateData, UpdateData},
     },
     shared::constants::InventoryType,
 };
@@ -200,27 +199,24 @@ pub struct SmsgMotd {
 }
 
 #[binwrite]
-pub struct ObjectUpdate {
-    pub update_type: u8,
-    pub packed_guid: PackedObjectGuid,
-    pub object_type: u8,
-    pub flags: u8,
-    pub movement_update: Option<MovementUpdateData>, // Only if UpdateFlag::Living
-    pub low_guid_part: Option<u32>,                  // Only if flags & UpdateFlag::LowGuid
-    pub high_guid_part: Option<u32>,                 // Only if UpdateFlag::HighGuid
-    pub num_mask_blocks: u8,
-    pub mask_blocks: Vec<u32>,
-    pub data: Vec<[u8; 4]>,
+pub struct SmsgCreateObject {
+    pub updates_count: u32,
+    #[bw(map = |b: &bool| if *b { 1_u8 } else { 0_u8 })]
+    pub has_transport: bool,
+    pub updates: Vec<CreateData>,
 }
 
+impl ServerMessagePayload<{ Opcode::SmsgUpdateObject as u16 }> for SmsgCreateObject {}
+
 #[binwrite]
-#[server_opcode]
 pub struct SmsgUpdateObject {
     pub updates_count: u32,
     #[bw(map = |b: &bool| if *b { 1_u8 } else { 0_u8 })]
     pub has_transport: bool,
     pub updates: Vec<UpdateData>,
 }
+
+impl ServerMessagePayload<{ Opcode::SmsgUpdateObject as u16 }> for SmsgUpdateObject {}
 
 #[binwrite]
 #[server_opcode]

@@ -209,7 +209,7 @@ impl OpcodeHandler {
             // Send the player to themselves
             let player = session.player.read().await;
             let update_data = player.get_create_data(player.guid().raw(), world_context.clone());
-            let smsg_update_object = ServerMessage::new(SmsgUpdateObject {
+            let smsg_update_object = ServerMessage::new(SmsgCreateObject {
                 updates_count: update_data.len() as u32,
                 has_transport: false,
                 updates: update_data,
@@ -227,7 +227,7 @@ impl OpcodeHandler {
                 let other_player = other_session.player.read().await;
                 let update_data =
                     player.get_create_data(other_player.guid().raw(), world_context.clone());
-                let smsg_update_object = ServerMessage::new(SmsgUpdateObject {
+                let smsg_update_object = ServerMessage::new(SmsgCreateObject {
                     updates_count: update_data.len() as u32,
                     has_transport: false,
                     updates: update_data,
@@ -238,7 +238,7 @@ impl OpcodeHandler {
                 // Send nearby players to the new player
                 let update_data =
                     other_player.get_create_data(player.guid().raw(), world_context.clone());
-                let smsg_update_object = ServerMessage::new(SmsgUpdateObject {
+                let smsg_update_object = ServerMessage::new(SmsgCreateObject {
                     updates_count: update_data.len() as u32,
                     has_transport: false,
                     updates: update_data,

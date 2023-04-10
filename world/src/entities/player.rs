@@ -24,8 +24,8 @@ use super::{
     object_guid::ObjectGuid,
     position::{Position, WorldPosition},
     update::{
-        MovementUpdateData, UpdatableEntity, UpdateBlock, UpdateBlockBuilder, UpdateData,
-        UpdateFlag, UpdateType,
+        CreateData, MovementUpdateData, UpdatableEntity, UpdateBlock, UpdateBlockBuilder,
+        UpdateData, UpdateFlag, UpdateType,
     },
     update_fields::*,
 };
@@ -306,6 +306,16 @@ impl Player {
                 .collect();
 
         self.inventory = inventory;
+
+        self.mark_as_up_to_date();
+    }
+
+    pub fn has_changed_since_last_update(&self) -> bool {
+        self.values.has_dirty()
+    }
+
+    pub fn mark_as_up_to_date(&mut self) {
+        self.values.reset_dirty()
     }
 
     pub fn guid(&self) -> &ObjectGuid {
@@ -402,6 +412,17 @@ impl Player {
 
         update_builder.build()
     }
+
+    fn gen_update_data(&self) -> UpdateBlock {
+        let mut update_builder = UpdateBlockBuilder::new();
+
+        for index in self.values.get_dirty_indexes() {
+            let value = self.values.get_u32(index as usize);
+            update_builder.add(index as usize, value);
+        }
+
+        update_builder.build()
+    }
 }
 
 pub struct PlayerVisualFeatures {
@@ -417,7 +438,7 @@ impl UpdatableEntity for Player {
         &self,
         recipient_guid: u64, // TODO: Change this to ObjectGuid
         world_context: Arc<WorldContext>,
-    ) -> Vec<UpdateData> {
+    ) -> Vec<CreateData> {
         let movement = Some(MovementUpdateData {
             movement_flags: 0,
             movement_flags2: 0, // Always 0 in 2.4.3
@@ -446,7 +467,7 @@ impl UpdatableEntity for Player {
             make_bitflags!(UpdateFlag::{HighGuid | Living | HasPosition})
         };
 
-        let mut player_update_data = vec![UpdateData {
+        let mut player_update_data = vec![CreateData {
             update_type: UpdateType::CreateObject2,
             packed_guid: self.guid().as_packed(),
             object_type: ObjectTypeId::Player,
@@ -457,7 +478,7 @@ impl UpdatableEntity for Player {
             blocks: self.gen_create_data(),
         }];
 
-        let inventory_updates: Vec<UpdateData> = if recipient_guid == self.guid().raw() {
+        let inventory_updates: Vec<CreateData> = if recipient_guid == self.guid().raw() {
             self.inventory
                 .iter()
                 .flat_map(|item| {
@@ -478,6 +499,14 @@ impl UpdatableEntity for Player {
         _recipient_guid: u64,
         _world_context: Arc<WorldContext>,
     ) -> Vec<UpdateData> {
-        todo!();
+        vec![UpdateData {
+            update_type: UpdateType::Values,
+            packed_guid: self.guid().as_packed(),
+            blocks: self.gen_update_data(),
+        }]
+    }
+
+    fn has_updates(&self) -> bool {
+        self.values.has_dirty()
     }
 }

@@ -16,7 +16,10 @@ pub trait UpdatableEntity {
         &self,
         recipient_guid: u64,
         world_context: Arc<WorldContext>,
-    ) -> Vec<UpdateData>;
+    ) -> Vec<CreateData>;
+
+    fn has_updates(&self) -> bool;
+
     fn get_update_data(
         &self,
         recipient_guid: u64,
@@ -25,7 +28,7 @@ pub trait UpdatableEntity {
 }
 
 #[binwrite]
-pub struct UpdateData {
+pub struct CreateData {
     #[bw(map = |ut: &UpdateType| *ut as u8)]
     pub update_type: UpdateType,
     pub packed_guid: PackedObjectGuid,
@@ -37,6 +40,14 @@ pub struct UpdateData {
     // pub position: Option<PositionUpdateData>, // Only if flags & HasPosition and !Living
     pub low_guid_part: Option<u32>,  // Only if flags & LowGuid
     pub high_guid_part: Option<u32>, // Only if flags & HighGuid
+    pub blocks: UpdateBlock,
+}
+
+#[binwrite]
+pub struct UpdateData {
+    #[bw(map = |ut: &UpdateType| *ut as u8)]
+    pub update_type: UpdateType,
+    pub packed_guid: PackedObjectGuid,
     pub blocks: UpdateBlock,
 }
 

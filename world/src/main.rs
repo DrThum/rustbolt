@@ -96,7 +96,7 @@ async fn main() {
         session_holder: session_holder.clone(),
     });
 
-    let world = World::new(start_time, config.clone());
+    let world = World::new(start_time, config.clone(), world_context.clone(), session_holder.clone());
 
     let world: Arc<RwLock<World>> = Arc::new(RwLock::new(world));
     World::start(world.clone()).await;

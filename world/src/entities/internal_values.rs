@@ -1,7 +1,9 @@
+use fixedbitset::{FixedBitSet, Ones};
+
 pub struct InternalValues {
     size: usize,
     values: Vec<Value>,
-    // dirty_values: Vec<bool>
+    dirty_indexes: FixedBitSet,
 }
 
 impl InternalValues {
@@ -9,7 +11,11 @@ impl InternalValues {
         let mut values = Vec::new();
         values.resize(size, Value { as_u32: 0 });
 
-        InternalValues { size, values }
+        InternalValues {
+            size,
+            values,
+            dirty_indexes: FixedBitSet::with_capacity(size),
+        }
     }
 
     pub fn reset(&mut self) {
@@ -17,14 +23,26 @@ impl InternalValues {
         self.values.resize(self.size, Value { as_u32: 0 });
     }
 
-    // TODO:
-    // - set_dirty(index: usize)
-    // - get_dirty_indexes()
-    // - reset_dirty()
+    fn mark_dirty(&mut self, index: usize) {
+        self.dirty_indexes.set(index, true);
+    }
+
+    pub fn has_dirty(&self) -> bool {
+        !self.dirty_indexes.is_clear()
+    }
+
+    pub fn get_dirty_indexes(&self) -> Ones {
+        self.dirty_indexes.ones()
+    }
+
+    pub fn reset_dirty(&mut self) {
+        self.dirty_indexes.clear();
+    }
 
     pub fn set_u32(&mut self, index: usize, value: u32) {
         assert!(index < self.size, "index is too high");
 
+        self.mark_dirty(index);
         self.values[index] = Value { as_u32: value };
     }
 
@@ -109,6 +127,7 @@ impl InternalValues {
     pub fn set_f32(&mut self, index: usize, value: f32) {
         assert!(index < self.size, "index is too high");
 
+        self.mark_dirty(index);
         self.values[index] = Value { as_f32: value };
     }
 

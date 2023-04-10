@@ -5,13 +5,26 @@ use tokio::{
     time::{interval, Instant},
 };
 
-use crate::config::WorldConfig;
+use crate::{config::WorldConfig, SessionHolder};
 
-pub struct World {}
+use super::world_context::WorldContext;
+
+pub struct World {
+    world_context: Arc<WorldContext>,
+    session_holder: Arc<SessionHolder>,
+}
 
 impl World {
-    pub fn new(_start_time: Instant, _config: Arc<WorldConfig>) -> Self {
-        World {}
+    pub fn new(
+        _start_time: Instant,
+        _config: Arc<WorldConfig>,
+        world_context: Arc<WorldContext>,
+        session_holder: Arc<SessionHolder>,
+    ) -> Self {
+        World {
+            session_holder,
+            world_context,
+        }
     }
 
     pub async fn start(world: Arc<RwLock<World>>) {
@@ -30,11 +43,13 @@ impl World {
             let diff = new_time.duration_since(time);
 
             time = new_time;
-            self.tick(diff);
+            self.tick(diff).await;
 
             interval.tick().await;
         }
     }
 
-    fn tick(&self, _diff: Duration) {}
+    async fn tick(&self, _diff: Duration) {
+        self.session_holder.tick(self.world_context.clone()).await;
+    }
 }

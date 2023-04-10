@@ -112,6 +112,7 @@ impl OpcodeHandler {
                     Opcode::CmsgSetSheathed,
                     OpcodeHandler::handle_cmsg_set_sheathed
                 ),
+                define_handler!(Opcode::CmsgSetActiveVoiceChannel, OpcodeHandler::unhandled),
             ]),
         }
     }

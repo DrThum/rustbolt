@@ -12,7 +12,7 @@ use super::{data_types::DbcTypedRecord, DbcStore};
 pub struct Dbc {
     header: DbcHeader,
     records: Vec<DbcRecord>,
-    _strings: DbcStringBlock,
+    strings: DbcStringBlock,
 }
 
 impl Dbc {
@@ -26,7 +26,7 @@ impl Dbc {
         Ok(Dbc {
             header,
             records,
-            _strings: strings,
+            strings,
         })
     }
 
@@ -34,7 +34,7 @@ impl Dbc {
         self.records
             .iter()
             .map(|dbc_record| {
-                let res = T::from_record(dbc_record);
+                let res = T::from_record(dbc_record, &self.strings);
                 bar.inc(1);
                 res
             })
@@ -112,8 +112,9 @@ pub union DbcValue {
     pub as_f32: f32,
 }
 
+#[derive(Debug)]
 pub struct DbcStringBlock {
-    _strings: Vec<String>,
+    pub raw_characters: Vec<u8>,
 }
 
 impl DbcStringBlock {
@@ -124,20 +125,20 @@ impl DbcStringBlock {
         file.seek(SeekFrom::End(-(header.string_block_size as i64)))?;
         file.read(&mut buffer)?;
 
-        let strings: Vec<String> = buffer
-            .into_iter()
-            .fold(Vec::new(), |mut acc, x| {
-                if x == 0 || acc.is_empty() {
-                    acc.push(Vec::new());
-                } else {
-                    acc.last_mut().unwrap().push(x);
-                }
-                acc
-            })
-            .into_iter()
-            .map(|bytes| std::str::from_utf8(&bytes).unwrap().to_owned())
-            .collect();
+        Ok(DbcStringBlock {
+            raw_characters: buffer,
+        })
+    }
 
-        Ok(DbcStringBlock { _strings: strings })
+    pub fn get(&self, offset: usize) -> Option<String> {
+        if offset > self.raw_characters.len() {
+            None
+        } else {
+            let slice = &self.raw_characters[offset..];
+            let str_end_index = slice.iter().position(|&c| c == 0).unwrap();
+
+            let slice = &self.raw_characters[offset..(offset + str_end_index)];
+            Some(std::str::from_utf8(&slice).unwrap().to_owned())
+        }
     }
 }

@@ -12,7 +12,7 @@ use crate::{
 };
 
 use self::data_types::{
-    CharStartOutfitRecord, ChrClassesRecord, ChrRacesRecord, ItemRecord, ItemTemplate,
+    CharStartOutfitRecord, ChrClassesRecord, ChrRacesRecord, ItemRecord, ItemTemplate, MapRecord,
 };
 
 pub mod data_types;
@@ -26,6 +26,7 @@ pub struct DataStore {
     chr_classes: DbcStore<ChrClassesRecord>,
     char_start_outfit: DbcStore<CharStartOutfitRecord>,
     item: DbcStore<ItemRecord>,
+    map: DbcStore<MapRecord>,
     item_templates: SqlStore<ItemTemplate>,
     player_create_positions: SqlStore<PlayerCreatePosition>,
 }
@@ -51,6 +52,7 @@ impl DataStore {
         let chr_classes = parse_dbc!(config.directory, "ChrClasses");
         let char_start_outfit = parse_dbc!(config.directory, "CharStartOutfit");
         let item = parse_dbc!(config.directory, "Item");
+        let map = parse_dbc!(config.directory, "Map");
 
         // SQL stores
         info!("Loading item templates...");
@@ -76,6 +78,7 @@ impl DataStore {
             chr_classes,
             char_start_outfit,
             item,
+            map,
             item_templates,
             player_create_positions,
         })
@@ -101,6 +104,10 @@ impl DataStore {
 
     pub fn get_item_record(&self, entry: u32) -> Option<&ItemRecord> {
         self.item.get(&entry)
+    }
+
+    pub fn get_map_record(&self, id: u32) -> Option<&MapRecord> {
+        self.map.get(&id)
     }
 
     pub fn get_item_template(&self, entry: u32) -> Option<&ItemTemplate> {

@@ -418,3 +418,13 @@ pub enum SheathState {
     Melee = 1,
     Ranged = 2,
 }
+
+#[allow(dead_code)]
+#[derive(Debug, N)]
+pub enum MapType {
+    Common = 0,
+    Instance = 1,
+    Raid = 2,
+    Battleground = 3,
+    Arena = 4,
+}

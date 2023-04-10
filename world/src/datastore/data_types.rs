@@ -2,13 +2,13 @@ use crate::{
     protocol::packets::{
         ItemTemplateDamage, ItemTemplateSocket, ItemTemplateSpell, ItemTemplateStat,
     },
-    shared::constants::InventoryType,
+    shared::constants::{InventoryType, MapType},
 };
 
-use super::dbc::DbcRecord;
+use super::dbc::{DbcRecord, DbcStringBlock};
 
 pub trait DbcTypedRecord {
-    fn from_record(record: &DbcRecord) -> (u32, Self);
+    fn from_record(record: &DbcRecord, string: &DbcStringBlock) -> (u32, Self);
 }
 
 #[derive(Debug)]
@@ -36,7 +36,7 @@ pub struct ChrRacesRecord {
 }
 
 impl DbcTypedRecord for ChrRacesRecord {
-    fn from_record(record: &DbcRecord) -> (u32, Self) {
+    fn from_record(record: &DbcRecord, _strings: &DbcStringBlock) -> (u32, Self) {
         unsafe {
             let key = record.fields[0].as_u32;
 
@@ -63,7 +63,7 @@ pub struct ChrClassesRecord {
 }
 
 impl DbcTypedRecord for ChrClassesRecord {
-    fn from_record(record: &DbcRecord) -> (u32, Self) {
+    fn from_record(record: &DbcRecord, _strings: &DbcStringBlock) -> (u32, Self) {
         unsafe {
             let key = record.fields[0].as_u32;
 
@@ -90,7 +90,7 @@ pub struct CharStartOutfitRecord {
 }
 
 impl DbcTypedRecord for CharStartOutfitRecord {
-    fn from_record(record: &DbcRecord) -> (u32, Self) {
+    fn from_record(record: &DbcRecord, _strings: &DbcStringBlock) -> (u32, Self) {
         unsafe {
             // (outfit_id << 24 | gender << 16 | class << 8 | race)
             // where outfit_id is always 0
@@ -136,7 +136,7 @@ pub struct ItemRecord {
 }
 
 impl DbcTypedRecord for ItemRecord {
-    fn from_record(record: &DbcRecord) -> (u32, Self) {
+    fn from_record(record: &DbcRecord, _strings: &DbcStringBlock) -> (u32, Self) {
         unsafe {
             let key = record.fields[0].as_u32;
 
@@ -232,4 +232,53 @@ pub struct PlayerCreatePosition {
     pub y: f32,
     pub z: f32,
     pub o: f32,
+}
+
+#[derive(Debug)]
+pub struct MapRecord {
+    pub id: u32,
+    pub internal_name: String,
+    pub map_type: MapType,
+    // is_pvp: u32 // 0 or 1 (for battlegrounds only)
+    // name: LocalizedString [4-20]
+    // min_level: u32
+    // max_level: u32
+    // max_players: u32
+    // unk [24-26]
+    // linked_zone_id: u32 // ref to AreaTable.dbc
+    // description_horde: LocalizedString [28-44]
+    // description_alliance: LocalizedString [45-61]
+    // loading_screen_id: u32
+    // unk [63-64]
+    // minimap_icon_scale: f32
+    // unk: LocalizedString [66-82] (unused)
+    // heroic_requirement: LocalizedString [83-99]
+    // unk: LocalizedString [100-116]
+    // ghost_entrance_map_id: u32
+    // ghost_entrance_x: f32
+    // ghost_instance_y: f32
+    // reset_time_raid: u32 // in seconds
+    // reset_time_heroic: u32 // in seconds
+    // unk (unused)
+    // time_of_day_override: i32 // always -1
+    // expansion_id: u32 (0 = Vanilla, 1 = TBC)
+}
+
+impl DbcTypedRecord for MapRecord {
+    fn from_record(record: &DbcRecord, strings: &DbcStringBlock) -> (u32, Self) {
+        unsafe {
+            let key = record.fields[0].as_u32;
+
+            let record = MapRecord {
+                id: record.fields[0].as_u32,
+                internal_name: strings
+                    .get(record.fields[1].as_u32 as usize)
+                    .expect("string not found in Map.dbc"),
+                map_type: MapType::n(record.fields[2].as_u32)
+                    .expect("Invalid map type found in Map.dbc"),
+            };
+
+            (key, record)
+        }
+    }
 }

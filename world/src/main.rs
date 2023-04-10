@@ -85,15 +85,16 @@ async fn main() {
 
     let start_time = Instant::now();
 
+    let session_holder = Arc::new(SessionHolder::new());
+
     let world_context = Arc::new(WorldContext {
         data_store,
         database: database_context,
         opcode_handler: opcode_handler.clone(),
         config: config.clone(),
         start_time,
+        session_holder: session_holder.clone(),
     });
-
-    let session_holder = Arc::new(RwLock::new(SessionHolder::new()));
 
     let world = World::new(start_time, config.clone());
 

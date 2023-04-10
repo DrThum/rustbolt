@@ -4,7 +4,7 @@ use tokio::time::Instant;
 
 use crate::{
     config::WorldConfig, database_context::DatabaseContext, session::opcode_handler::OpcodeHandler,
-    DataStore,
+    DataStore, SessionHolder,
 };
 
 pub struct WorldContext {
@@ -13,6 +13,7 @@ pub struct WorldContext {
     pub opcode_handler: Arc<OpcodeHandler>,
     pub config: Arc<WorldConfig>,
     pub start_time: Instant,
+    pub session_holder: Arc<SessionHolder>,
 }
 
 impl WorldContext {

@@ -51,7 +51,7 @@ impl<const OPCODE: u16, Payload: ServerMessagePayload<OPCODE> + BinWrite>
     }
 
     pub async fn send(
-        self,
+        &self,
         socket: &mut MutexGuard<'_, WriteHalf<TcpStream>>,
         encryption: &mut MutexGuard<'_, HeaderCrypto>,
     ) -> Result<(), binrw::Error> {

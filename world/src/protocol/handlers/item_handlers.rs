@@ -96,6 +96,6 @@ impl OpcodeHandler {
             })
         };
 
-        session.send(packet).await.unwrap();
+        session.send(&packet).await.unwrap();
     }
 }

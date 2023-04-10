@@ -21,6 +21,6 @@ impl OpcodeHandler {
             split_date: binrw::NullString::from("01/01/01"),
         });
 
-        session.send(packet).await.unwrap();
+        session.send(&packet).await.unwrap();
     }
 }

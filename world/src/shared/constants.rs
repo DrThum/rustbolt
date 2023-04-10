@@ -144,7 +144,7 @@ impl InventorySlot {
 }
 
 #[allow(dead_code)]
-#[derive(Clone, Copy, N)]
+#[derive(Clone, Copy, N, PartialEq, Eq)]
 pub enum HighGuidType {
     ItemOrContainer = 0x4000,
     Player = 0x0000,

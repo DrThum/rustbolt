@@ -24,9 +24,16 @@ use crate::{
 
 use super::world_socket::WorldSocket;
 
+#[derive(PartialEq, Eq)]
+pub enum WorldSessionState {
+    OnCharactersList,
+    InWorld,
+}
+
 pub struct WorldSession {
     socket: WorldSocket,
     pub account_id: u32,
+    pub state: RwLock<WorldSessionState>,
     pub player: Arc<RwLock<Player>>,
     client_latency: AtomicU32,
     server_time_sync: Mutex<TimeSync>,
@@ -56,6 +63,7 @@ impl WorldSession {
         let session = Arc::new(WorldSession {
             socket,
             account_id,
+            state: RwLock::new(WorldSessionState::OnCharactersList),
             player: Arc::new(RwLock::new(Player::new())),
             client_latency: AtomicU32::new(0),
             server_time_sync: Mutex::new(TimeSync {
@@ -82,6 +90,11 @@ impl WorldSession {
     pub fn update_client_latency(&self, latency: u32) {
         self.client_latency
             .store(latency, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    pub async fn is_in_world(&self) -> bool {
+        // TODO: There might be more states here in the future (BeingTeleportedNear, BeingTeleportedFar?)
+        *self.state.read().await == WorldSessionState::InWorld
     }
 
     pub async fn handle_time_sync_resp(
@@ -114,7 +127,7 @@ impl WorldSession {
 
     pub async fn send<const OPCODE: u16, Payload: ServerMessagePayload<OPCODE>>(
         &self,
-        packet: ServerMessage<OPCODE, Payload>,
+        packet: &ServerMessage<OPCODE, Payload>,
     ) -> Result<(), binrw::Error> {
         let mut socket = self.socket.write_half.lock().await;
         let mut encryption = self.socket.encryption.lock().await;
@@ -156,7 +169,7 @@ impl WorldSession {
                     let smsg_time_sync_req = ServerMessage::new(SmsgTimeSyncReq {
                         sync_counter: time_sync.server_counter,
                     });
-                    session.send(smsg_time_sync_req).await.unwrap();
+                    session.send(&smsg_time_sync_req).await.unwrap();
 
                     time_sync.server_counter += 1;
                     time_sync.server_last_sync_ticks = world_context.game_time().as_millis() as u32;

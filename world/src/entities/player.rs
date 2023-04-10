@@ -395,7 +395,7 @@ pub struct PlayerVisualFeatures {
 impl UpdatableEntity for Player {
     fn get_create_data(
         &self,
-        recipient_guid: u64,
+        recipient_guid: u64, // TODO: Change this to ObjectGuid
         world_context: Arc<WorldContext>,
     ) -> Vec<UpdateData> {
         let movement = Some(MovementUpdateData {
@@ -437,14 +437,17 @@ impl UpdatableEntity for Player {
             blocks: self.gen_create_data(),
         }];
 
-        let inventory_updates: Vec<UpdateData> = self
-            .inventory
-            .iter()
-            .flat_map(|item| {
-                item.1
-                    .get_create_data(self.guid().raw(), world_context.clone())
-            })
-            .collect();
+        let inventory_updates: Vec<UpdateData> = if recipient_guid == self.guid().raw() {
+            self.inventory
+                .iter()
+                .flat_map(|item| {
+                    item.1
+                        .get_create_data(self.guid().raw(), world_context.clone())
+                })
+                .collect()
+        } else {
+            Vec::new()
+        };
 
         player_update_data.extend(inventory_updates);
         player_update_data

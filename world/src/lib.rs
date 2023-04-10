@@ -16,7 +16,6 @@ pub use session::session_holder::SessionHolder;
 use session::world_session::WorldSession;
 use tokio::io::AsyncReadExt;
 use tokio::net::TcpStream;
-use tokio::sync::RwLock;
 use wow_srp::normalized_string::NormalizedString;
 use wow_srp::tbc_header::ProofSeed;
 
@@ -170,7 +169,7 @@ impl WorldSocketState<ServerSentAuthChallenge> {
 
     async fn handle_auth_session(
         mut self,
-        session_holder: Arc<RwLock<SessionHolder>>,
+        session_holder: Arc<SessionHolder>,
     ) -> Result<WorldSocketState<ServerSentAuthResponse>, WorldSocketError> {
         let auth_session_client_message = self.read_socket_plain().await?;
 
@@ -215,18 +214,13 @@ impl WorldSocketState<ServerSentAuthChallenge> {
             position_in_queue: 0,
         });
 
-        session.send(packet).await.unwrap();
+        session.send(&packet).await.unwrap();
 
-        {
-            let mut session_holder = session_holder.write().await;
-
-            if let Some(previous_session) = session_holder.insert_session(session).await {
-                previous_session.shutdown().await;
-            }
+        if let Some(previous_session) = session_holder.insert_session(session).await {
+            previous_session.shutdown().await;
         }
 
-        let session_holder = session_holder.read().await;
-        if let Some(session) = session_holder.get_session_for_account(account_id) {
+        if let Some(session) = session_holder.get_session_for_account(account_id).await {
             Ok(WorldSocketState {
                 state: ServerSentAuthResponse {
                     session: session.clone(),
@@ -241,7 +235,7 @@ impl WorldSocketState<ServerSentAuthChallenge> {
 pub async fn process(
     socket: TcpStream,
     world_context: Arc<WorldContext>,
-    session_holder: Arc<RwLock<SessionHolder>>,
+    session_holder: Arc<SessionHolder>,
 ) -> Result<(), WorldSocketError> {
     let state = WorldSocketState {
         state: SocketOpened {

@@ -460,3 +460,14 @@ pub struct MovementInfo {
     */
     // pub unk: f32 // if SPLINE_ELEVATION
 }
+
+#[binread]
+pub struct CmsgStandStateChange {
+    pub animstate: u32,
+}
+
+#[binwrite]
+#[server_opcode]
+pub struct SmsgStandStateUpdate {
+    pub animstate: u8,
+}

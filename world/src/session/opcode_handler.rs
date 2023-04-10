@@ -104,6 +104,10 @@ impl OpcodeHandler {
                 define_movement_handler!(Opcode::MsgMoveStopAscend),
                 define_movement_handler!(Opcode::CmsgMoveChngTransport),
                 define_movement_handler!(Opcode::MsgMoveStartDescend),
+                define_handler!(
+                    Opcode::CmsgStandStateChange,
+                    OpcodeHandler::handle_cmsg_stand_state_change
+                ),
             ]),
         }
     }

@@ -313,4 +313,25 @@ impl OpcodeHandler {
 
         session.send(&packet).await.unwrap();
     }
+
+    pub(crate) async fn handle_cmsg_stand_state_change(
+        session: Arc<WorldSession>,
+        _world_context: Arc<WorldContext>,
+        data: Vec<u8>,
+    ) {
+        let cmsg_stand_state_change: CmsgStandStateChange = ClientMessage::read_as(data).unwrap();
+        {
+            session
+                .player
+                .write()
+                .await
+                .set_stand_state(cmsg_stand_state_change.animstate);
+        }
+
+        let packet = ServerMessage::new(SmsgStandStateUpdate {
+            animstate: cmsg_stand_state_change.animstate as u8,
+        });
+
+        session.send(&packet).await.unwrap();
+    }
 }

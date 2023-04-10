@@ -43,7 +43,7 @@ impl WorldSocket {
                     encryption.decrypt_client_header(buf).into();
 
                 let bytes_to_read: usize = client_header.size as usize - 4; // Client opcode is u32
-                let mut buf_payload = [0_u8; 1024];
+                let mut buf_payload = [0_u8; 2048];
                 if bytes_to_read > 0 {
                     socket
                         .read(&mut buf_payload[..bytes_to_read])

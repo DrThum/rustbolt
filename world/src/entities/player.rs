@@ -1,7 +1,7 @@
 use std::{collections::HashMap, sync::Arc};
 
 use enumflags2::make_bitflags;
-use log::error;
+use log::{error, warn};
 use r2d2::PooledConnection;
 use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::Error;
@@ -14,6 +14,7 @@ use crate::{
     shared::constants::{
         CharacterClass, CharacterRace, Gender, HighGuidType, InventorySlot, InventoryType,
         ItemClass, ItemSubclassConsumable, ObjectTypeId, ObjectTypeMask, PowerType,
+        UnitStandStateType,
     },
 };
 
@@ -368,6 +369,25 @@ impl Player {
         PowerType::n(power_type_id)
             .to_owned()
             .expect("Player power type uninitialized. Is the player in world?")
+    }
+
+    pub fn set_stand_state(&mut self, animstate: u32) {
+        if UnitStandStateType::n(animstate as u8).is_some() {
+            self.values
+                .set_u8(UnitFields::UnitFieldBytes1.into(), 0, animstate as u8);
+        } else {
+            warn!(
+                "attempted to set an invalid stand state ({}) on player",
+                animstate
+            );
+        }
+    }
+
+    pub fn stand_state(&self) -> UnitStandStateType {
+        let stand_state_type_id = self.values.get_u8(UnitFields::UnitFieldBytes1.into(), 0);
+        UnitStandStateType::n(stand_state_type_id)
+            .to_owned()
+            .unwrap()
     }
 
     fn gen_create_data(&self) -> UpdateBlock {

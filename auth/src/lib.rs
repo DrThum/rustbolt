@@ -24,12 +24,13 @@ mod packets;
 struct SocketOpened;
 struct ServerSentLogonChallenge {
     proof: SrpProof,
+    account_name: String,
 }
 struct ClientAuthenticated;
 
 struct AuthState<S> {
     socket: TcpStream,
-    _state: S,
+    state: S,
 }
 
 // Error types to be moved to another file
@@ -94,7 +95,10 @@ impl AuthState<SocketOpened> {
 
         let new_state = AuthState {
             socket: self.socket,
-            _state: ServerSentLogonChallenge { proof },
+            state: ServerSentLogonChallenge {
+                proof,
+                account_name: cmd_auth_logon_challenge_client.account_name.to_string(),
+            },
         };
         Ok(new_state)
     }
@@ -112,10 +116,15 @@ impl AuthState<ServerSentLogonChallenge> {
         trace!("Received {:?}", cmd_auth_logon_proof_client);
 
         let (cmd_auth_logon_proof_server, server_proof) =
-            CmdAuthLogonProofServer::new(cmd_auth_logon_proof_client, self._state.proof);
+            CmdAuthLogonProofServer::new(cmd_auth_logon_proof_client, self.state.proof);
 
         // Save the session key to the database
-        save_session_key(conn, server_proof.session_key().encode_hex::<String>()).unwrap();
+        save_session_key(
+            conn,
+            self.state.account_name,
+            server_proof.session_key().encode_hex::<String>(),
+        )
+        .unwrap();
 
         let mut writer = Cursor::new(Vec::new());
         writer.write_le(&cmd_auth_logon_proof_server)?;
@@ -124,7 +133,7 @@ impl AuthState<ServerSentLogonChallenge> {
 
         let new_state = AuthState {
             socket: self.socket,
-            _state: ClientAuthenticated,
+            state: ClientAuthenticated,
         };
         Ok(new_state)
     }
@@ -165,7 +174,7 @@ pub async fn process(
     let mut conn = db_pool.get()?;
     let mut authenticated_state = AuthState {
         socket,
-        _state: SocketOpened,
+        state: SocketOpened,
     }
     .handle_challenge()
     .await?
@@ -177,10 +186,14 @@ pub async fn process(
     }
 }
 
-fn save_session_key(conn: &mut Connection, session_key: String) -> Result<(), rusqlite::Error> {
+fn save_session_key(
+    conn: &mut Connection,
+    account_name: String,
+    session_key: String,
+) -> Result<(), rusqlite::Error> {
     let mut stmt =
-        conn.prepare_cached("UPDATE accounts SET session_key = ? WHERE username = 'a'")?;
-    stmt.execute([session_key])?;
+        conn.prepare_cached("UPDATE accounts SET session_key = ? WHERE UPPER(username) = ?")?;
+    stmt.execute([session_key, account_name])?;
 
     Ok(())
 }

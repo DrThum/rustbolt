@@ -14,6 +14,7 @@ fn main() -> Result<(), std::io::Error> {
             "DBFilesClient\\ChrClasses.dbc",
             "DBFilesClient\\CharStartOutfit.dbc",
             "DBFilesClient\\Item.dbc",
+            "DBFilesClient\\Map.dbc",
         ],
         args.output_dir.to_str().unwrap(),
     )

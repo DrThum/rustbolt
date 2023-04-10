@@ -23,6 +23,14 @@ impl OpcodeHandler {
             // TODO: Validate movement (unitBeingMoved guid)
             // TODO: Validate position
             // TODO: Handle fall if Opcode == MsgMoveFallLand
+
+            // Register new position
+            {
+                let mut player = session.player.write().await;
+                player.set_position(&movement_info.position);
+            }
+
+            // Broadcast to nearby players
             world_context
                 .session_holder
                 .broadcast_movement(opcode, &movement_info, session.player.read().await.guid())

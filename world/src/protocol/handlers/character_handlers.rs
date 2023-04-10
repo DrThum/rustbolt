@@ -262,7 +262,7 @@ impl OpcodeHandler {
 
     pub(crate) async fn handle_cmsg_logout_request(
         session: Arc<WorldSession>,
-        _world_context: Arc<WorldContext>,
+        world_context: Arc<WorldContext>,
         _data: Vec<u8>,
     ) {
         let packet = ServerMessage::new(SmsgLogoutResponse {
@@ -275,6 +275,11 @@ impl OpcodeHandler {
         let packet = ServerMessage::new(SmsgLogoutComplete {});
 
         session.send(&packet).await.unwrap();
+
+        // FIXME: Handle future cases when logout might not be instant
+        session
+            .cleanup_on_world_leave(&mut world_context.database.characters.get().unwrap())
+            .await;
     }
 
     pub(crate) async fn handle_cmsg_name_query(

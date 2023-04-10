@@ -4,7 +4,7 @@ use enumflags2::make_bitflags;
 use log::{error, warn};
 use r2d2::PooledConnection;
 use r2d2_sqlite::SqliteConnectionManager;
-use rusqlite::Error;
+use rusqlite::{named_params, Error, Transaction};
 
 use crate::{
     datastore::{data_types::PlayerCreatePosition, DataStore},
@@ -310,6 +310,26 @@ impl Player {
         self.mark_as_up_to_date();
     }
 
+    pub fn save(&mut self, transaction: &Transaction) -> Result<(), Error> {
+        let mut stmt = transaction.prepare_cached("UPDATE characters SET map_id = :map_id, zone_id = :zone_id, position_x = :x, position_y = :y, position_z = :z, orientation = :o WHERE guid = :guid").unwrap();
+
+        let position = self
+            .position
+            .as_ref()
+            .expect("player has no position in Player::save");
+        stmt.execute(named_params! {
+            ":map_id": position.map,
+            ":zone_id": position.zone,
+            ":x": position.x,
+            ":y": position.y,
+            ":z": position.z,
+            ":o": position.o,
+            ":guid": self.guid().raw() as u32,
+        })?;
+
+        Ok(())
+    }
+
     pub fn has_changed_since_last_update(&self) -> bool {
         self.values.has_dirty()
     }
@@ -379,6 +399,20 @@ impl Player {
         PowerType::n(power_type_id)
             .to_owned()
             .expect("Player power type uninitialized. Is the player in world?")
+    }
+
+    pub fn set_position(&mut self, position: &Position) {
+        let mut current_pos: WorldPosition = self
+            .position
+            .take()
+            .expect("player has no world position in Player::set_position");
+
+        current_pos.x = position.x;
+        current_pos.y = position.y;
+        current_pos.z = position.z;
+        current_pos.o = position.o;
+
+        self.position = Some(current_pos);
     }
 
     pub fn set_stand_state(&mut self, animstate: u32) {

@@ -217,7 +217,9 @@ impl WorldSocketState<ServerSentAuthChallenge> {
         session.send(&packet).await.unwrap();
 
         if let Some(previous_session) = session_holder.insert_session(session).await {
-            previous_session.shutdown().await;
+            previous_session
+                .shutdown(&mut self.state.world_context.database.characters.get().unwrap())
+                .await;
         }
 
         if let Some(session) = session_holder.get_session_for_account(account_id).await {

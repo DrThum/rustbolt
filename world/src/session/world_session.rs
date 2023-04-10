@@ -1,4 +1,6 @@
 use binrw::{io::Cursor, BinWriterExt};
+use r2d2::PooledConnection;
+use r2d2_sqlite::SqliteConnectionManager;
 use std::{
     sync::{atomic::AtomicU32, Arc},
     time::Duration,
@@ -80,8 +82,25 @@ impl WorldSession {
         session
     }
 
-    pub async fn shutdown(&self) {
+    pub async fn shutdown(&self, conn: &mut PooledConnection<SqliteConnectionManager>) {
+        self.cleanup_on_world_leave(conn).await;
         self.socket.shutdown().await;
+    }
+
+    pub async fn cleanup_on_world_leave(
+        &self,
+        conn: &mut PooledConnection<SqliteConnectionManager>,
+    ) {
+        if let Some(handle) = self.time_sync_handle.lock().await.take() {
+            handle.abort();
+        }
+
+        if self.is_in_world().await {
+            let mut player = self.player.write().await;
+            let transaction = conn.transaction().unwrap();
+            player.save(&transaction).unwrap();
+            transaction.commit().unwrap();
+        }
     }
 
     pub fn client_latency(&self) -> u32 {

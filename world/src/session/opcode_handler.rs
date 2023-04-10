@@ -108,6 +108,10 @@ impl OpcodeHandler {
                     Opcode::CmsgStandStateChange,
                     OpcodeHandler::handle_cmsg_stand_state_change
                 ),
+                define_handler!(
+                    Opcode::CmsgSetSheathed,
+                    OpcodeHandler::handle_cmsg_set_sheathed
+                ),
             ]),
         }
     }

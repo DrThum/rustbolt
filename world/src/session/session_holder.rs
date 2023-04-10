@@ -76,8 +76,7 @@ impl SessionHolder {
             if player.has_changed_since_last_update() {
                 // Send the player to themselves
                 let guid = player.guid().raw();
-                let update_data =
-                    player.get_update_data(guid, world_context.clone());
+                let update_data = player.get_update_data(guid, world_context.clone());
                 let smsg_update_object = ServerMessage::new(SmsgUpdateObject {
                     updates_count: update_data.len() as u32,
                     has_transport: false,

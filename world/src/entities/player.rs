@@ -13,8 +13,8 @@ use crate::{
     repositories::{character::CharacterRepository, item::ItemRepository},
     shared::constants::{
         CharacterClass, CharacterRace, Gender, HighGuidType, InventorySlot, InventoryType,
-        ItemClass, ItemSubclassConsumable, ObjectTypeId, ObjectTypeMask, PowerType,
-        UnitStandStateType,
+        ItemClass, ItemSubclassConsumable, ObjectTypeId, ObjectTypeMask, PowerType, SheathState,
+        UnitStandState,
     },
 };
 
@@ -219,7 +219,7 @@ impl Player {
             .set_u8(UnitFields::UnitFieldBytes0.into(), 3, power_type as u8);
 
         self.values
-            .set_u32(UnitFields::UnitFieldBytes2.into(), 0x28); // Unk
+            .set_u8(UnitFields::UnitFieldBytes2.into(), 1, 0x28); // UNIT_BYTE2_FLAG_UNK3 | UNIT_BYTE2_FLAG_UNK5
 
         self.position = Some(character.position);
 
@@ -382,7 +382,7 @@ impl Player {
     }
 
     pub fn set_stand_state(&mut self, animstate: u32) {
-        if UnitStandStateType::n(animstate as u8).is_some() {
+        if UnitStandState::n(animstate).is_some() {
             self.values
                 .set_u8(UnitFields::UnitFieldBytes1.into(), 0, animstate as u8);
         } else {
@@ -393,11 +393,17 @@ impl Player {
         }
     }
 
-    pub fn stand_state(&self) -> UnitStandStateType {
-        let stand_state_type_id = self.values.get_u8(UnitFields::UnitFieldBytes1.into(), 0);
-        UnitStandStateType::n(stand_state_type_id)
-            .to_owned()
-            .unwrap()
+    pub fn set_sheath_state(&mut self, sheath_state: u32) {
+        if SheathState::n(sheath_state).is_some() {
+            // TODO: See Player::SetVirtualItemSlot in MaNGOS (enchantment visual stuff)
+            self.values
+                .set_u8(UnitFields::UnitFieldBytes2.into(), 0, sheath_state as u8);
+        } else {
+            warn!(
+                "attempted to set an invalid sheath state ({}) on player",
+                sheath_state
+            );
+        }
     }
 
     fn gen_create_data(&self) -> UpdateBlock {

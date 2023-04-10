@@ -467,3 +467,8 @@ pub struct CmsgStandStateChange {
 pub struct SmsgStandStateUpdate {
     pub animstate: u8,
 }
+
+#[binread]
+pub struct CmsgSetSheathed {
+    pub sheath_state: u32,
+}

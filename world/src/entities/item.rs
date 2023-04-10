@@ -11,7 +11,8 @@ use super::{
     internal_values::InternalValues,
     object_guid::ObjectGuid,
     update::{
-        UpdatableEntity, UpdateBlock, UpdateBlockBuilder, CreateData, UpdateFlag, UpdateType, UpdateData,
+        CreateData, UpdatableEntity, UpdateBlock, UpdateBlockBuilder, UpdateData, UpdateFlag,
+        UpdateType,
     },
     update_fields::{ItemFields, ObjectFields, ITEM_END},
 };

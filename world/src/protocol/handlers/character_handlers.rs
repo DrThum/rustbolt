@@ -334,4 +334,17 @@ impl OpcodeHandler {
 
         session.send(&packet).await.unwrap();
     }
+
+    pub(crate) async fn handle_cmsg_set_sheathed(
+        session: Arc<WorldSession>,
+        _world_context: Arc<WorldContext>,
+        data: Vec<u8>,
+    ) {
+        let cmsg_set_sheathed: CmsgSetSheathed = ClientMessage::read_as(data).unwrap();
+        session
+            .player
+            .write()
+            .await
+            .set_sheath_state(cmsg_set_sheathed.sheath_state);
+    }
 }

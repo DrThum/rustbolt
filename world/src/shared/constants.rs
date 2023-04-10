@@ -397,8 +397,8 @@ pub enum ItemSubclassJunk {
 }
 
 #[allow(dead_code)]
-#[derive(N, Clone, Copy)]
-pub enum UnitStandStateType {
+#[derive(N)]
+pub enum UnitStandState {
     Stand = 0,
     Sit = 1,
     SitChair = 2,
@@ -409,4 +409,12 @@ pub enum UnitStandStateType {
     Dead = 7,
     Kneel = 8,
     Custom = 9, // Depends on model animation. Submerge, freeze, hide, hibernate, rest
+}
+
+#[allow(dead_code)]
+#[derive(N)]
+pub enum SheathState {
+    Unarmed = 0,
+    Melee = 1,
+    Ranged = 2,
 }

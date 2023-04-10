@@ -483,7 +483,7 @@ pub enum Opcode {
     SmsgPong = 0x1DD,
     SmsgClearCooldown = 0x1DE,
     SmsgGameobjectPagetext = 0x1DF,
-    CmsgSetsheathed = 0x1E0,
+    CmsgSetSheathed = 0x1E0,
     SmsgCooldownCheat = 0x1E1,
     SmsgSpellDelayed = 0x1E2,
     CmsgPlayerMacroObsolete = 0x1E3,

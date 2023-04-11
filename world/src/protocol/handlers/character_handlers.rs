@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use crate::entities::player::Player;
 use crate::entities::update::UpdatableEntity;
+use crate::game::map_manager::MapKey;
 use crate::game::world_context::WorldContext;
 use crate::protocol::client::ClientMessage;
 use crate::protocol::packets::*;
@@ -104,6 +105,14 @@ impl OpcodeHandler {
                 cmsg_player_login.guid,
                 world_context.clone(),
             );
+
+            world_context
+                .map_manager
+                .add_session_to_map(
+                    session.clone(),
+                    MapKey::for_continent(player.position().map), // TODO: handle instance id here
+                )
+                .await;
 
             let mut session_state = session.state.write().await;
             *session_state = WorldSessionState::InWorld;
@@ -279,6 +288,11 @@ impl OpcodeHandler {
         // FIXME: Handle future cases when logout might not be instant
         session
             .cleanup_on_world_leave(&mut world_context.database.characters.get().unwrap())
+            .await;
+
+        world_context
+            .map_manager
+            .remove_session(session.clone())
             .await;
     }
 

@@ -17,7 +17,7 @@ use wow_srp::tbc_header::HeaderCrypto;
 
 use crate::{
     entities::{object_guid::ObjectGuid, player::Player},
-    game::world_context::WorldContext,
+    game::{map_manager::MapKey, world_context::WorldContext},
     protocol::{
         opcodes::Opcode,
         packets::{MovementInfo, SmsgTimeSyncReq},
@@ -41,7 +41,8 @@ pub struct WorldSession {
     pub player: Arc<RwLock<Player>>,
     client_latency: AtomicU32,
     server_time_sync: Mutex<TimeSync>,
-    pub time_sync_handle: Mutex<Option<JoinHandle<()>>>,
+    time_sync_handle: Mutex<Option<JoinHandle<()>>>,
+    current_map_key: RwLock<Option<MapKey>>,
 }
 
 impl WorldSession {
@@ -77,6 +78,7 @@ impl WorldSession {
                 client_last_sync_ticks: 0,
             }),
             time_sync_handle: Mutex::new(None),
+            current_map_key: RwLock::new(None),
         });
 
         session
@@ -96,10 +98,17 @@ impl WorldSession {
         }
 
         if self.is_in_world().await {
-            let mut player = self.player.write().await;
-            let transaction = conn.transaction().unwrap();
-            player.save(&transaction).unwrap();
-            transaction.commit().unwrap();
+            {
+                let mut player = self.player.write().await;
+                let transaction = conn.transaction().unwrap();
+                player.save(&transaction).unwrap();
+                transaction.commit().unwrap();
+            }
+
+            {
+                let mut guard = self.current_map_key.write().await;
+                guard.take();
+            }
         }
     }
 
@@ -254,6 +263,16 @@ impl WorldSession {
 
         let jh = WorldSession::schedule_time_sync(session.clone(), world_context).await;
         *guard = Some(jh);
+    }
+
+    pub async fn get_current_map(&self) -> Option<MapKey> {
+        let guard = self.current_map_key.read().await;
+        guard.to_owned()
+    }
+
+    pub async fn set_map(&self, key: MapKey) {
+        let mut guard = self.current_map_key.write().await;
+        guard.replace(key);
     }
 }
 

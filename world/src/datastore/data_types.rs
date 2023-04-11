@@ -282,3 +282,12 @@ impl DbcTypedRecord for MapRecord {
         }
     }
 }
+
+impl MapRecord {
+    pub fn is_instanceable(&self) -> bool {
+        match self.map_type {
+            MapType::Common => false,
+            _ => true,
+        }
+    }
+}

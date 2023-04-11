@@ -7,6 +7,8 @@ use crate::{
     DataStore, SessionHolder,
 };
 
+use super::map_manager::MapManager;
+
 pub struct WorldContext {
     pub data_store: Arc<DataStore>,
     pub database: Arc<DatabaseContext>,
@@ -14,6 +16,7 @@ pub struct WorldContext {
     pub config: Arc<WorldConfig>,
     pub start_time: Instant,
     pub session_holder: Arc<SessionHolder>,
+    pub map_manager: Arc<MapManager>,
 }
 
 impl WorldContext {

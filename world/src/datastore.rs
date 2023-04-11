@@ -1,6 +1,6 @@
 use indicatif::ProgressBar;
 use log::info;
-use std::collections::HashMap;
+use std::collections::{hash_map::Values, HashMap};
 
 use r2d2::PooledConnection;
 use r2d2_sqlite::SqliteConnectionManager;
@@ -108,6 +108,10 @@ impl DataStore {
 
     pub fn get_map_record(&self, id: u32) -> Option<&MapRecord> {
         self.map.get(&id)
+    }
+
+    pub fn get_all_map_records(&self) -> Values<u32, MapRecord> {
+        self.map.values()
     }
 
     pub fn get_item_template(&self, entry: u32) -> Option<&ItemTemplate> {

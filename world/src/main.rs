@@ -5,7 +5,7 @@ use r2d2_sqlite::SqliteConnectionManager;
 use rustbolt_world::{
     config::WorldConfig,
     database_context::DatabaseContext,
-    game::{world::World, world_context::WorldContext},
+    game::{map_manager::MapManager, world::World, world_context::WorldContext},
     session::opcode_handler::OpcodeHandler,
     DataStore, SessionHolder,
 };
@@ -86,6 +86,7 @@ async fn main() {
     let start_time = Instant::now();
 
     let session_holder = Arc::new(SessionHolder::new());
+    let map_manager = Arc::new(MapManager::create_with_continents(data_store.clone()).await);
 
     let world_context = Arc::new(WorldContext {
         data_store,
@@ -94,6 +95,7 @@ async fn main() {
         config: config.clone(),
         start_time,
         session_holder: session_holder.clone(),
+        map_manager,
     });
 
     let world = World::new(

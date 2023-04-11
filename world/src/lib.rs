@@ -38,6 +38,8 @@ mod entities {
     mod internal_values;
 }
 pub mod game {
+    pub mod map;
+    pub mod map_manager;
     pub mod world;
     pub mod world_context;
 }

@@ -1,11 +1,15 @@
 use crate::protocol::client::ClientMessage;
 use crate::protocol::server::ServerMessage;
 use crate::repositories::account::AccountRepository;
+use crate::shared::constants::{ADDON_PUBLIC_KEY, STANDARD_ADDON_CRC};
 use crate::shared::response_codes::ResponseCodes;
 use std::sync::Arc;
 
 pub use crate::datastore::DataStore;
-use crate::protocol::packets::{CmsgAuthSession, SmsgAuthChallenge, SmsgAuthResponse};
+use crate::protocol::packets::{
+    ClientAddonInfo, CmsgAuthSession, ServerAddonInfo, SmsgAddonInfo, SmsgAuthChallenge,
+    SmsgAuthResponse,
+};
 use binrw::io::Cursor;
 use binrw::BinReaderExt;
 use game::world_context::WorldContext;
@@ -130,7 +134,6 @@ impl WorldSocketState<SocketOpened> {
 impl WorldSocketState<ServerSentAuthChallenge> {
     async fn read_socket_plain(&mut self) -> Result<ClientMessage, WorldSocketError> {
         let mut buf = [0_u8; 6];
-        // let mut socket_guard = self.state.socket.lock().await;
 
         match self.state.socket.read_exact(&mut buf[..6]).await {
             Ok(0) => {
@@ -172,9 +175,15 @@ impl WorldSocketState<ServerSentAuthChallenge> {
         session_holder: Arc<SessionHolder>,
     ) -> Result<WorldSocketState<ServerSentAuthResponse>, WorldSocketError> {
         let auth_session_client_message = self.read_socket_plain().await?;
+        let payload_clone = auth_session_client_message.payload.clone();
 
         let mut reader = Cursor::new(auth_session_client_message.payload);
         let cmsg_auth_session: CmsgAuthSession = reader.read_le()?;
+
+        let addon_infos_offset_in_cmsg = cmsg_auth_session.len();
+        let addon_infos_raw = &payload_clone[addon_infos_offset_in_cmsg..];
+        let addon_infos = Self::extract_addon_infos(addon_infos_raw);
+
         let username: String = cmsg_auth_session.username.to_string();
         let username: NormalizedString = NormalizedString::new(username).unwrap();
 
@@ -192,8 +201,8 @@ impl WorldSocketState<ServerSentAuthChallenge> {
             .into_header_crypto(
                 &username,
                 session_key,
-                cmsg_auth_session._client_proof,
-                cmsg_auth_session._client_seed,
+                cmsg_auth_session.client_proof,
+                cmsg_auth_session.client_seed,
             )
             .unwrap();
 
@@ -216,6 +225,10 @@ impl WorldSocketState<ServerSentAuthChallenge> {
 
         session.send(&packet).await.unwrap();
 
+        let packet = ServerMessage::new(Self::build_addon_infos(addon_infos));
+
+        session.send(&packet).await.unwrap();
+
         if let Some(previous_session) = session_holder.insert_session(session).await {
             previous_session
                 .shutdown(&mut self.state.world_context.database.characters.get().unwrap())
@@ -231,6 +244,51 @@ impl WorldSocketState<ServerSentAuthChallenge> {
         } else {
             Err(WorldSocketError::SessionNotFound)
         }
+    }
+
+    fn extract_addon_infos(raw_data: &[u8]) -> Vec<ClientAddonInfo> {
+        let mut reader = Cursor::new(&raw_data[..4]);
+        let uncompressed_size: u32 = reader.read_le().unwrap();
+
+        let compressed_data = &raw_data[4..].to_vec();
+        let data = miniz_oxide::inflate::decompress_to_vec_zlib(&compressed_data).unwrap();
+
+        let mut offset: usize = 0;
+        let mut infos: Vec<ClientAddonInfo> = Vec::new();
+        while offset < uncompressed_size as usize {
+            let slice: &[u8] = &data[offset..];
+            let mut reader = Cursor::new(slice);
+            let info: ClientAddonInfo = reader.read_le().unwrap();
+            offset += info.len();
+            infos.push(info);
+        }
+
+        infos
+    }
+
+    fn build_addon_infos(infos: Vec<ClientAddonInfo>) -> SmsgAddonInfo {
+        let addon_infos: Vec<ServerAddonInfo> = infos
+            .into_iter()
+            .map(|client_addon_info| {
+                let use_public_key: bool = client_addon_info.crc != STANDARD_ADDON_CRC;
+                let public_key = if use_public_key {
+                    Some(ADDON_PUBLIC_KEY)
+                } else {
+                    None
+                };
+
+                ServerAddonInfo {
+                    state: 2,
+                    use_crc_or_public_key: true,
+                    use_public_key,
+                    public_key,
+                    unk: Some(0),
+                    use_url: false,
+                }
+            })
+            .collect();
+
+        SmsgAddonInfo { addon_infos }
     }
 }
 

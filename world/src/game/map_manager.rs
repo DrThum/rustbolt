@@ -5,7 +5,6 @@ use log::warn;
 use tokio::sync::RwLock;
 
 use crate::{
-    entities::object_guid::ObjectGuid,
     protocol::{opcodes::Opcode, packets::MovementInfo},
     session::world_session::WorldSession,
     DataStore,

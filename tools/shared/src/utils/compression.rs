@@ -53,5 +53,3 @@ pub fn decompress(input: Vec<u8>, compression_flags: u8) -> Vec<u8> {
 
     output
 }
-
-// https://docs.rs/implode/latest/implode/

@@ -1,5 +1,5 @@
 [package]
-name = "dbc_extractor"
+name = "shared"
 version = "0.1.0"
 edition = "2021"
 
@@ -12,4 +12,3 @@ bzip2 = "0.4.4"
 clap = { version = "4.2.0", features = ["derive"] }
 log = "0.4.17"
 miniz_oxide = "0.7.1"
-shared = { path = "../shared" }

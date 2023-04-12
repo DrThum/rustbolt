@@ -1,23 +1,22 @@
 use std::path::PathBuf;
 
 use clap::Parser;
-use dbc_extractor::extract;
 
 fn main() -> Result<(), std::io::Error> {
     let mut args = Cli::parse();
     args.client_base_dir.push("Data");
 
-    extract(
-        args.client_base_dir.to_str().unwrap(),
-        vec![
-            "DBFilesClient\\ChrRaces.dbc",
-            "DBFilesClient\\ChrClasses.dbc",
-            "DBFilesClient\\CharStartOutfit.dbc",
-            "DBFilesClient\\Item.dbc",
-            "DBFilesClient\\Map.dbc",
-        ],
-        args.output_dir.to_str().unwrap(),
-    )
+    let client_data_dir = args.client_base_dir.to_str().unwrap();
+    let dbc_files = vec![
+        "DBFilesClient\\ChrRaces.dbc",
+        "DBFilesClient\\ChrClasses.dbc",
+        "DBFilesClient\\CharStartOutfit.dbc",
+        "DBFilesClient\\Item.dbc",
+        "DBFilesClient\\Map.dbc",
+    ];
+    let output_dir = args.output_dir.to_str().unwrap();
+
+    shared::extract_files(client_data_dir, dbc_files, output_dir)
 }
 
 #[derive(Parser)]

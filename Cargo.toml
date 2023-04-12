@@ -4,5 +4,7 @@ members = [
   "auth",
   "world",
   "world/opcode_derive",
+  "tools/shared",
   "tools/dbc_extractor",
+  "tools/terrain_extractor",
 ]

@@ -10,47 +10,18 @@ use models::MPQFile;
 
 pub mod constants;
 pub mod models;
-pub mod utils;
+pub mod utils {
+    pub mod compression;
+    pub mod crypto;
+    pub mod mpq;
+}
 
-// TODO:
-// - Implement a CLI in main.rs to specify
-//      - WoW base folder
-//      - output directory
-// - Implement MPQ chaining (sort by priority and stop whenever a file is found)
-pub fn extract(
+pub fn extract_files(
     client_data_dir: &str,
     files_to_extract: Vec<&str>,
     output_dir: &str,
 ) -> Result<(), std::io::Error> {
-    let mpqs_by_priority: Vec<String> = vec![
-        "/frFR/patch-frFR-2.MPQ",
-        "/frFR/patch-frFR.MPQ",
-        "/frFR/base-frFR.MPQ",
-        "/frFR/speech-frFR.MPQ",
-        "/frFR/locale-frFR.MPQ",
-        "/patch-2.MPQ",
-        "/patch.MPQ",
-        "/common.MPQ",
-    ]
-    .into_iter()
-    .map(|suffix| {
-        let mut full_path = client_data_dir.to_owned();
-        full_path.push_str(suffix);
-        full_path
-    })
-    .collect();
-
-    trace!("Preparing crypto table...");
-    let mut crypt_table = [0_u32; 0x500];
-    utils::crypto::prepare_crypt_table(&mut crypt_table);
-
-    let mut mpqs: Vec<MPQFile> = mpqs_by_priority
-        .into_iter()
-        .map(|mpq_path| {
-            open_archive(&mpq_path, &crypt_table)
-                .expect(&format!("{} not found, check your WoW install.", mpq_path))
-        })
-        .collect();
+    let (mut mpqs, crypt_table) = open_mpqs(client_data_dir)?;
 
     for file_to_extract in files_to_extract {
         for mpq in &mut mpqs {
@@ -80,6 +51,41 @@ pub fn extract(
     }
 
     Ok(())
+}
+
+fn open_mpqs(client_data_dir: &str) -> Result<(Vec<MPQFile>, [u32; 0x500]), std::io::Error> {
+    let mpqs_by_priority: Vec<String> = vec![
+        "/frFR/patch-frFR-2.MPQ",
+        "/frFR/patch-frFR.MPQ",
+        "/frFR/base-frFR.MPQ",
+        "/frFR/speech-frFR.MPQ",
+        "/frFR/locale-frFR.MPQ",
+        "/patch-2.MPQ",
+        "/patch.MPQ",
+        "/common.MPQ",
+    ]
+    .into_iter()
+    .map(|suffix| {
+        let mut full_path = client_data_dir.to_owned();
+        full_path.push_str(suffix);
+        full_path
+    })
+    .collect();
+
+    trace!("Preparing crypto table...");
+    let mut crypt_table = [0_u32; 0x500];
+    utils::crypto::prepare_crypt_table(&mut crypt_table);
+
+    Ok((
+        mpqs_by_priority
+            .into_iter()
+            .map(|mpq_path| {
+                open_archive(&mpq_path, &crypt_table)
+                    .expect(&format!("{} not found, check your WoW install.", mpq_path))
+            })
+            .collect(),
+        crypt_table,
+    ))
 }
 
 fn open_archive(path: &str, crypt_table: &[u32; 0x500]) -> Result<MPQFile, std::io::Error> {

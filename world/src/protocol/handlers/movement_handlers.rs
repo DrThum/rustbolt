@@ -32,10 +32,9 @@ impl OpcodeHandler {
 
             // Broadcast to nearby players
             world_context
-                .session_holder
-                .broadcast_movement(opcode, &movement_info, session.player.read().await.guid())
-                .await
-                .unwrap();
+                .map_manager
+                .broadcast_movement(session.clone(), opcode, &movement_info)
+                .await;
         }
 
         Box::new(move |session, ctx, data| { handle_movement(opcode, session, ctx, data) }.boxed())

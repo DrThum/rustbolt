@@ -4,7 +4,11 @@ use atomic_counter::{AtomicCounter, RelaxedCounter};
 use log::warn;
 use tokio::sync::RwLock;
 
-use crate::{session::world_session::WorldSession, DataStore};
+use crate::{
+    protocol::{opcodes::Opcode, packets::MovementInfo},
+    session::world_session::WorldSession,
+    DataStore,
+};
 
 use super::map::Map;
 
@@ -79,7 +83,11 @@ impl MapManager {
         }
 
         if let Some(destination_map) = guard.get(&destination) {
-            destination_map.write().await.add_player(session.clone()).await;
+            destination_map
+                .write()
+                .await
+                .add_player(session.clone())
+                .await;
             session.set_map(destination).await;
         } else {
             warn!("map {} not found as destination in MapManager", destination);
@@ -99,6 +107,45 @@ impl MapManager {
                     .await;
             }
         }
+    }
+
+    pub async fn broadcast_movement(
+        &self,
+        mover_session: Arc<WorldSession>,
+        opcode: Opcode,
+        movement_info: &MovementInfo,
+    ) {
+        if let Some(current_map_key) = mover_session.get_current_map().await {
+            let maps_guard = self.maps.read().await;
+            if let Some(map) = maps_guard.get(&current_map_key) {
+                let map_guard = map.read().await;
+                let player_guard = mover_session.player.read().await;
+
+                for session in map_guard.nearby_sessions(player_guard.guid()).await {
+                    session
+                        .send_movement(opcode, player_guard.guid(), movement_info)
+                        .await
+                        .unwrap();
+                }
+            }
+        }
+    }
+
+    pub async fn nearby_sessions(&self, session: Arc<WorldSession>) -> Vec<Arc<WorldSession>> {
+        let mut result = Vec::new();
+
+        if let Some(current_map_key) = session.get_current_map().await {
+            let maps_guard = self.maps.read().await;
+            if let Some(map) = maps_guard.get(&current_map_key) {
+                let map_guard = map.read().await;
+                let player_guard = session.player.read().await;
+
+                let sessions = &mut map_guard.nearby_sessions(player_guard.guid()).await;
+                result.append(sessions);
+            }
+        }
+
+        result
     }
 }
 

@@ -3,7 +3,7 @@ use std::{collections::HashMap, sync::Arc};
 use log::warn;
 use tokio::sync::RwLock;
 
-use crate::session::world_session::WorldSession;
+use crate::{entities::object_guid::ObjectGuid, session::world_session::WorldSession};
 
 use super::map_manager::MapKey;
 
@@ -40,5 +40,21 @@ impl Map {
                 account_id, self.key
             );
         }
+    }
+
+    // All sessions around me except myself
+    // FIXME: Use the future k-d tree to only include nearby players
+    pub async fn nearby_sessions(&self, player_guid: &ObjectGuid) -> Vec<Arc<WorldSession>> {
+        let mut result = Vec::new();
+
+        let guard = self.sessions.read().await;
+
+        for (_, session) in &*guard {
+            if session.is_in_world().await && *session.player.read().await.guid() != *player_guid {
+                result.push(session.clone());
+            }
+        }
+
+        result
     }
 }

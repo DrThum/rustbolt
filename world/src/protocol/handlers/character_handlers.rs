@@ -228,8 +228,8 @@ impl OpcodeHandler {
 
             // FIXME: this will be handled by the future map system
             for other_session in world_context
-                .session_holder
-                .nearby_sessions(player.guid())
+                .map_manager
+                .nearby_sessions(session.clone())
                 .await
             {
                 // Broadcast the new player to nearby players

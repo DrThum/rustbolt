@@ -13,7 +13,10 @@ fn main() -> Result<(), std::io::Error> {
         "DBFilesClient\\CharStartOutfit.dbc",
         "DBFilesClient\\Item.dbc",
         "DBFilesClient\\Map.dbc",
-    ];
+    ]
+    .into_iter()
+    .map(|f| f.to_owned())
+    .collect();
     let output_dir = args.output_dir.to_str().unwrap();
 
     shared::extract_files(client_data_dir, dbc_files, output_dir)

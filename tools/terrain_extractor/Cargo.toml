@@ -7,5 +7,7 @@ edition = "2021"
 
 [dependencies]
 binrw = "0.11.1"
+bytemuck = "1.13.1"
 clap = { version = "4.2.0", features = ["derive"] }
 log = "0.4.17"
+shared = { path = "../shared" }

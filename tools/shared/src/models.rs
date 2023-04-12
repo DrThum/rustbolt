@@ -96,6 +96,10 @@ impl MPQFile {
             .seek(SeekFrom::Start(entry.file_pos as u64))?;
         self.underlying_file.read(&mut buffer)?;
 
+        if buffer.len() < 4 {
+            return Ok(Vec::new());
+        }
+
         let max_multiple_of_4_in_buffer = buffer.len() - (buffer.len() % 4);
         let sector_offsets: Vec<u32> = cast_slice(&buffer[..max_multiple_of_4_in_buffer]).to_vec();
 

@@ -1526,8 +1526,10 @@ name = "terrain_extractor"
 version = "0.1.0"
 dependencies = [
  "binrw",
+ "bytemuck",
  "clap",
  "log",
+ "shared",
 ]
 
 [[package]]

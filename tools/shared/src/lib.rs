@@ -18,7 +18,7 @@ pub mod utils {
 
 pub fn extract_files(
     client_data_dir: &str,
-    files_to_extract: Vec<&str>,
+    files_to_extract: Vec<String>,
     output_dir: &str,
 ) -> Result<(), std::io::Error> {
     let (mut mpqs, crypt_table) = open_mpqs(client_data_dir)?;
@@ -26,7 +26,7 @@ pub fn extract_files(
     for file_to_extract in files_to_extract {
         for mpq in &mut mpqs {
             let maybe_file_data = mpq
-                .find_hash_table_entry(file_to_extract, &crypt_table)
+                .find_hash_table_entry(file_to_extract.as_str(), &crypt_table)
                 .map(|hash_table_entry| {
                     let block_table_entry =
                         mpq.get_block_table_entry_at(hash_table_entry.block_index);
@@ -62,6 +62,7 @@ fn open_mpqs(client_data_dir: &str) -> Result<(Vec<MPQFile>, [u32; 0x500]), std:
         "/frFR/locale-frFR.MPQ",
         "/patch-2.MPQ",
         "/patch.MPQ",
+        "/expansion.MPQ",
         "/common.MPQ",
     ]
     .into_iter()

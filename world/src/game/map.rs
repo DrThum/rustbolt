@@ -44,13 +44,13 @@ impl Map {
 
     // All sessions around me except myself
     // FIXME: Use the future k-d tree to only include nearby players
-    pub async fn nearby_sessions(&self, player_guid: &ObjectGuid) -> Vec<Arc<WorldSession>> {
+    pub async fn nearby_sessions(&self, account_id: u32) -> Vec<Arc<WorldSession>> {
         let mut result = Vec::new();
 
         let guard = self.sessions.read().await;
 
         for (_, session) in &*guard {
-            if session.is_in_world().await && *session.player.read().await.guid() != *player_guid {
+            if session.is_in_world().await && session.account_id != account_id {
                 result.push(session.clone());
             }
         }

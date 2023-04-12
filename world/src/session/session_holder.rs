@@ -37,7 +37,7 @@ impl SessionHolder {
     pub async fn tick(&self, world_context: Arc<WorldContext>) {
         let sessions = &*self.sessions.read().await;
 
-        for (account_id, session) in sessions {
+        for (_, session) in sessions {
             let mut player = session.player.write().await;
 
             if player.has_changed_since_last_update() {
@@ -52,8 +52,14 @@ impl SessionHolder {
 
                 session.send(&smsg_update_object).await.unwrap();
 
+                let map = session.get_current_map().await;
+
                 // FIXME: this will be handled by the future map system
-                for (_, other_session) in sessions.iter().filter(|s| s.0 != account_id) {
+                for other_session in world_context
+                    .map_manager
+                    .nearby_sessions(map, session.account_id)
+                    .await
+                {
                     // Broadcast the change to nearby players
                     let other_player = other_session.player.read().await;
                     let update_data =

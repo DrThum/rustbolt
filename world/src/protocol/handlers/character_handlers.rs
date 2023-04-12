@@ -226,10 +226,9 @@ impl OpcodeHandler {
 
             session.send(&smsg_update_object).await.unwrap();
 
-            // FIXME: this will be handled by the future map system
             for other_session in world_context
                 .map_manager
-                .nearby_sessions(session.clone())
+                .nearby_sessions(session.get_current_map().await, session.account_id)
                 .await
             {
                 // Broadcast the new player to nearby players

@@ -4,7 +4,7 @@ use log::error;
 
 use crate::models::file_chunk::FileChunk;
 
-use super::{TypedFileChunk, MVER};
+use super::{FileType, TypedFileChunk, MVER};
 
 #[derive(Debug)]
 pub struct Coordinates {
@@ -22,21 +22,21 @@ impl WDT {
         let chunk: FileChunk = reader
             .read_le()
             .expect("failed to read chunk from WDT file");
-        if let Err(_) = chunk.as_typed().downcast::<MVER>() {
+        if let Err(_) = chunk.as_typed(FileType::WDT).downcast::<MVER>() {
             error!("expected MVER chunk, got {}", chunk.magic_str());
         }
 
         let chunk: FileChunk = reader
             .read_le()
             .expect("failed to read chunk from WDT file");
-        if let Err(_) = chunk.as_typed().downcast::<MPHD>() {
+        if let Err(_) = chunk.as_typed(FileType::WDT).downcast::<MPHD>() {
             error!("expected MPHD chunk, got {}", chunk.magic_str());
         }
 
         let chunk: FileChunk = reader
             .read_le()
             .expect("failed to read chunk from WDT file");
-        if let Ok(main_chunk) = chunk.as_typed().downcast::<MAIN>() {
+        if let Ok(main_chunk) = chunk.as_typed(FileType::WDT).downcast::<MAIN>() {
             // let chunk: FileChunk = reader.read_le().expect("failed to read chunk from WDT file");
             // if let Err(_) = chunk.as_typed().downcast::<MWMO>() {
             //     error!("expected MWMO chunk, got {}", chunk.magic_str());

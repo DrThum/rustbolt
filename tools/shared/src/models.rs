@@ -15,6 +15,11 @@ use crate::{
     utils::{compression::decompress, mpq::hash_string},
 };
 
+pub struct MPQContext {
+    pub archives: Vec<MPQFile>,
+    pub crypt_table: [u32; 0x500],
+}
+
 pub struct MPQFile {
     pub header: MPQHeader,
     pub hash_table: Vec<u8>,

@@ -5,7 +5,7 @@ use std::{
 };
 
 use bytemuck::cast_slice;
-use models::file_chunk::wdt::WDT;
+use models::file_chunk::{adt::ADT, wdt::WDT};
 
 mod models {
     pub mod file_chunk;
@@ -69,6 +69,14 @@ pub fn get_all_map_names(map_dbc_path: &str) -> Result<Vec<String>, std::io::Err
 pub fn read_wdt(raw: &Vec<u8>) -> Option<WDT> {
     if !raw.is_empty() {
         WDT::parse(raw)
+    } else {
+        None
+    }
+}
+
+pub fn read_adt(raw: &Vec<u8>) -> Option<ADT> {
+    if !raw.is_empty() {
+        ADT::parse(raw)
     } else {
         None
     }

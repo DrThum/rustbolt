@@ -13,16 +13,43 @@ fn main() -> Result<(), std::io::Error> {
     let _output_dir = args.output_dir.to_str().unwrap();
 
     let map_names = get_all_map_names(map_dbc_path)?;
-    // let wdt_paths: Vec<String> = map_names
-    let wdt_paths: Vec<String> = map_names[0..1] // REMOVEME
-        .into_iter()
-        .map(|name| format!("World\\Maps\\{}\\{}.wdt", name, name))
-        .collect();
 
-    let wdt_with_data = shared::get_files_data(client_data_dir, wdt_paths)?;
-    for (_, data) in wdt_with_data {
-        terrain_extractor::read_wdt(&data);
-    }
+    let mut mpq_context = shared::open_mpqs(client_data_dir)?;
+    // let wdt_paths: Vec<String> = map_names
+    let _: Vec<u8> = map_names[0..1] // REMOVEME
+        .into_iter()
+        .map(|name| {
+            let wdt_path = format!("World\\Maps\\{}\\{}.wdt", name, name);
+            if let Ok(Some(wdt_data)) = shared::get_file_data(wdt_path.clone(), &mut mpq_context) {
+                if let Some(wdt) = terrain_extractor::read_wdt(&wdt_data) {
+                    for coords in wdt.map_chunks {
+                        let adt_data = shared::get_file_data(
+                            format!(
+                                "World\\Maps\\{}\\{}_{}_{}.adt",
+                                name, name, coords.col, coords.row
+                            ),
+                            &mut mpq_context,
+                        )
+                        .unwrap();
+
+                        println!(
+                            "{} {} is_some: {}",
+                            coords.row,
+                            coords.col,
+                            adt_data.is_some()
+                        );
+
+                        if let Some(adt_data) = adt_data {
+                            println!("\tlen {}", adt_data.len());
+                            terrain_extractor::read_adt(&adt_data).unwrap();
+                        }
+                    }
+                }
+            }
+
+            0
+        })
+        .collect();
 
     Ok(())
 }

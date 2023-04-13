@@ -3,7 +3,14 @@ use std::fmt;
 use binrw::{binread, io::Cursor, BinReaderExt};
 use downcast_rs::{impl_downcast, Downcast};
 
+pub mod adt;
 pub mod wdt;
+
+#[derive(PartialEq)]
+pub enum FileType {
+    WDT,
+    ADT,
+}
 
 #[binread]
 #[derive(Debug)]
@@ -15,12 +22,26 @@ pub struct FileChunk {
 }
 
 impl FileChunk {
-    pub fn as_typed(&self) -> Box<dyn TypedFileChunk> {
+    pub fn as_typed(&self, file_type: FileType) -> Box<dyn TypedFileChunk> {
         match self.magic {
             [b'R', b'E', b'V', b'M'] => Box::new(MVER::parse(&self.data).unwrap()),
             [b'D', b'H', b'P', b'M'] => Box::new(wdt::MPHD::parse(&self.data).unwrap()),
             [b'N', b'I', b'A', b'M'] => Box::new(wdt::MAIN::parse(&self.data).unwrap()),
-            [b'O', b'M', b'W', b'M'] => Box::new(wdt::MWMO::parse(&self.data).unwrap()),
+            [b'O', b'M', b'W', b'M'] if file_type == FileType::WDT => {
+                Box::new(wdt::MWMO::parse(&self.data).unwrap())
+            }
+            [b'O', b'M', b'W', b'M'] if file_type == FileType::ADT => {
+                Box::new(adt::MWMO::parse(&self.data).unwrap())
+            }
+            [b'R', b'D', b'H', b'M'] => Box::new(adt::MHDR::parse(&self.data).unwrap()),
+            [b'N', b'I', b'C', b'M'] => Box::new(adt::MCIN::parse(&self.data).unwrap()),
+            [b'X', b'E', b'T', b'M'] => Box::new(adt::MTEX::parse(&self.data).unwrap()),
+            [b'X', b'D', b'M', b'M'] => Box::new(adt::MMDX::parse(&self.data).unwrap()),
+            [b'D', b'I', b'M', b'M'] => Box::new(adt::MMID::parse(&self.data).unwrap()),
+            [b'D', b'I', b'W', b'M'] => Box::new(adt::MWID::parse(&self.data).unwrap()),
+            [b'F', b'D', b'D', b'M'] => Box::new(adt::MDDF::parse(&self.data).unwrap()),
+            [b'F', b'D', b'O', b'M'] => Box::new(adt::MODF::parse(&self.data).unwrap()),
+            [b'K', b'N', b'C', b'M'] => Box::new(adt::MCNK::parse(&self.data).unwrap()),
             _ => {
                 panic!(
                     "Unsupported chunk {:?} of size {}",

@@ -7,7 +7,7 @@ use std::{
 use bytemuck::cast_slice;
 use constants::{BLOCK_TABLE_ENTRY_SIZE, HASH_TABLE_ENTRY_SIZE};
 use log::trace;
-use models::MPQFile;
+use models::{MPQContext, MPQFile};
 
 pub mod constants;
 pub mod models;
@@ -22,12 +22,12 @@ pub fn extract_files(
     files_to_extract: Vec<String>,
     output_dir: &str,
 ) -> Result<(), std::io::Error> {
-    let (mut mpqs, crypt_table) = open_mpqs(client_data_dir)?;
+    let mut mpq_context = open_mpqs(client_data_dir)?;
 
     for file_to_extract in files_to_extract {
-        for mpq in &mut mpqs {
+        for mpq in &mut mpq_context.archives {
             let maybe_file_data = mpq
-                .find_hash_table_entry(file_to_extract.as_str(), &crypt_table)
+                .find_hash_table_entry(file_to_extract.as_str(), &mpq_context.crypt_table)
                 .map(|hash_table_entry| {
                     let block_table_entry =
                         mpq.get_block_table_entry_at(hash_table_entry.block_index);
@@ -54,17 +54,23 @@ pub fn extract_files(
     Ok(())
 }
 
-pub fn get_files_data(
-    client_data_dir: &str,
-    files_to_extract: Vec<String>,
-) -> Result<HashMap<String, Vec<u8>>, std::io::Error> {
-    let (mut mpqs, crypt_table) = open_mpqs(client_data_dir)?;
+pub fn get_file_data(
+    file_to_extract: String,
+    mpq_context: &mut MPQContext,
+) -> Result<Option<Vec<u8>>, std::io::Error> {
+    get_files_data(vec![file_to_extract.clone()], mpq_context)
+        .map(|map| map.get(&file_to_extract).map(|v| v.to_owned()))
+}
 
+pub fn get_files_data(
+    files_to_extract: Vec<String>,
+    mpq_context: &mut MPQContext,
+) -> Result<HashMap<String, Vec<u8>>, std::io::Error> {
     let mut files_with_data: HashMap<String, Vec<u8>> = HashMap::new();
     for file_to_extract in files_to_extract {
-        for mpq in &mut mpqs {
+        for mpq in &mut mpq_context.archives {
             let maybe_file_data = mpq
-                .find_hash_table_entry(file_to_extract.as_str(), &crypt_table)
+                .find_hash_table_entry(file_to_extract.as_str(), &mpq_context.crypt_table)
                 .map(|hash_table_entry| {
                     let block_table_entry =
                         mpq.get_block_table_entry_at(hash_table_entry.block_index);
@@ -81,7 +87,7 @@ pub fn get_files_data(
     Ok(files_with_data)
 }
 
-fn open_mpqs(client_data_dir: &str) -> Result<(Vec<MPQFile>, [u32; 0x500]), std::io::Error> {
+pub fn open_mpqs(client_data_dir: &str) -> Result<MPQContext, std::io::Error> {
     let mpqs_by_priority: Vec<String> = vec![
         "/frFR/patch-frFR-2.MPQ",
         "/frFR/patch-frFR.MPQ",
@@ -105,8 +111,8 @@ fn open_mpqs(client_data_dir: &str) -> Result<(Vec<MPQFile>, [u32; 0x500]), std:
     let mut crypt_table = [0_u32; 0x500];
     utils::crypto::prepare_crypt_table(&mut crypt_table);
 
-    Ok((
-        mpqs_by_priority
+    Ok(MPQContext {
+        archives: mpqs_by_priority
             .into_iter()
             .map(|mpq_path| {
                 open_archive(&mpq_path, &crypt_table)
@@ -114,7 +120,7 @@ fn open_mpqs(client_data_dir: &str) -> Result<(Vec<MPQFile>, [u32; 0x500]), std:
             })
             .collect(),
         crypt_table,
-    ))
+    })
 }
 
 fn open_archive(path: &str, crypt_table: &[u32; 0x500]) -> Result<MPQFile, std::io::Error> {

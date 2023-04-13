@@ -10,15 +10,19 @@ fn main() -> Result<(), std::io::Error> {
 
     let client_data_dir = args.client_base_dir.to_str().unwrap();
     let map_dbc_path = args.dbc_dir.to_str().unwrap();
-    let output_dir = args.output_dir.to_str().unwrap();
+    let _output_dir = args.output_dir.to_str().unwrap();
 
     let map_names = get_all_map_names(map_dbc_path)?;
-    let wdt_paths: Vec<String> = map_names
+    // let wdt_paths: Vec<String> = map_names
+    let wdt_paths: Vec<String> = map_names[0..1] // REMOVEME
         .into_iter()
         .map(|name| format!("World\\Maps\\{}\\{}.wdt", name, name))
         .collect();
 
-    shared::extract_files(client_data_dir, wdt_paths, output_dir)?;
+    let wdt_with_data = shared::get_files_data(client_data_dir, wdt_paths)?;
+    for (_, data) in wdt_with_data {
+        terrain_extractor::read_wdt(&data);
+    }
 
     Ok(())
 }

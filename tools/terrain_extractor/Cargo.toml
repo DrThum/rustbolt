@@ -9,5 +9,6 @@ edition = "2021"
 binrw = "0.11.1"
 bytemuck = "1.13.1"
 clap = { version = "4.2.0", features = ["derive"] }
+downcast-rs = "1.2.0"
 log = "0.4.17"
 shared = { path = "../shared" }

@@ -14,16 +14,18 @@ fn main() -> Result<(), std::io::Error> {
 
     let map_names = get_all_map_names(map_dbc_path)?;
 
-    let mut mpq_context = shared::open_mpqs(client_data_dir)?;
+    let mut mpq_context = tools_shared::open_mpqs(client_data_dir)?;
     // let wdt_paths: Vec<String> = map_names
     let _: Vec<u8> = map_names[0..1] // REMOVEME
         .into_iter()
         .map(|name| {
             let wdt_path = format!("World\\Maps\\{}\\{}.wdt", name, name);
-            if let Ok(Some(wdt_data)) = shared::get_file_data(wdt_path.clone(), &mut mpq_context) {
+            if let Ok(Some(wdt_data)) =
+                tools_shared::get_file_data(wdt_path.clone(), &mut mpq_context)
+            {
                 if let Some(wdt) = terrain_extractor::read_wdt(&wdt_data) {
                     for coords in wdt.map_chunks {
-                        let adt_data = shared::get_file_data(
+                        let adt_data = tools_shared::get_file_data(
                             format!(
                                 "World\\Maps\\{}\\{}_{}_{}.adt",
                                 name, name, coords.col, coords.row

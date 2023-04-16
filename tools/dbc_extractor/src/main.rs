@@ -19,7 +19,7 @@ fn main() -> Result<(), std::io::Error> {
     .collect();
     let output_dir = args.output_dir.to_str().unwrap();
 
-    shared::extract_files(client_data_dir, dbc_files, output_dir)
+    tools_shared::extract_files(client_data_dir, dbc_files, output_dir)
 }
 
 #[derive(Parser)]

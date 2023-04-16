@@ -405,7 +405,7 @@ dependencies = [
  "clap",
  "log",
  "miniz_oxide",
- "shared",
+ "tools_shared",
 ]
 
 [[package]]
@@ -1434,18 +1434,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "shared"
-version = "0.1.0"
-dependencies = [
- "binrw",
- "bytemuck",
- "bzip2",
- "clap",
- "log",
- "miniz_oxide",
-]
-
-[[package]]
 name = "signal-hook-registry"
 version = "1.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1538,7 +1526,7 @@ dependencies = [
  "downcast-rs",
  "enumflags2",
  "log",
- "shared",
+ "tools_shared",
 ]
 
 [[package]]
@@ -1652,6 +1640,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f4f7f0dd8d50a853a531c426359045b1998f04219d88799810762cd4ad314234"
 dependencies = [
  "serde",
+]
+
+[[package]]
+name = "tools_shared"
+version = "0.1.0"
+dependencies = [
+ "binrw",
+ "bytemuck",
+ "bzip2",
+ "clap",
+ "log",
+ "miniz_oxide",
 ]
 
 [[package]]

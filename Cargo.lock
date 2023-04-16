@@ -1434,6 +1434,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "shared"
+version = "0.1.0"
+dependencies = [
+ "binrw",
+ "enumflags2",
+ "enumn",
+ "fixedbitset",
+]
+
+[[package]]
 name = "signal-hook-registry"
 version = "1.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1526,6 +1536,7 @@ dependencies = [
  "downcast-rs",
  "enumflags2",
  "log",
+ "shared",
  "tools_shared",
 ]
 

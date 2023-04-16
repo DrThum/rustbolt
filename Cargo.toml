@@ -2,9 +2,10 @@
 
 members = [
   "auth",
-  "world",
-  "world/opcode_derive",
-  "tools/tools_shared",
+  "shared",
   "tools/dbc_extractor",
   "tools/terrain_extractor",
+  "tools/tools_shared",
+  "world",
+  "world/opcode_derive",
 ]

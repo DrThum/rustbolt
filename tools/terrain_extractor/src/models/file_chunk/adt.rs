@@ -1,6 +1,9 @@
 use binrw::{binread, io::Cursor, BinReaderExt};
 use enumflags2::{bitflags, BitFlags};
 use log::error;
+use shared::models::terrain_info::{
+    LiquidFlags, LiquidTypeEntry, TerrainChunk, TerrainInfo, TerrainLiquidInfo,
+};
 
 use super::{FileChunk, FileType, TypedFileChunk, MVER};
 
@@ -101,6 +104,31 @@ impl ADT {
         );
 
         Some(ADT { mcnk_chunks })
+    }
+
+    pub(crate) fn to_terrain_info(&self) -> TerrainInfo {
+        let terrain_chunks: Vec<TerrainChunk> = self
+            .mcnk_chunks
+            .iter()
+            .map(|mcnk| {
+                let liquid_info: Option<TerrainLiquidInfo> = mcnk
+                    .liquid_info
+                    .as_ref()
+                    .map(|lq| lq.to_terrain_info(&mcnk));
+
+                TerrainChunk::new(
+                    mcnk.header.index_x,
+                    mcnk.header.index_y,
+                    mcnk.header.area_id,
+                    mcnk.header.position_z,
+                    mcnk.header.holes,
+                    mcnk.height_map,
+                    liquid_info,
+                )
+            })
+            .collect();
+
+        TerrainInfo::new(terrain_chunks)
     }
 }
 
@@ -376,9 +404,9 @@ pub struct MCNKHeader {
     nb_sound_emitters: u32,
     offset_mclq: u32,
     size_mclq: u32,
-    position_z: f32,
     position_x: f32,
     position_y: f32,
+    position_z: f32,
     offset_mccv: u32,
 }
 
@@ -429,17 +457,20 @@ impl TypedFileChunk for MCNK {
     }
 }
 
+#[allow(dead_code)]
 pub enum MCLQFlags {
     Ocean = 1,
     Slime = 3,
     River = 4,
     Magma = 6,
-    DontRender = 0xF,
+    DontRender = 0xF, // Set height to something like -1000
+    Unk = 0x40,
     Fatigue = 0x80,
 }
 
 #[binread]
 #[allow(dead_code)]
+#[derive(Debug, Clone, Copy)]
 pub struct LiquidVertex {
     unk1: u16, // Maybe color or transparency?
     unk2: u16, // Maybe color or transparency?
@@ -449,9 +480,47 @@ pub struct LiquidVertex {
 #[binread]
 #[allow(dead_code)]
 pub struct MCLQ {
-    pub range_min: f32, // Liquid is above this height
-    pub range_max: f32, // Liquid is below this height
+    range_min: f32, // Liquid is above this height
+    range_max: f32, // Liquid is below this height
     pub height_map: [LiquidVertex; 9 * 9],
     pub tiles_flags: [u8; 8 * 8], // Each element refers to a tile within the previous 9 * 9 grid
                                   // (see MCLQFlags)
+}
+
+impl MCLQ {
+    pub fn to_terrain_info(&self, mcnk: &MCNK) -> TerrainLiquidInfo {
+        let mut terrain_liquid_info_flags: BitFlags<LiquidFlags> = BitFlags::empty();
+
+        let liquid_entry: LiquidTypeEntry = match mcnk.header.flags {
+            flags if flags.contains(MCNKFlags::LiquidRiver) => {
+                terrain_liquid_info_flags.insert(LiquidFlags::Water);
+                LiquidTypeEntry::Water
+            }
+            flags if flags.contains(MCNKFlags::LiquidOcean) => {
+                terrain_liquid_info_flags.insert(LiquidFlags::Ocean);
+                LiquidTypeEntry::Ocean
+            }
+            flags if flags.contains(MCNKFlags::LiquidMagmaOrSlime) => {
+                terrain_liquid_info_flags.insert(LiquidFlags::Magma);
+                LiquidTypeEntry::Magma
+            }
+            _ => LiquidTypeEntry::NoWater,
+        };
+
+        // If at least one tile has LiquidFlags::Fatigue, add DarkWater to the chunk
+        if self
+            .tiles_flags
+            .iter()
+            .any(|&tile| (tile & MCLQFlags::Fatigue as u8 != 0))
+        {
+            terrain_liquid_info_flags.insert(LiquidFlags::DarkWater);
+        }
+
+        TerrainLiquidInfo::new(
+            liquid_entry,
+            terrain_liquid_info_flags,
+            self.height_map.clone().map(|elm| elm.height),
+            self.tiles_flags.clone().map(|tile| tile != 0xF),
+        )
+    }
 }

@@ -1,5 +1,5 @@
 [package]
-name = "terrain_extractor"
+name = "shared"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,10 +7,6 @@ edition = "2021"
 
 [dependencies]
 binrw = "0.11.1"
-bytemuck = "1.13.1"
-clap = { version = "4.2.0", features = ["derive"] }
-downcast-rs = "1.2.0"
 enumflags2 = { version = "0.7.5", features = ["serde" ] }
-log = "0.4.17"
-shared = { path = "../../shared" }
-tools_shared = { path = "../tools_shared" }
+enumn = "0.1.8"
+fixedbitset = "0.4.2"

@@ -1,6 +1,9 @@
-use std::path::PathBuf;
+use binrw::{io::Cursor, BinWriterExt};
+
+use std::{fs, io::Write, path::PathBuf};
 
 use clap::Parser;
+use log::warn;
 use terrain_extractor::get_all_map_names;
 
 fn main() -> Result<(), std::io::Error> {
@@ -10,7 +13,9 @@ fn main() -> Result<(), std::io::Error> {
 
     let client_data_dir = args.client_base_dir.to_str().unwrap();
     let map_dbc_path = args.dbc_dir.to_str().unwrap();
-    let _output_dir = args.output_dir.to_str().unwrap();
+    let output_dir = args.output_dir.to_str().unwrap();
+
+    // TODO: Progress bar
 
     let map_names = get_all_map_names(map_dbc_path)?;
 
@@ -34,16 +39,23 @@ fn main() -> Result<(), std::io::Error> {
                         )
                         .unwrap();
 
-                        println!(
-                            "{} {} is_some: {}",
-                            coords.row,
-                            coords.col,
-                            adt_data.is_some()
-                        );
+                        if let Some(terrain_info) =
+                            adt_data.and_then(|data| terrain_extractor::read_adt(&data))
+                        {
+                            let mut file = fs::OpenOptions::new()
+                                .create(true)
+                                .write(true)
+                                .open(format!(
+                                    "{}/{}_{}_{}.terrain",
+                                    output_dir, name, coords.col, coords.row
+                                ))
+                                .unwrap();
+                            let mut writer = Cursor::new(Vec::new());
+                            writer.write_le(&terrain_info).unwrap();
 
-                        if let Some(adt_data) = adt_data {
-                            println!("\tlen {}", adt_data.len());
-                            terrain_extractor::read_adt(&adt_data).unwrap();
+                            file.write_all(writer.get_ref()).unwrap();
+                        } else {
+                            warn!("failed to extract terrain info");
                         }
                     }
                 }

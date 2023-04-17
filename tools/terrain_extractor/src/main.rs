@@ -39,7 +39,7 @@ fn main() -> Result<(), std::io::Error> {
                         )
                         .unwrap();
 
-                        if let Some(terrain_info) =
+                        if let Some(terrain_block) =
                             adt_data.and_then(|data| terrain_extractor::read_adt(&data))
                         {
                             let mut file = fs::OpenOptions::new()
@@ -51,7 +51,7 @@ fn main() -> Result<(), std::io::Error> {
                                 ))
                                 .unwrap();
                             let mut writer = Cursor::new(Vec::new());
-                            writer.write_le(&terrain_info).unwrap();
+                            writer.write_le(&terrain_block).unwrap();
 
                             file.write_all(writer.get_ref()).unwrap();
                         } else {

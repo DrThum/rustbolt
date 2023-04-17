@@ -27,5 +27,6 @@ r2d2_sqlite = "0.21.0"
 refinery = { version = "0.8", features = ["rusqlite"] }
 rusqlite = { version = "0.28.0", features = ["bundled"] }
 serde = "1.0.158"
+shared = { path = "../shared" }
 tokio = { version = "1", features = ["full"] }
 wow_srp = { version = "0.5.3", features = ["tbc-header"] }

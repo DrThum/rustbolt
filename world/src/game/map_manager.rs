@@ -2,6 +2,7 @@ use std::{collections::HashMap, fmt::Display, sync::Arc};
 
 use atomic_counter::{AtomicCounter, RelaxedCounter};
 use log::warn;
+use shared::models::terrain_info::{TerrainBlock, MAP_WIDTH_IN_BLOCKS};
 use tokio::sync::RwLock;
 
 use crate::{
@@ -17,29 +18,59 @@ pub enum MapManagerError {
     CommonMapAlreadyInstanced,
 }
 
+#[derive(Eq, Hash, PartialEq)]
+pub struct TerrainBlockCoords {
+    pub row: usize,
+    pub col: usize,
+}
+
 pub struct MapManager {
+    data_dir: String,
     maps: RwLock<HashMap<MapKey, Arc<RwLock<Map>>>>,
     data_store: Arc<DataStore>,
     next_instance_id: RelaxedCounter,
+    terrains: RwLock<HashMap<u32, Arc<HashMap<TerrainBlockCoords, TerrainBlock>>>>,
 }
 
 impl MapManager {
-    pub async fn create_with_continents(data_store: Arc<DataStore>) -> Self {
+    pub async fn create_with_continents(data_store: Arc<DataStore>, data_dir: &String) -> Self {
         let mut maps: HashMap<MapKey, Arc<RwLock<Map>>> = HashMap::new();
+        let mut terrains: HashMap<u32, Arc<HashMap<TerrainBlockCoords, TerrainBlock>>> =
+            HashMap::new();
 
         // Instantiate all common (= continents) maps on startup
         for map in data_store
             .get_all_map_records()
             .filter(|m| !m.is_instanceable())
         {
+            let mut map_terrains: HashMap<TerrainBlockCoords, TerrainBlock> = HashMap::new();
+
+            // Load terrain for this map
+            for row in 0..MAP_WIDTH_IN_BLOCKS {
+                for col in 0..MAP_WIDTH_IN_BLOCKS {
+                    let maybe_terrain =
+                        TerrainBlock::load_from_disk(&data_dir, &map.internal_name, col, row);
+
+                    if let Some(terrain_block) = maybe_terrain {
+                        let key = TerrainBlockCoords { row, col };
+                        map_terrains.insert(key, terrain_block);
+                    }
+                }
+            }
+
+            let map_terrains = Arc::new(map_terrains);
+            terrains.insert(map.id, map_terrains.clone());
+
             let key = MapKey::for_continent(map.id);
-            maps.insert(key, Arc::new(RwLock::new(Map::new(key))));
+            maps.insert(key, Arc::new(RwLock::new(Map::new(key, map_terrains))));
         }
 
         Self {
+            data_dir: data_dir.to_string(),
             maps: RwLock::new(maps),
             data_store,
             next_instance_id: RelaxedCounter::new(1),
+            terrains: RwLock::new(terrains),
         }
     }
 
@@ -50,12 +81,38 @@ impl MapManager {
                 if !map_record.is_instanceable() {
                     return Err(MapManagerError::CommonMapAlreadyInstanced);
                 } else {
-                    let mut guard = self.maps.write().await;
+                    // Load terrain for this map, or get it from the cache
+                    let mut terrain_guard = self.terrains.write().await;
+                    let map_terrain: &mut Arc<HashMap<TerrainBlockCoords, TerrainBlock>> =
+                        terrain_guard.entry(map_id).or_insert_with(|| {
+                            let mut map_terrains: HashMap<TerrainBlockCoords, TerrainBlock> =
+                                HashMap::new();
+
+                            for row in 0..MAP_WIDTH_IN_BLOCKS {
+                                for col in 0..MAP_WIDTH_IN_BLOCKS {
+                                    let maybe_terrain = TerrainBlock::load_from_disk(
+                                        &self.data_dir,
+                                        &map_record.internal_name,
+                                        col,
+                                        row,
+                                    );
+
+                                    if let Some(terrain_block) = maybe_terrain {
+                                        let key = TerrainBlockCoords { row, col };
+                                        map_terrains.insert(key, terrain_block);
+                                    }
+                                }
+                            }
+
+                            Arc::new(map_terrains)
+                        });
+
+                    let mut map_guard = self.maps.write().await;
                     let instance_id: u32 = self.next_instance_id.inc().try_into().unwrap();
 
                     let map_key = MapKey::for_instance(map_id, instance_id);
-                    let map = Arc::new(RwLock::new(Map::new(map_key)));
-                    guard.insert(map_key, map.clone());
+                    let map = Arc::new(RwLock::new(Map::new(map_key, map_terrain.clone())));
+                    map_guard.insert(map_key, map.clone());
 
                     Ok(map)
                 }

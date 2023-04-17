@@ -1,10 +1,16 @@
-use binrw::binrw;
+use std::{fs, io::Read};
+
+use binrw::{binrw, io::Cursor, BinReaderExt};
 use enumflags2::{bitflags, BitFlags};
 use enumn::N;
 use fixedbitset::FixedBitSet;
 
-pub const TERRAIN_INFO_MAGIC: [u8; 4] = [b'T', b'E', b'R', b'R'];
-pub const TERRAIN_INFO_VERSION: u32 = 1;
+pub const TERRAIN_BLOCK_MAGIC: [u8; 4] = [b'T', b'E', b'R', b'R'];
+pub const TERRAIN_BLOCK_VERSION: u32 = 1;
+
+pub const MAP_WIDTH_IN_BLOCKS: usize = 64;
+pub const BLOCK_WIDTH_IN_CHUNKS: usize = 16;
+pub const MAP_WIDTH_IN_CHUNKS: usize = MAP_WIDTH_IN_BLOCKS * BLOCK_WIDTH_IN_CHUNKS;
 
 pub type HeightMap = [f32; 145];
 
@@ -76,27 +82,50 @@ pub type HeightMap = [f32; 145];
 
 #[binrw]
 #[allow(dead_code)]
-pub struct TerrainInfo {
+// 64 * 64 = 4096 blocks per map
+pub struct TerrainBlock {
     magic: [u8; 4],
     version: u32,
     #[br(count = 256)]
     chunks: Vec<TerrainChunk>,
 }
 
-impl TerrainInfo {
+impl TerrainBlock {
     pub fn new(chunks: Vec<TerrainChunk>) -> Self {
         assert!(chunks.len() == 256, "TerrainInfo expects 256 TerrainChunks");
 
         Self {
-            magic: TERRAIN_INFO_MAGIC,
-            version: TERRAIN_INFO_VERSION,
+            magic: TERRAIN_BLOCK_MAGIC,
+            version: TERRAIN_BLOCK_VERSION,
             chunks,
+        }
+    }
+
+    pub fn load_from_disk(
+        data_dir: &String,
+        map_name: &String,
+        col: usize,
+        row: usize,
+    ) -> Option<TerrainBlock> {
+        if let Ok(mut f) = fs::File::open(format!(
+            "{}/terrain/{}_{}_{}.terrain",
+            data_dir, map_name, col, row
+        )) {
+            let mut buffer = Vec::new();
+            f.read(&mut buffer).unwrap();
+
+            let mut reader = Cursor::new(buffer);
+            let terrain_block: TerrainBlock = reader.read_le().unwrap();
+            Some(terrain_block)
+        } else {
+            None
         }
     }
 }
 
 #[binrw]
 #[allow(dead_code)]
+// 16 * 16 = 256 chunks per block
 pub struct TerrainChunk {
     row: u32, // index_x in MCNK
     col: u32, // index_y in MCNK

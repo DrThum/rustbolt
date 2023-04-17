@@ -6,7 +6,7 @@ use std::{
 
 use bytemuck::cast_slice;
 use models::file_chunk::{adt::ADT, wdt::WDT};
-use shared::models::terrain_info::TerrainInfo;
+use shared::models::terrain_info::TerrainBlock;
 
 mod models {
     pub mod file_chunk;
@@ -75,9 +75,9 @@ pub fn read_wdt(raw: &Vec<u8>) -> Option<WDT> {
     }
 }
 
-pub fn read_adt(raw: &Vec<u8>) -> Option<TerrainInfo> {
+pub fn read_adt(raw: &Vec<u8>) -> Option<TerrainBlock> {
     if !raw.is_empty() {
-        ADT::parse(raw).map(|adt| adt.to_terrain_info())
+        ADT::parse(raw).map(|adt| adt.to_terrain_block())
     } else {
         None
     }

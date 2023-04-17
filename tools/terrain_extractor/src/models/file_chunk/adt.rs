@@ -2,7 +2,7 @@ use binrw::{binread, io::Cursor, BinReaderExt};
 use enumflags2::{bitflags, BitFlags};
 use log::error;
 use shared::models::terrain_info::{
-    LiquidFlags, LiquidTypeEntry, TerrainChunk, TerrainInfo, TerrainLiquidInfo,
+    LiquidFlags, LiquidTypeEntry, TerrainBlock, TerrainChunk, TerrainLiquidInfo,
 };
 
 use super::{FileChunk, FileType, TypedFileChunk, MVER};
@@ -106,7 +106,7 @@ impl ADT {
         Some(ADT { mcnk_chunks })
     }
 
-    pub(crate) fn to_terrain_info(&self) -> TerrainInfo {
+    pub(crate) fn to_terrain_block(&self) -> TerrainBlock {
         let terrain_chunks: Vec<TerrainChunk> = self
             .mcnk_chunks
             .iter()
@@ -128,7 +128,7 @@ impl ADT {
             })
             .collect();
 
-        TerrainInfo::new(terrain_chunks)
+        TerrainBlock::new(terrain_chunks)
     }
 }
 

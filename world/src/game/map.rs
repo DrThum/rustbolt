@@ -1,22 +1,25 @@
 use std::{collections::HashMap, sync::Arc};
 
 use log::warn;
+use shared::models::terrain_info::TerrainBlock;
 use tokio::sync::RwLock;
 
 use crate::session::world_session::WorldSession;
 
-use super::map_manager::MapKey;
+use super::map_manager::{MapKey, TerrainBlockCoords};
 
 pub struct Map {
     key: MapKey,
     sessions: RwLock<HashMap<u32, Arc<WorldSession>>>,
+    terrain: Arc<HashMap<TerrainBlockCoords, TerrainBlock>>,
 }
 
 impl Map {
-    pub fn new(key: MapKey) -> Self {
+    pub fn new(key: MapKey, terrain: Arc<HashMap<TerrainBlockCoords, TerrainBlock>>) -> Self {
         Self {
             key,
             sessions: RwLock::new(HashMap::new()),
+            terrain,
         }
     }
 

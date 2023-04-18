@@ -480,7 +480,7 @@ impl UpdatableEntity for Player {
         world_context: Arc<WorldContext>,
     ) -> Vec<CreateData> {
         let movement = Some(MovementUpdateData {
-            movement_flags: 0,
+            movement_flags: 0,  // 0x02000000, // TEMP: Flying
             movement_flags2: 0, // Always 0 in 2.4.3
             timestamp: world_context.game_time().as_millis() as u32, // Will overflow every 49.7 days
             position: Position {
@@ -490,13 +490,15 @@ impl UpdatableEntity for Player {
                 z: self.position().z,
                 o: self.position().o,
             },
+            // pitch: Some(0.0),
+            pitch: None,
             fall_time: 0,
             speed_walk: 2.5,
             speed_run: 7.0,
             speed_run_backward: 4.5,
             speed_swim: 4.722222,
             speed_swim_backward: 2.5,
-            speed_flight: 7.0,
+            speed_flight: 70.0,
             speed_flight_backward: 4.5,
             speed_turn: 3.141594,
         });

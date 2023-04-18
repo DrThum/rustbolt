@@ -49,7 +49,7 @@ impl MapManager {
             for row in 0..MAP_WIDTH_IN_BLOCKS {
                 for col in 0..MAP_WIDTH_IN_BLOCKS {
                     let maybe_terrain =
-                        TerrainBlock::load_from_disk(&data_dir, &map.internal_name, col, row);
+                        TerrainBlock::load_from_disk(&data_dir, &map.internal_name, row, col);
 
                     if let Some(terrain_block) = maybe_terrain {
                         let key = TerrainBlockCoords { row, col };
@@ -93,8 +93,8 @@ impl MapManager {
                                     let maybe_terrain = TerrainBlock::load_from_disk(
                                         &self.data_dir,
                                         &map_record.internal_name,
-                                        col,
                                         row,
+                                        col,
                                     );
 
                                     if let Some(terrain_block) = maybe_terrain {

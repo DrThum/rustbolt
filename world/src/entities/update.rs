@@ -132,6 +132,7 @@ pub struct MovementUpdateData {
     pub movement_flags2: u8, // Always 0 in 2.4.3
     pub timestamp: u32,
     pub position: Position,
+    pub pitch: Option<f32>,
     pub fall_time: u32,
     pub speed_walk: f32,
     pub speed_run: f32,

@@ -12,6 +12,10 @@ pub const MAP_WIDTH_IN_BLOCKS: usize = 64;
 pub const BLOCK_WIDTH_IN_CHUNKS: usize = 16;
 pub const MAP_WIDTH_IN_CHUNKS: usize = MAP_WIDTH_IN_BLOCKS * BLOCK_WIDTH_IN_CHUNKS;
 
+pub const CHUNK_WIDTH: f32 = 33.333333;
+pub const BLOCK_WIDTH: f32 = CHUNK_WIDTH * BLOCK_WIDTH_IN_CHUNKS as f32; // 533.333328
+pub const MAP_WIDTH: f32 = BLOCK_WIDTH * MAP_WIDTH_IN_BLOCKS as f32; // 34133.332992
+
 pub type HeightMap = [f32; 145];
 
 /*
@@ -104,22 +108,114 @@ impl TerrainBlock {
     pub fn load_from_disk(
         data_dir: &String,
         map_name: &String,
-        col: usize,
         row: usize,
+        col: usize,
     ) -> Option<TerrainBlock> {
-        if let Ok(mut f) = fs::File::open(format!(
-            "{}/terrain/{}_{}_{}.terrain",
-            data_dir, map_name, col, row
-        )) {
+        let filename = format!("{}/terrain/{}_{}_{}.terrain", data_dir, map_name, row, col);
+        if let Ok(mut f) = fs::File::open(&filename) {
+            let metadata = fs::metadata(&filename).expect("unable to read terrain file metadata");
             let mut buffer = Vec::new();
+            buffer.resize(metadata.len() as usize, 0);
             f.read(&mut buffer).unwrap();
 
             let mut reader = Cursor::new(buffer);
             let terrain_block: TerrainBlock = reader.read_le().unwrap();
+
+            assert!(
+                terrain_block.magic == TERRAIN_BLOCK_MAGIC,
+                "{} is not a valid terrain file",
+                filename
+            );
+            assert!(
+                terrain_block.version == TERRAIN_BLOCK_VERSION,
+                "{} is outdated, please re-extract terrain files",
+                filename
+            );
+
             Some(terrain_block)
         } else {
             None
         }
+    }
+
+    pub fn get_height(&self, position_x: f32, position_y: f32) -> f32 {
+        let chunk_row =
+            ((512.0 - (position_x / CHUNK_WIDTH)) % BLOCK_WIDTH_IN_CHUNKS as f32).floor() as usize;
+        let chunk_col =
+            ((512.0 - (position_y / CHUNK_WIDTH)) % BLOCK_WIDTH_IN_CHUNKS as f32).floor() as usize;
+
+        let chunk = self.get_chunk(chunk_row, chunk_col);
+
+        // TODO: handle terrain holes
+
+        let subchunk_width = CHUNK_WIDTH / 8.0;
+        let chunk_offset_x = ((17066.666496 - position_x) % CHUNK_WIDTH) / subchunk_width;
+        let chunk_offset_y = ((17066.666496 - position_y) % CHUNK_WIDTH) / subchunk_width;
+
+        let row_start_index = chunk_offset_x.floor() as usize; // Outer vertex
+        let row_end_index = row_start_index + 1;
+
+        let col_start_index = chunk_offset_y.floor() as usize; // Outer vertex
+        let col_end_index = col_start_index + 1;
+
+        // +--------------> Y offset
+        // | tl-------tr
+        // | | \  1  / |
+        // | |  \   /  |
+        // | | 2  c  3 |
+        // | |  /   \  |
+        // | | /  4  \ |
+        // | bl-------br
+        // V X offset
+        //
+        // First, calculate which triangle the point is in
+        // Then solve an equation depending on the triangle
+
+        let top_left = chunk.height_map[row_start_index * 17 + col_start_index];
+        let top_right = chunk.height_map[row_start_index * 17 + col_end_index];
+        let center = chunk.height_map[row_start_index * 17 + col_start_index + 9];
+        let bottom_left = chunk.height_map[row_end_index * 17 + col_start_index];
+        let bottom_right = chunk.height_map[row_end_index * 17 + col_end_index];
+
+        let normalized_chunk_offset_x = chunk_offset_x / CHUNK_WIDTH;
+        let normalized_chunk_offset_y = chunk_offset_y / CHUNK_WIDTH;
+
+        let height;
+        if chunk_offset_x + chunk_offset_y < 1.0 {
+            if chunk_offset_x < chunk_offset_y {
+                // Triangle 1
+                height = top_left
+                    + (top_right - top_left) * normalized_chunk_offset_y
+                    + (center - top_left) * (2.0 * normalized_chunk_offset_x);
+            } else {
+                // Triangle 2
+                height = top_left
+                    + (bottom_left - top_left) * normalized_chunk_offset_x
+                    + (center - top_left) * (2.0 * normalized_chunk_offset_y);
+            }
+        } else {
+            if chunk_offset_x < chunk_offset_y {
+                // Triangle 3
+                height = top_right
+                    + (bottom_right - top_right) * normalized_chunk_offset_x
+                    + (center - top_right) * 2.0 * (1.0 - normalized_chunk_offset_y);
+            } else {
+                // Triangle 4
+                height = bottom_left
+                    + (bottom_right - bottom_left) * normalized_chunk_offset_y
+                    + (center - bottom_left) * (2.0 * (1.0 - normalized_chunk_offset_x));
+            }
+        }
+
+        height + chunk.base_height
+    }
+
+    fn get_chunk(&self, row: usize, col: usize) -> &TerrainChunk {
+        // FIXME: Access by index instead for O(1) instead of O(n)
+        self.chunks
+            .iter()
+            .find(|chunk| chunk.row as usize == row && chunk.col as usize == col)
+            .unwrap()
     }
 }
 
@@ -134,10 +230,11 @@ pub struct TerrainChunk {
     #[bw(map = |bs: &FixedBitSet| bs.as_slice()[0])]
     #[br(map = |bits: u32| FixedBitSet::with_capacity_and_blocks(16, vec![bits]))]
     holes: FixedBitSet, // See explanation on top of this file
-    height_map: HeightMap, // See explanation on top of this file
+    pub height_map: HeightMap, // See explanation on top of this file
     #[bw(map = |cond: &bool| if *cond { 1_u8 } else { 0_u8 })]
     #[br(map = |v: u8| v == 1)]
     has_liquid: bool,
+    #[br(if(has_liquid))]
     liquid_info: Option<TerrainLiquidInfo>,
 }
 

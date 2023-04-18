@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use env_logger::Env;
+use log::info;
 use r2d2_sqlite::SqliteConnectionManager;
 use rustbolt_world::{
     config::WorldConfig,
@@ -109,6 +110,8 @@ async fn main() {
 
     let world: Arc<RwLock<World>> = Arc::new(RwLock::new(world));
     World::start(world.clone()).await;
+
+    info!("World server ready");
 
     // Bind the listener to the address
     let listener = TcpListener::bind(format!(

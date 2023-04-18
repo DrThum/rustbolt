@@ -117,8 +117,8 @@ impl ADT {
                     .map(|lq| lq.to_terrain_info(&mcnk));
 
                 TerrainChunk::new(
-                    mcnk.header.index_x,
                     mcnk.header.index_y,
+                    mcnk.header.index_x,
                     mcnk.header.area_id,
                     mcnk.header.position_z,
                     mcnk.header.holes,

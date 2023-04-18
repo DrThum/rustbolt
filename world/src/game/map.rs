@@ -1,7 +1,7 @@
 use std::{collections::HashMap, sync::Arc};
 
 use log::warn;
-use shared::models::terrain_info::TerrainBlock;
+use shared::models::terrain_info::{TerrainBlock, BLOCK_WIDTH};
 use tokio::sync::RwLock;
 
 use crate::session::world_session::WorldSession;
@@ -57,5 +57,22 @@ impl Map {
         }
 
         result
+    }
+
+    pub fn get_terrain_height(&self, position_x: f32, position_y: f32) -> Option<f32> {
+        // FIXME: 32 -> MAP_WIDTH_IN_BLOCKS / 2.0
+        let block_row = (32.0 - (position_x / BLOCK_WIDTH)).floor() as usize;
+        let block_col = (32.0 - (position_y / BLOCK_WIDTH)).floor() as usize;
+        let terrain_block_coords = TerrainBlockCoords {
+            row: block_row,
+            col: block_col,
+        };
+        if let Some(terrain_block) = self.terrain.get(&terrain_block_coords) {
+            return Some(terrain_block.get_height(position_x, position_y));
+            // TODO: terrain_block.map(_.get_height) instead
+        }
+
+        let position_z = 0.0;
+        Some(position_z)
     }
 }

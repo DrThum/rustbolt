@@ -33,7 +33,10 @@ fn main() -> Result<(), std::io::Error> {
                         let adt_data = tools_shared::get_file_data(
                             format!(
                                 "World\\Maps\\{}\\{}_{}_{}.adt",
-                                name, name, coords.col, coords.row
+                                name,
+                                name,
+                                coords.col, // FIXME: Why is it inverted
+                                coords.row  // here? (MaNGOS does it)
                             ),
                             &mut mpq_context,
                         )
@@ -47,7 +50,7 @@ fn main() -> Result<(), std::io::Error> {
                                 .write(true)
                                 .open(format!(
                                     "{}/{}_{}_{}.terrain",
-                                    output_dir, name, coords.col, coords.row
+                                    output_dir, name, coords.row, coords.col
                                 ))
                                 .unwrap();
                             let mut writer = Cursor::new(Vec::new());

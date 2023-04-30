@@ -11,6 +11,8 @@ bytemuck = "1.13.1"
 clap = { version = "4.2.0", features = ["derive"] }
 downcast-rs = "1.2.0"
 enumflags2 = { version = "0.7.5", features = ["serde" ] }
+indicatif = { version = "0.17.3", features = ["rayon" ] }
 log = "0.4.17"
+rayon = "1.7.0"
 shared = { path = "../../shared" }
 tools_shared = { path = "../tools_shared" }

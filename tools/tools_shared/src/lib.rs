@@ -56,7 +56,7 @@ pub fn extract_files(
 
 pub fn get_file_data(
     file_to_extract: String,
-    mpq_context: &mut MPQContext,
+    mpq_context: &MPQContext,
 ) -> Result<Option<Vec<u8>>, std::io::Error> {
     get_files_data(vec![file_to_extract.clone()], mpq_context)
         .map(|map| map.get(&file_to_extract).map(|v| v.to_owned()))
@@ -64,11 +64,11 @@ pub fn get_file_data(
 
 pub fn get_files_data(
     files_to_extract: Vec<String>,
-    mpq_context: &mut MPQContext,
+    mpq_context: &MPQContext,
 ) -> Result<HashMap<String, Vec<u8>>, std::io::Error> {
     let mut files_with_data: HashMap<String, Vec<u8>> = HashMap::new();
     for file_to_extract in files_to_extract {
-        for mpq in &mut mpq_context.archives {
+        for mpq in &mpq_context.archives {
             let maybe_file_data = mpq
                 .find_hash_table_entry(file_to_extract.as_str(), &mpq_context.crypt_table)
                 .map(|hash_table_entry| {

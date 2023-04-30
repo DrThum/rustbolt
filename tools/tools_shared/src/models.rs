@@ -94,12 +94,12 @@ impl MPQFile {
         entry
     }
 
-    pub fn get_file_data(&mut self, entry: &MPQBlockTableEntry) -> Result<Vec<u8>, std::io::Error> {
+    pub fn get_file_data(&self, entry: &MPQBlockTableEntry) -> Result<Vec<u8>, std::io::Error> {
         let mut buffer = Vec::new();
         buffer.resize(entry.compressed_file_size as usize, 0);
-        self.underlying_file
-            .seek(SeekFrom::Start(entry.file_pos as u64))?;
-        self.underlying_file.read(&mut buffer)?;
+        let mut underlying_file_ref = &self.underlying_file;
+        underlying_file_ref.seek(SeekFrom::Start(entry.file_pos as u64))?;
+        underlying_file_ref.read(&mut buffer)?;
 
         if buffer.len() < 4 {
             return Ok(Vec::new());
@@ -112,25 +112,29 @@ impl MPQFile {
 
         // Read sectors offsets one by one until we have gathered the expected amount of bytes
         let mut sector_index = 0;
-        while sector_offsets[sector_index] < entry.compressed_file_size {
+        while final_buffer.len() < entry.uncompressed_file_size as usize {
             let mut sector_buffer: Vec<u8> = Vec::new();
             sector_buffer.resize(
                 sector_offsets[sector_index + 1] as usize - sector_offsets[sector_index] as usize,
                 0,
             );
-            self.underlying_file
+            underlying_file_ref
                 .seek(SeekFrom::Start(
                     entry.file_pos as u64 + sector_offsets[sector_index] as u64,
                 ))
                 .unwrap();
-            self.underlying_file.read(&mut sector_buffer)?;
+            underlying_file_ref.read(&mut sector_buffer)?;
 
-            let compression_flags = sector_buffer[0]; // FIXME: Verify why it's not
-                                                      // sector_buffer[sector_index]
+            let compression_flags = sector_buffer[0];
             trace!("compression_flags: {:#X}", compression_flags);
 
-            sector_buffer.drain(0..1);
-            let mut decompressed_sector = decompress(sector_buffer, compression_flags);
+            let mut decompressed_sector = if compression_flags == 0x2 {
+                // FIXME?
+                sector_buffer.drain(0..1);
+                decompress(sector_buffer, compression_flags)
+            } else {
+                sector_buffer
+            };
 
             final_buffer.append(&mut decompressed_sector);
 

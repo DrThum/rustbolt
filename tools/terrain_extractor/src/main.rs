@@ -1,5 +1,6 @@
 use binrw::{io::Cursor, BinWriterExt};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
+use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 
 use std::{fs, io::Write, path::PathBuf};
 
@@ -25,57 +26,61 @@ fn main() -> Result<(), std::io::Error> {
     let progbar_global = progbar_parent.add(ProgressBar::new(map_names.len() as u64));
     progbar_global.set_style(progstyle.clone());
     progbar_global.set_prefix("Extracted maps");
-    progbar_global.tick(); // Required to make the bar appear
+    progbar_global.tick(); // Required to make the  appear
 
-    let mut mpq_context = tools_shared::open_mpqs(client_data_dir)?;
-    // TODO: parallelize with rayon
-    map_names.into_iter().for_each(|name| {
+    let mpq_context = tools_shared::open_mpqs(client_data_dir)?;
+    // FIXME: Cannot make it parallel at the moment because the MPQContext (and thus the file
+    // handles) is shared
+    // TODO: Make num_threads a CLI parameter
+    rayon::ThreadPoolBuilder::new()
+        .num_threads(1)
+        .build_global()
+        .unwrap();
+    map_names.par_iter().for_each(|name| {
         let wdt_path = format!("World\\Maps\\{}\\{}.wdt", name, name);
-        if let Ok(Some(wdt_data)) = tools_shared::get_file_data(wdt_path.clone(), &mut mpq_context)
-        {
+        if let Ok(Some(wdt_data)) = tools_shared::get_file_data(wdt_path.clone(), &mpq_context) {
             if let Some(wdt) = terrain_extractor::read_wdt(&wdt_data) {
-                let progbar_this_map =
-                    progbar_parent.add(ProgressBar::new(wdt.map_chunks.len() as u64));
-                progbar_this_map.set_style(progstyle.clone());
-                progbar_this_map.set_prefix(name.clone());
+                if wdt.map_chunks.len() > 0 {
+                    let progbar_this_map =
+                        progbar_parent.add(ProgressBar::new(wdt.map_chunks.len() as u64));
+                    progbar_this_map.set_style(progstyle.clone());
+                    progbar_this_map.set_prefix(name.clone());
 
-                for coords in wdt.map_chunks {
-                    let adt_data = tools_shared::get_file_data(
-                        format!(
+                    for coords in wdt.map_chunks {
+                        let adt_file_name = format!(
                             "World\\Maps\\{}\\{}_{}_{}.adt",
                             name,
                             name,
                             coords.col, // FIXME: Why is it inverted
                             coords.row  // here? (MaNGOS does it)
-                        ),
-                        &mut mpq_context,
-                    )
-                    .unwrap();
+                        );
+                        let adt_data = tools_shared::get_file_data(adt_file_name, &mpq_context).unwrap();
 
-                    if let Some(terrain_block) =
-                        adt_data.and_then(|data| terrain_extractor::read_adt(&data))
-                    {
-                        let mut file = fs::OpenOptions::new()
-                            .create(true)
-                            .write(true)
-                            .open(format!(
-                                "{}/{}_{}_{}.terrain",
-                                output_dir, name, coords.row, coords.col
-                            ))
-                            .unwrap();
-                        let mut writer = Cursor::new(Vec::new());
-                        writer.write_le(&terrain_block).unwrap();
+                        if let Some(terrain_block) =
+                            adt_data.and_then(|data| terrain_extractor::read_adt(&data))
+                        {
+                            let mut file = fs::OpenOptions::new()
+                                .create(true)
+                                .write(true)
+                                .open(format!(
+                                    "{}/{}_{}_{}.terrain",
+                                    output_dir, name, coords.row, coords.col
+                                ))
+                                .unwrap();
+                            let mut writer = Cursor::new(Vec::new());
+                            writer.write_le(&terrain_block).unwrap();
 
-                        file.write_all(writer.get_ref()).unwrap();
-                    } else {
-                        warn!("failed to extract terrain info");
+                            file.write_all(writer.get_ref()).unwrap();
+                        } else {
+                            warn!("failed to extract terrain info");
+                        }
+
+                        progbar_this_map.inc(1);
+                        progbar_global.tick(); // Refresh the elapsed time
                     }
 
-                    progbar_this_map.inc(1);
-                    progbar_global.tick(); // Refresh the elapsed time
+                    progbar_this_map.finish();
                 }
-
-                progbar_this_map.finish();
             }
         }
 

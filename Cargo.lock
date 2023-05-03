@@ -1611,10 +1611,11 @@ dependencies = [
  "clap",
  "downcast-rs",
  "enumflags2",
+ "futures",
  "indicatif",
  "log",
- "rayon",
  "shared",
+ "tokio",
  "tools_shared",
 ]
 
@@ -1741,6 +1742,7 @@ dependencies = [
  "clap",
  "log",
  "miniz_oxide",
+ "tokio",
 ]
 
 [[package]]

@@ -11,6 +11,7 @@ use models::{MPQContext, MPQFile};
 
 pub mod constants;
 pub mod models;
+pub mod mpq_manager;
 pub mod utils {
     pub mod compression;
     pub mod crypto;

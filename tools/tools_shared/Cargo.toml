@@ -12,3 +12,4 @@ bzip2 = "0.4.4"
 clap = { version = "4.2.0", features = ["derive"] }
 log = "0.4.17"
 miniz_oxide = "0.7.1"
+tokio = { version = "1", features = ["full"] }

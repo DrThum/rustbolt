@@ -1,7 +1,7 @@
 use std::{collections::HashMap, fmt::Display, sync::Arc};
 
 use atomic_counter::{AtomicCounter, RelaxedCounter};
-use log::warn;
+use log::{warn, info};
 use shared::models::terrain_info::{TerrainBlock, MAP_WIDTH_IN_BLOCKS};
 use tokio::sync::RwLock;
 
@@ -39,6 +39,7 @@ impl MapManager {
             HashMap::new();
 
         // Instantiate all common (= continents) maps on startup
+        info!("Instantiating continents...");
         for map in data_store
             .get_all_map_records()
             .filter(|m| !m.is_instanceable())

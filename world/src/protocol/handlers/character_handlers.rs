@@ -4,7 +4,6 @@ use std::sync::Arc;
 
 use crate::entities::player::Player;
 use crate::entities::update::UpdatableEntity;
-use crate::game::map_manager::MapKey;
 use crate::game::world_context::WorldContext;
 use crate::protocol::client::ClientMessage;
 use crate::protocol::packets::*;
@@ -108,10 +107,7 @@ impl OpcodeHandler {
 
             world_context
                 .map_manager
-                .add_session_to_map(
-                    session.clone(),
-                    MapKey::for_continent(player.position().map), // TODO: handle instance id here
-                )
+                .add_session_to_map(session.clone(), player.position(), player.guid())
                 .await;
 
             let mut session_state = session.state.write().await;

@@ -15,6 +15,7 @@ pub const MAP_WIDTH_IN_CHUNKS: usize = MAP_WIDTH_IN_BLOCKS * BLOCK_WIDTH_IN_CHUN
 pub const CHUNK_WIDTH: f32 = 33.333333;
 pub const BLOCK_WIDTH: f32 = CHUNK_WIDTH * BLOCK_WIDTH_IN_CHUNKS as f32; // 533.333328
 pub const MAP_WIDTH: f32 = BLOCK_WIDTH * MAP_WIDTH_IN_BLOCKS as f32; // 34133.332992
+pub const MAP_MAX_COORD: f32 = MAP_WIDTH / 2.0; // 17066.666496
 
 pub type HeightMap = [f32; 145];
 
@@ -149,8 +150,8 @@ impl TerrainBlock {
         // TODO: handle terrain holes
 
         let subchunk_width = CHUNK_WIDTH / 8.0;
-        let chunk_offset_x = ((17066.666496 - position_x) % CHUNK_WIDTH) / subchunk_width;
-        let chunk_offset_y = ((17066.666496 - position_y) % CHUNK_WIDTH) / subchunk_width;
+        let chunk_offset_x = ((MAP_MAX_COORD - position_x) % CHUNK_WIDTH) / subchunk_width;
+        let chunk_offset_y = ((MAP_MAX_COORD - position_y) % CHUNK_WIDTH) / subchunk_width;
 
         let row_start_index = chunk_offset_x.floor() as usize; // Outer vertex
         let row_end_index = row_start_index + 1;

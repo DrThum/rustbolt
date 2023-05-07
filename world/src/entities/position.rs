@@ -17,3 +17,14 @@ pub struct WorldPosition {
     pub z: f32,
     pub o: f32,
 }
+
+impl WorldPosition {
+    pub fn to_position(&self) -> Position {
+        Position {
+            x: self.x,
+            y: self.y,
+            z: self.z,
+            o: self.o,
+        }
+    }
+}

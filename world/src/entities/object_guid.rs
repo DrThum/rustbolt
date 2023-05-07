@@ -3,7 +3,7 @@ use fixedbitset::FixedBitSet;
 
 use crate::shared::constants::HighGuidType;
 
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Copy, Clone, Debug)]
 pub struct ObjectGuid {
     high_guid_type: HighGuidType,
     raw: u64,

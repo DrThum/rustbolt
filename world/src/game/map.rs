@@ -4,14 +4,21 @@ use log::warn;
 use shared::models::terrain_info::{TerrainBlock, BLOCK_WIDTH};
 use tokio::sync::RwLock;
 
-use crate::session::world_session::WorldSession;
+use crate::{
+    entities::{object_guid::ObjectGuid, position::WorldPosition},
+    session::world_session::WorldSession,
+};
 
-use super::map_manager::{MapKey, TerrainBlockCoords};
+use super::{
+    map_manager::{MapKey, TerrainBlockCoords},
+    quad_tree::QuadTree,
+};
 
 pub struct Map {
     key: MapKey,
     sessions: RwLock<HashMap<u32, Arc<WorldSession>>>,
     terrain: Arc<HashMap<TerrainBlockCoords, TerrainBlock>>,
+    entities_tree: QuadTree,
 }
 
 impl Map {
@@ -20,10 +27,16 @@ impl Map {
             key,
             sessions: RwLock::new(HashMap::new()),
             terrain,
+            entities_tree: QuadTree::new(super::quad_tree::QUADTREE_DEFAULT_NODE_CAPACITY),
         }
     }
 
-    pub async fn add_player(&mut self, session: Arc<WorldSession>) {
+    pub async fn add_player(
+        &mut self,
+        session: Arc<WorldSession>,
+        player_position: &WorldPosition,
+        player_guid: &ObjectGuid,
+    ) {
         let mut guard = self.sessions.write().await;
         if let Some(previous_session) = guard.insert(session.account_id, session) {
             warn!(
@@ -31,6 +44,9 @@ impl Map {
                 previous_session.account_id, self.key
             );
         }
+
+        self.entities_tree
+            .insert(player_position.to_position(), player_guid.clone());
     }
 
     pub async fn remove_player(&mut self, account_id: u32) {

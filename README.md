@@ -17,3 +17,11 @@ Readme WIP
 
 * mkdir -p data/terrain
 * cargo run --bin terrain_extractor -- -c ~/PATH-TO-CLIENT -d data/dbcs -o data/terrain
+
+## Development
+
+### Run tests
+
+```bash
+$ cargo test
+```

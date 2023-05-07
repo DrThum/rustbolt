@@ -1,11 +1,12 @@
 use std::{collections::HashMap, fmt::Display, sync::Arc};
 
 use atomic_counter::{AtomicCounter, RelaxedCounter};
-use log::{warn, info};
+use log::{info, warn};
 use shared::models::terrain_info::{TerrainBlock, MAP_WIDTH_IN_BLOCKS};
 use tokio::sync::RwLock;
 
 use crate::{
+    entities::{object_guid::ObjectGuid, position::WorldPosition},
     protocol::{opcodes::Opcode, packets::MovementInfo},
     session::world_session::WorldSession,
     DataStore,
@@ -126,7 +127,12 @@ impl MapManager {
         guard.get(&map_key).cloned()
     }
 
-    pub async fn add_session_to_map(&self, session: Arc<WorldSession>, destination: MapKey) {
+    pub async fn add_session_to_map(
+        &self,
+        session: Arc<WorldSession>,
+        player_position: &WorldPosition,
+        player_guid: &ObjectGuid,
+    ) {
         let from_map = session.get_current_map().await;
 
         let guard = self.maps.write().await;
@@ -140,11 +146,13 @@ impl MapManager {
             }
         }
 
+        // TODO: handle instance id here
+        let destination = MapKey::for_continent(player_position.map);
         if let Some(destination_map) = guard.get(&destination) {
             destination_map
                 .write()
                 .await
-                .add_player(session.clone())
+                .add_player(session.clone(), player_position, player_guid)
                 .await;
             session.set_map(destination).await;
         } else {

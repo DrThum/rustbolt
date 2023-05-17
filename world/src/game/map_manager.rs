@@ -141,7 +141,7 @@ impl MapManager {
                 origin_map
                     .write()
                     .await
-                    .remove_player(session.account_id)
+                    .remove_player(session.clone())
                     .await;
             }
         }
@@ -169,7 +169,7 @@ impl MapManager {
                 origin_map
                     .write()
                     .await
-                    .remove_player(session.account_id)
+                    .remove_player(session.clone())
                     .await;
             }
         }

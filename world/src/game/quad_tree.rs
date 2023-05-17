@@ -308,7 +308,7 @@ impl QuadTree {
         guids
     }
 
-    pub fn delete(&mut self, guid: ObjectGuid) {
+    pub fn delete(&mut self, guid: &ObjectGuid) {
         fn delete_rec(node: &mut Box<Node>, position: &Position, value: &ObjectGuid) {
             match &mut (*node).content {
                 NodeContent::Values(ref mut existing_values) => {
@@ -344,12 +344,12 @@ impl QuadTree {
         self.entities_positions.remove(&guid);
     }
 
-    pub fn update(&mut self, new_position: Position, guid: ObjectGuid) {
+    pub fn update(&mut self, new_position: Position, guid: &ObjectGuid) {
         // Possible optimization: search for the value and update it in place if the new position
         // ends up in the same node as the old position
         // For now, simply delete then insert
         self.delete(guid);
-        self.insert(new_position, guid);
+        self.insert(new_position, guid.clone());
     }
 }
 
@@ -528,21 +528,21 @@ mod tests {
         insert(&mut quadtree, pos4.x, pos4.y, guid4.counter());
         insert(&mut quadtree, pos5.x, pos5.y, guid5.counter());
 
-        quadtree.delete(ObjectGuid::new(HighGuidType::Player, 4));
+        quadtree.delete(&ObjectGuid::new(HighGuidType::Player, 4));
         assert_eq!(
             format!("{quadtree:?}"),
             "QuadTree(2)<[NW[1],NE[2],SW[3],SE[5]]>"
         );
 
-        quadtree.delete(ObjectGuid::new(HighGuidType::Player, 1));
+        quadtree.delete(&ObjectGuid::new(HighGuidType::Player, 1));
         assert_eq!(
             format!("{quadtree:?}"),
             "QuadTree(2)<[NW[_],NE[2],SW[3],SE[5]]>"
         );
 
-        quadtree.delete(ObjectGuid::new(HighGuidType::Player, 2));
-        quadtree.delete(ObjectGuid::new(HighGuidType::Player, 3));
-        quadtree.delete(ObjectGuid::new(HighGuidType::Player, 5));
+        quadtree.delete(&ObjectGuid::new(HighGuidType::Player, 2));
+        quadtree.delete(&ObjectGuid::new(HighGuidType::Player, 3));
+        quadtree.delete(&ObjectGuid::new(HighGuidType::Player, 5));
         assert_eq!(format!("{quadtree:?}"), "QuadTree(2)<[_]>");
     }
 

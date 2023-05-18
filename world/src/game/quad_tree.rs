@@ -1,28 +1,30 @@
+use std::collections::HashMap;
+
 use shared::models::terrain_info::MAP_MAX_COORD;
 
 use crate::entities::{object_guid::ObjectGuid, position::Position};
 
 // QuadTree to store entities position in the world
-#[derive(Debug, Clone)]
-struct GuidPosition {
-    // TODO: use refs?
-    pub guid: ObjectGuid,
-    pub pos: Position,
-}
-
-impl GuidPosition {
-    pub fn point(&self) -> Point {
-        Point {
-            x: self.pos.x,
-            y: self.pos.y,
-        }
-    }
-}
+// #[derive(Debug, Clone)]
+// struct GuidPosition {
+//     // TODO: use refs?
+//     pub guid: ObjectGuid,
+//     pub pos: Position,
+// }
+//
+// impl GuidPosition {
+//     pub fn point(&self) -> Point {
+//         Point {
+//             x: self.pos.x,
+//             y: self.pos.y,
+//         }
+//     }
+// }
 
 #[derive(Debug)]
 enum NodeContent {
     Empty,
-    Values(Vec<GuidPosition>),
+    Values(Vec<ObjectGuid>),
     Children {
         nw: Box<Node>,
         ne: Box<Node>,
@@ -41,7 +43,7 @@ enum Quadrant {
 
 impl Quadrant {
     // Reminder: in WoW coords, X grows upward and y grows leftward
-    fn select(coords: &Point, bounds: &Bounds) -> Self {
+    fn select(coords: &Position, bounds: &Bounds) -> Self {
         let mid_x = (bounds.upper_left.x + bounds.lower_right.x) / 2.0;
         let mid_y = (bounds.upper_left.y + bounds.lower_right.y) / 2.0;
 
@@ -63,11 +65,9 @@ impl core::fmt::Debug for Node {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self.content {
             NodeContent::Empty => write!(f, "[_]"),
-            NodeContent::Values(vs) => write!(
-                f,
-                "{:?}",
-                vs.iter().map(|v| v.guid.raw()).collect::<Vec<u64>>()
-            ),
+            NodeContent::Values(vs) => {
+                write!(f, "{:?}", vs.iter().map(|v| v.raw()).collect::<Vec<u64>>())
+            }
             NodeContent::Children { nw, ne, sw, se } => {
                 write!(f, "[NW{:?},NE{:?},SW{:?},SE{:?}]", nw, ne, sw, se)
             }
@@ -76,14 +76,14 @@ impl core::fmt::Debug for Node {
 }
 
 impl Node {
-    pub fn leaf(value: GuidPosition, bounds: Bounds) -> Node {
+    pub fn leaf(value: ObjectGuid, bounds: Bounds) -> Node {
         Node {
             content: NodeContent::Values(vec![value]),
             bounds,
         }
     }
 
-    pub fn leaf_or_empty(values: Vec<GuidPosition>, bounds: Bounds) -> Node {
+    pub fn leaf_or_empty(values: Vec<ObjectGuid>, bounds: Bounds) -> Node {
         if values.len() > 0 {
             Node {
                 content: NodeContent::Values(values),
@@ -117,6 +117,7 @@ pub const QUADTREE_DEFAULT_NODE_CAPACITY: usize = 100;
 pub struct QuadTree {
     node_capacity: usize,
     root: Box<Node>,
+    entities_positions: HashMap<ObjectGuid, Position>,
 }
 
 impl core::fmt::Debug for QuadTree {
@@ -141,11 +142,18 @@ impl QuadTree {
         Self {
             node_capacity,
             root: Box::new(Node::empty(root_bounds)),
+            entities_positions: HashMap::new(),
         }
     }
 
     pub fn insert(&mut self, pos: Position, guid: ObjectGuid) {
-        fn insert_rec(node: &mut Box<Node>, new_value: GuidPosition, node_capacity: usize) {
+        fn insert_rec(
+            entities_positions: &HashMap<ObjectGuid, Position>,
+            node: &mut Box<Node>,
+            new_value: ObjectGuid,
+            new_value_position: Position,
+            node_capacity: usize,
+        ) {
             match &mut (*node).content {
                 // Node is empty, transform it to a Leaf node with the new value
                 NodeContent::Empty => **node = Node::leaf(new_value, node.bounds.clone()),
@@ -158,13 +166,17 @@ impl QuadTree {
                 // Node is a full leaf, subdivide it in four then add the new value
                 NodeContent::Values(ref mut existing_values) => {
                     // Subdivide...
-                    let mut nw: Vec<GuidPosition> = Vec::new();
-                    let mut ne: Vec<GuidPosition> = Vec::new();
-                    let mut sw: Vec<GuidPosition> = Vec::new();
-                    let mut se: Vec<GuidPosition> = Vec::new();
+                    let mut nw: Vec<ObjectGuid> = Vec::new();
+                    let mut ne: Vec<ObjectGuid> = Vec::new();
+                    let mut sw: Vec<ObjectGuid> = Vec::new();
+                    let mut se: Vec<ObjectGuid> = Vec::new();
 
                     for value in existing_values {
-                        match Quadrant::select(&value.point(), &node.bounds) {
+                        let position = entities_positions
+                            .get(&value)
+                            .expect("entity exists in quadtree but is not in entities_positions");
+
+                        match Quadrant::select(&position, &node.bounds) {
                             Quadrant::NorthWest => nw.push(value.clone()),
                             Quadrant::NorthEast => ne.push(value.clone()),
                             Quadrant::SouthWest => sw.push(value.clone()),
@@ -173,7 +185,7 @@ impl QuadTree {
                     }
 
                     // ...then insert in the relevant quadrant
-                    match Quadrant::select(&new_value.point(), &node.bounds) {
+                    match Quadrant::select(&new_value_position, &node.bounds) {
                         Quadrant::NorthWest => nw.push(new_value),
                         Quadrant::NorthEast => ne.push(new_value),
                         Quadrant::SouthWest => sw.push(new_value),
@@ -209,7 +221,7 @@ impl QuadTree {
                 }
                 // Node is an internal one, recursively insert into the relevant quadrant
                 NodeContent::Children { nw, ne, sw, se } => {
-                    let new_value_quadrant = Quadrant::select(&new_value.point(), &node.bounds);
+                    let new_value_quadrant = Quadrant::select(&new_value_position, &node.bounds);
 
                     let target_quadrant = match new_value_quadrant {
                         Quadrant::NorthWest => nw,
@@ -218,74 +230,102 @@ impl QuadTree {
                         Quadrant::SouthEast => se,
                     };
 
-                    insert_rec(target_quadrant, new_value, node_capacity);
+                    insert_rec(
+                        entities_positions,
+                        target_quadrant,
+                        new_value,
+                        new_value_position,
+                        node_capacity,
+                    );
                 }
             }
         }
 
-        let guidpos = GuidPosition { guid, pos };
-
-        insert_rec(&mut self.root, guidpos, self.node_capacity);
+        insert_rec(
+            &self.entities_positions,
+            &mut self.root,
+            guid,
+            pos,
+            self.node_capacity,
+        );
+        self.entities_positions.insert(guid, pos);
     }
 
-    pub fn search(&self, center_x: f32, center_y: f32, radius: f32) -> Vec<ObjectGuid> {
-        fn search_rec(node: &Box<Node>, center: &Point, radius: f32, acc: &mut Vec<ObjectGuid>) {
+    pub fn search(&self, position: &Position, radius: f32, search_in_3d: bool) -> Vec<ObjectGuid> {
+        fn search_rec(
+            entities_positions: &HashMap<ObjectGuid, Position>,
+            node: &Box<Node>,
+            center: &Position,
+            radius: f32,
+            search_in_3d: bool,
+            acc: &mut Vec<ObjectGuid>,
+        ) {
             match &node.content {
                 NodeContent::Empty => (),
                 NodeContent::Values(values) if node.bounds.intersects_circle(&center, radius) => {
                     let radius_square = radius * radius;
                     for value in values {
-                        let dist_square = value.point().dist_square(&center);
+                        let position = entities_positions
+                            .get(&value)
+                            .expect("entity exists in quadtree but is not in entities_positions");
+                        let dist_square = if search_in_3d {
+                            position.square_distance_3d(&center)
+                        } else {
+                            position.square_distance_2d(&center)
+                        };
                         if dist_square <= radius_square {
-                            acc.push(value.guid.clone());
+                            acc.push(value.clone());
                         }
                     }
                 }
                 NodeContent::Values(_) => (),
                 NodeContent::Children { nw, ne, sw, se } => {
                     if nw.bounds.intersects_circle(&center, radius) {
-                        search_rec(nw, &center, radius, acc);
+                        search_rec(entities_positions, nw, &center, radius, search_in_3d, acc);
                     }
                     if ne.bounds.intersects_circle(&center, radius) {
-                        search_rec(ne, &center, radius, acc);
+                        search_rec(entities_positions, ne, &center, radius, search_in_3d, acc);
                     }
                     if sw.bounds.intersects_circle(&center, radius) {
-                        search_rec(sw, &center, radius, acc);
+                        search_rec(entities_positions, sw, &center, radius, search_in_3d, acc);
                     }
                     if se.bounds.intersects_circle(&center, radius) {
-                        search_rec(se, &center, radius, acc);
+                        search_rec(entities_positions, se, &center, radius, search_in_3d, acc);
                     }
                 }
             }
         }
 
-        let center = Point {
-            x: center_x,
-            y: center_y,
-        };
         let mut guids: Vec<ObjectGuid> = Vec::new();
-        search_rec(&self.root, &center, radius, &mut guids);
+        search_rec(
+            &self.entities_positions,
+            &self.root,
+            &position,
+            radius,
+            search_in_3d,
+            &mut guids,
+        );
         guids
     }
 
-    pub fn delete(&mut self, pos: Position, guid: ObjectGuid) {
-        fn delete_rec(node: &mut Box<Node>, value: &GuidPosition) {
+    pub fn delete(&mut self, guid: ObjectGuid) {
+        fn delete_rec(node: &mut Box<Node>, position: &Position, value: &ObjectGuid) {
             match &mut (*node).content {
                 NodeContent::Values(ref mut existing_values) => {
-                    existing_values.retain(|v| v.guid != value.guid);
+                    existing_values.retain(|v| v != value);
 
                     if existing_values.is_empty() {
                         **node = Node::empty(node.bounds.clone());
                     }
                 }
                 NodeContent::Children { nw, ne, sw, se } => {
-                    let value_quadrant = Quadrant::select(&value.point(), &node.bounds);
+                    let value_quadrant = Quadrant::select(position, &node.bounds);
 
                     match value_quadrant {
-                        Quadrant::NorthWest => delete_rec(nw, value),
-                        Quadrant::NorthEast => delete_rec(ne, value),
-                        Quadrant::SouthWest => delete_rec(sw, value),
-                        Quadrant::SouthEast => delete_rec(se, value),
+                        Quadrant::NorthWest => delete_rec(nw, position, value),
+                        Quadrant::NorthEast => delete_rec(ne, position, value),
+                        Quadrant::SouthWest => delete_rec(sw, position, value),
+                        Quadrant::SouthEast => delete_rec(se, position, value),
                     };
 
                     if node.is_empty() {
@@ -296,17 +336,37 @@ impl QuadTree {
             }
         }
 
-        let guidpos = GuidPosition { guid, pos };
-
-        delete_rec(&mut self.root, &guidpos)
+        let position = self
+            .entities_positions
+            .get(&guid)
+            .expect("entity exists in quadtree but is not in entities_positions");
+        delete_rec(&mut self.root, position, &guid);
+        self.entities_positions.remove(&guid);
     }
 
-    pub fn update(&mut self, old_position: Position, new_position: Position, guid: ObjectGuid) {
+    pub fn update(&mut self, new_position: Position, guid: ObjectGuid) {
         // Possible optimization: search for the value and update it in place if the new position
         // ends up in the same node as the old position
         // For now, simply delete then insert
-        self.delete(old_position, guid);
+        self.delete(guid);
         self.insert(new_position, guid);
+    }
+}
+
+impl Position {
+    pub fn square_distance_2d(&self, other: &Position) -> f32 {
+        let dist_x = self.x - other.x;
+        let dist_y = self.y - other.y;
+
+        (dist_x * dist_x) + (dist_y * dist_y)
+    }
+
+    pub fn square_distance_3d(&self, other: &Position) -> f32 {
+        let dist_x = self.x - other.x;
+        let dist_y = self.y - other.y;
+        let dist_z = self.z - other.z;
+
+        (dist_x * dist_x) + (dist_y * dist_y) + (dist_z * dist_z)
     }
 }
 
@@ -314,15 +374,6 @@ impl QuadTree {
 struct Point {
     pub x: f32,
     pub y: f32,
-}
-
-impl Point {
-    pub fn dist_square(&self, other: &Point) -> f32 {
-        let dist_x = self.x - other.x;
-        let dist_y = self.y - other.y;
-
-        (dist_x * dist_x) + (dist_y * dist_y)
-    }
 }
 
 #[derive(Clone)]
@@ -370,7 +421,7 @@ impl Bounds {
         }
     }
 
-    fn intersects_circle(&self, center: &Point, radius: f32) -> bool {
+    fn intersects_circle(&self, center: &Position, radius: f32) -> bool {
         let test_x = if center.x > self.upper_left.x {
             self.upper_left.x
         } else if center.x < self.lower_right.x {
@@ -400,6 +451,8 @@ impl Bounds {
 
 #[cfg(test)]
 mod tests {
+    use crate::shared::constants::HighGuidType;
+
     use super::*;
 
     fn insert(quadtree: &mut QuadTree, x: f32, y: f32, counter: u32) {
@@ -475,36 +528,21 @@ mod tests {
         insert(&mut quadtree, pos4.x, pos4.y, guid4.counter());
         insert(&mut quadtree, pos5.x, pos5.y, guid5.counter());
 
-        quadtree.delete(
-            pos4,
-            ObjectGuid::new(crate::shared::constants::HighGuidType::Player, 4),
-        );
+        quadtree.delete(ObjectGuid::new(HighGuidType::Player, 4));
         assert_eq!(
             format!("{quadtree:?}"),
             "QuadTree(2)<[NW[1],NE[2],SW[3],SE[5]]>"
         );
 
-        quadtree.delete(
-            pos1,
-            ObjectGuid::new(crate::shared::constants::HighGuidType::Player, 1),
-        );
+        quadtree.delete(ObjectGuid::new(HighGuidType::Player, 1));
         assert_eq!(
             format!("{quadtree:?}"),
             "QuadTree(2)<[NW[_],NE[2],SW[3],SE[5]]>"
         );
 
-        quadtree.delete(
-            pos2,
-            ObjectGuid::new(crate::shared::constants::HighGuidType::Player, 2),
-        );
-        quadtree.delete(
-            pos3,
-            ObjectGuid::new(crate::shared::constants::HighGuidType::Player, 3),
-        );
-        quadtree.delete(
-            pos5,
-            ObjectGuid::new(crate::shared::constants::HighGuidType::Player, 5),
-        );
+        quadtree.delete(ObjectGuid::new(HighGuidType::Player, 2));
+        quadtree.delete(ObjectGuid::new(HighGuidType::Player, 3));
+        quadtree.delete(ObjectGuid::new(HighGuidType::Player, 5));
         assert_eq!(format!("{quadtree:?}"), "QuadTree(2)<[_]>");
     }
 
@@ -516,88 +554,241 @@ mod tests {
         };
 
         // Circle is entirely within the rectangle
-        let intersects = bounds.intersects_circle(&Point { x: -1.0, y: -1.0 }, 0.5);
+        let intersects = bounds.intersects_circle(
+            &Position {
+                x: -1.0,
+                y: -1.0,
+                z: 0.0,
+                o: 0.0,
+            },
+            0.5,
+        );
         assert_eq!(intersects, true);
 
         // Circle center is within but the circle itself is larger than the rectangle
-        let intersects = bounds.intersects_circle(&Point { x: -1.0, y: -1.0 }, 5.0);
+        let intersects = bounds.intersects_circle(
+            &Position {
+                x: -1.0,
+                y: -1.0,
+                z: 0.0,
+                o: 0.0,
+            },
+            5.0,
+        );
         assert_eq!(intersects, true);
 
         // Circle center is West of the rectangle and not overlapping
-        let intersects = bounds.intersects_circle(&Point { x: -1.0, y: 1.0 }, 0.5);
+        let intersects = bounds.intersects_circle(
+            &Position {
+                x: -1.0,
+                y: 1.0,
+                z: 0.0,
+                o: 0.0,
+            },
+            0.5,
+        );
         assert_eq!(intersects, false);
 
         // Circle center is West of the rectangle and overlapping
-        let intersects = bounds.intersects_circle(&Point { x: -1.0, y: 1.0 }, 1.1);
+        let intersects = bounds.intersects_circle(
+            &Position {
+                x: -1.0,
+                y: 1.0,
+                z: 0.0,
+                o: 0.0,
+            },
+            1.1,
+        );
         assert_eq!(intersects, true);
 
         // Circle center is North of the rectangle and not overlapping
-        let intersects = bounds.intersects_circle(&Point { x: 1.0, y: -1.0 }, 0.5);
+        let intersects = bounds.intersects_circle(
+            &Position {
+                x: 1.0,
+                y: -1.0,
+                z: 0.0,
+                o: 0.0,
+            },
+            0.5,
+        );
         assert_eq!(intersects, false);
 
         // Circle center is North of the rectangle and overlapping
-        let intersects = bounds.intersects_circle(&Point { x: 1.0, y: -1.0 }, 1.1);
+        let intersects = bounds.intersects_circle(
+            &Position {
+                x: 1.0,
+                y: -1.0,
+                z: 0.0,
+                o: 0.0,
+            },
+            1.1,
+        );
         assert_eq!(intersects, true);
 
         // Circle center is East of the rectangle and not overlapping
-        let intersects = bounds.intersects_circle(&Point { x: -1.0, y: -3.0 }, 0.5);
+        let intersects = bounds.intersects_circle(
+            &Position {
+                x: -1.0,
+                y: -3.0,
+                z: 0.0,
+                o: 0.0,
+            },
+            0.5,
+        );
         assert_eq!(intersects, false);
 
         // Circle center is East of the rectangle and overlapping
-        let intersects = bounds.intersects_circle(&Point { x: -1.0, y: -3.0 }, 1.1);
+        let intersects = bounds.intersects_circle(
+            &Position {
+                x: -1.0,
+                y: -3.0,
+                z: 0.0,
+                o: 0.0,
+            },
+            1.1,
+        );
         assert_eq!(intersects, true);
 
         // Circle center is South of the rectangle and not overlapping
-        let intersects = bounds.intersects_circle(&Point { x: -3.0, y: -1.0 }, 0.5);
+        let intersects = bounds.intersects_circle(
+            &Position {
+                x: -3.0,
+                y: -1.0,
+                z: 0.0,
+                o: 0.0,
+            },
+            0.5,
+        );
         assert_eq!(intersects, false);
 
         // Circle center is South of the rectangle and overlapping
-        let intersects = bounds.intersects_circle(&Point { x: -3.0, y: -1.0 }, 1.1);
+        let intersects = bounds.intersects_circle(
+            &Position {
+                x: -3.0,
+                y: -1.0,
+                z: 0.0,
+                o: 0.0,
+            },
+            1.1,
+        );
         assert_eq!(intersects, true);
 
         // Circle center is North-West of the rectangle and not overlapping
-        let intersects = bounds.intersects_circle(&Point { x: 1.0, y: 1.0 }, 1.41);
+        let intersects = bounds.intersects_circle(
+            &Position {
+                x: 1.0,
+                y: 1.0,
+                z: 0.0,
+                o: 0.0,
+            },
+            1.41,
+        );
         assert_eq!(intersects, false);
 
         // Circle center is North-West of the rectangle and overlapping
-        let intersects = bounds.intersects_circle(&Point { x: 1.0, y: 1.0 }, 1.42);
+        let intersects = bounds.intersects_circle(
+            &Position {
+                x: 1.0,
+                y: 1.0,
+                z: 0.0,
+                o: 0.0,
+            },
+            1.42,
+        );
         assert_eq!(intersects, true);
 
         // Circle center is North-East of the rectangle and not overlapping
-        let intersects = bounds.intersects_circle(&Point { x: 1.0, y: -3.0 }, 1.41);
+        let intersects = bounds.intersects_circle(
+            &Position {
+                x: 1.0,
+                y: -3.0,
+                z: 0.0,
+                o: 0.0,
+            },
+            1.41,
+        );
         assert_eq!(intersects, false);
 
         // Circle center is North-East of the rectangle and overlapping
-        let intersects = bounds.intersects_circle(&Point { x: 1.0, y: -3.0 }, 1.42);
+        let intersects = bounds.intersects_circle(
+            &Position {
+                x: 1.0,
+                y: -3.0,
+                z: 0.0,
+                o: 0.0,
+            },
+            1.42,
+        );
         assert_eq!(intersects, true);
 
         // Circle center is South-East of the rectangle and not overlapping
-        let intersects = bounds.intersects_circle(&Point { x: -3.0, y: -3.0 }, 1.41);
+        let intersects = bounds.intersects_circle(
+            &Position {
+                x: -3.0,
+                y: -3.0,
+                z: 0.0,
+                o: 0.0,
+            },
+            1.41,
+        );
         assert_eq!(intersects, false);
 
         // Circle center is South-East of the rectangle and overlapping
-        let intersects = bounds.intersects_circle(&Point { x: -3.0, y: -3.0 }, 1.42);
+        let intersects = bounds.intersects_circle(
+            &Position {
+                x: -3.0,
+                y: -3.0,
+                z: 0.0,
+                o: 0.0,
+            },
+            1.42,
+        );
         assert_eq!(intersects, true);
 
         // Circle center is South-West of the rectangle and not overlapping
-        let intersects = bounds.intersects_circle(&Point { x: -3.0, y: 1.0 }, 1.41);
+        let intersects = bounds.intersects_circle(
+            &Position {
+                x: -3.0,
+                y: 1.0,
+                z: 0.0,
+                o: 0.0,
+            },
+            1.41,
+        );
         assert_eq!(intersects, false);
 
         // Circle center is South-West of the rectangle and overlapping
-        let intersects = bounds.intersects_circle(&Point { x: -3.0, y: 1.0 }, 1.42);
+        let intersects = bounds.intersects_circle(
+            &Position {
+                x: -3.0,
+                y: 1.0,
+                z: 0.0,
+                o: 0.0,
+            },
+            1.42,
+        );
         assert_eq!(intersects, true);
     }
 
     #[test]
     fn test_quadtree_find() {
-        fn find_sorted(quadtree: &QuadTree, center_x: f32, center_y: f32, radius: f32) -> Vec<u64> {
+        fn find_sorted(quadtree: &QuadTree, position: &Position, radius: f32) -> Vec<u64> {
             let mut guids = quadtree
-                .search(center_x, center_y, radius)
+                .search(position, radius, false)
                 .into_iter()
                 .map(|g| g.raw())
                 .collect::<Vec<u64>>();
             guids.sort();
             guids
+        }
+
+        fn build_pos(x: f32, y: f32) -> Position {
+            Position {
+                x,
+                y,
+                z: 0.0,
+                o: 0.0,
+            }
         }
 
         let mut quadtree = QuadTree::new(2);
@@ -607,11 +798,23 @@ mod tests {
         insert(&mut quadtree, -2.0, -2.0, 3);
         insert(&mut quadtree, -2.0, 2.0, 4);
 
-        assert_eq!(find_sorted(&quadtree, 0.0, 0.0, 4.0), vec![1, 2, 3, 4]);
-        assert_eq!(find_sorted(&quadtree, 0.0, 0.0, 2.0), Vec::<u64>::new());
-        assert_eq!(find_sorted(&quadtree, 2.0, 0.0, 2.0), vec![1, 2]);
-        assert_eq!(find_sorted(&quadtree, 2.0, -2.0, 3.9), vec![2]);
-        assert_eq!(find_sorted(&quadtree, 2.0, -2.0, 4.0), vec![1, 2, 3]);
-        assert_eq!(find_sorted(&quadtree, 2.0, 2.0, 0.0), vec![1]);
+        assert_eq!(
+            find_sorted(&quadtree, &build_pos(0.0, 0.0), 4.0),
+            vec![1, 2, 3, 4]
+        );
+        assert_eq!(
+            find_sorted(&quadtree, &build_pos(0.0, 0.0), 2.0),
+            Vec::<u64>::new()
+        );
+        assert_eq!(
+            find_sorted(&quadtree, &build_pos(2.0, 0.0), 2.0),
+            vec![1, 2]
+        );
+        assert_eq!(find_sorted(&quadtree, &build_pos(2.0, -2.0), 3.9), vec![2]);
+        assert_eq!(
+            find_sorted(&quadtree, &build_pos(2.0, -2.0), 4.0),
+            vec![1, 2, 3]
+        );
+        assert_eq!(find_sorted(&quadtree, &build_pos(2.0, 2.0), 0.0), vec![1]);
     }
 }

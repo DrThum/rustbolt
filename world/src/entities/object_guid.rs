@@ -1,3 +1,5 @@
+use std::hash::Hasher;
+
 use binrw::binwrite;
 use fixedbitset::FixedBitSet;
 
@@ -89,6 +91,12 @@ impl ObjectGuid {
             | HighGuidType::Pet
             | HighGuidType::Gameobject => true,
         }
+    }
+}
+
+impl std::hash::Hash for ObjectGuid {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.raw.hash(state);
     }
 }
 

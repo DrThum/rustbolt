@@ -224,7 +224,7 @@ impl OpcodeHandler {
 
             for other_session in world_context
                 .map_manager
-                .nearby_sessions(session.get_current_map().await, session.account_id)
+                .nearby_sessions(session.get_current_map().await, player.guid(), false)
                 .await
             {
                 // Broadcast the new player to nearby players

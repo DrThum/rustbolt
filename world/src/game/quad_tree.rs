@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use log::warn;
 use shared::models::terrain_info::MAP_MAX_COORD;
 
 use crate::entities::{object_guid::ObjectGuid, position::Position};
@@ -251,7 +252,12 @@ impl QuadTree {
         self.entities_positions.insert(guid, pos);
     }
 
-    pub fn search(&self, position: &Position, radius: f32, search_in_3d: bool) -> Vec<ObjectGuid> {
+    pub fn search_around_position(
+        &self,
+        position: &Position,
+        radius: f32,
+        search_in_3d: bool,
+    ) -> Vec<ObjectGuid> {
         fn search_rec(
             entities_positions: &HashMap<ObjectGuid, Position>,
             node: &Box<Node>,
@@ -273,6 +279,7 @@ impl QuadTree {
                         } else {
                             position.square_distance_2d(&center)
                         };
+
                         if dist_square <= radius_square {
                             acc.push(value.clone());
                         }
@@ -306,6 +313,21 @@ impl QuadTree {
             &mut guids,
         );
         guids
+    }
+
+    // pub fn search_around_position(&self, position: &Position, radius: f32, search_in_3d: bool) -> Vec<ObjectGuid> {
+    pub fn search_around_entity(
+        &self,
+        guid: &ObjectGuid,
+        radius: f32,
+        search_in_3d: bool,
+    ) -> Vec<ObjectGuid> {
+        if let Some(position) = self.entities_positions.get(&guid) {
+            return self.search_around_position(position, radius, search_in_3d);
+        }
+
+        warn!("QuadTree::search_around_entity: searching for entity with guid {} that is not present in entities_position", guid.raw());
+        Vec::new()
     }
 
     pub fn delete(&mut self, guid: &ObjectGuid) {
@@ -344,12 +366,12 @@ impl QuadTree {
         self.entities_positions.remove(&guid);
     }
 
-    pub fn update(&mut self, new_position: Position, guid: &ObjectGuid) {
+    pub fn update(&mut self, new_position: &Position, guid: &ObjectGuid) {
         // Possible optimization: search for the value and update it in place if the new position
         // ends up in the same node as the old position
         // For now, simply delete then insert
         self.delete(guid);
-        self.insert(new_position, guid.clone());
+        self.insert(new_position.clone(), guid.clone());
     }
 }
 
@@ -774,7 +796,7 @@ mod tests {
     fn test_quadtree_find() {
         fn find_sorted(quadtree: &QuadTree, position: &Position, radius: f32) -> Vec<u64> {
             let mut guids = quadtree
-                .search(position, radius, false)
+                .search_around_position(position, radius, false)
                 .into_iter()
                 .map(|g| g.raw())
                 .collect::<Vec<u64>>();

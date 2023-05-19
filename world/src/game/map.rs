@@ -5,7 +5,10 @@ use shared::models::terrain_info::{TerrainBlock, BLOCK_WIDTH, MAP_WIDTH_IN_BLOCK
 use tokio::sync::RwLock;
 
 use crate::{
-    entities::{object_guid::ObjectGuid, position::WorldPosition},
+    entities::{
+        object_guid::ObjectGuid,
+        position::{Position, WorldPosition},
+    },
     session::world_session::WorldSession,
 };
 
@@ -14,11 +17,14 @@ use super::{
     quad_tree::QuadTree,
 };
 
+pub const DEFAULT_VISIBILITY_DISTANCE: f32 = 90.0;
+
 pub struct Map {
     key: MapKey,
-    sessions: RwLock<HashMap<u32, Arc<WorldSession>>>,
+    sessions: RwLock<HashMap<ObjectGuid, Arc<WorldSession>>>,
     terrain: Arc<HashMap<TerrainBlockCoords, TerrainBlock>>,
     entities_tree: RwLock<QuadTree>,
+    visibility_distance: f32,
 }
 
 impl Map {
@@ -30,6 +36,7 @@ impl Map {
             entities_tree: RwLock::new(QuadTree::new(
                 super::quad_tree::QUADTREE_DEFAULT_NODE_CAPACITY,
             )),
+            visibility_distance: DEFAULT_VISIBILITY_DISTANCE,
         }
     }
 
@@ -39,8 +46,10 @@ impl Map {
         player_position: &WorldPosition,
         player_guid: &ObjectGuid,
     ) {
+        session.send_initial_spells().await;
+
         let mut guard = self.sessions.write().await;
-        if let Some(previous_session) = guard.insert(session.account_id, session) {
+        if let Some(previous_session) = guard.insert(player_guid.clone(), session) {
             warn!(
                 "session from account {} was already on map {}",
                 previous_session.account_id, self.key
@@ -49,21 +58,17 @@ impl Map {
 
         let mut tree = self.entities_tree.write().await;
         tree.insert(player_position.to_position(), player_guid.clone());
-        println!("quadtree after add: {tree:?}");
     }
 
     pub async fn remove_player(&mut self, session: Arc<WorldSession>) {
-        {
-            let player_guard = session.player.read().await;
-            let player_guid = player_guard.guid();
-            let mut tree = self.entities_tree.write().await;
-            tree.delete(player_guid);
-            println!("quadtree after delete: {tree:?}");
-        }
+        let player_guard = session.player.read().await;
+        let player_guid = player_guard.guid();
+        let mut tree = self.entities_tree.write().await;
+        tree.delete(player_guid);
 
         {
             let mut guard = self.sessions.write().await;
-            if let None = guard.remove(&session.account_id) {
+            if let None = guard.remove(player_guid) {
                 warn!(
                     "session from account {} was not on map {}",
                     session.account_id, self.key
@@ -72,20 +77,42 @@ impl Map {
         }
     }
 
-    // All sessions around me except myself
-    // FIXME: Use the future k-d tree to only include nearby players
-    pub async fn nearby_sessions(&self, account_id: u32) -> Vec<Arc<WorldSession>> {
-        let mut result = Vec::new();
+    pub async fn update_player_position(&mut self, player_guid: &ObjectGuid, position: &Position) {
+        self.entities_tree
+            .write()
+            .await
+            .update(position, player_guid);
+    }
 
-        let guard = self.sessions.read().await;
+    pub async fn nearby_sessions(
+        &self,
+        source_guid: &ObjectGuid,
+        range: f32,
+        search_in_3d: bool,
+        include_self: bool,
+    ) -> Vec<Arc<WorldSession>> {
+        let mut guids =
+            self.entities_tree
+                .read()
+                .await
+                .search_around_entity(source_guid, range, search_in_3d);
 
-        for (_, session) in &*guard {
-            if session.is_in_world().await && session.account_id != account_id {
-                result.push(session.clone());
-            }
+        if !include_self {
+            guids.retain(|g| g != source_guid);
         }
 
-        result
+        self.sessions
+            .read()
+            .await
+            .iter()
+            .filter_map(|(&guid, session)| {
+                if guids.contains(&guid) {
+                    Some(session.clone())
+                } else {
+                    None
+                }
+            })
+            .collect()
     }
 
     pub fn get_terrain_height(&self, position_x: f32, position_y: f32) -> Option<f32> {
@@ -103,5 +130,9 @@ impl Map {
 
         let position_z = 0.0;
         Some(position_z)
+    }
+
+    pub fn visibility_distance(&self) -> f32 {
+        self.visibility_distance
     }
 }

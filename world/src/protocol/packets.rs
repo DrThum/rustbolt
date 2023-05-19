@@ -510,3 +510,54 @@ pub struct SmsgStandStateUpdate {
 pub struct CmsgSetSheathed {
     pub sheath_state: u32,
 }
+
+#[binread]
+#[derive(Debug)]
+pub struct CmsgMessageChat {
+    pub chat_type: u32,
+    pub lang_id: u32,
+    #[br(if(chat_type == 0x07))] // ChatMessageType::Whisper
+    pub recipient: Option<NullString>,
+    #[br(if(chat_type == 0x11))] // ChatMessageType::Channel
+    pub channel: Option<NullString>,
+    pub msg: NullString,
+}
+
+#[binwrite]
+#[server_opcode]
+pub struct SmsgMessageChat {
+    // FIXME: Incomplete
+    pub message_type: u8,
+    pub language_id: u32,
+    pub sender_guid: u64, // TODO: ObjectGuid?
+    pub unk: u32,         // 0,
+    pub target_guid: u64,
+    pub message_len: u32,
+    pub message: NullString,
+    pub chat_tag: u8, // 0 for now
+}
+
+#[binwrite]
+pub struct InitialSpell {
+    pub spell_id: u16,
+    pub unk: u16, // 0
+}
+
+#[binwrite]
+pub struct InitialSpellCooldown {
+    pub spell_id: u16,
+    pub cast_item_id: u16,
+    pub spell_category: u16,
+    pub cooldown_millis: u32,
+    pub category_cooldown: u32,
+}
+
+#[binwrite]
+#[server_opcode]
+pub struct SmsgInitialSpells {
+    pub unk: u8, // 0
+    pub spell_count: u16,
+    pub spells: Vec<InitialSpell>,
+    pub cooldown_count: u16,
+    pub cooldowns: Vec<InitialSpellCooldown>,
+}

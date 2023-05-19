@@ -273,6 +273,15 @@ impl Player {
 
         self.values
             .set_u32(UnitFields::UnitFieldFactiontemplate.into(), 469);
+
+        // Skills - TODO Handle properly
+        // For now, just add the skill for Orcish language
+        self.values
+            .set_u16(UnitFields::PlayerSkillInfo1_1.into(), 0, 109);
+        self.values
+            .set_u16(UnitFields::PlayerSkillInfo1_1 as usize + 1, 0, 375);
+        self.values
+            .set_u16(UnitFields::PlayerSkillInfo1_1 as usize + 1, 1, 375);
         /* END TO REFACTOR LATER */
 
         let inventory: HashMap<u32, Item> =

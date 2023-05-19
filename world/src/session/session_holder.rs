@@ -57,7 +57,7 @@ impl SessionHolder {
                 // FIXME: this will be handled by the future map system
                 for other_session in world_context
                     .map_manager
-                    .nearby_sessions(map, session.account_id)
+                    .nearby_sessions(map, player.guid(), false)
                     .await
                 {
                     // Broadcast the change to nearby players

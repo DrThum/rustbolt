@@ -20,7 +20,7 @@ use crate::{
     game::{map_manager::MapKey, world_context::WorldContext},
     protocol::{
         opcodes::Opcode,
-        packets::{MovementInfo, SmsgTimeSyncReq},
+        packets::{InitialSpell, MovementInfo, SmsgInitialSpells, SmsgTimeSyncReq},
         server::{ServerMessage, ServerMessageHeader, ServerMessagePayload},
     },
     WorldSocketError,
@@ -273,6 +273,27 @@ impl WorldSession {
     pub async fn set_map(&self, key: MapKey) {
         let mut guard = self.current_map_key.write().await;
         guard.replace(key);
+    }
+
+    pub async fn send_initial_spells(&self) {
+        let packet = ServerMessage::new(SmsgInitialSpells {
+            unk: 0,
+            spell_count: 2,
+            spells: vec![
+                InitialSpell {
+                    spell_id: 669, // TODO: Set skill too
+                    unk: 0,
+                },
+                InitialSpell {
+                    spell_id: 2973,
+                    unk: 0,
+                },
+            ],
+            cooldown_count: 0, // TODO
+            cooldowns: Vec::new(),
+        });
+
+        self.send(&packet).await.unwrap();
     }
 }
 

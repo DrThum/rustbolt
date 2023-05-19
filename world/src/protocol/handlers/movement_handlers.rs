@@ -26,6 +26,11 @@ impl OpcodeHandler {
 
             // Register new position
             {
+                world_context
+                    .map_manager
+                    .update_player_position(session.clone(), &movement_info.position)
+                    .await;
+
                 let mut player = session.player.write().await;
                 player.set_position(&movement_info.position);
             }

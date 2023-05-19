@@ -6,8 +6,11 @@ use shared::models::terrain_info::{TerrainBlock, MAP_WIDTH_IN_BLOCKS};
 use tokio::sync::RwLock;
 
 use crate::{
-    entities::{object_guid::ObjectGuid, position::WorldPosition},
-    protocol::{opcodes::Opcode, packets::MovementInfo},
+    entities::{
+        object_guid::ObjectGuid,
+        position::{Position, WorldPosition},
+    },
+    protocol::{self, opcodes::Opcode, packets::MovementInfo, server::ServerMessage},
     session::world_session::WorldSession,
     DataStore,
 };
@@ -187,7 +190,15 @@ impl MapManager {
                 let map_guard = map.read().await;
                 let player_guard = mover_session.player.read().await;
 
-                for session in map_guard.nearby_sessions(mover_session.account_id).await {
+                for session in map_guard
+                    .nearby_sessions(
+                        player_guard.guid(),
+                        map_guard.visibility_distance(),
+                        true,
+                        false,
+                    )
+                    .await
+                {
                     session
                         .send_movement(opcode, player_guard.guid(), movement_info)
                         .await
@@ -197,10 +208,51 @@ impl MapManager {
         }
     }
 
+    pub async fn update_player_position(&self, session: Arc<WorldSession>, position: &Position) {
+        if let Some(current_map_key) = session.get_current_map().await {
+            let maps_guard = self.maps.read().await;
+            if let Some(map) = maps_guard.get(&current_map_key) {
+                let mut map_guard = map.write().await;
+                let player_guard = session.player.read().await;
+
+                map_guard
+                    .update_player_position(player_guard.guid(), position)
+                    .await;
+            }
+        }
+    }
+
+    pub async fn broadcast_packet<
+        const OPCODE: u16,
+        Payload: protocol::server::ServerMessagePayload<OPCODE>,
+    >(
+        &self,
+        origin: Arc<WorldSession>,
+        packet: &ServerMessage<OPCODE, Payload>,
+        range: f32,
+        include_self: bool,
+    ) {
+        if let Some(current_map_key) = origin.get_current_map().await {
+            let maps_guard = self.maps.read().await;
+            if let Some(map) = maps_guard.get(&current_map_key) {
+                let map_guard = map.read().await;
+                let player_guard = origin.player.read().await;
+
+                for session in map_guard
+                    .nearby_sessions(player_guard.guid(), range, true, include_self)
+                    .await
+                {
+                    session.send(packet).await.unwrap();
+                }
+            }
+        }
+    }
+
     pub async fn nearby_sessions(
         &self,
         map: Option<MapKey>,
-        account_id: u32,
+        player_guid: &ObjectGuid,
+        include_self: bool,
     ) -> Vec<Arc<WorldSession>> {
         let mut result = Vec::new();
 
@@ -209,7 +261,14 @@ impl MapManager {
             if let Some(map) = maps_guard.get(&current_map_key) {
                 let map_guard = map.read().await;
 
-                let sessions = &mut map_guard.nearby_sessions(account_id).await;
+                let sessions = &mut map_guard
+                    .nearby_sessions(
+                        player_guid,
+                        map_guard.visibility_distance(),
+                        true,
+                        include_self,
+                    )
+                    .await;
                 result.append(sessions);
             }
         }

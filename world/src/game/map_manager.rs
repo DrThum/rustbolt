@@ -164,16 +164,17 @@ impl MapManager {
     }
 
     pub async fn remove_session(&self, session: Arc<WorldSession>) {
-        let from_map = session.get_current_map().await;
-
-        let guard = self.maps.write().await;
-        if let Some(from_map_key) = from_map {
-            if let Some(origin_map) = guard.get(&from_map_key) {
-                origin_map
-                    .write()
-                    .await
-                    .remove_player(session.clone())
-                    .await;
+        {
+            let from_map = session.get_current_map().await;
+            let guard = self.maps.read().await;
+            if let Some(from_map_key) = from_map {
+                if let Some(origin_map) = guard.get(&from_map_key) {
+                    origin_map
+                        .write()
+                        .await
+                        .remove_player(session.clone())
+                        .await;
+                }
             }
         }
     }

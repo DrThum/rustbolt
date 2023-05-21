@@ -238,6 +238,7 @@ impl OpcodeHandler {
                 });
 
                 other_session.send(&smsg_update_object).await.unwrap();
+                other_session.add_known_guid(player.guid()).await;
 
                 // Send nearby players to the new player
                 let update_data =
@@ -249,6 +250,7 @@ impl OpcodeHandler {
                 });
 
                 session.send(&smsg_update_object).await.unwrap();
+                session.add_known_guid(other_player.guid()).await;
             }
         }
 
@@ -280,14 +282,14 @@ impl OpcodeHandler {
 
         session.send(&packet).await.unwrap();
 
-        // FIXME: Handle future cases when logout might not be instant
-        session
-            .cleanup_on_world_leave(&mut world_context.database.characters.get().unwrap())
-            .await;
-
         world_context
             .map_manager
             .remove_session(session.clone())
+            .await;
+
+        // FIXME: Handle future cases when logout might not be instant
+        session
+            .cleanup_on_world_leave(&mut world_context.database.characters.get().unwrap())
             .await;
     }
 

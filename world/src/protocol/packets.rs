@@ -565,3 +565,9 @@ pub struct SmsgInitialSpells {
     pub cooldown_count: u16,
     pub cooldowns: Vec<InitialSpellCooldown>,
 }
+
+#[binwrite]
+#[server_opcode]
+pub struct SmsgDestroyObject {
+    pub guid: u64,
+}

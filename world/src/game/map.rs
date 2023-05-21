@@ -63,8 +63,20 @@ impl Map {
     pub async fn remove_player(&mut self, session: Arc<WorldSession>) {
         let player_guard = session.player.read().await;
         let player_guid = player_guard.guid();
-        let mut tree = self.entities_tree.write().await;
-        tree.delete(player_guid);
+
+        {
+            let other_sessions = self
+                .nearby_sessions(player_guid, self.visibility_distance(), false, false)
+                .await;
+            for other_session in other_sessions {
+                if other_session.is_guid_known(player_guid).await {
+                    other_session.destroy_entity(player_guid).await;
+                }
+            }
+
+            let mut tree = self.entities_tree.write().await;
+            tree.delete(player_guid);
+        }
 
         {
             let mut guard = self.sessions.write().await;

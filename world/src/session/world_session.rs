@@ -21,7 +21,8 @@ use crate::{
     protocol::{
         opcodes::Opcode,
         packets::{
-            InitialSpell, MovementInfo, SmsgInitialSpells, SmsgMessageChat, SmsgTimeSyncReq,
+            InitialSpell, MovementInfo, SmsgDestroyObject, SmsgInitialSpells, SmsgMessageChat,
+            SmsgTimeSyncReq,
         },
         server::{ServerMessage, ServerMessageHeader, ServerMessagePayload},
     },
@@ -46,6 +47,7 @@ pub struct WorldSession {
     server_time_sync: Mutex<TimeSync>,
     time_sync_handle: Mutex<Option<JoinHandle<()>>>,
     current_map_key: RwLock<Option<MapKey>>,
+    known_guids: RwLock<Vec<ObjectGuid>>,
 }
 
 impl WorldSession {
@@ -82,6 +84,7 @@ impl WorldSession {
             }),
             time_sync_handle: Mutex::new(None),
             current_map_key: RwLock::new(None),
+            known_guids: RwLock::new(Vec::new()),
         });
 
         session
@@ -111,6 +114,11 @@ impl WorldSession {
             {
                 let mut guard = self.current_map_key.write().await;
                 guard.take();
+            }
+
+            {
+                let mut guard = self.known_guids.write().await;
+                guard.clear();
             }
         }
     }
@@ -316,6 +324,31 @@ impl WorldSession {
             message,
             chat_tag: 0, // TODO: Implement chat tags (GM, AFK, DND)
         }
+    }
+
+    pub async fn add_known_guid(&self, guid: &ObjectGuid) {
+        let mut guard = self.known_guids.write().await;
+        guard.push(guid.clone());
+    }
+
+    pub async fn remove_known_guid(&self, guid: &ObjectGuid) {
+        let mut guard = self.known_guids.write().await;
+        guard.retain(|g| g != guid);
+    }
+
+    pub async fn is_guid_known(&self, guid: &ObjectGuid) -> bool {
+        if guid == self.player.read().await.guid() {
+            return true;
+        }
+
+        let guard = self.known_guids.read().await;
+        guard.contains(guid)
+    }
+
+    pub async fn destroy_entity(&self, guid: &ObjectGuid) {
+        let packet = ServerMessage::new(SmsgDestroyObject { guid: guid.raw() });
+
+        self.send(&packet).await.unwrap();
     }
 }
 

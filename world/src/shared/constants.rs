@@ -451,7 +451,7 @@ pub enum MapType {
 }
 
 #[allow(dead_code)]
-#[derive(N)]
+#[derive(N, PartialEq, Debug, Clone, Copy)]
 pub enum ChatMessageType {
     Addon = 0xFFFFFFFF,
     System = 0x00,
@@ -501,4 +501,27 @@ pub enum ChatMessageType {
     Battleground = 0x2C,
     BattlegroundLeader = 0x2D,
     Restricted = 0x2E,
+}
+
+#[allow(dead_code)]
+#[derive(N, PartialEq, Clone, Copy)]
+pub enum Language {
+    Universal = 0,
+    Orcish = 1,
+    Darnassian = 2,
+    Taurahe = 3,
+    Dwarvish = 6,
+    Common = 7,
+    Demonic = 8,
+    Titan = 9,
+    Thalassian = 10,
+    Draconic = 11,
+    Kalimag = 12,
+    Gnomish = 13,
+    Troll = 14,
+    Gutterspeak = 33,
+    Draenei = 35,
+    Zombie = 36,
+    GnomishBinary = 37,
+    GoblinBinary = 38,
 }

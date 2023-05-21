@@ -1,4 +1,4 @@
-use binrw::{io::Cursor, BinWriterExt};
+use binrw::{io::Cursor, BinWriterExt, NullString};
 use r2d2::PooledConnection;
 use r2d2_sqlite::SqliteConnectionManager;
 use std::{
@@ -20,9 +20,12 @@ use crate::{
     game::{map_manager::MapKey, world_context::WorldContext},
     protocol::{
         opcodes::Opcode,
-        packets::{InitialSpell, MovementInfo, SmsgInitialSpells, SmsgTimeSyncReq},
+        packets::{
+            InitialSpell, MovementInfo, SmsgInitialSpells, SmsgMessageChat, SmsgTimeSyncReq,
+        },
         server::{ServerMessage, ServerMessageHeader, ServerMessagePayload},
     },
+    shared::constants::{ChatMessageType, Language},
     WorldSocketError,
 };
 
@@ -294,6 +297,25 @@ impl WorldSession {
         });
 
         self.send(&packet).await.unwrap();
+    }
+
+    pub async fn build_chat_packet(
+        &self,
+        message_type: ChatMessageType,
+        language: Language,
+        target_guid: Option<&ObjectGuid>,
+        message: NullString,
+    ) -> SmsgMessageChat {
+        SmsgMessageChat {
+            message_type,
+            language,
+            sender_guid: self.player.read().await.guid().raw(),
+            unk: 0,
+            target_guid: target_guid.map_or(0, |g| g.raw()),
+            message_len: message.len() as u32 + 1,
+            message,
+            chat_tag: 0, // TODO: Implement chat tags (GM, AFK, DND)
+        }
     }
 }
 

@@ -1,13 +1,12 @@
 use std::sync::Arc;
 
+use log::error;
+
 use crate::{
     game::world_context::WorldContext,
-    protocol::{
-        client::ClientMessage,
-        packets::{CmsgMessageChat, SmsgMessageChat},
-        server::ServerMessage,
-    },
+    protocol::{client::ClientMessage, packets::CmsgMessageChat, server::ServerMessage},
     session::{opcode_handler::OpcodeHandler, world_session::WorldSession},
+    shared::constants::ChatMessageType,
 };
 
 impl OpcodeHandler {
@@ -18,21 +17,35 @@ impl OpcodeHandler {
     ) {
         let cmsg_message_chat: CmsgMessageChat = ClientMessage::read_as(data).unwrap();
 
-        let smsg_message_chat = ServerMessage::new(SmsgMessageChat {
-            message_type: 1, // CHAT_MSG_SAY
-            language_id: cmsg_message_chat.lang_id,
-            sender_guid: session.player.read().await.guid().raw(),
-            unk: 0,
-            target_guid: 0,
-            message_len: cmsg_message_chat.msg.len() as u32 + 1,
-            message: cmsg_message_chat.msg,
-            chat_tag: 0,
-        });
+        // TODO: Check that the language exists
+        // TODO: Check that the player has the associated skill
 
-        // Broadcast to nearby players
-        world_context
-            .map_manager
-            .broadcast_packet(session.clone(), &smsg_message_chat, 40.0, true)
-            .await;
+        match cmsg_message_chat.chat_type {
+            ChatMessageType::Say | ChatMessageType::Yell | ChatMessageType::Emote => {
+                let smsg_message_chat = ServerMessage::new(
+                    session
+                        .build_chat_packet(
+                            cmsg_message_chat.chat_type.clone(),
+                            cmsg_message_chat.language,
+                            None,
+                            cmsg_message_chat.msg,
+                        )
+                        .await,
+                );
+
+                let distance = match cmsg_message_chat.chat_type {
+                    ChatMessageType::Say | ChatMessageType::Emote => 40.0,
+                    ChatMessageType::Yell => 300.0,
+                    _ => 0.0,
+                };
+
+                // Broadcast to nearby players
+                world_context
+                    .map_manager
+                    .broadcast_packet(session.clone(), &smsg_message_chat, distance, true)
+                    .await;
+            }
+            t => error!("unsupported message type {:?}", t),
+        }
     }
 }

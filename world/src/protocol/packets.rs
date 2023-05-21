@@ -1,3 +1,4 @@
+use crate::shared::constants::{ChatMessageType, Language};
 use crate::{
     entities::{
         position::Position,
@@ -512,13 +513,14 @@ pub struct CmsgSetSheathed {
 }
 
 #[binread]
-#[derive(Debug)]
 pub struct CmsgMessageChat {
-    pub chat_type: u32,
-    pub lang_id: u32,
-    #[br(if(chat_type == 0x07))] // ChatMessageType::Whisper
+    #[br(map = |ct: u32| ChatMessageType::n(ct).expect("non-existing ChatMessageType"))]
+    pub chat_type: ChatMessageType,
+    #[br(map = |ct: u32| Language::n(ct).expect("non-existing Language"))]
+    pub language: Language,
+    #[br(if(chat_type == ChatMessageType::Whisper))]
     pub recipient: Option<NullString>,
-    #[br(if(chat_type == 0x11))] // ChatMessageType::Channel
+    #[br(if(chat_type == ChatMessageType::Channel))]
     pub channel: Option<NullString>,
     pub msg: NullString,
 }
@@ -527,8 +529,10 @@ pub struct CmsgMessageChat {
 #[server_opcode]
 pub struct SmsgMessageChat {
     // FIXME: Incomplete
-    pub message_type: u8,
-    pub language_id: u32,
+    #[bw(map = |&t| t as u8)]
+    pub message_type: ChatMessageType,
+    #[bw(map = |&l| l as u32)]
+    pub language: Language,
     pub sender_guid: u64, // TODO: ObjectGuid?
     pub unk: u32,         // 0,
     pub target_guid: u64,

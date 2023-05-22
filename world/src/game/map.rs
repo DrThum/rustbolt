@@ -11,9 +11,9 @@ use crate::{
     entities::{
         object_guid::ObjectGuid,
         position::{Position, WorldPosition},
-        update::UpdatableEntity,
+        update::{CreateData, UpdatableEntity},
     },
-    protocol::{packets::SmsgCreateObject, server::ServerMessage},
+    protocol::packets::SmsgCreateObject,
     session::world_session::WorldSession,
 };
 
@@ -100,7 +100,7 @@ impl Map {
         player_guid: &ObjectGuid,
         origin_session: Arc<WorldSession>,
         new_position: &Position,
-        create_object: SmsgCreateObject,
+        create_data: Vec<CreateData>,
         world_context: Arc<WorldContext>,
     ) {
         let mut tree = self.entities_tree.write().await;
@@ -140,25 +140,30 @@ impl Map {
             let appeared_for = &in_range_now - &in_range_before;
             let disappeared_for = &in_range_before - &in_range_now;
 
-            let packet = ServerMessage::new(create_object);
+            let smsg_create_object = SmsgCreateObject {
+                updates_count: create_data.len() as u32,
+                has_transport: false,
+                updates: create_data,
+            };
 
             for other_session in appeared_for {
                 // Make the moving player appear for the other player
-                other_session.send(&packet).await.unwrap();
-                other_session.add_known_guid(player_guid).await;
+                other_session
+                    .create_entity(player_guid, smsg_create_object.clone())
+                    .await;
 
                 // Make the other player appear for the moving player
-                let update_data = other_session
-                    .player
-                    .read()
-                    .await
-                    .get_create_data(player_guid.raw(), world_context.clone());
-                let update_packet = ServerMessage::new(SmsgCreateObject {
-                    updates_count: update_data.len() as u32,
+                let other_player = other_session.player.read().await;
+                let create_data =
+                    other_player.get_create_data(player_guid.raw(), world_context.clone());
+                let smsg_create_object = SmsgCreateObject {
+                    updates_count: create_data.len() as u32,
                     has_transport: false,
-                    updates: update_data,
-                });
-                origin_session.send(&update_packet).await.unwrap();
+                    updates: create_data,
+                };
+                origin_session
+                    .create_entity(other_player.guid(), smsg_create_object)
+                    .await;
             }
 
             for other_session in disappeared_for {

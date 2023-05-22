@@ -238,6 +238,7 @@ pub struct SmsgMotd {
 }
 
 #[binwrite]
+#[derive(Clone)]
 pub struct SmsgCreateObject {
     pub updates_count: u32,
     #[bw(map = |b: &bool| if *b { 1_u8 } else { 0_u8 })]

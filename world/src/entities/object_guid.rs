@@ -107,7 +107,7 @@ impl std::hash::Hash for ObjectGuid {
 //   byte in the full guid
 // - `bytes` contains the bytes to transmit from least to most significant
 #[binwrite]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PackedObjectGuid {
     mask: u8,
     bytes: Vec<u8>,

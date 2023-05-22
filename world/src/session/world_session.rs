@@ -21,8 +21,8 @@ use crate::{
     protocol::{
         opcodes::Opcode,
         packets::{
-            InitialSpell, MovementInfo, SmsgDestroyObject, SmsgInitialSpells, SmsgMessageChat,
-            SmsgTimeSyncReq,
+            InitialSpell, MovementInfo, SmsgCreateObject, SmsgDestroyObject, SmsgInitialSpells,
+            SmsgMessageChat, SmsgTimeSyncReq,
         },
         server::{ServerMessage, ServerMessageHeader, ServerMessagePayload},
     },
@@ -326,12 +326,12 @@ impl WorldSession {
         }
     }
 
-    pub async fn add_known_guid(&self, guid: &ObjectGuid) {
+    async fn add_known_guid(&self, guid: &ObjectGuid) {
         let mut guard = self.known_guids.write().await;
         guard.push(guid.clone());
     }
 
-    pub async fn remove_known_guid(&self, guid: &ObjectGuid) {
+    async fn remove_known_guid(&self, guid: &ObjectGuid) {
         let mut guard = self.known_guids.write().await;
         guard.retain(|g| g != guid);
     }
@@ -343,6 +343,13 @@ impl WorldSession {
 
         let guard = self.known_guids.read().await;
         guard.contains(guid)
+    }
+
+    pub async fn create_entity(&self, guid: &ObjectGuid, payload: SmsgCreateObject) {
+        let packet = ServerMessage::new(payload);
+
+        self.send(&packet).await.unwrap();
+        self.add_known_guid(guid).await;
     }
 
     pub async fn destroy_entity(&self, guid: &ObjectGuid) {

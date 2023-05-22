@@ -28,6 +28,7 @@ pub trait UpdatableEntity {
 }
 
 #[binwrite]
+#[derive(Clone)]
 pub struct CreateData {
     #[bw(map = |ut: &UpdateType| *ut as u8)]
     pub update_type: UpdateType,
@@ -62,6 +63,7 @@ pub struct UpdateBlockBuilder {
 // * block_masks contains bits whose index indicates which fields are being updated
 // * data contains the data, one value for each bit set to 1 in the masks, in the same order
 #[binwrite]
+#[derive(Clone)]
 pub struct UpdateBlock {
     pub num_masks: u8,
     pub block_masks: Vec<u32>,
@@ -127,6 +129,7 @@ struct UpdateBlockValue {
 }
 
 #[binwrite]
+#[derive(Clone)]
 pub struct MovementUpdateData {
     pub movement_flags: u32,
     pub movement_flags2: u8, // Always 0 in 2.4.3

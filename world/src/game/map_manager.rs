@@ -11,12 +11,7 @@ use crate::{
         position::{Position, WorldPosition},
         update::UpdatableEntity,
     },
-    protocol::{
-        self,
-        opcodes::Opcode,
-        packets::{MovementInfo, SmsgCreateObject},
-        server::ServerMessage,
-    },
+    protocol::{self, opcodes::Opcode, packets::MovementInfo, server::ServerMessage},
     session::world_session::WorldSession,
     DataStore,
 };
@@ -228,11 +223,6 @@ impl MapManager {
                 let player_guard = session.player.read().await;
 
                 let update_data = player_guard.get_create_data(0, world_context.clone());
-                let smsg_update_object = SmsgCreateObject {
-                    updates_count: update_data.len() as u32,
-                    has_transport: false,
-                    updates: update_data,
-                };
 
                 let player_guid = player_guard.guid().clone();
                 drop(player_guard);
@@ -241,7 +231,7 @@ impl MapManager {
                         &player_guid,
                         session.clone(),
                         position,
-                        smsg_update_object,
+                        update_data,
                         world_context.clone(),
                     )
                     .await;

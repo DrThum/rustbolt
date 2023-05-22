@@ -232,26 +232,28 @@ impl OpcodeHandler {
                 let other_player = other_session.player.read().await;
                 let update_data =
                     player.get_create_data(other_player.guid().raw(), world_context.clone());
-                let smsg_update_object = ServerMessage::new(SmsgCreateObject {
+                let smsg_update_object = SmsgCreateObject {
                     updates_count: update_data.len() as u32,
                     has_transport: false,
                     updates: update_data,
-                });
+                };
 
-                other_session.send(&smsg_update_object).await.unwrap();
-                other_session.add_known_guid(player.guid()).await;
+                other_session
+                    .create_entity(player.guid(), smsg_update_object)
+                    .await;
 
                 // Send nearby players to the new player
                 let update_data =
                     other_player.get_create_data(player.guid().raw(), world_context.clone());
-                let smsg_update_object = ServerMessage::new(SmsgCreateObject {
+                let smsg_update_object = SmsgCreateObject {
                     updates_count: update_data.len() as u32,
                     has_transport: false,
                     updates: update_data,
-                });
+                };
 
-                session.send(&smsg_update_object).await.unwrap();
-                session.add_known_guid(other_player.guid()).await;
+                session
+                    .create_entity(other_player.guid(), smsg_update_object)
+                    .await;
             }
         }
 

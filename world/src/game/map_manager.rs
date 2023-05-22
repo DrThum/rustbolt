@@ -6,6 +6,7 @@ use shared::models::terrain_info::{TerrainBlock, MAP_WIDTH_IN_BLOCKS};
 use tokio::sync::RwLock;
 
 use crate::{
+    config::WorldConfig,
     entities::{
         object_guid::ObjectGuid,
         position::{Position, WorldPosition},
@@ -30,7 +31,7 @@ pub struct TerrainBlockCoords {
 }
 
 pub struct MapManager {
-    data_dir: String,
+    config: Arc<WorldConfig>,
     maps: RwLock<HashMap<MapKey, Arc<RwLock<Map>>>>,
     data_store: Arc<DataStore>,
     next_instance_id: RelaxedCounter,
@@ -38,7 +39,10 @@ pub struct MapManager {
 }
 
 impl MapManager {
-    pub async fn create_with_continents(data_store: Arc<DataStore>, data_dir: &String) -> Self {
+    pub async fn create_with_continents(
+        data_store: Arc<DataStore>,
+        config: Arc<WorldConfig>,
+    ) -> Self {
         let mut maps: HashMap<MapKey, Arc<RwLock<Map>>> = HashMap::new();
         let mut terrains: HashMap<u32, Arc<HashMap<TerrainBlockCoords, TerrainBlock>>> =
             HashMap::new();
@@ -51,17 +55,25 @@ impl MapManager {
         {
             let mut map_terrains: HashMap<TerrainBlockCoords, TerrainBlock> = HashMap::new();
 
-            // Load terrain for this map
-            for row in 0..MAP_WIDTH_IN_BLOCKS {
-                for col in 0..MAP_WIDTH_IN_BLOCKS {
-                    let maybe_terrain =
-                        TerrainBlock::load_from_disk(&data_dir, &map.internal_name, row, col);
+            if config.world.dev.load_terrain {
+                // Load terrain for this map
+                for row in 0..MAP_WIDTH_IN_BLOCKS {
+                    for col in 0..MAP_WIDTH_IN_BLOCKS {
+                        let maybe_terrain = TerrainBlock::load_from_disk(
+                            &config.common.data.directory,
+                            &map.internal_name,
+                            row,
+                            col,
+                        );
 
-                    if let Some(terrain_block) = maybe_terrain {
-                        let key = TerrainBlockCoords { row, col };
-                        map_terrains.insert(key, terrain_block);
+                        if let Some(terrain_block) = maybe_terrain {
+                            let key = TerrainBlockCoords { row, col };
+                            map_terrains.insert(key, terrain_block);
+                        }
                     }
                 }
+            } else {
+                info!("Terrain loading disabled in configuration");
             }
 
             let map_terrains = Arc::new(map_terrains);
@@ -72,7 +84,7 @@ impl MapManager {
         }
 
         Self {
-            data_dir: data_dir.to_string(),
+            config,
             maps: RwLock::new(maps),
             data_store,
             next_instance_id: RelaxedCounter::new(1),
@@ -97,7 +109,7 @@ impl MapManager {
                             for row in 0..MAP_WIDTH_IN_BLOCKS {
                                 for col in 0..MAP_WIDTH_IN_BLOCKS {
                                     let maybe_terrain = TerrainBlock::load_from_disk(
-                                        &self.data_dir,
+                                        &self.config.common.data.directory,
                                         &map_record.internal_name,
                                         row,
                                         col,

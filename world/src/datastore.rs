@@ -1,12 +1,15 @@
 use indicatif::ProgressBar;
 use log::info;
-use std::collections::{hash_map::Values, HashMap};
+use std::{
+    collections::{hash_map::Values, HashMap},
+    sync::Arc,
+};
 
 use r2d2::PooledConnection;
 use r2d2_sqlite::SqliteConnectionManager;
 
 use crate::{
-    config::DataSection,
+    config::WorldConfig,
     datastore::{data_types::PlayerCreatePosition, dbc::Dbc},
     repositories::{item::ItemRepository, player_creation::PlayerCreationRepository},
 };
@@ -44,23 +47,29 @@ macro_rules! parse_dbc {
 
 impl DataStore {
     pub fn load_data(
-        config: &DataSection,
+        config: Arc<WorldConfig>,
         conn: &PooledConnection<SqliteConnectionManager>,
     ) -> Result<DataStore, std::io::Error> {
         // DBC stores
-        let chr_races = parse_dbc!(config.directory, "ChrRaces");
-        let chr_classes = parse_dbc!(config.directory, "ChrClasses");
-        let char_start_outfit = parse_dbc!(config.directory, "CharStartOutfit");
-        let item = parse_dbc!(config.directory, "Item");
-        let map = parse_dbc!(config.directory, "Map");
+        let chr_races = parse_dbc!(config.common.data.directory, "ChrRaces");
+        let chr_classes = parse_dbc!(config.common.data.directory, "ChrClasses");
+        let char_start_outfit = parse_dbc!(config.common.data.directory, "CharStartOutfit");
+        let item = parse_dbc!(config.common.data.directory, "Item");
+        let map = parse_dbc!(config.common.data.directory, "Map");
 
         // SQL stores
-        info!("Loading item templates...");
-        let item_templates = ItemRepository::load_templates(conn);
-        let item_templates: SqlStore<ItemTemplate> = item_templates
-            .into_iter()
-            .map(|template| (template.entry, template))
-            .collect();
+        let item_templates = if config.world.dev.load_item_templates {
+            info!("Loading item templates...");
+            let item_templates = ItemRepository::load_templates(conn);
+            let item_templates: SqlStore<ItemTemplate> = item_templates
+                .into_iter()
+                .map(|template| (template.entry, template))
+                .collect();
+            item_templates
+        } else {
+            info!("Item templates loading disabled in configuration");
+            HashMap::new()
+        };
 
         info!("Loading player creation positions...");
         let player_create_positions = PlayerCreationRepository::load_positions(conn);

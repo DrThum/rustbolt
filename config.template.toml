@@ -14,3 +14,7 @@ port = "8085"
 
 [world.game.player]
 maxlevel = 70
+
+[world.dev]
+load_terrain = true
+load_item_templates = true

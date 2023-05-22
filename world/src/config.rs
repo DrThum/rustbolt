@@ -28,6 +28,7 @@ pub struct CommonSection {
 pub struct WorldSection {
     pub network: NetworkSection,
     pub game: GameSection,
+    pub dev: DevSection,
 }
 
 #[derive(Debug, Deserialize)]
@@ -49,4 +50,10 @@ pub struct GameSection {
 #[derive(Debug, Deserialize)]
 pub struct PlayerSection {
     pub maxlevel: u32,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct DevSection {
+    pub load_terrain: bool,
+    pub load_item_templates: bool,
 }

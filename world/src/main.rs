@@ -74,7 +74,7 @@ async fn main() {
 
     let conn = db_pool_world.get().unwrap();
     let data_store = Arc::new(
-        DataStore::load_data(&config.common.data, &conn).expect("Error when loading static data"),
+        DataStore::load_data(config.clone(), &conn).expect("Error when loading static data"),
     );
     let opcode_handler = Arc::new(OpcodeHandler::new());
 
@@ -87,9 +87,8 @@ async fn main() {
     let start_time = Instant::now();
 
     let session_holder = Arc::new(SessionHolder::new());
-    let map_manager = Arc::new(
-        MapManager::create_with_continents(data_store.clone(), &config.common.data.directory).await,
-    );
+    let map_manager =
+        Arc::new(MapManager::create_with_continents(data_store.clone(), config.clone()).await);
 
     let world_context = Arc::new(WorldContext {
         data_store,

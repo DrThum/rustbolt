@@ -3,6 +3,7 @@ use std::sync::Arc;
 use log::error;
 
 use crate::{
+    entities::object_guid::ObjectGuid,
     game::world_context::WorldContext,
     protocol::{
         client::ClientMessage,
@@ -83,12 +84,19 @@ impl OpcodeHandler {
                 }
             }
 
+            let target_guid =
+                ObjectGuid::from_raw(cmsg_text_emote.target_guid).expect("invalid guid received");
+            let mut target_name: String = "".to_owned();
+            if let Some(entity_ref) = world_context.map_manager.lookup_entity(&target_guid).await {
+                target_name = entity_ref.read().await.name();
+            }
+
             let packet = ServerMessage::new(SmsgTextEmote {
                 origin_guid: session.player.read().await.guid().raw(),
                 text_emote: cmsg_text_emote.text_emote,
                 emote_number: cmsg_text_emote.emote_number,
-                target_name_length: 0, // TODO: Get the target name
-                target_name: "".into(),
+                target_name_length: target_name.len() as u32,
+                target_name: target_name.into(),
             });
 
             world_context

@@ -8,8 +8,7 @@ use tokio::sync::RwLock;
 use crate::{
     config::WorldConfig,
     entities::{
-        object_guid::ObjectGuid,
-        position::{Position, WorldPosition},
+        entity::Entity, object_guid::ObjectGuid, player::Player, position::Position,
         update::UpdatableEntity,
     },
     protocol::{self, opcodes::Opcode, packets::MovementInfo, server::ServerMessage},
@@ -33,6 +32,7 @@ pub struct TerrainBlockCoords {
 pub struct MapManager {
     config: Arc<WorldConfig>,
     maps: RwLock<HashMap<MapKey, Arc<RwLock<Map>>>>,
+    entities: RwLock<HashMap<ObjectGuid, Arc<RwLock<dyn Entity + Sync + Send>>>>,
     data_store: Arc<DataStore>,
     next_instance_id: RelaxedCounter,
     terrains: RwLock<HashMap<u32, Arc<HashMap<TerrainBlockCoords, TerrainBlock>>>>,
@@ -86,6 +86,7 @@ impl MapManager {
         Self {
             config,
             maps: RwLock::new(maps),
+            entities: RwLock::new(HashMap::new()),
             data_store,
             next_instance_id: RelaxedCounter::new(1),
             terrains: RwLock::new(terrains),
@@ -146,8 +147,7 @@ impl MapManager {
     pub async fn add_session_to_map(
         &self,
         session: Arc<WorldSession>,
-        player_position: &WorldPosition,
-        player_guid: &ObjectGuid,
+        player: Arc<RwLock<Player>>,
     ) {
         let from_map = session.get_current_map().await;
 
@@ -162,6 +162,10 @@ impl MapManager {
             }
         }
 
+        let player_guard = player.read().await;
+        let player_position = player_guard.position();
+        let player_guid = player_guard.guid();
+
         // TODO: handle instance id here
         let destination = MapKey::for_continent(player_position.map);
         if let Some(destination_map) = guard.get(&destination) {
@@ -174,6 +178,11 @@ impl MapManager {
         } else {
             warn!("map {} not found as destination in MapManager", destination);
         }
+
+        self.entities
+            .write()
+            .await
+            .insert(player_guid.clone(), player.clone());
     }
 
     pub async fn remove_session(&self, session: Arc<WorldSession>) {
@@ -190,6 +199,18 @@ impl MapManager {
                 }
             }
         }
+
+        self.entities
+            .write()
+            .await
+            .remove(session.player.read().await.guid());
+    }
+
+    pub async fn lookup_entity(
+        &self,
+        guid: &ObjectGuid,
+    ) -> Option<Arc<RwLock<dyn Entity + Sync + Send>>> {
+        self.entities.read().await.get(guid).cloned()
     }
 
     pub async fn broadcast_movement(

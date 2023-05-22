@@ -104,10 +104,11 @@ impl OpcodeHandler {
                 cmsg_player_login.guid,
                 world_context.clone(),
             );
+            drop(player);
 
             world_context
                 .map_manager
-                .add_session_to_map(session.clone(), player.position(), player.guid())
+                .add_session_to_map(session.clone(), session.player.clone())
                 .await;
 
             let mut session_state = session.state.write().await;

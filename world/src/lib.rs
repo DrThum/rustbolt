@@ -32,6 +32,7 @@ mod entities {
     pub mod update;
     pub mod update_fields;
 
+    pub mod entity;
     pub mod item;
     pub mod player;
 

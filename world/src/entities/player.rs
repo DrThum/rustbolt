@@ -19,6 +19,7 @@ use crate::{
 };
 
 use super::{
+    entity::Entity,
     internal_values::InternalValues,
     item::Item,
     object_guid::ObjectGuid,
@@ -34,6 +35,7 @@ pub type PlayerInventory = HashMap<u32, Item>; // Key is slot
 
 pub struct Player {
     guid: Option<ObjectGuid>,
+    name: String,
     values: InternalValues,
     position: Option<WorldPosition>,
     inventory: PlayerInventory,
@@ -43,6 +45,7 @@ impl Player {
     pub fn new() -> Self {
         Self {
             guid: None,
+            name: "".to_owned(),
             values: InternalValues::new(PLAYER_END as usize),
             position: None,
             inventory: HashMap::new(),
@@ -187,6 +190,8 @@ impl Player {
         self.guid = Some(guid);
         self.values
             .set_u64(ObjectFields::ObjectFieldGuid.into(), self.guid().raw());
+
+        self.name = character.name;
 
         let object_type = make_bitflags!(ObjectTypeMask::{Object | Unit | Player}).bits();
         self.values
@@ -559,5 +564,15 @@ impl UpdatableEntity for Player {
 
     fn has_updates(&self) -> bool {
         self.values.has_dirty()
+    }
+}
+
+impl Entity for Player {
+    fn guid(&self) -> &ObjectGuid {
+        self.guid()
+    }
+
+    fn name(&self) -> String {
+        self.name.to_owned()
     }
 }

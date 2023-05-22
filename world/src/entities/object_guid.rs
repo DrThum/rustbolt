@@ -21,6 +21,14 @@ impl ObjectGuid {
         }
     }
 
+    pub fn from_raw(raw: u64) -> Option<ObjectGuid> {
+        let high_part = (raw >> 32) & 0xFFFFFFFF;
+        HighGuidType::n(high_part as i64).map(|high_guid_type| ObjectGuid {
+            high_guid_type,
+            raw,
+        })
+    }
+
     pub fn with_entry(high_guid_type: HighGuidType, entry: u32, counter: u32) -> ObjectGuid {
         assert!(
             Self::has_entry_part(high_guid_type),

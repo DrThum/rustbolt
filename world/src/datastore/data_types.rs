@@ -291,3 +291,21 @@ impl MapRecord {
         }
     }
 }
+
+pub struct EmotesTextRecord {
+    pub text_id: u32,
+}
+
+impl DbcTypedRecord for EmotesTextRecord {
+    fn from_record(record: &DbcRecord, _string: &DbcStringBlock) -> (u32, Self) {
+        unsafe {
+            let key = record.fields[0].as_u32;
+
+            let record = EmotesTextRecord {
+                text_id: record.fields[2].as_u32,
+            };
+
+            (key, record)
+        }
+    }
+}

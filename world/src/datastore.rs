@@ -15,7 +15,8 @@ use crate::{
 };
 
 use self::data_types::{
-    CharStartOutfitRecord, ChrClassesRecord, ChrRacesRecord, ItemRecord, ItemTemplate, MapRecord,
+    CharStartOutfitRecord, ChrClassesRecord, ChrRacesRecord, EmotesTextRecord, ItemRecord,
+    ItemTemplate, MapRecord,
 };
 
 pub mod data_types;
@@ -30,6 +31,7 @@ pub struct DataStore {
     char_start_outfit: DbcStore<CharStartOutfitRecord>,
     item: DbcStore<ItemRecord>,
     map: DbcStore<MapRecord>,
+    emotes_text: DbcStore<EmotesTextRecord>,
     item_templates: SqlStore<ItemTemplate>,
     player_create_positions: SqlStore<PlayerCreatePosition>,
 }
@@ -56,6 +58,7 @@ impl DataStore {
         let char_start_outfit = parse_dbc!(config.common.data.directory, "CharStartOutfit");
         let item = parse_dbc!(config.common.data.directory, "Item");
         let map = parse_dbc!(config.common.data.directory, "Map");
+        let emotes_text = parse_dbc!(config.common.data.directory, "EmotesText");
 
         // SQL stores
         let item_templates = if config.world.dev.load_item_templates {
@@ -88,6 +91,7 @@ impl DataStore {
             char_start_outfit,
             item,
             map,
+            emotes_text,
             item_templates,
             player_create_positions,
         })
@@ -121,6 +125,10 @@ impl DataStore {
 
     pub fn get_all_map_records(&self) -> Values<u32, MapRecord> {
         self.map.values()
+    }
+
+    pub fn get_text_emote_record(&self, id: u32) -> Option<&EmotesTextRecord> {
+        self.emotes_text.get(&id)
     }
 
     pub fn get_item_template(&self, entry: u32) -> Option<&ItemTemplate> {

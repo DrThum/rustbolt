@@ -258,7 +258,7 @@ impl MapManager {
         &self,
         origin: Arc<WorldSession>,
         packet: &ServerMessage<OPCODE, Payload>,
-        range: f32,
+        range: Option<f32>,
         include_self: bool,
     ) {
         if let Some(current_map_key) = origin.get_current_map().await {
@@ -268,7 +268,12 @@ impl MapManager {
                 let player_guard = origin.player.read().await;
 
                 for session in map_guard
-                    .sessions_nearby_entity(player_guard.guid(), range, true, include_self)
+                    .sessions_nearby_entity(
+                        player_guard.guid(),
+                        range.unwrap_or(map_guard.visibility_distance()),
+                        true,
+                        include_self,
+                    )
                     .await
                 {
                     session.send(packet).await.unwrap();

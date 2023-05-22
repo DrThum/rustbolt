@@ -4,9 +4,13 @@ use log::error;
 
 use crate::{
     game::world_context::WorldContext,
-    protocol::{client::ClientMessage, packets::CmsgMessageChat, server::ServerMessage},
+    protocol::{
+        client::ClientMessage,
+        packets::{CmsgMessageChat, CmsgTextEmote, SmsgEmote, SmsgTextEmote},
+        server::ServerMessage,
+    },
     session::{opcode_handler::OpcodeHandler, world_session::WorldSession},
-    shared::constants::ChatMessageType,
+    shared::constants::{ChatMessageType, Emote},
 };
 
 impl OpcodeHandler {
@@ -42,10 +46,55 @@ impl OpcodeHandler {
                 // Broadcast to nearby players
                 world_context
                     .map_manager
-                    .broadcast_packet(session.clone(), &smsg_message_chat, distance, true)
+                    .broadcast_packet(session.clone(), &smsg_message_chat, Some(distance), true)
                     .await;
             }
             t => error!("unsupported message type {:?}", t),
+        }
+    }
+
+    pub(crate) async fn handle_cmsg_text_emote(
+        session: Arc<WorldSession>,
+        world_context: Arc<WorldContext>,
+        data: Vec<u8>,
+    ) {
+        let cmsg_text_emote: CmsgTextEmote = ClientMessage::read_as(data).unwrap();
+        if let Some(dbc_record) = world_context
+            .data_store
+            .get_text_emote_record(cmsg_text_emote.text_emote)
+        {
+            if let Some(emote) = Emote::n(dbc_record.text_id) {
+                match emote {
+                    Emote::StateSleep
+                    | Emote::StateSit
+                    | Emote::StateKneel
+                    | Emote::OneshotNone => (),
+                    _ => {
+                        let packet = ServerMessage::new(SmsgEmote {
+                            emote_id: dbc_record.text_id,
+                            origin_guid: session.player.read().await.guid().raw(),
+                        });
+
+                        world_context
+                            .map_manager
+                            .broadcast_packet(session.clone(), &packet, None, true)
+                            .await;
+                    }
+                }
+            }
+
+            let packet = ServerMessage::new(SmsgTextEmote {
+                origin_guid: session.player.read().await.guid().raw(),
+                text_emote: cmsg_text_emote.text_emote,
+                emote_number: cmsg_text_emote.emote_number,
+                target_name_length: 0, // TODO: Get the target name
+                target_name: "".into(),
+            });
+
+            world_context
+                .map_manager
+                .broadcast_packet(session.clone(), &packet, Some(40.0), true)
+                .await;
         }
     }
 }

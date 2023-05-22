@@ -117,6 +117,7 @@ impl OpcodeHandler {
                     Opcode::CmsgMessageChat,
                     OpcodeHandler::handle_cmsg_message_chat
                 ),
+                define_handler!(Opcode::CmsgTextEmote, OpcodeHandler::handle_cmsg_text_emote),
             ]),
         }
     }

@@ -542,6 +542,30 @@ pub struct SmsgMessageChat {
     pub chat_tag: u8, // 0 for now
 }
 
+#[binread]
+pub struct CmsgTextEmote {
+    pub text_emote: u32,
+    pub emote_number: u32,
+    pub target_guid: u64,
+}
+
+#[binwrite]
+#[server_opcode]
+pub struct SmsgEmote {
+    pub emote_id: u32,
+    pub origin_guid: u64,
+}
+
+#[binwrite]
+#[server_opcode]
+pub struct SmsgTextEmote {
+    pub origin_guid: u64,
+    pub text_emote: u32,
+    pub emote_number: u32,
+    pub target_name_length: u32,
+    pub target_name: NullString,
+}
+
 #[binwrite]
 pub struct InitialSpell {
     pub spell_id: u16,

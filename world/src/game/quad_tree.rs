@@ -330,7 +330,7 @@ impl QuadTree {
         Vec::new()
     }
 
-    pub fn delete(&mut self, guid: &ObjectGuid) {
+    pub fn delete(&mut self, guid: &ObjectGuid) -> Option<Position> {
         fn delete_rec(node: &mut Box<Node>, position: &Position, value: &ObjectGuid) {
             match &mut (*node).content {
                 NodeContent::Values(ref mut existing_values) => {
@@ -363,15 +363,17 @@ impl QuadTree {
             .get(&guid)
             .expect("entity exists in quadtree but is not in entities_positions");
         delete_rec(&mut self.root, position, &guid);
-        self.entities_positions.remove(&guid);
+        self.entities_positions.remove(&guid)
     }
 
-    pub fn update(&mut self, new_position: &Position, guid: &ObjectGuid) {
+    pub fn update(&mut self, new_position: &Position, guid: &ObjectGuid) -> Option<Position> {
         // Possible optimization: search for the value and update it in place if the new position
         // ends up in the same node as the old position
         // For now, simply delete then insert
-        self.delete(guid);
+        let previous_position = self.delete(guid);
         self.insert(new_position.clone(), guid.clone());
+
+        previous_position
     }
 }
 

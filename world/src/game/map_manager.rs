@@ -9,13 +9,19 @@ use crate::{
     entities::{
         object_guid::ObjectGuid,
         position::{Position, WorldPosition},
+        update::UpdatableEntity,
     },
-    protocol::{self, opcodes::Opcode, packets::MovementInfo, server::ServerMessage},
+    protocol::{
+        self,
+        opcodes::Opcode,
+        packets::{MovementInfo, SmsgCreateObject},
+        server::ServerMessage,
+    },
     session::world_session::WorldSession,
     DataStore,
 };
 
-use super::map::Map;
+use super::{map::Map, world_context::WorldContext};
 
 pub enum MapManagerError {
     UnknownMapId,
@@ -192,7 +198,7 @@ impl MapManager {
                 let player_guard = mover_session.player.read().await;
 
                 for session in map_guard
-                    .nearby_sessions(
+                    .sessions_nearby_entity(
                         player_guard.guid(),
                         map_guard.visibility_distance(),
                         true,
@@ -209,15 +215,35 @@ impl MapManager {
         }
     }
 
-    pub async fn update_player_position(&self, session: Arc<WorldSession>, position: &Position) {
+    pub async fn update_player_position(
+        &self,
+        world_context: Arc<WorldContext>,
+        session: Arc<WorldSession>,
+        position: &Position,
+    ) {
         if let Some(current_map_key) = session.get_current_map().await {
             let maps_guard = self.maps.read().await;
             if let Some(map) = maps_guard.get(&current_map_key) {
                 let mut map_guard = map.write().await;
                 let player_guard = session.player.read().await;
 
+                let update_data = player_guard.get_create_data(0, world_context.clone());
+                let smsg_update_object = SmsgCreateObject {
+                    updates_count: update_data.len() as u32,
+                    has_transport: false,
+                    updates: update_data,
+                };
+
+                let player_guid = player_guard.guid().clone();
+                drop(player_guard);
                 map_guard
-                    .update_player_position(player_guard.guid(), position)
+                    .update_player_position(
+                        &player_guid,
+                        session.clone(),
+                        position,
+                        smsg_update_object,
+                        world_context.clone(),
+                    )
                     .await;
             }
         }
@@ -240,7 +266,7 @@ impl MapManager {
                 let player_guard = origin.player.read().await;
 
                 for session in map_guard
-                    .nearby_sessions(player_guard.guid(), range, true, include_self)
+                    .sessions_nearby_entity(player_guard.guid(), range, true, include_self)
                     .await
                 {
                     session.send(packet).await.unwrap();
@@ -263,7 +289,7 @@ impl MapManager {
                 let map_guard = map.read().await;
 
                 let sessions = &mut map_guard
-                    .nearby_sessions(
+                    .sessions_nearby_entity(
                         player_guid,
                         map_guard.visibility_distance(),
                         true,

@@ -349,6 +349,21 @@ impl WorldSession {
         let packet = ServerMessage::new(SmsgDestroyObject { guid: guid.raw() });
 
         self.send(&packet).await.unwrap();
+        self.remove_known_guid(guid).await;
+    }
+}
+
+impl PartialEq for WorldSession {
+    fn eq(&self, other: &Self) -> bool {
+        self.account_id == other.account_id
+    }
+}
+
+impl std::cmp::Eq for WorldSession {}
+
+impl std::hash::Hash for WorldSession {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.account_id.hash(state);
     }
 }
 

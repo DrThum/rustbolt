@@ -210,6 +210,7 @@ impl OpcodeHandler {
 
         session.send(&smsg_login_settimespeed).await.unwrap();
 
+        // TODO: Move this to Map::add_player
         {
             // Send the player to themselves
             let player = session.player.read().await;

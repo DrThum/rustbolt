@@ -5,13 +5,9 @@ use tokio::{
     time::{interval, Instant},
 };
 
-use crate::{
-    config::WorldConfig,
-    entities::{creature::Creature, object_guid::ObjectGuid},
-    SessionHolder,
-};
+use crate::{config::WorldConfig, SessionHolder};
 
-use super::{map_manager::MapKey, world_context::WorldContext};
+use super::world_context::WorldContext;
 
 pub struct World {
     world_context: Arc<WorldContext>,

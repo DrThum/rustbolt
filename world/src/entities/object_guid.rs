@@ -22,7 +22,7 @@ impl ObjectGuid {
     }
 
     pub fn from_raw(raw: u64) -> Option<ObjectGuid> {
-        let high_part = (raw >> 32) & 0xFFFFFFFF;
+        let high_part = (raw >> 48) & 0xFFFF;
         HighGuidType::n(high_part as i64).map(|high_guid_type| ObjectGuid {
             high_guid_type,
             raw,
@@ -99,6 +99,10 @@ impl ObjectGuid {
             | HighGuidType::Pet
             | HighGuidType::Gameobject => true,
         }
+    }
+
+    pub fn is_player(&self) -> bool {
+        self.high_guid_type == HighGuidType::Player
     }
 }
 

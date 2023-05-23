@@ -32,7 +32,6 @@ pub struct TerrainBlockCoords {
 pub struct MapManager {
     config: Arc<WorldConfig>,
     maps: RwLock<HashMap<MapKey, Arc<RwLock<Map>>>>,
-    entities: RwLock<HashMap<ObjectGuid, Arc<RwLock<dyn UpdatableEntity + Sync + Send>>>>,
     data_store: Arc<DataStore>,
     next_instance_id: RelaxedCounter,
     terrains: RwLock<HashMap<u32, Arc<HashMap<TerrainBlockCoords, TerrainBlock>>>>,
@@ -86,7 +85,6 @@ impl MapManager {
         Self {
             config,
             maps: RwLock::new(maps),
-            entities: RwLock::new(HashMap::new()),
             data_store,
             next_instance_id: RelaxedCounter::new(1),
             terrains: RwLock::new(terrains),
@@ -165,25 +163,14 @@ impl MapManager {
 
         let player_guard = player.read().await;
         let player_position = player_guard.position();
-        let player_guid = player_guard.guid();
 
         // TODO: handle instance id here
         let destination = MapKey::for_continent(player_position.map);
         if let Some(destination_map) = guard.get(&destination) {
-            self.entities
-                .write()
-                .await
-                .insert(player_guid.clone(), player.clone());
-
             destination_map
                 .read()
                 .await
-                .add_player(
-                    session.clone(),
-                    world_context.clone(),
-                    player_position,
-                    player_guid,
-                )
+                .add_player(session.clone(), world_context.clone(), player.clone())
                 .await;
             session.set_map(destination).await;
         } else {
@@ -201,11 +188,6 @@ impl MapManager {
                 }
             }
         }
-
-        self.entities
-            .write()
-            .await
-            .remove(session.player.read().await.guid());
     }
 
     pub async fn add_creature_to_map(
@@ -220,20 +202,33 @@ impl MapManager {
                 .await
                 .add_creature(world_context.clone(), creature.clone())
                 .await;
-
-            let creature_guard = creature.read().await;
-            self.entities
-                .write()
-                .await
-                .insert(creature_guard.guid().clone(), creature.clone());
         }
     }
 
     pub async fn lookup_entity(
         &self,
         guid: &ObjectGuid,
+        map_key: Option<MapKey>,
     ) -> Option<Arc<RwLock<dyn UpdatableEntity + Sync + Send>>> {
-        self.entities.read().await.get(guid).cloned()
+        if let Some(map_key) = map_key {
+            if let Some(map) = self.maps.read().await.get(&map_key) {
+                map.read().await.lookup_entity(guid).await
+            } else {
+                None
+            }
+        } else if guid.is_player() {
+            let map_guard = self.maps.read().await;
+            for (_, map) in &*map_guard {
+                if let Some(entity) = map.read().await.lookup_entity(guid).await {
+                    return Some(entity);
+                }
+            }
+
+            None
+        } else {
+            warn!("lookup on multiple maps is only allowed for players");
+            None
+        }
     }
 
     pub async fn broadcast_movement(

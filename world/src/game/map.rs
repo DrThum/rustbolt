@@ -11,7 +11,8 @@ use crate::{
     entities::{
         creature::Creature,
         object_guid::ObjectGuid,
-        position::{Position, WorldPosition},
+        player::Player,
+        position::Position,
         update::{CreateData, UpdatableEntity},
     },
     protocol::packets::SmsgCreateObject,
@@ -29,6 +30,7 @@ pub const DEFAULT_VISIBILITY_DISTANCE: f32 = 90.0;
 pub struct Map {
     key: MapKey,
     sessions: RwLock<HashMap<ObjectGuid, Arc<WorldSession>>>,
+    entities: RwLock<HashMap<ObjectGuid, Arc<RwLock<dyn UpdatableEntity + Sync + Send>>>>,
     terrain: Arc<HashMap<TerrainBlockCoords, TerrainBlock>>,
     entities_tree: RwLock<QuadTree>,
     visibility_distance: f32,
@@ -39,6 +41,7 @@ impl Map {
         Self {
             key,
             sessions: RwLock::new(HashMap::new()),
+            entities: RwLock::new(HashMap::new()),
             terrain,
             entities_tree: RwLock::new(QuadTree::new(
                 super::quad_tree::QUADTREE_DEFAULT_NODE_CAPACITY,
@@ -51,9 +54,13 @@ impl Map {
         &self,
         session: Arc<WorldSession>,
         world_context: Arc<WorldContext>,
-        player_position: &WorldPosition,
-        player_guid: &ObjectGuid,
+        player: Arc<RwLock<Player>>,
     ) {
+        let player_guard = player.read().await;
+        let player_guid = player_guard.guid().clone();
+        let player_position = player_guard.position().to_position();
+        drop(player_guard);
+
         session.send_initial_spells().await;
 
         let mut guard = self.sessions.write().await;
@@ -67,20 +74,29 @@ impl Map {
 
         {
             let mut tree = self.entities_tree.write().await;
-            tree.insert(player_position.to_position(), player_guid.clone());
+            tree.insert(player_position, player_guid);
         }
+
+        self.entities
+            .write()
+            .await
+            .insert(player_guid.clone(), player.clone());
 
         {
             let player = session.player.read().await;
 
             // TODO: Maybe we can group all updates within the same packet?
             for guid in self.entities_tree.read().await.search_around_position(
-                &player_position.to_position(),
+                &player_position,
                 self.visibility_distance(),
                 true,
                 None,
             ) {
-                if let Some(entity) = world_context.map_manager.lookup_entity(&guid).await {
+                if let Some(entity) = world_context
+                    .map_manager
+                    .lookup_entity(&guid, Some(self.key))
+                    .await
+                {
                     // Broadcast the new player to nearby players and to itself
                     if let Some(other_session) = self.sessions.read().await.get(&guid) {
                         let update_data = player.get_create_data(guid.raw(), world_context.clone());
@@ -96,7 +112,7 @@ impl Map {
                     }
 
                     // Send nearby entities to the new player
-                    if guid != *player_guid {
+                    if guid != player_guid {
                         // Don't send the player to itself twice
                         let update_data = entity
                             .read()
@@ -120,6 +136,8 @@ impl Map {
     pub async fn remove_player(&self, session: Arc<WorldSession>) {
         let player_guard = session.player.read().await;
         let player_guid = player_guard.guid();
+
+        self.entities.write().await.remove(player_guid);
 
         {
             let other_sessions = self
@@ -154,6 +172,8 @@ impl Map {
         let creature_guard = creature.read().await;
         let position = creature_guard.position().to_position();
         let guid = creature_guard.guid().clone();
+
+        self.entities.write().await.insert(guid, creature.clone());
 
         {
             let mut tree = self.entities_tree.write().await;
@@ -227,7 +247,11 @@ impl Map {
             };
 
             for other_guid in appeared_for {
-                if let Some(entity) = world_context.map_manager.lookup_entity(&other_guid).await {
+                if let Some(entity) = world_context
+                    .map_manager
+                    .lookup_entity(&other_guid, Some(self.key))
+                    .await
+                {
                     if let Some(other_session) = self.sessions.read().await.get(&other_guid) {
                         // Make the moving player appear for the other player
                         other_session
@@ -263,6 +287,13 @@ impl Map {
         } else {
             error!("updating position for player not on map");
         }
+    }
+
+    pub async fn lookup_entity(
+        &self,
+        guid: &ObjectGuid,
+    ) -> Option<Arc<RwLock<dyn UpdatableEntity + Sync + Send>>> {
+        self.entities.read().await.get(guid).cloned()
     }
 
     pub async fn sessions_nearby_entity(

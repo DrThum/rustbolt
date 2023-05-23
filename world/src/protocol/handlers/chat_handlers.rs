@@ -87,7 +87,11 @@ impl OpcodeHandler {
             let target_guid =
                 ObjectGuid::from_raw(cmsg_text_emote.target_guid).expect("invalid guid received");
             let mut target_name: String = "".to_owned();
-            if let Some(entity_ref) = world_context.map_manager.lookup_entity(&target_guid).await {
+            if let Some(entity_ref) = world_context
+                .map_manager
+                .lookup_entity(&target_guid, session.get_current_map().await)
+                .await
+            {
                 target_name = entity_ref.read().await.name();
             }
 

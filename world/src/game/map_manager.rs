@@ -208,15 +208,20 @@ impl MapManager {
             .remove(session.player.read().await.guid());
     }
 
-    pub async fn add_creature_to_map(&self, map_key: MapKey, creature: Arc<RwLock<Creature>>) {
+    pub async fn add_creature_to_map(
+        &self,
+        map_key: MapKey,
+        world_context: Arc<WorldContext>,
+        creature: Arc<RwLock<Creature>>,
+    ) {
         let guard = self.maps.read().await;
         if let Some(map) = guard.get(&map_key) {
-            let creature_guard = creature.read().await;
             map.read()
                 .await
-                .add_creature(creature_guard.position(), creature_guard.guid())
+                .add_creature(world_context.clone(), creature.clone())
                 .await;
 
+            let creature_guard = creature.read().await;
             self.entities
                 .write()
                 .await

@@ -3,7 +3,6 @@ use chrono::{Datelike, Timelike};
 use std::sync::Arc;
 
 use crate::entities::player::Player;
-use crate::entities::update::UpdatableEntity;
 use crate::game::world_context::WorldContext;
 use crate::protocol::client::ClientMessage;
 use crate::protocol::packets::*;

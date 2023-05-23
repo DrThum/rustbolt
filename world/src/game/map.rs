@@ -150,9 +150,38 @@ impl Map {
         }
     }
 
-    pub async fn add_creature(&self, position: &WorldPosition, guid: &ObjectGuid) {
-        let mut tree = self.entities_tree.write().await;
-        tree.insert(position.to_position(), guid.clone());
+    pub async fn add_creature(
+        &self,
+        world_context: Arc<WorldContext>,
+        creature: Arc<RwLock<Creature>>,
+    ) {
+        let creature_guard = creature.read().await;
+        let position = creature_guard.position().to_position();
+        let guid = creature_guard.guid().clone();
+
+        {
+            let mut tree = self.entities_tree.write().await;
+            tree.insert(position, guid);
+        }
+
+        for session in self
+            .sessions_nearby_position(&position, self.visibility_distance(), true, None)
+            .await
+        {
+            // Broadcast the new creature to nearby players
+            let player = session.player.read().await;
+            let update_data =
+                creature_guard.get_create_data(player.guid().raw(), world_context.clone());
+            let smsg_update_object = SmsgCreateObject {
+                updates_count: update_data.len() as u32,
+                has_transport: false,
+                updates: update_data,
+            };
+
+            session
+                .create_entity(player.guid(), smsg_update_object)
+                .await;
+        }
     }
 
     pub async fn update_player_position(

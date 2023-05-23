@@ -50,21 +50,75 @@ impl Map {
     pub async fn add_player(
         &self,
         session: Arc<WorldSession>,
+        world_context: Arc<WorldContext>,
         player_position: &WorldPosition,
         player_guid: &ObjectGuid,
     ) {
         session.send_initial_spells().await;
 
         let mut guard = self.sessions.write().await;
-        if let Some(previous_session) = guard.insert(player_guid.clone(), session) {
+        if let Some(previous_session) = guard.insert(player_guid.clone(), session.clone()) {
             warn!(
                 "session from account {} was already on map {}",
                 previous_session.account_id, self.key
             );
         }
+        drop(guard);
 
-        let mut tree = self.entities_tree.write().await;
-        tree.insert(player_position.to_position(), player_guid.clone());
+        {
+            let mut tree = self.entities_tree.write().await;
+            tree.insert(player_position.to_position(), player_guid.clone());
+        }
+
+        {
+            // Send the player to themselves
+            let player = session.player.read().await;
+            let update_data = player.get_create_data(player.guid().raw(), world_context.clone());
+            let smsg_update_object = SmsgCreateObject {
+                updates_count: update_data.len() as u32,
+                has_transport: false,
+                updates: update_data,
+            };
+
+            session.create_entity(player_guid, smsg_update_object).await;
+
+            for other_session in self
+                .sessions_nearby_position(
+                    &player_position.to_position(),
+                    self.visibility_distance(),
+                    true,
+                    Some(player_guid),
+                )
+                .await
+            {
+                // Broadcast the new player to nearby players
+                let other_player = other_session.player.read().await;
+                let update_data =
+                    player.get_create_data(other_player.guid().raw(), world_context.clone());
+                let smsg_update_object = SmsgCreateObject {
+                    updates_count: update_data.len() as u32,
+                    has_transport: false,
+                    updates: update_data,
+                };
+
+                other_session
+                    .create_entity(player.guid(), smsg_update_object)
+                    .await;
+
+                // Send nearby players to the new player
+                let update_data =
+                    other_player.get_create_data(player.guid().raw(), world_context.clone());
+                let smsg_update_object = SmsgCreateObject {
+                    updates_count: update_data.len() as u32,
+                    has_transport: false,
+                    updates: update_data,
+                };
+
+                session
+                    .create_entity(other_player.guid(), smsg_update_object)
+                    .await;
+            }
+        }
     }
 
     pub async fn remove_player(&self, session: Arc<WorldSession>) {

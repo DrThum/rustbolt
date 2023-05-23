@@ -104,15 +104,6 @@ impl OpcodeHandler {
                 cmsg_player_login.guid,
                 world_context.clone(),
             );
-            drop(player);
-
-            world_context
-                .map_manager
-                .add_session_to_map(session.clone(), session.player.clone())
-                .await;
-
-            let mut session_state = session.state.write().await;
-            *session_state = WorldSessionState::InWorld;
         }
 
         let msg_set_dungeon_difficulty = ServerMessage::new(MsgSetDungeonDifficulty {
@@ -211,51 +202,18 @@ impl OpcodeHandler {
 
         session.send(&smsg_login_settimespeed).await.unwrap();
 
-        // TODO: Move this to Map::add_player
         {
-            // Send the player to themselves
-            let player = session.player.read().await;
-            let update_data = player.get_create_data(player.guid().raw(), world_context.clone());
-            let smsg_update_object = ServerMessage::new(SmsgCreateObject {
-                updates_count: update_data.len() as u32,
-                has_transport: false,
-                updates: update_data,
-            });
-
-            session.send(&smsg_update_object).await.unwrap();
-
-            for other_session in world_context
+            world_context
                 .map_manager
-                .nearby_sessions(session.get_current_map().await, player.guid(), false)
-                .await
-            {
-                // Broadcast the new player to nearby players
-                let other_player = other_session.player.read().await;
-                let update_data =
-                    player.get_create_data(other_player.guid().raw(), world_context.clone());
-                let smsg_update_object = SmsgCreateObject {
-                    updates_count: update_data.len() as u32,
-                    has_transport: false,
-                    updates: update_data,
-                };
+                .add_session_to_map(
+                    session.clone(),
+                    world_context.clone(),
+                    session.player.clone(),
+                )
+                .await;
 
-                other_session
-                    .create_entity(player.guid(), smsg_update_object)
-                    .await;
-
-                // Send nearby players to the new player
-                let update_data =
-                    other_player.get_create_data(player.guid().raw(), world_context.clone());
-                let smsg_update_object = SmsgCreateObject {
-                    updates_count: update_data.len() as u32,
-                    has_transport: false,
-                    updates: update_data,
-                };
-
-                session
-                    .create_entity(other_player.guid(), smsg_update_object)
-                    .await;
-            }
+            let mut session_state = session.state.write().await;
+            *session_state = WorldSessionState::InWorld;
         }
 
         let smsg_init_world_states = ServerMessage::new(SmsgInitWorldStates {

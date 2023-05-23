@@ -147,6 +147,7 @@ impl MapManager {
     pub async fn add_session_to_map(
         &self,
         session: Arc<WorldSession>,
+        world_context: Arc<WorldContext>,
         player: Arc<RwLock<Player>>,
     ) {
         let from_map = session.get_current_map().await;
@@ -172,7 +173,12 @@ impl MapManager {
             destination_map
                 .read()
                 .await
-                .add_player(session.clone(), player_position, player_guid)
+                .add_player(
+                    session.clone(),
+                    world_context.clone(),
+                    player_position,
+                    player_guid,
+                )
                 .await;
             session.set_map(destination).await;
         } else {

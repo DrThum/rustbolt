@@ -9,6 +9,7 @@ use tokio::sync::RwLock;
 
 use crate::{
     entities::{
+        creature::Creature,
         object_guid::ObjectGuid,
         position::{Position, WorldPosition},
         update::{CreateData, UpdatableEntity},
@@ -47,7 +48,7 @@ impl Map {
     }
 
     pub async fn add_player(
-        &mut self,
+        &self,
         session: Arc<WorldSession>,
         player_position: &WorldPosition,
         player_guid: &ObjectGuid,
@@ -66,7 +67,7 @@ impl Map {
         tree.insert(player_position.to_position(), player_guid.clone());
     }
 
-    pub async fn remove_player(&mut self, session: Arc<WorldSession>) {
+    pub async fn remove_player(&self, session: Arc<WorldSession>) {
         let player_guard = session.player.read().await;
         let player_guid = player_guard.guid();
 
@@ -93,6 +94,11 @@ impl Map {
                 );
             }
         }
+    }
+
+    pub async fn add_creature(&self, position: &WorldPosition, guid: &ObjectGuid) {
+        let mut tree = self.entities_tree.write().await;
+        tree.insert(position.to_position(), guid.clone());
     }
 
     pub async fn update_player_position(

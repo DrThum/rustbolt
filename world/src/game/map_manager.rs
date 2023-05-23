@@ -8,8 +8,8 @@ use tokio::sync::RwLock;
 use crate::{
     config::WorldConfig,
     entities::{
-        entity::Entity, object_guid::ObjectGuid, player::Player, position::Position,
-        update::UpdatableEntity,
+        creature::Creature, entity::Entity, object_guid::ObjectGuid, player::Player,
+        position::Position, update::UpdatableEntity,
     },
     protocol::{self, opcodes::Opcode, packets::MovementInfo, server::ServerMessage},
     session::world_session::WorldSession,
@@ -151,7 +151,7 @@ impl MapManager {
     ) {
         let from_map = session.get_current_map().await;
 
-        let guard = self.maps.write().await;
+        let guard = self.maps.read().await;
         if let Some(from_map_key) = from_map {
             if let Some(origin_map) = guard.get(&from_map_key) {
                 origin_map
@@ -170,7 +170,7 @@ impl MapManager {
         let destination = MapKey::for_continent(player_position.map);
         if let Some(destination_map) = guard.get(&destination) {
             destination_map
-                .write()
+                .read()
                 .await
                 .add_player(session.clone(), player_position, player_guid)
                 .await;
@@ -191,11 +191,7 @@ impl MapManager {
             let guard = self.maps.read().await;
             if let Some(from_map_key) = from_map {
                 if let Some(origin_map) = guard.get(&from_map_key) {
-                    origin_map
-                        .write()
-                        .await
-                        .remove_player(session.clone())
-                        .await;
+                    origin_map.read().await.remove_player(session.clone()).await;
                 }
             }
         }
@@ -204,6 +200,22 @@ impl MapManager {
             .write()
             .await
             .remove(session.player.read().await.guid());
+    }
+
+    pub async fn add_creature_to_map(&self, map_key: MapKey, creature: Arc<RwLock<Creature>>) {
+        let guard = self.maps.read().await;
+        if let Some(map) = guard.get(&map_key) {
+            let creature_guard = creature.read().await;
+            map.read()
+                .await
+                .add_creature(creature_guard.position(), creature_guard.guid())
+                .await;
+
+            self.entities
+                .write()
+                .await
+                .insert(creature_guard.guid().clone(), creature.clone());
+        }
     }
 
     pub async fn lookup_entity(

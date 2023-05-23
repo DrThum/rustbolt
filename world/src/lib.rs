@@ -33,7 +33,6 @@ mod entities {
     pub mod update_fields;
 
     pub mod creature;
-    pub mod entity;
     pub mod item;
     pub mod player;
 

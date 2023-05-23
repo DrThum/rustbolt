@@ -3,7 +3,6 @@ use enumflags2::make_bitflags;
 use crate::shared::constants::{HighGuidType, ObjectTypeId, ObjectTypeMask};
 
 use super::{
-    entity::Entity,
     internal_values::InternalValues,
     object_guid::ObjectGuid,
     position::{Position, WorldPosition},
@@ -92,6 +91,14 @@ impl Creature {
 }
 
 impl UpdatableEntity for Creature {
+    fn guid(&self) -> &ObjectGuid {
+        self.guid()
+    }
+
+    fn name(&self) -> String {
+        self.name.to_owned()
+    }
+
     fn get_create_data(
         &self,
         _recipient_guid: u64,
@@ -149,15 +156,5 @@ impl UpdatableEntity for Creature {
             packed_guid: self.guid().as_packed(),
             blocks: self.gen_update_data(),
         }]
-    }
-}
-
-impl Entity for Creature {
-    fn guid(&self) -> &ObjectGuid {
-        self.guid()
-    }
-
-    fn name(&self) -> String {
-        self.name.to_owned()
     }
 }

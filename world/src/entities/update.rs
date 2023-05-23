@@ -6,12 +6,16 @@ use fixedbitset::FixedBitSet;
 
 use crate::{game::world_context::WorldContext, shared::constants::ObjectTypeId};
 
-use super::{object_guid::PackedObjectGuid, position::Position};
+use super::{
+    object_guid::{ObjectGuid, PackedObjectGuid},
+    position::Position,
+};
 
 pub trait UpdatableEntity {
-    // FIXME:
-    //
-    // - Is this the right place to support out of range GUIDs?
+    fn guid(&self) -> &ObjectGuid;
+
+    fn name(&self) -> String;
+
     fn get_create_data(
         &self,
         recipient_guid: u64,

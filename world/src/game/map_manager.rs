@@ -8,8 +8,8 @@ use tokio::sync::RwLock;
 use crate::{
     config::WorldConfig,
     entities::{
-        creature::Creature, entity::Entity, object_guid::ObjectGuid, player::Player,
-        position::Position, update::UpdatableEntity,
+        creature::Creature, object_guid::ObjectGuid, player::Player, position::Position,
+        update::UpdatableEntity,
     },
     protocol::{self, opcodes::Opcode, packets::MovementInfo, server::ServerMessage},
     session::world_session::WorldSession,
@@ -32,7 +32,7 @@ pub struct TerrainBlockCoords {
 pub struct MapManager {
     config: Arc<WorldConfig>,
     maps: RwLock<HashMap<MapKey, Arc<RwLock<Map>>>>,
-    entities: RwLock<HashMap<ObjectGuid, Arc<RwLock<dyn Entity + Sync + Send>>>>,
+    entities: RwLock<HashMap<ObjectGuid, Arc<RwLock<dyn UpdatableEntity + Sync + Send>>>>,
     data_store: Arc<DataStore>,
     next_instance_id: RelaxedCounter,
     terrains: RwLock<HashMap<u32, Arc<HashMap<TerrainBlockCoords, TerrainBlock>>>>,
@@ -170,6 +170,11 @@ impl MapManager {
         // TODO: handle instance id here
         let destination = MapKey::for_continent(player_position.map);
         if let Some(destination_map) = guard.get(&destination) {
+            self.entities
+                .write()
+                .await
+                .insert(player_guid.clone(), player.clone());
+
             destination_map
                 .read()
                 .await
@@ -184,11 +189,6 @@ impl MapManager {
         } else {
             warn!("map {} not found as destination in MapManager", destination);
         }
-
-        self.entities
-            .write()
-            .await
-            .insert(player_guid.clone(), player.clone());
     }
 
     pub async fn remove_session(&self, session: Arc<WorldSession>) {
@@ -232,7 +232,7 @@ impl MapManager {
     pub async fn lookup_entity(
         &self,
         guid: &ObjectGuid,
-    ) -> Option<Arc<RwLock<dyn Entity + Sync + Send>>> {
+    ) -> Option<Arc<RwLock<dyn UpdatableEntity + Sync + Send>>> {
         self.entities.read().await.get(guid).cloned()
     }
 

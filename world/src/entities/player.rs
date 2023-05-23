@@ -19,7 +19,6 @@ use crate::{
 };
 
 use super::{
-    entity::Entity,
     internal_values::InternalValues,
     item::Item,
     object_guid::ObjectGuid,
@@ -488,6 +487,14 @@ pub struct PlayerVisualFeatures {
 }
 
 impl UpdatableEntity for Player {
+    fn guid(&self) -> &ObjectGuid {
+        self.guid()
+    }
+
+    fn name(&self) -> String {
+        self.name.to_owned()
+    }
+
     fn get_create_data(
         &self,
         recipient_guid: u64, // TODO: Change this to ObjectGuid
@@ -564,15 +571,5 @@ impl UpdatableEntity for Player {
 
     fn has_updates(&self) -> bool {
         self.values.has_dirty()
-    }
-}
-
-impl Entity for Player {
-    fn guid(&self) -> &ObjectGuid {
-        self.guid()
-    }
-
-    fn name(&self) -> String {
-        self.name.to_owned()
     }
 }

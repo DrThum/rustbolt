@@ -71,52 +71,47 @@ impl Map {
         }
 
         {
-            // Send the player to themselves
             let player = session.player.read().await;
-            let update_data = player.get_create_data(player.guid().raw(), world_context.clone());
-            let smsg_update_object = SmsgCreateObject {
-                updates_count: update_data.len() as u32,
-                has_transport: false,
-                updates: update_data,
-            };
 
-            session.create_entity(player_guid, smsg_update_object).await;
+            // TODO: Maybe we can group all updates within the same packet?
+            for guid in self.entities_tree.read().await.search_around_position(
+                &player_position.to_position(),
+                self.visibility_distance(),
+                true,
+            ) {
+                if let Some(entity) = world_context.map_manager.lookup_entity(&guid).await {
+                    // Broadcast the new player to nearby players and to itself
+                    if let Some(other_session) = self.sessions.read().await.get(&guid) {
+                        let update_data = player.get_create_data(guid.raw(), world_context.clone());
+                        let smsg_update_object = SmsgCreateObject {
+                            updates_count: update_data.len() as u32,
+                            has_transport: false,
+                            updates: update_data,
+                        };
 
-            for other_session in self
-                .sessions_nearby_position(
-                    &player_position.to_position(),
-                    self.visibility_distance(),
-                    true,
-                    Some(player_guid),
-                )
-                .await
-            {
-                // Broadcast the new player to nearby players
-                let other_player = other_session.player.read().await;
-                let update_data =
-                    player.get_create_data(other_player.guid().raw(), world_context.clone());
-                let smsg_update_object = SmsgCreateObject {
-                    updates_count: update_data.len() as u32,
-                    has_transport: false,
-                    updates: update_data,
-                };
+                        other_session
+                            .create_entity(&player_guid, smsg_update_object)
+                            .await;
+                    }
 
-                other_session
-                    .create_entity(player.guid(), smsg_update_object)
-                    .await;
+                    // Send nearby entities to the new player
+                    if guid != *player_guid {
+                        // Don't send the player to itself twice
+                        let update_data = entity
+                            .read()
+                            .await
+                            .get_create_data(player_guid.raw(), world_context.clone());
+                        let smsg_update_object = SmsgCreateObject {
+                            updates_count: update_data.len() as u32,
+                            has_transport: false,
+                            updates: update_data,
+                        };
 
-                // Send nearby players to the new player
-                let update_data =
-                    other_player.get_create_data(player.guid().raw(), world_context.clone());
-                let smsg_update_object = SmsgCreateObject {
-                    updates_count: update_data.len() as u32,
-                    has_transport: false,
-                    updates: update_data,
-                };
-
-                session
-                    .create_entity(other_player.guid(), smsg_update_object)
-                    .await;
+                        session.create_entity(&guid, smsg_update_object).await;
+                    }
+                } else {
+                    error!("found an entity in quadtree but not in MapManager");
+                }
             }
         }
     }

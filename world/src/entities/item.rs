@@ -63,6 +63,14 @@ impl Item {
 }
 
 impl UpdatableEntity for Item {
+    fn guid(&self) -> &ObjectGuid {
+        self.guid()
+    }
+
+    fn name(&self) -> String {
+        "TODO".to_owned()
+    }
+
     fn get_create_data(
         &self,
         _recipient_guid: u64,

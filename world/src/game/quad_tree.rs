@@ -118,7 +118,8 @@ pub const QUADTREE_DEFAULT_NODE_CAPACITY: usize = 100;
 pub struct QuadTree {
     node_capacity: usize,
     root: Box<Node>,
-    entities_positions: HashMap<ObjectGuid, Position>,
+    entities_positions: HashMap<ObjectGuid, Position>, // TODO: Store WorldPosition and compare
+                                                       // map IDs
 }
 
 impl core::fmt::Debug for QuadTree {
@@ -257,6 +258,7 @@ impl QuadTree {
         position: &Position,
         radius: f32,
         search_in_3d: bool,
+        exclude_guid: Option<&ObjectGuid>,
     ) -> Vec<ObjectGuid> {
         fn search_rec(
             entities_positions: &HashMap<ObjectGuid, Position>,
@@ -265,6 +267,7 @@ impl QuadTree {
             radius: f32,
             search_in_3d: bool,
             acc: &mut Vec<ObjectGuid>,
+            exclude_guid: Option<&ObjectGuid>,
         ) {
             match &node.content {
                 NodeContent::Empty => (),
@@ -280,7 +283,8 @@ impl QuadTree {
                             position.square_distance_2d(&center)
                         };
 
-                        if dist_square <= radius_square {
+                        let excluded = exclude_guid.map_or(false, |ex| ex == value);
+                        if dist_square <= radius_square && !excluded {
                             acc.push(value.clone());
                         }
                     }
@@ -288,16 +292,48 @@ impl QuadTree {
                 NodeContent::Values(_) => (),
                 NodeContent::Children { nw, ne, sw, se } => {
                     if nw.bounds.intersects_circle(&center, radius) {
-                        search_rec(entities_positions, nw, &center, radius, search_in_3d, acc);
+                        search_rec(
+                            entities_positions,
+                            nw,
+                            &center,
+                            radius,
+                            search_in_3d,
+                            acc,
+                            exclude_guid,
+                        );
                     }
                     if ne.bounds.intersects_circle(&center, radius) {
-                        search_rec(entities_positions, ne, &center, radius, search_in_3d, acc);
+                        search_rec(
+                            entities_positions,
+                            ne,
+                            &center,
+                            radius,
+                            search_in_3d,
+                            acc,
+                            exclude_guid,
+                        );
                     }
                     if sw.bounds.intersects_circle(&center, radius) {
-                        search_rec(entities_positions, sw, &center, radius, search_in_3d, acc);
+                        search_rec(
+                            entities_positions,
+                            sw,
+                            &center,
+                            radius,
+                            search_in_3d,
+                            acc,
+                            exclude_guid,
+                        );
                     }
                     if se.bounds.intersects_circle(&center, radius) {
-                        search_rec(entities_positions, se, &center, radius, search_in_3d, acc);
+                        search_rec(
+                            entities_positions,
+                            se,
+                            &center,
+                            radius,
+                            search_in_3d,
+                            acc,
+                            exclude_guid,
+                        );
                     }
                 }
             }
@@ -311,6 +347,7 @@ impl QuadTree {
             radius,
             search_in_3d,
             &mut guids,
+            exclude_guid,
         );
         guids
     }
@@ -321,9 +358,10 @@ impl QuadTree {
         guid: &ObjectGuid,
         radius: f32,
         search_in_3d: bool,
+        exclude_guid: Option<&ObjectGuid>,
     ) -> Vec<ObjectGuid> {
         if let Some(position) = self.entities_positions.get(&guid) {
-            return self.search_around_position(position, radius, search_in_3d);
+            return self.search_around_position(position, radius, search_in_3d, exclude_guid);
         }
 
         warn!("QuadTree::search_around_entity: searching for entity with guid {} that is not present in entities_position", guid.raw());
@@ -798,7 +836,7 @@ mod tests {
     fn test_quadtree_find() {
         fn find_sorted(quadtree: &QuadTree, position: &Position, radius: f32) -> Vec<u64> {
             let mut guids = quadtree
-                .search_around_position(position, radius, false)
+                .search_around_position(position, radius, false, None)
                 .into_iter()
                 .map(|g| g.raw())
                 .collect::<Vec<u64>>();

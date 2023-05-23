@@ -54,7 +54,6 @@ impl SessionHolder {
 
                 let map = session.get_current_map().await;
 
-                // FIXME: this will be handled by the future map system
                 for other_session in world_context
                     .map_manager
                     .nearby_sessions(map, player.guid(), false)
@@ -70,6 +69,7 @@ impl SessionHolder {
                         updates: update_data,
                     });
 
+                    // TODO: implement and use WorldSession::update_entity
                     other_session.send(&smsg_update_object).await.unwrap();
                 }
 

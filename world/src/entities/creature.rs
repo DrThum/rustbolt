@@ -25,12 +25,18 @@ impl Creature {
         let mut values = InternalValues::new(UNIT_END as usize);
         values.set_u64(ObjectFields::ObjectFieldGuid.into(), guid.raw());
 
-        let object_type = make_bitflags!(ObjectTypeMask::{Object | Unit | Player}).bits();
+        let object_type = make_bitflags!(ObjectTypeMask::{Object | Unit}).bits();
         values.set_u32(ObjectFields::ObjectFieldType.into(), object_type);
 
         values.set_f32(ObjectFields::ObjectFieldScaleX.into(), 1.0);
 
         values.set_u32(UnitFields::UnitFieldLevel.into(), 1);
+
+        values.set_u32(UnitFields::UnitFieldDisplayid.into(), 16633);
+        values.set_u32(UnitFields::UnitFieldNativedisplayid.into(), 16633);
+
+        values.set_u32(UnitFields::UnitFieldHealth.into(), 100);
+        values.set_u32(UnitFields::UnitFieldMaxhealth.into(), 100);
 
         Creature {
             guid: guid.clone(),

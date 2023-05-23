@@ -78,6 +78,7 @@ impl Map {
                 &player_position.to_position(),
                 self.visibility_distance(),
                 true,
+                None,
             ) {
                 if let Some(entity) = world_context.map_manager.lookup_entity(&guid).await {
                     // Broadcast the new player to nearby players and to itself
@@ -201,25 +202,20 @@ impl Map {
             }
 
             let visibility_distance = self.visibility_distance();
-            let in_range_before = self
-                .sessions_nearby_position(
-                    &previous_position,
-                    visibility_distance,
-                    true,
-                    Some(player_guid),
-                )
-                .await;
-            let in_range_before: HashSet<Arc<WorldSession>> =
-                in_range_before.iter().cloned().collect();
-            let in_range_now = self
-                .sessions_nearby_position(
-                    new_position,
-                    self.visibility_distance(),
-                    true,
-                    Some(player_guid),
-                )
-                .await;
-            let in_range_now: HashSet<Arc<WorldSession>> = in_range_now.iter().cloned().collect();
+            let in_range_before = self.entities_tree.read().await.search_around_position(
+                &previous_position,
+                visibility_distance,
+                true,
+                Some(player_guid),
+            );
+            let in_range_before: HashSet<ObjectGuid> = in_range_before.iter().cloned().collect();
+            let in_range_now = self.entities_tree.read().await.search_around_position(
+                new_position,
+                self.visibility_distance(),
+                true,
+                Some(player_guid),
+            );
+            let in_range_now: HashSet<ObjectGuid> = in_range_now.iter().cloned().collect();
 
             let appeared_for = &in_range_now - &in_range_before;
             let disappeared_for = &in_range_before - &in_range_now;
@@ -230,34 +226,39 @@ impl Map {
                 updates: create_data,
             };
 
-            for other_session in appeared_for {
-                // Make the moving player appear for the other player
-                other_session
-                    .create_entity(player_guid, smsg_create_object.clone())
-                    .await;
+            for other_guid in appeared_for {
+                if let Some(entity) = world_context.map_manager.lookup_entity(&other_guid).await {
+                    if let Some(other_session) = self.sessions.read().await.get(&other_guid) {
+                        // Make the moving player appear for the other player
+                        other_session
+                            .create_entity(player_guid, smsg_create_object.clone())
+                            .await;
+                    }
 
-                // Make the other player appear for the moving player
-                let other_player = other_session.player.read().await;
-                let create_data =
-                    other_player.get_create_data(player_guid.raw(), world_context.clone());
-                let smsg_create_object = SmsgCreateObject {
-                    updates_count: create_data.len() as u32,
-                    has_transport: false,
-                    updates: create_data,
-                };
-                origin_session
-                    .create_entity(other_player.guid(), smsg_create_object)
-                    .await;
+                    // Make the entity (player or otherwise) appear for the moving player
+                    let create_data = entity
+                        .read()
+                        .await
+                        .get_create_data(player_guid.raw(), world_context.clone());
+                    let smsg_create_object = SmsgCreateObject {
+                        updates_count: create_data.len() as u32,
+                        has_transport: false,
+                        updates: create_data,
+                    };
+                    origin_session
+                        .create_entity(&other_guid, smsg_create_object)
+                        .await;
+                }
             }
 
-            for other_session in disappeared_for {
-                // Destroy the moving player for the other player
-                other_session.destroy_entity(player_guid).await;
+            for other_guid in disappeared_for {
+                if let Some(other_session) = self.sessions.read().await.get(&other_guid) {
+                    // Destroy the moving player for the other player
+                    other_session.destroy_entity(player_guid).await;
+                }
 
-                // Destroy the other player for the moving player
-                let other_player = other_session.player.read().await;
-                let other_player_guid = other_player.guid();
-                origin_session.destroy_entity(other_player_guid).await;
+                // Destroy the other entity for the moving player
+                origin_session.destroy_entity(&other_guid).await;
             }
         } else {
             error!("updating position for player not on map");
@@ -271,15 +272,16 @@ impl Map {
         search_in_3d: bool,
         include_self: bool,
     ) -> Vec<Arc<WorldSession>> {
-        let mut guids =
-            self.entities_tree
-                .read()
-                .await
-                .search_around_entity(source_guid, range, search_in_3d);
-
-        if !include_self {
-            guids.retain(|g| g != source_guid);
-        }
+        let guids = self.entities_tree.read().await.search_around_entity(
+            source_guid,
+            range,
+            search_in_3d,
+            if include_self {
+                None
+            } else {
+                Some(source_guid)
+            },
+        );
 
         self.sessions
             .read()
@@ -302,20 +304,19 @@ impl Map {
         search_in_3d: bool,
         exclude_guid: Option<&ObjectGuid>,
     ) -> Vec<Arc<WorldSession>> {
-        let guids =
-            self.entities_tree
-                .read()
-                .await
-                .search_around_position(position, range, search_in_3d);
+        let guids = self.entities_tree.read().await.search_around_position(
+            position,
+            range,
+            search_in_3d,
+            exclude_guid,
+        );
 
         self.sessions
             .read()
             .await
             .iter()
             .filter_map(|(&guid, session)| {
-                let excluded = exclude_guid.map_or(false, |&ex| ex == guid);
-
-                if guids.contains(&guid) && !excluded {
+                if guids.contains(&guid) {
                     Some(session.clone())
                 } else {
                     None

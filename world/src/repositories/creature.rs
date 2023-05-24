@@ -28,7 +28,6 @@ impl CreatureRepository {
                 let model_ids: Vec<u32> = (1..MAX_CREATURE_TEMPLATE_MODELID)
                     .into_iter()
                     .map(|index| row.get(format!("model_id{}", index).as_str()).unwrap())
-                    .filter(|&id| id != 0)
                     .collect();
 
                 bar.inc(1);

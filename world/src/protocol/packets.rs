@@ -596,3 +596,40 @@ pub struct SmsgInitialSpells {
 pub struct SmsgDestroyObject {
     pub guid: u64,
 }
+
+#[binread]
+pub struct CmsgCreatureQuery {
+    pub entry: u32,
+    pub guid: u64,
+}
+
+#[binwrite]
+#[server_opcode]
+pub struct SmsgCreatureQueryResponse {
+    pub entry: u32,
+    pub name: NullString,
+    pub name2: u8, // 0
+    pub name3: u8, // 0
+    pub name4: u8, // 0
+    pub sub_name: NullString,
+    pub icon_name: NullString,
+    pub type_flags: u32,
+    pub type_id: u32,
+    pub family: u32,
+    pub rank: u32,
+    pub unk: u32, // 0
+    pub pet_spell_data_id: u32,
+    pub model_ids: Vec<u32>,
+    pub health_multiplier: f32,
+    pub power_multiplier: f32,
+    pub racial_leader: u8,
+}
+
+#[binwrite]
+pub struct SmsgCreatureQueryResponseUnknownTemplate {
+    pub masked_entry: u32,
+}
+impl ServerMessagePayload<{ Opcode::SmsgCreatureQueryResponse as u16 }>
+    for SmsgCreatureQueryResponseUnknownTemplate
+{
+}

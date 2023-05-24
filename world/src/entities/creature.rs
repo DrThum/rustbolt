@@ -44,6 +44,8 @@ impl Creature {
                 let object_type = make_bitflags!(ObjectTypeMask::{Object | Unit}).bits();
                 values.set_u32(ObjectFields::ObjectFieldType.into(), object_type);
 
+                values.set_u32(ObjectFields::ObjectFieldEntry.into(), template.entry);
+
                 values.set_f32(ObjectFields::ObjectFieldScaleX.into(), template.scale);
 
                 values.set_u32(
@@ -51,9 +53,11 @@ impl Creature {
                     rng.gen_range(template.min_level..=template.max_level),
                 );
 
-                let display_id = template.model_ids.choose(&mut rng).expect("rng error");
-                values.set_u32(UnitFields::UnitFieldDisplayid.into(), *display_id);
-                values.set_u32(UnitFields::UnitFieldNativedisplayid.into(), *display_id);
+                let existing_model_ids: Vec<&u32> =
+                    template.model_ids.iter().filter(|&&id| id != 0).collect();
+                let display_id = existing_model_ids.choose(&mut rng).expect("rng error");
+                values.set_u32(UnitFields::UnitFieldDisplayid.into(), **display_id);
+                values.set_u32(UnitFields::UnitFieldNativedisplayid.into(), **display_id);
 
                 values.set_u32(UnitFields::UnitFieldHealth.into(), 100); // TODO
                 values.set_u32(UnitFields::UnitFieldMaxhealth.into(), 100); // TODO

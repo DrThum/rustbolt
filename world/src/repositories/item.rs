@@ -81,26 +81,29 @@ impl ItemRepository {
 
         let result = stmt
             .query_map([], |row| {
-                let item_stats: Vec<ItemTemplateStat> = (1..MAX_ITEM_TEMPLATE_STATS + 1)
-                    .into_iter()
-                    .map(|index| ItemTemplateStat {
+                let mut item_stats: Vec<ItemTemplateStat> =
+                    Vec::with_capacity(MAX_ITEM_TEMPLATE_STATS as usize);
+                for index in 1..=MAX_ITEM_TEMPLATE_STATS {
+                    item_stats.push(ItemTemplateStat {
                         stat_type: row.get(format!("stat_type{}", index).as_str()).unwrap(),
                         stat_value: row.get(format!("stat_value{}", index).as_str()).unwrap(),
-                    })
-                    .collect();
+                    });
+                }
 
-                let item_damages: Vec<ItemTemplateDamage> = (1..MAX_ITEM_TEMPLATE_DAMAGES + 1)
-                    .into_iter()
-                    .map(|index| ItemTemplateDamage {
+                let mut item_damages: Vec<ItemTemplateDamage> =
+                    Vec::with_capacity(MAX_ITEM_TEMPLATE_DAMAGES as usize);
+                for index in 1..=MAX_ITEM_TEMPLATE_DAMAGES {
+                    item_damages.push(ItemTemplateDamage {
                         damage_min: row.get(format!("dmg_min{}", index).as_str()).unwrap(),
                         damage_max: row.get(format!("dmg_max{}", index).as_str()).unwrap(),
                         damage_type: row.get(format!("dmg_type{}", index).as_str()).unwrap(),
-                    })
-                    .collect();
+                    });
+                }
 
-                let item_spells: Vec<ItemTemplateSpell> = (1..MAX_ITEM_TEMPLATE_SPELLS + 1)
-                    .into_iter()
-                    .map(|index| ItemTemplateSpell {
+                let mut item_spells: Vec<ItemTemplateSpell> =
+                    Vec::with_capacity(MAX_ITEM_TEMPLATE_SPELLS as usize);
+                for index in 1..=MAX_ITEM_TEMPLATE_SPELLS {
+                    item_spells.push(ItemTemplateSpell {
                         id: row.get(format!("spellid_{}", index).as_str()).unwrap(),
                         trigger_id: row.get(format!("spelltrigger_{}", index).as_str()).unwrap(),
                         charges: row.get(format!("spellcharges_{}", index).as_str()).unwrap(),
@@ -116,18 +119,19 @@ impl ItemRepository {
                         category_cooldown: row
                             .get(format!("spellcategorycooldown_{}", index).as_str())
                             .unwrap(),
-                    })
-                    .collect();
+                    });
+                }
 
-                let item_sockets: Vec<ItemTemplateSocket> = (1..MAX_ITEM_TEMPLATE_SOCKETS + 1)
-                    .into_iter()
-                    .map(|index| ItemTemplateSocket {
+                let mut item_sockets: Vec<ItemTemplateSocket> =
+                    Vec::with_capacity(MAX_ITEM_TEMPLATE_SOCKETS as usize);
+                for index in 1..=MAX_ITEM_TEMPLATE_SOCKETS {
+                    item_sockets.push(ItemTemplateSocket {
                         color: row.get(format!("socket_color_{}", index).as_str()).unwrap(),
                         content: row
                             .get(format!("socket_content_{}", index).as_str())
                             .unwrap(),
-                    })
-                    .collect();
+                    });
+                }
 
                 bar.inc(1);
                 if bar.position() == count {

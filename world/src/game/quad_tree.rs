@@ -166,7 +166,7 @@ impl QuadTree {
                     existing_values.push(new_value)
                 }
                 // Node is a full leaf, subdivide it in four then add the new value
-                NodeContent::Values(ref mut existing_values) => {
+                NodeContent::Values(ref existing_values) => {
                     // Subdivide...
                     let mut nw: Vec<ObjectGuid> = Vec::new();
                     let mut ne: Vec<ObjectGuid> = Vec::new();

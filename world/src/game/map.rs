@@ -16,7 +16,9 @@ use crate::{
         update::{CreateData, UpdatableEntity},
     },
     protocol::packets::SmsgCreateObject,
+    repositories::creature::CreatureSpawnDbRecord,
     session::world_session::WorldSession,
+    DataStore,
 };
 
 use super::{
@@ -37,8 +39,13 @@ pub struct Map {
 }
 
 impl Map {
-    pub fn new(key: MapKey, terrain: Arc<HashMap<TerrainBlockCoords, TerrainBlock>>) -> Self {
-        Self {
+    pub async fn new(
+        key: MapKey,
+        terrain: Arc<HashMap<TerrainBlockCoords, TerrainBlock>>,
+        spawns: Vec<CreatureSpawnDbRecord>,
+        data_store: Arc<DataStore>,
+    ) -> Map {
+        let map = Map {
             key,
             sessions: RwLock::new(HashMap::new()),
             entities: RwLock::new(HashMap::new()),
@@ -47,7 +54,18 @@ impl Map {
                 super::quad_tree::QUADTREE_DEFAULT_NODE_CAPACITY,
             )),
             visibility_distance: DEFAULT_VISIBILITY_DISTANCE,
+        };
+
+        for spawn in spawns {
+            if let Some(creature) = Creature::from_spawn(&spawn, data_store.clone()) {
+                map.add_creature(None, Arc::new(RwLock::new(creature)))
+                    .await;
+            } else {
+                warn!("failed to spawn creature with guid {}", spawn.guid);
+            }
         }
+
+        map
     }
 
     pub async fn add_player(
@@ -166,7 +184,7 @@ impl Map {
 
     pub async fn add_creature(
         &self,
-        world_context: Arc<WorldContext>,
+        world_context: Option<Arc<WorldContext>>, // None during startup
         creature: Arc<RwLock<Creature>>,
     ) {
         let creature_guard = creature.read().await;
@@ -180,23 +198,25 @@ impl Map {
             tree.insert(position, guid);
         }
 
-        for session in self
-            .sessions_nearby_position(&position, self.visibility_distance(), true, None)
-            .await
-        {
-            // Broadcast the new creature to nearby players
-            let player = session.player.read().await;
-            let update_data =
-                creature_guard.get_create_data(player.guid().raw(), world_context.clone());
-            let smsg_update_object = SmsgCreateObject {
-                updates_count: update_data.len() as u32,
-                has_transport: false,
-                updates: update_data,
-            };
+        if let Some(world_context) = world_context {
+            for session in self
+                .sessions_nearby_position(&position, self.visibility_distance(), true, None)
+                .await
+            {
+                // Broadcast the new creature to nearby players
+                let player = session.player.read().await;
+                let update_data =
+                    creature_guard.get_create_data(player.guid().raw(), world_context.clone());
+                let smsg_update_object = SmsgCreateObject {
+                    updates_count: update_data.len() as u32,
+                    has_transport: false,
+                    updates: update_data,
+                };
 
-            session
-                .create_entity(player.guid(), smsg_update_object)
-                .await;
+                session
+                    .create_entity(player.guid(), smsg_update_object)
+                    .await;
+            }
         }
     }
 
@@ -247,11 +267,7 @@ impl Map {
             };
 
             for other_guid in appeared_for {
-                if let Some(entity) = world_context
-                    .map_manager
-                    .lookup_entity(&other_guid, Some(self.key))
-                    .await
-                {
+                if let Some(entity) = self.lookup_entity(&other_guid).await {
                     if let Some(other_session) = self.sessions.read().await.get(&other_guid) {
                         // Make the moving player appear for the other player
                         other_session

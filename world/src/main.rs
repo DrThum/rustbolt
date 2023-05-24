@@ -87,8 +87,9 @@ async fn main() {
     let start_time = Instant::now();
 
     let session_holder = Arc::new(SessionHolder::new());
-    let map_manager =
-        Arc::new(MapManager::create_with_continents(data_store.clone(), config.clone()).await);
+    let map_manager = Arc::new(
+        MapManager::create_with_continents(data_store.clone(), config.clone(), &conn).await,
+    );
 
     let world_context = Arc::new(WorldContext {
         data_store,

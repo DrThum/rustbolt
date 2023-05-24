@@ -24,6 +24,7 @@ miniz_oxide = "0.7.1"
 opcode_derive = { path = "./opcode_derive" }
 r2d2 = "0.8.10"
 r2d2_sqlite = "0.21.0"
+rand = "0.8.5"
 refinery = { version = "0.8", features = ["rusqlite"] }
 rusqlite = { version = "0.28.0", features = ["bundled"] }
 serde = "1.0.158"

@@ -1,6 +1,7 @@
 use indicatif::ProgressBar;
 use r2d2::PooledConnection;
 use r2d2_sqlite::SqliteConnectionManager;
+use rusqlite::named_params;
 
 use crate::{
     datastore::data_types::CreatureTemplate, shared::constants::MAX_CREATURE_TEMPLATE_MODELID,
@@ -27,6 +28,7 @@ impl CreatureRepository {
                 let model_ids: Vec<u32> = (1..MAX_CREATURE_TEMPLATE_MODELID)
                     .into_iter()
                     .map(|index| row.get(format!("model_id{}", index).as_str()).unwrap())
+                    .filter(|&id| id != 0)
                     .collect();
 
                 bar.inc(1);
@@ -63,4 +65,37 @@ impl CreatureRepository {
 
         result.filter_map(|res| res.ok()).into_iter().collect()
     }
+
+    pub fn load_creature_spawns(
+        conn: &PooledConnection<SqliteConnectionManager>,
+        map_id: u32,
+    ) -> Vec<CreatureSpawnDbRecord> {
+        let mut stmt = conn.prepare_cached("SELECT guid, entry, map, position_x, position_y, position_z, orientation FROM creature_spawns WHERE map = :map_id").unwrap();
+
+        let result = stmt
+            .query_map(named_params! { ":map_id": map_id }, |row| {
+                Ok(CreatureSpawnDbRecord {
+                    guid: row.get("guid").unwrap(),
+                    entry: row.get("entry").unwrap(),
+                    map: row.get("map").unwrap(),
+                    position_x: row.get("position_x").unwrap(),
+                    position_y: row.get("position_y").unwrap(),
+                    position_z: row.get("position_z").unwrap(),
+                    orientation: row.get("orientation").unwrap(),
+                })
+            })
+            .unwrap();
+
+        result.filter_map(|res| res.ok()).into_iter().collect()
+    }
+}
+
+pub struct CreatureSpawnDbRecord {
+    pub guid: u32,
+    pub entry: u32,
+    pub map: u32,
+    pub position_x: f32,
+    pub position_y: f32,
+    pub position_z: f32,
+    pub orientation: f32,
 }

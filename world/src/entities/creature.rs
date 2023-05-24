@@ -1,6 +1,13 @@
-use enumflags2::make_bitflags;
+use std::sync::Arc;
 
-use crate::shared::constants::{HighGuidType, ObjectTypeId, ObjectTypeMask};
+use enumflags2::make_bitflags;
+use rand::{seq::SliceRandom, Rng};
+
+use crate::{
+    repositories::creature::CreatureSpawnDbRecord,
+    shared::constants::{HighGuidType, ObjectTypeId, ObjectTypeMask},
+    DataStore,
+};
 
 use super::{
     internal_values::InternalValues,
@@ -21,36 +28,50 @@ pub struct Creature {
 }
 
 impl Creature {
-    pub fn load(guid: &ObjectGuid) -> Self {
-        let mut values = InternalValues::new(UNIT_END as usize);
-        values.set_u64(ObjectFields::ObjectFieldGuid.into(), guid.raw());
+    pub fn from_spawn(
+        creature_spawn: &CreatureSpawnDbRecord,
+        data_store: Arc<DataStore>,
+    ) -> Option<Self> {
+        data_store
+            .get_creature_template(creature_spawn.entry)
+            .map(|template| {
+                let mut rng = rand::thread_rng();
 
-        let object_type = make_bitflags!(ObjectTypeMask::{Object | Unit}).bits();
-        values.set_u32(ObjectFields::ObjectFieldType.into(), object_type);
+                let guid = ObjectGuid::new(HighGuidType::Unit, creature_spawn.guid);
+                let mut values = InternalValues::new(UNIT_END as usize);
+                values.set_u64(ObjectFields::ObjectFieldGuid.into(), guid.raw());
 
-        values.set_f32(ObjectFields::ObjectFieldScaleX.into(), 1.0);
+                let object_type = make_bitflags!(ObjectTypeMask::{Object | Unit}).bits();
+                values.set_u32(ObjectFields::ObjectFieldType.into(), object_type);
 
-        values.set_u32(UnitFields::UnitFieldLevel.into(), 1);
+                values.set_f32(ObjectFields::ObjectFieldScaleX.into(), template.scale);
 
-        values.set_u32(UnitFields::UnitFieldDisplayid.into(), 16633);
-        values.set_u32(UnitFields::UnitFieldNativedisplayid.into(), 16633);
+                values.set_u32(
+                    UnitFields::UnitFieldLevel.into(),
+                    rng.gen_range(template.min_level..=template.max_level),
+                );
 
-        values.set_u32(UnitFields::UnitFieldHealth.into(), 100);
-        values.set_u32(UnitFields::UnitFieldMaxhealth.into(), 100);
+                let display_id = template.model_ids.choose(&mut rng).expect("rng error");
+                values.set_u32(UnitFields::UnitFieldDisplayid.into(), *display_id);
+                values.set_u32(UnitFields::UnitFieldNativedisplayid.into(), *display_id);
 
-        Creature {
-            guid: guid.clone(),
-            name: "test npc".to_owned(),
-            values,
-            position: Some(WorldPosition {
-                map: 0,
-                zone: 1,
-                x: -6252.7919,
-                y: 339.8356,
-                z: 382.4590,
-                o: 0.2260,
-            }),
-        }
+                values.set_u32(UnitFields::UnitFieldHealth.into(), 100); // TODO
+                values.set_u32(UnitFields::UnitFieldMaxhealth.into(), 100); // TODO
+
+                Creature {
+                    guid: guid.clone(),
+                    name: template.name.to_owned(),
+                    values,
+                    position: Some(WorldPosition {
+                        map: creature_spawn.map,
+                        zone: 1, // FIXME: calculate from position and terrain?
+                        x: creature_spawn.position_x,
+                        y: creature_spawn.position_y,
+                        z: creature_spawn.position_z,
+                        o: creature_spawn.orientation,
+                    }),
+                }
+            })
     }
 
     pub fn has_changed_since_last_update(&self) -> bool {

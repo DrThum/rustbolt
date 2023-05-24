@@ -12,6 +12,7 @@ use crate::{
         update::UpdatableEntity,
     },
     protocol::{self, opcodes::Opcode, packets::MovementInfo, server::ServerMessage},
+    repositories::creature::CreatureRepository,
     session::world_session::WorldSession,
     DataStore,
 };
@@ -41,6 +42,7 @@ impl MapManager {
     pub async fn create_with_continents(
         data_store: Arc<DataStore>,
         config: Arc<WorldConfig>,
+        conn: &r2d2::PooledConnection<r2d2_sqlite::SqliteConnectionManager>,
     ) -> Self {
         let mut maps: HashMap<MapKey, Arc<RwLock<Map>>> = HashMap::new();
         let mut terrains: HashMap<u32, Arc<HashMap<TerrainBlockCoords, TerrainBlock>>> =
@@ -78,8 +80,15 @@ impl MapManager {
             let map_terrains = Arc::new(map_terrains);
             terrains.insert(map.id, map_terrains.clone());
 
+            let spawns = CreatureRepository::load_creature_spawns(conn, map.id);
+
             let key = MapKey::for_continent(map.id);
-            maps.insert(key, Arc::new(RwLock::new(Map::new(key, map_terrains))));
+            maps.insert(
+                key,
+                Arc::new(RwLock::new(
+                    Map::new(key, map_terrains, spawns, data_store.clone()).await,
+                )),
+            );
         }
 
         Self {
@@ -91,7 +100,11 @@ impl MapManager {
         }
     }
 
-    pub async fn instantiate_map(&self, map_id: u32) -> Result<Arc<RwLock<Map>>, MapManagerError> {
+    pub async fn instantiate_map(
+        &self,
+        map_id: u32,
+        conn: &r2d2::PooledConnection<r2d2_sqlite::SqliteConnectionManager>,
+    ) -> Result<Arc<RwLock<Map>>, MapManagerError> {
         match self.data_store.get_map_record(map_id) {
             None => Err(MapManagerError::UnknownMapId),
             Some(map_record) => {
@@ -127,8 +140,18 @@ impl MapManager {
                     let mut map_guard = self.maps.write().await;
                     let instance_id: u32 = self.next_instance_id.inc().try_into().unwrap();
 
+                    let spawns = CreatureRepository::load_creature_spawns(conn, map_id);
+
                     let map_key = MapKey::for_instance(map_id, instance_id);
-                    let map = Arc::new(RwLock::new(Map::new(map_key, map_terrain.clone())));
+                    let map = Arc::new(RwLock::new(
+                        Map::new(
+                            map_key,
+                            map_terrain.clone(),
+                            spawns,
+                            self.data_store.clone(),
+                        )
+                        .await,
+                    ));
                     map_guard.insert(map_key, map.clone());
 
                     Ok(map)
@@ -200,7 +223,7 @@ impl MapManager {
         if let Some(map) = guard.get(&map_key) {
             map.read()
                 .await
-                .add_creature(world_context.clone(), creature.clone())
+                .add_creature(Some(world_context.clone()), creature.clone())
                 .await;
         }
     }

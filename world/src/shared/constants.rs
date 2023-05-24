@@ -647,3 +647,5 @@ pub enum Emote {
     StateSpelleffectHold = 422,
     StateEatNoSheathe = 423,
 }
+
+pub const MAX_CREATURE_TEMPLATE_MODELID: u32 = 4;

@@ -55,6 +55,7 @@ mod protocol {
 mod repositories {
     pub mod account;
     pub mod character;
+    pub mod creature;
     pub mod item;
     pub mod player_creation;
 }

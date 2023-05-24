@@ -309,3 +309,29 @@ impl DbcTypedRecord for EmotesTextRecord {
         }
     }
 }
+
+#[allow(dead_code)]
+pub struct CreatureTemplate {
+    pub entry: u32,
+    pub name: String,
+    pub sub_name: Option<String>,
+    pub icon_name: Option<String>,
+    pub min_level: u32,
+    pub max_level: u32,
+    pub min_level_health: u32,
+    pub max_level_health: u32,
+    pub min_level_mana: u32,
+    pub max_level_mana: u32,
+    pub model_ids: Vec<u32>,
+    pub scale: f32,
+    pub speed_walk: f32,
+    pub speed_run: f32,
+    pub family: u32,  // CreatureFamily.dbc
+    pub type_id: u32, // CreatureType.dbc
+    pub type_flags: u32,
+    pub rank: u32,
+    pub racial_leader: u8, // bool
+    pub health_multiplier: f32,
+    pub power_multiplier: f32,
+    pub pet_spell_data_id: u32, // CreatureSpellData.dbc
+}

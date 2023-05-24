@@ -10,8 +10,14 @@ use r2d2_sqlite::SqliteConnectionManager;
 
 use crate::{
     config::WorldConfig,
-    datastore::{data_types::PlayerCreatePosition, dbc::Dbc},
-    repositories::{item::ItemRepository, player_creation::PlayerCreationRepository},
+    datastore::{
+        data_types::{CreatureTemplate, PlayerCreatePosition},
+        dbc::Dbc,
+    },
+    repositories::{
+        creature::CreatureRepository, item::ItemRepository,
+        player_creation::PlayerCreationRepository,
+    },
 };
 
 use self::data_types::{
@@ -34,6 +40,7 @@ pub struct DataStore {
     emotes_text: DbcStore<EmotesTextRecord>,
     item_templates: SqlStore<ItemTemplate>,
     player_create_positions: SqlStore<PlayerCreatePosition>,
+    creature_templates: SqlStore<CreatureTemplate>,
 }
 
 macro_rules! parse_dbc {
@@ -74,6 +81,19 @@ impl DataStore {
             HashMap::new()
         };
 
+        let creature_templates = if config.world.dev.load_creature_templates {
+            info!("Loading creature templates...");
+            let creature_templates = CreatureRepository::load_templates(conn);
+            let creature_templates: SqlStore<CreatureTemplate> = creature_templates
+                .into_iter()
+                .map(|template| (template.entry, template))
+                .collect();
+            creature_templates
+        } else {
+            info!("Creature templates loading disabled in configuration");
+            HashMap::new()
+        };
+
         info!("Loading player creation positions...");
         let player_create_positions = PlayerCreationRepository::load_positions(conn);
         let player_create_positions: SqlStore<PlayerCreatePosition> = player_create_positions
@@ -94,6 +114,7 @@ impl DataStore {
             emotes_text,
             item_templates,
             player_create_positions,
+            creature_templates,
         })
     }
 
@@ -143,5 +164,9 @@ impl DataStore {
         let key: u32 = (race << 8) | class;
 
         self.player_create_positions.get(&key)
+    }
+
+    pub fn get_creature_template(&self, entry: u32) -> Option<&CreatureTemplate> {
+        self.creature_templates.get(&entry)
     }
 }

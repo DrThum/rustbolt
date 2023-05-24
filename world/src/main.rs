@@ -121,7 +121,7 @@ async fn main() {
     .await
     .unwrap();
 
-    tokio::spawn(async move {
+    let join_handle = tokio::spawn(async move {
         loop {
             // The second item contains the IP and port of the new connection
             let (socket, _) = listener.accept().await.unwrap();
@@ -138,5 +138,5 @@ async fn main() {
         }
     });
 
-    loop {} // TODO: join
+    tokio::join!(join_handle).unwrap();
 }

@@ -138,5 +138,5 @@ async fn main() {
         }
     });
 
-    tokio::join!(join_handle).unwrap();
+    let _ = tokio::join!(join_handle);
 }

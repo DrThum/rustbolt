@@ -275,8 +275,13 @@ impl Player {
             100,
         );
 
+        self.values.set_u32(
+            UnitFields::UnitFieldFactiontemplate.into(),
+            chr_races_record.faction_id,
+        );
+
         self.values
-            .set_u32(UnitFields::UnitFieldFactiontemplate.into(), 469);
+            .set_i32(UnitFields::PlayerFieldWatchedFactionIndex.into(), -1);
 
         // Skills - TODO Handle properly
         // For now, just add the skill for Orcish language

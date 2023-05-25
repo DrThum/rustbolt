@@ -14,7 +14,7 @@ pub trait DbcTypedRecord {
 #[derive(Debug)]
 pub struct ChrRacesRecord {
     // _flags: u32,
-    // _faction_id: u32,
+    pub faction_id: u32,
     // _exploration_sound_id: u32,
     pub male_display_id: u32,
     pub female_display_id: u32,
@@ -41,6 +41,7 @@ impl DbcTypedRecord for ChrRacesRecord {
             let key = record.fields[0].as_u32;
 
             let record = ChrRacesRecord {
+                faction_id: record.fields[2].as_u32,
                 male_display_id: record.fields[4].as_u32,
                 female_display_id: record.fields[5].as_u32,
             };

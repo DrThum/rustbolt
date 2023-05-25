@@ -137,6 +137,20 @@ impl InternalValues {
 
         unsafe { self.values[index].as_f32 }
     }
+
+    pub fn set_i32(&mut self, index: usize, value: i32) {
+        assert!(index < self.size, "index is too high");
+
+        self.mark_dirty(index);
+        self.values[index] = Value { as_i32: value };
+    }
+
+    #[allow(dead_code)]
+    pub fn get_i32(&self, index: usize) -> i32 {
+        assert!(index < self.size, "index is too high");
+
+        unsafe { self.values[index].as_i32 }
+    }
 }
 
 #[derive(Clone, Copy)]

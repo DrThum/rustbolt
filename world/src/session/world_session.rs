@@ -287,19 +287,22 @@ impl WorldSession {
     }
 
     pub async fn send_initial_spells(&self) {
+        let spells: Vec<InitialSpell> = self
+            .player
+            .read()
+            .await
+            .spells()
+            .iter()
+            .map(|spell_id| InitialSpell {
+                spell_id: *spell_id as u16,
+                unk: 0,
+            })
+            .collect();
+
         let packet = ServerMessage::new(SmsgInitialSpells {
             unk: 0,
-            spell_count: 2,
-            spells: vec![
-                InitialSpell {
-                    spell_id: 669, // TODO: Set skill too
-                    unk: 0,
-                },
-                InitialSpell {
-                    spell_id: 2973,
-                    unk: 0,
-                },
-            ],
+            spell_count: spells.len() as u16,
+            spells,
             cooldown_count: 0, // TODO
             cooldowns: Vec::new(),
         });

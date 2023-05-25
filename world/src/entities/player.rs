@@ -38,6 +38,7 @@ pub struct Player {
     values: InternalValues,
     position: Option<WorldPosition>,
     inventory: PlayerInventory,
+    spells: Vec<u32>,
 }
 
 impl Player {
@@ -48,6 +49,7 @@ impl Player {
             values: InternalValues::new(PLAYER_END as usize),
             position: None,
             inventory: HashMap::new(),
+            spells: Vec::new(),
         }
     }
 
@@ -192,6 +194,9 @@ impl Player {
             .get_class_record(character.class as u32)
             .map(|cl| PowerType::n(cl.power_type).unwrap())
             .expect("Cannot load character because it has an invalid class id in DB");
+
+        let spells = CharacterRepository::fetch_character_spells(conn, guid);
+        self.spells = spells;
 
         let guid = ObjectGuid::new(HighGuidType::Player, guid as u32);
         self.guid = Some(guid);
@@ -464,6 +469,10 @@ impl Player {
                 sheath_state
             );
         }
+    }
+
+    pub fn spells(&self) -> &Vec<u32> {
+        &self.spells
     }
 
     fn gen_create_data(&self) -> UpdateBlock {

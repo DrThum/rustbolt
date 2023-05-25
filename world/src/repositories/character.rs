@@ -248,6 +248,27 @@ impl CharacterRepository {
         }
     }
 
+    pub fn fetch_character_spells(
+        conn: &PooledConnection<SqliteConnectionManager>,
+        guid: u64,
+    ) -> Vec<u32> {
+        let mut stmt = conn
+            .prepare_cached(
+                "SELECT spell_id FROM character_spells WHERE character_guid = :character_guid",
+            )
+            .unwrap();
+        let mut rows = stmt
+            .query(named_params! { ":character_guid": guid })
+            .unwrap();
+
+        let mut spells = Vec::new();
+        while let Some(row) = rows.next().unwrap() {
+            spells.push(row.get("spell_id").unwrap());
+        }
+
+        spells
+    }
+
     pub fn add_item_to_inventory(
         transaction: &Transaction,
         character_guid: u64,

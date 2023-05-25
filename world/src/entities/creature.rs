@@ -62,6 +62,11 @@ impl Creature {
                 values.set_u32(UnitFields::UnitFieldHealth.into(), 100); // TODO
                 values.set_u32(UnitFields::UnitFieldMaxhealth.into(), 100); // TODO
 
+                values.set_u32(
+                    UnitFields::UnitFieldFactiontemplate.into(),
+                    template.faction_template_id,
+                );
+
                 Creature {
                     guid: guid.clone(),
                     name: template.name.to_owned(),

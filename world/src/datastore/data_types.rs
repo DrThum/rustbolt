@@ -334,5 +334,6 @@ pub struct CreatureTemplate {
     pub racial_leader: u8, // bool
     pub health_multiplier: f32,
     pub power_multiplier: f32,
-    pub pet_spell_data_id: u32, // CreatureSpellData.dbc
+    pub pet_spell_data_id: u32,   // CreatureSpellData.dbc
+    pub faction_template_id: u32, // FactionTemplate.dbc
 }

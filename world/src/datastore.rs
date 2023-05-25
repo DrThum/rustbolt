@@ -41,6 +41,7 @@ pub struct DataStore {
     spell: DbcStore<SpellRecord>,
     item_templates: SqlStore<ItemTemplate>,
     player_create_positions: SqlStore<PlayerCreatePosition>,
+    player_create_spells: SqlStore<Vec<u32>>,
     creature_templates: SqlStore<CreatureTemplate>,
 }
 
@@ -107,6 +108,22 @@ impl DataStore {
             })
             .collect();
 
+        info!("Loading player creation spells...");
+        let player_create_spells = PlayerCreationRepository::load_spells(conn);
+        let player_create_spells: SqlStore<Vec<u32>> = {
+            let mut result: HashMap<u32, Vec<u32>> = HashMap::new();
+
+            for pcs in player_create_spells {
+                let key: u32 = (pcs.race << 8) | pcs.class;
+                result
+                    .entry(key)
+                    .and_modify(|v| v.push(pcs.spell_id))
+                    .or_insert(vec![pcs.spell_id]);
+            }
+
+            result
+        };
+
         Ok(DataStore {
             chr_races,
             chr_classes,
@@ -117,6 +134,7 @@ impl DataStore {
             spell,
             item_templates,
             player_create_positions,
+            player_create_spells,
             creature_templates,
         })
     }
@@ -171,6 +189,12 @@ impl DataStore {
         let key: u32 = (race << 8) | class;
 
         self.player_create_positions.get(&key)
+    }
+
+    pub fn get_player_create_spells(&self, race: u32, class: u32) -> Option<&Vec<u32>> {
+        let key: u32 = (race << 8) | class;
+
+        self.player_create_spells.get(&key)
     }
 
     pub fn get_creature_template(&self, entry: u32) -> Option<&CreatureTemplate> {

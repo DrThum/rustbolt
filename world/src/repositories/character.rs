@@ -262,6 +262,15 @@ impl CharacterRepository {
         })
         .unwrap();
     }
+
+    pub fn add_spell_offline(transaction: &Transaction, character_guid: u64, spell_id: u32) {
+        let mut stmt = transaction.prepare_cached("INSERT INTO character_spells(character_guid, spell_id) VALUES (:character_guid, :spell_id)").unwrap();
+        stmt.execute(named_params! {
+            ":character_guid": character_guid,
+            ":spell_id": spell_id,
+        })
+        .unwrap();
+    }
 }
 
 pub struct CharacterRecord {

@@ -148,6 +148,14 @@ impl Player {
             }
         }
 
+        let start_spells = data_store
+            .get_player_create_spells(creation_payload.race as u32, creation_payload.class as u32)
+            .expect("Missing player create spells in DB");
+
+        for spell in start_spells {
+            CharacterRepository::add_spell_offline(&transaction, character_guid, *spell);
+        }
+
         transaction.commit()
     }
 

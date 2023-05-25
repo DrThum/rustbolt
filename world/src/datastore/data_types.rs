@@ -237,6 +237,12 @@ pub struct PlayerCreatePosition {
     pub o: f32,
 }
 
+pub struct PlayerCreateSpell {
+    pub race: u32,
+    pub class: u32,
+    pub spell_id: u32,
+}
+
 #[derive(Debug)]
 pub struct MapRecord {
     pub id: u32,

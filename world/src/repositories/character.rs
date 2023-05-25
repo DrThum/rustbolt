@@ -9,7 +9,10 @@ use crate::{
         data_types::{ItemRecord, PlayerCreatePosition},
         DataStore,
     },
-    entities::{player::PlayerVisualFeatures, position::WorldPosition},
+    entities::{
+        player::{player_data::CharacterSkill, PlayerVisualFeatures},
+        position::WorldPosition,
+    },
     protocol::packets::{CharEnumData, CharEnumEquip, CmsgCharCreate, CmsgCharDelete},
     shared::constants::{InventorySlot, InventoryType},
 };
@@ -269,6 +272,24 @@ impl CharacterRepository {
         spells
     }
 
+    pub fn fetch_character_skills(
+        conn: &PooledConnection<SqliteConnectionManager>,
+        guid: u64,
+    ) -> Vec<CharacterSkill> {
+        let mut stmt = conn.prepare_cached("SELECT skill_id, value, max_value FROM character_skills WHERE character_guid = :character_guid").unwrap();
+        let rows = stmt
+            .query_map(named_params! { ":character_guid": guid }, |row| {
+                Ok(CharacterSkill {
+                    skill_id: row.get("skill_id").unwrap(),
+                    value: row.get("value").unwrap(),
+                    max_value: row.get("max_value").unwrap(),
+                })
+            })
+            .unwrap();
+
+        rows.filter_map(|r| r.ok()).collect()
+    }
+
     pub fn add_item_to_inventory(
         transaction: &Transaction,
         character_guid: u64,
@@ -289,6 +310,24 @@ impl CharacterRepository {
         stmt.execute(named_params! {
             ":character_guid": character_guid,
             ":spell_id": spell_id,
+        })
+        .unwrap();
+    }
+
+    pub fn add_skill_offline(
+        transaction: &Transaction,
+        character_guid: u64,
+        skill_id: u32,
+        value: u32,
+        max_value: u32,
+    ) {
+        let mut stmt = transaction.prepare_cached("INSERT INTO character_skills(character_guid, skill_id, value, max_value) VALUES (:character_guid, :skill_id, :value, :max_value)").unwrap();
+
+        stmt.execute(named_params! {
+            ":character_guid": character_guid,
+            ":skill_id": skill_id,
+            ":value": value,
+            ":max_value": max_value,
         })
         .unwrap();
     }

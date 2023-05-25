@@ -30,6 +30,8 @@ use super::{
     update_fields::*,
 };
 
+pub mod player_data;
+
 pub type PlayerInventory = HashMap<u32, Item>; // Key is slot
 
 pub struct Player {
@@ -154,8 +156,20 @@ impl Player {
             .get_player_create_spells(creation_payload.race as u32, creation_payload.class as u32)
             .expect("Missing player create spells in DB");
 
-        for spell in start_spells {
-            CharacterRepository::add_spell_offline(&transaction, character_guid, *spell);
+        for spell_id in start_spells {
+            if let Some(spell_record) = data_store.get_spell_record(*spell_id) {
+                CharacterRepository::add_spell_offline(&transaction, character_guid, *spell_id);
+
+                if let Some(learnable_skill) = spell_record.learnable_skill() {
+                    CharacterRepository::add_skill_offline(
+                        &transaction,
+                        character_guid,
+                        learnable_skill.skill_id,
+                        learnable_skill.value,
+                        learnable_skill.max_value,
+                    );
+                } // TODO else: look into SkillLineAbility.dbc
+            }
         }
 
         transaction.commit()
@@ -296,15 +310,20 @@ impl Player {
         self.values
             .set_i32(UnitFields::PlayerFieldWatchedFactionIndex.into(), -1);
 
-        // Skills - TODO Handle properly
-        // For now, just add the skill for Orcish language
-        self.values
-            .set_u16(UnitFields::PlayerSkillInfo1_1.into(), 0, 109);
-        self.values
-            .set_u16(UnitFields::PlayerSkillInfo1_1 as usize + 1, 0, 375);
-        self.values
-            .set_u16(UnitFields::PlayerSkillInfo1_1 as usize + 1, 1, 375);
-        /* END TO REFACTOR LATER */
+        // Skills
+        let skills = CharacterRepository::fetch_character_skills(conn, guid.raw());
+        for skill in skills {
+            self.values
+                .set_u16(UnitFields::PlayerSkillInfo1_1.into(), 0, skill.skill_id);
+            // Note: PlayerSkillInfo1_1 offset 1 is "step"
+            self.values
+                .set_u16(UnitFields::PlayerSkillInfo1_1 as usize + 1, 0, skill.value);
+            self.values.set_u16(
+                UnitFields::PlayerSkillInfo1_1 as usize + 1,
+                1,
+                skill.max_value,
+            );
+        }
 
         let inventory: HashMap<u32, Item> =
             ItemRepository::load_player_inventory(&conn, self.guid().raw() as u32)

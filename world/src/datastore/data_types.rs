@@ -3,7 +3,8 @@ use crate::{
         ItemTemplateDamage, ItemTemplateSocket, ItemTemplateSpell, ItemTemplateStat,
     },
     shared::constants::{
-        InventoryType, MapType, MAX_SPELL_EFFECT_INDEX, MAX_SPELL_REAGENTS, MAX_SPELL_TOTEMS,
+        InventoryType, MapType, SkillType, SpellEffect, MAX_SPELL_EFFECT_INDEX, MAX_SPELL_REAGENTS,
+        MAX_SPELL_TOTEMS,
     },
 };
 
@@ -446,7 +447,40 @@ pub struct SpellRecord {
     // RequiredAuraVision: u32
     totem_category: [u32; MAX_SPELL_TOTEMS],
     area_id: u32,
-    school_mask: u32, // 215      m_schoolMask
+    school_mask: u32,
+}
+
+impl SpellRecord {
+    pub fn learnable_skill(&self) -> Option<LearnableSkillFromSpell> {
+        for index in 0..MAX_SPELL_EFFECT_INDEX {
+            if SpellEffect::n(self.effect[index]) == Some(SpellEffect::Skill) {
+                let skill_id = self.effect_misc_value[index] as u32;
+                let step = self.calc_simple_value(index) as u32;
+                let value = match SkillType::n(skill_id) {
+                    Some(SkillType::Riding) => step * 75,
+                    _ => 1,
+                };
+
+                return Some(LearnableSkillFromSpell {
+                    skill_id,
+                    step,
+                    value,
+                    max_value: step * 75,
+                });
+            }
+        }
+
+        None
+    }
+
+    pub fn calc_simple_value(&self, effect_index: usize) -> i32 {
+        assert!(
+            effect_index < MAX_SPELL_EFFECT_INDEX,
+            "effect_index must be [0; MAX_SPELL_EFFECT_INDEX["
+        );
+
+        self.effect_base_points[effect_index] + (self.effect_base_dice[effect_index] as i32)
+    }
 }
 
 impl DbcTypedRecord for SpellRecord {
@@ -647,4 +681,11 @@ impl DbcTypedRecord for SpellRecord {
             (key, record)
         }
     }
+}
+
+pub struct LearnableSkillFromSpell {
+    pub skill_id: u32,
+    pub step: u32,
+    pub value: u32,
+    pub max_value: u32,
 }

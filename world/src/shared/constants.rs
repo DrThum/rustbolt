@@ -69,10 +69,12 @@ pub enum CharacterClass {
 #[allow(dead_code)]
 #[derive(Clone, Copy, N)]
 pub enum PowerType {
+    Health = -2,
     Mana = 0,
     Rage = 1,
     Focus = 2,
     Energy = 3,
+    PetHappiness = 4,
 }
 
 #[allow(dead_code)]
@@ -649,3 +651,7 @@ pub enum Emote {
 }
 
 pub const MAX_CREATURE_TEMPLATE_MODELID: u32 = 4;
+
+pub const MAX_SPELL_TOTEMS: usize = 2;
+pub const MAX_SPELL_REAGENTS: usize = 8;
+pub const MAX_SPELL_EFFECT_INDEX: usize = 3;

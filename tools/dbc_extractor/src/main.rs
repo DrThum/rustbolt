@@ -14,6 +14,7 @@ fn main() -> Result<(), std::io::Error> {
         "DBFilesClient\\Item.dbc",
         "DBFilesClient\\Map.dbc",
         "DBFilesClient\\EmotesText.dbc",
+        "DBFilesClient\\Spell.dbc",
     ]
     .into_iter()
     .map(|f| f.to_owned())

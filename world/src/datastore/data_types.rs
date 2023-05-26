@@ -356,6 +356,9 @@ pub struct CreatureTemplate {
     pub power_multiplier: f32,
     pub pet_spell_data_id: u32,   // CreatureSpellData.dbc
     pub faction_template_id: u32, // FactionTemplate.dbc
+    pub npc_flags: u32,
+    pub unit_flags: u32,
+    pub dynamic_flags: u32,
 }
 
 #[allow(dead_code)]

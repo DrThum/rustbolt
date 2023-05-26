@@ -21,7 +21,7 @@ impl CreatureRepository {
         let count = count.next().unwrap().unwrap_or(0);
         let bar = ProgressBar::new(count);
 
-        let mut stmt = conn.prepare_cached("SELECT entry, name, sub_name, icon_name, min_level, max_level, model_id1, model_id2, model_id3, model_id4, scale, family, type_id, racial_leader, type_flags, speed_walk, speed_run, rank, health_multiplier, power_multiplier, min_level_health, max_level_health, min_level_mana, max_level_mana, pet_spell_data_id, faction_template_id FROM creature_templates ORDER BY entry").unwrap();
+        let mut stmt = conn.prepare_cached("SELECT entry, name, sub_name, icon_name, min_level, max_level, model_id1, model_id2, model_id3, model_id4, scale, family, type_id, racial_leader, type_flags, speed_walk, speed_run, rank, health_multiplier, power_multiplier, min_level_health, max_level_health, min_level_mana, max_level_mana, pet_spell_data_id, faction_template_id, npc_flags, unit_flags, dynamic_flags FROM creature_templates ORDER BY entry").unwrap();
 
         let result = stmt
             .query_map([], |row| {
@@ -59,6 +59,9 @@ impl CreatureRepository {
                     power_multiplier: row.get("power_multiplier").unwrap(),
                     pet_spell_data_id: row.get("pet_spell_data_id").unwrap(),
                     faction_template_id: row.get("faction_template_id").unwrap(),
+                    npc_flags: row.get("npc_flags").unwrap(),
+                    unit_flags: row.get("unit_flags").unwrap(),
+                    dynamic_flags: row.get("dynamic_flags").unwrap(),
                 })
             })
             .unwrap();

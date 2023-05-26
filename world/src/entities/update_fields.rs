@@ -89,9 +89,9 @@ pub enum UnitFields {
     UnitFieldFlags = OBJECT_END + 0x0028, // Size: 1, Type: Int, Flags: Public
     UnitFieldFlags2 = OBJECT_END + 0x0029, // Size: 1, Type: Int, Flags: Public
     UnitFieldAura = OBJECT_END + 0x002A,  // Size: 56, Type: Int, Flags: Public
-    UnitFieldAuraflags = OBJECT_END + 0x0062, // Size: 14, Type: Bytes, Flags: Public
-    UnitFieldAuralevels = OBJECT_END + 0x0070, // Size: 14, Type: Bytes, Flags: Public
-    UnitFieldAuraapplications = OBJECT_END + 0x007E, // Size: 14, Type: Bytes, Flags: Public
+    UnitFieldAuraFlags = OBJECT_END + 0x0062, // Size: 14, Type: Bytes, Flags: Public
+    UnitFieldAuraLevels = OBJECT_END + 0x0070, // Size: 14, Type: Bytes, Flags: Public
+    UnitFieldAuraApplications = OBJECT_END + 0x007E, // Size: 14, Type: Bytes, Flags: Public
     UnitFieldAurastate = OBJECT_END + 0x008C, // Size: 1, Type: Int, Flags: Public
     UnitFieldBaseattacktime = OBJECT_END + 0x008D, // Size: 2, Type: Int, Flags: Public
     UnitFieldRangedattacktime = OBJECT_END + 0x008F, // Size: 1, Type: Int, Flags: Private

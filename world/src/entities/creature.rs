@@ -37,7 +37,7 @@ impl Creature {
             .map(|template| {
                 let mut rng = rand::thread_rng();
 
-                let guid = ObjectGuid::new(HighGuidType::Unit, creature_spawn.guid);
+                let guid = ObjectGuid::with_entry(HighGuidType::Unit, creature_spawn.entry, creature_spawn.guid);
                 let mut values = InternalValues::new(UNIT_END as usize);
                 values.set_u64(ObjectFields::ObjectFieldGuid.into(), guid.raw());
 
@@ -66,6 +66,10 @@ impl Creature {
                     UnitFields::UnitFieldFactiontemplate.into(),
                     template.faction_template_id,
                 );
+
+                values.set_u32(UnitFields::UnitNpcFlags.into(), template.npc_flags);
+                values.set_u32(UnitFields::UnitFieldFlags.into(), template.unit_flags);
+                values.set_u32(UnitFields::UnitDynamicFlags.into(), template.dynamic_flags);
 
                 Creature {
                     guid: guid.clone(),

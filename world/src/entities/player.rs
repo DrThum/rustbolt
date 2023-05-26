@@ -181,7 +181,7 @@ impl Player {
                 {
                     for skill_ability in skill_abilities {
                         if let Some(skill_line) =
-                            data_store.get_skill_line_record(skill_ability.skill_id)
+                            data_store.get_skill_line_record(skill_ability.skill_id as u32)
                         {
                             if skill_ability.learn_on_get_skill
                                 == AbilityLearnType::LearnedOnGetRaceOrClassSkill
@@ -195,17 +195,17 @@ impl Player {
 
                                 if value != 0
                                     && max_value != 0
-                                    && !added_skill_ids.contains(&skill_ability.skill_id)
+                                    && !added_skill_ids.contains(&(skill_ability.skill_id as u32))
                                 {
                                     CharacterRepository::add_skill_offline(
                                         &transaction,
                                         character_guid,
-                                        skill_ability.skill_id,
+                                        skill_ability.skill_id as u32,
                                         value,
                                         max_value,
                                     );
 
-                                    added_skill_ids.insert(skill_ability.skill_id);
+                                    added_skill_ids.insert(skill_ability.skill_id as u32);
                                 }
                             }
                         }

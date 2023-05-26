@@ -1,10 +1,13 @@
+use enumflags2::BitFlags;
+
 use crate::{
     protocol::packets::{
         ItemTemplateDamage, ItemTemplateSocket, ItemTemplateSpell, ItemTemplateStat,
     },
     shared::constants::{
-        AbilityLearnType, InventoryType, MapType, SkillCategory, SkillRangeType, SkillType,
-        SpellEffect, MAX_SPELL_EFFECT_INDEX, MAX_SPELL_REAGENTS, MAX_SPELL_TOTEMS,
+        AbilityLearnType, CharacterClassBit, CharacterRaceBit, InventoryType, MapType,
+        SkillCategory, SkillRangeType, SkillType, SpellEffect, MAX_SPELL_EFFECT_INDEX,
+        MAX_SPELL_REAGENTS, MAX_SPELL_TOTEMS,
     },
 };
 
@@ -746,10 +749,10 @@ impl DbcTypedRecord for SkillLineRecord {
 #[derive(Clone)]
 pub struct SkillLineAbilityRecord {
     pub id: u32,
-    pub skill_id: u32, // TODO: make it a SkillType?
+    pub skill_id: SkillType,
     pub spell_id: u32,
-    pub race_mask: u32,  // TODO: BitMask<RaceId>
-    pub class_mask: u32, // TODO: BitMask<ClassId>
+    pub race_mask: BitFlags<CharacterRaceBit>,
+    pub class_mask: BitFlags<CharacterClassBit>,
     pub required_skill_value: u32,
     pub forward_spell_id: u32,
     pub learn_on_get_skill: AbilityLearnType,
@@ -765,10 +768,11 @@ impl DbcTypedRecord for SkillLineAbilityRecord {
 
             let mut record = SkillLineAbilityRecord {
                 id: record.fields[0].as_u32,
-                skill_id: record.fields[1].as_u32,
+                skill_id: SkillType::n(record.fields[1].as_u32)
+                    .expect("invalid skill_type in SkillLineAbility.dbc"),
                 spell_id: record.fields[2].as_u32,
-                race_mask: record.fields[3].as_u32,
-                class_mask: record.fields[4].as_u32,
+                race_mask: BitFlags::from_bits_unchecked(record.fields[3].as_u32),
+                class_mask: BitFlags::from_bits_unchecked(record.fields[4].as_u32),
                 required_skill_value: record.fields[7].as_u32,
                 forward_spell_id: record.fields[8].as_u32,
                 learn_on_get_skill: AbilityLearnType::n(record.fields[9].as_u32).expect(&format!(
@@ -781,10 +785,10 @@ impl DbcTypedRecord for SkillLineAbilityRecord {
             };
 
             // Client is missing some data
-            if record.skill_id == SkillType::Poisons as u32 && record.max_value == 0 {
+            if record.skill_id == SkillType::Poisons && record.max_value == 0 {
                 record.learn_on_get_skill = AbilityLearnType::LearnedOnGetRaceOrClassSkill;
             }
-            if record.skill_id == SkillType::Lockpicking as u32 && record.max_value == 0 {
+            if record.skill_id == SkillType::Lockpicking && record.max_value == 0 {
                 record.learn_on_get_skill = AbilityLearnType::LearnedOnGetRaceOrClassSkill;
             }
 

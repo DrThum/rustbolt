@@ -52,6 +52,23 @@ pub enum CharacterRace {
 }
 
 #[allow(dead_code)]
+#[bitflags]
+#[repr(u32)]
+#[derive(Clone, Copy)]
+pub enum CharacterRaceBit {
+    Human = 1,
+    Orc = 1 << 2,
+    Dwarf = 1 << 3,
+    NightElf = 1 << 4,
+    UndeadPlayer = 1 << 5,
+    Tauren = 1 << 6,
+    Gnome = 1 << 7,
+    Troll = 1 << 8,
+    BloodElf = 1 << 10,
+    Draenei = 1 << 11,
+}
+
+#[allow(dead_code)]
 #[derive(Clone, Copy, N)]
 pub enum CharacterClass {
     None = 0,
@@ -64,6 +81,22 @@ pub enum CharacterClass {
     Mage = 8,
     Warlock = 9,
     Druid = 11,
+}
+
+#[allow(dead_code)]
+#[bitflags]
+#[repr(u32)]
+#[derive(Clone, Copy)]
+pub enum CharacterClassBit {
+    Warrior = 1 << 1,
+    Paladin = 1 << 2,
+    Hunter = 1 << 3,
+    Rogue = 1 << 4,
+    Priest = 1 << 5,
+    Shaman = 1 << 7,
+    Mage = 1 << 8,
+    Warlock = 1 << 9,
+    Druid = 1 << 11,
 }
 
 #[allow(dead_code)]
@@ -816,7 +849,7 @@ pub enum SpellEffect {
 }
 
 #[allow(dead_code)]
-#[derive(N, PartialEq)]
+#[derive(N, Copy, Clone, PartialEq)]
 pub enum SkillType {
     None = 0,
     Frost = 6,

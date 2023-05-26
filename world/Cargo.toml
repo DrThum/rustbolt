@@ -21,6 +21,7 @@ indicatif = "0.17.3"
 lazy_static = "1.4.0"
 log = "0.4.17"
 miniz_oxide = "0.7.1"
+multimap = "0.9.0"
 opcode_derive = { path = "./opcode_derive" }
 r2d2 = "0.8.10"
 r2d2_sqlite = "0.21.0"

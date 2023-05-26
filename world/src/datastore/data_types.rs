@@ -689,3 +689,68 @@ pub struct LearnableSkillFromSpell {
     pub value: u32,
     pub max_value: u32,
 }
+
+pub struct SkillLineRecord {
+    // id: u32
+    pub category_id: i32,
+    // skill_cost_id: u32
+    pub name: String,
+    pub spell_icon: u32,
+}
+
+impl DbcTypedRecord for SkillLineRecord {
+    fn from_record(record: &DbcRecord, strings: &DbcStringBlock) -> (u32, Self) {
+        unsafe {
+            let key = record.fields[0].as_u32;
+
+            let record = SkillLineRecord {
+                category_id: record.fields[1].as_i32,
+                name: strings
+                    .get(record.fields[3].as_u32 as usize)
+                    .expect("invalid name found in SkillLine.dbc"),
+                spell_icon: record.fields[37].as_u32,
+            };
+
+            (key, record)
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct SkillLineAbilityRecord {
+    pub id: u32,
+    pub skill_id: u32,
+    pub spell_id: u32,
+    pub race_mask: u32,
+    pub class_mask: u32,
+    pub required_skill_value: u32,
+    pub forward_spell_id: u32,
+    pub learn_on_get_skill: u32, // 1 or 2 for spells learned when getting skill
+    pub max_value: u32,
+    pub min_value: u32,
+    pub required_train_points: u32,
+}
+
+impl DbcTypedRecord for SkillLineAbilityRecord {
+    fn from_record(record: &DbcRecord, _strings: &DbcStringBlock) -> (u32, Self) {
+        unsafe {
+            let key = record.fields[0].as_u32;
+
+            let record = SkillLineAbilityRecord {
+                id: record.fields[0].as_u32,
+                skill_id: record.fields[1].as_u32,
+                spell_id: record.fields[2].as_u32,
+                race_mask: record.fields[3].as_u32,
+                class_mask: record.fields[4].as_u32,
+                required_skill_value: record.fields[7].as_u32,
+                forward_spell_id: record.fields[8].as_u32,
+                learn_on_get_skill: record.fields[9].as_u32,
+                max_value: record.fields[10].as_u32,
+                min_value: record.fields[11].as_u32,
+                required_train_points: record.fields[14].as_u32,
+            };
+
+            (key, record)
+        }
+    }
+}

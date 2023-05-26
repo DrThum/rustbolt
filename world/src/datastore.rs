@@ -1,5 +1,6 @@
 use indicatif::ProgressBar;
 use log::info;
+use multimap::MultiMap;
 use std::{
     collections::{hash_map::Values, HashMap},
     sync::Arc,
@@ -22,13 +23,14 @@ use crate::{
 
 use self::data_types::{
     CharStartOutfitRecord, ChrClassesRecord, ChrRacesRecord, EmotesTextRecord, ItemRecord,
-    ItemTemplate, MapRecord, SpellRecord,
+    ItemTemplate, MapRecord, SkillLineAbilityRecord, SkillLineRecord, SpellRecord,
 };
 
 pub mod data_types;
 pub mod dbc;
 
 pub type DbcStore<T> = HashMap<u32, T>;
+pub type DbcMultiStore<T> = MultiMap<u32, T>;
 pub type SqlStore<T> = HashMap<u32, T>;
 
 pub struct DataStore {
@@ -39,6 +41,9 @@ pub struct DataStore {
     map: DbcStore<MapRecord>,
     emotes_text: DbcStore<EmotesTextRecord>,
     spell: DbcStore<SpellRecord>,
+    skill_line: DbcStore<SkillLineRecord>,
+    skill_line_ability: DbcStore<SkillLineAbilityRecord>,
+    skill_line_ability_by_spell: DbcMultiStore<SkillLineAbilityRecord>,
     item_templates: SqlStore<ItemTemplate>,
     player_create_positions: SqlStore<PlayerCreatePosition>,
     player_create_spells: SqlStore<Vec<u32>>,
@@ -69,6 +74,17 @@ impl DataStore {
         let map = parse_dbc!(config.common.data.directory, "Map");
         let emotes_text = parse_dbc!(config.common.data.directory, "EmotesText");
         let spell = parse_dbc!(config.common.data.directory, "Spell");
+        let skill_line = parse_dbc!(config.common.data.directory, "SkillLine");
+        let skill_line_ability: HashMap<u32, SkillLineAbilityRecord> =
+            parse_dbc!(config.common.data.directory, "SkillLineAbility");
+        let skill_line_ability_by_spell = {
+            let mut multimap: MultiMap<u32, SkillLineAbilityRecord> = MultiMap::new();
+            for (_, record) in &skill_line_ability {
+                multimap.insert(record.spell_id, (*record).clone());
+            }
+
+            multimap
+        };
 
         // SQL stores
         let item_templates = if config.world.dev.load_item_templates {
@@ -132,6 +148,9 @@ impl DataStore {
             map,
             emotes_text,
             spell,
+            skill_line,
+            skill_line_ability,
+            skill_line_ability_by_spell,
             item_templates,
             player_create_positions,
             player_create_spells,
@@ -175,6 +194,21 @@ impl DataStore {
 
     pub fn get_spell_record(&self, id: u32) -> Option<&SpellRecord> {
         self.spell.get(&id)
+    }
+
+    pub fn get_skill_line_record(&self, id: u32) -> Option<&SkillLineRecord> {
+        self.skill_line.get(&id)
+    }
+
+    pub fn get_skill_line_ability_record(&self, id: u32) -> Option<&SkillLineAbilityRecord> {
+        self.skill_line_ability.get(&id)
+    }
+
+    pub fn get_skill_line_ability_by_spell(
+        &self,
+        spell_id: u32,
+    ) -> Option<&Vec<SkillLineAbilityRecord>> {
+        self.skill_line_ability_by_spell.get_vec(&spell_id)
     }
 
     pub fn get_item_template(&self, entry: u32) -> Option<&ItemTemplate> {

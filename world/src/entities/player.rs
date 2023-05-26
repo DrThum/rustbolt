@@ -1,4 +1,7 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 
 use enumflags2::make_bitflags;
 use log::{error, warn};
@@ -12,9 +15,9 @@ use crate::{
     protocol::packets::CmsgCharCreate,
     repositories::{character::CharacterRepository, item::ItemRepository},
     shared::constants::{
-        CharacterClass, CharacterRace, Gender, HighGuidType, InventorySlot, InventoryType,
-        ItemClass, ItemSubclassConsumable, ObjectTypeId, ObjectTypeMask, PowerType, SheathState,
-        UnitStandState,
+        AbilityLearnType, CharacterClass, CharacterRace, Gender, HighGuidType, InventorySlot,
+        InventoryType, ItemClass, ItemSubclassConsumable, ObjectTypeId, ObjectTypeMask, PowerType,
+        SheathState, SkillRangeType, UnitStandState,
     },
 };
 
@@ -156,19 +159,58 @@ impl Player {
             .get_player_create_spells(creation_payload.race as u32, creation_payload.class as u32)
             .expect("Missing player create spells in DB");
 
+        let mut added_skill_ids: HashSet<u32> = HashSet::new();
         for spell_id in start_spells {
             if let Some(spell_record) = data_store.get_spell_record(*spell_id) {
                 CharacterRepository::add_spell_offline(&transaction, character_guid, *spell_id);
 
                 if let Some(learnable_skill) = spell_record.learnable_skill() {
-                    CharacterRepository::add_skill_offline(
-                        &transaction,
-                        character_guid,
-                        learnable_skill.skill_id,
-                        learnable_skill.value,
-                        learnable_skill.max_value,
-                    );
-                } // TODO else: look into SkillLineAbility.dbc
+                    if !added_skill_ids.contains(&learnable_skill.skill_id) {
+                        CharacterRepository::add_skill_offline(
+                            &transaction,
+                            character_guid,
+                            learnable_skill.skill_id,
+                            learnable_skill.value,
+                            learnable_skill.max_value,
+                        );
+
+                        added_skill_ids.insert(learnable_skill.skill_id);
+                    }
+                } else if let Some(skill_abilities) =
+                    data_store.get_skill_line_ability_by_spell(*spell_id)
+                {
+                    for skill_ability in skill_abilities {
+                        if let Some(skill_line) =
+                            data_store.get_skill_line_record(skill_ability.skill_id)
+                        {
+                            if skill_ability.learn_on_get_skill
+                                == AbilityLearnType::LearnedOnGetRaceOrClassSkill
+                            {
+                                let (value, max_value) = match skill_line.range_type() {
+                                    SkillRangeType::Language => (300, 300),
+                                    SkillRangeType::Level => (1, 1 /* level */ * 5),
+                                    SkillRangeType::Mono => (1, 1),
+                                    _ => (0, 0),
+                                };
+
+                                if value != 0
+                                    && max_value != 0
+                                    && !added_skill_ids.contains(&skill_ability.skill_id)
+                                {
+                                    CharacterRepository::add_skill_offline(
+                                        &transaction,
+                                        character_guid,
+                                        skill_ability.skill_id,
+                                        value,
+                                        max_value,
+                                    );
+
+                                    added_skill_ids.insert(skill_ability.skill_id);
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
 
@@ -312,14 +354,20 @@ impl Player {
 
         // Skills
         let skills = CharacterRepository::fetch_character_skills(conn, guid.raw());
-        for skill in skills {
-            self.values
-                .set_u16(UnitFields::PlayerSkillInfo1_1.into(), 0, skill.skill_id);
-            // Note: PlayerSkillInfo1_1 offset 1 is "step"
-            self.values
-                .set_u16(UnitFields::PlayerSkillInfo1_1 as usize + 1, 0, skill.value);
+        for (index, skill) in skills.iter().enumerate() {
             self.values.set_u16(
-                UnitFields::PlayerSkillInfo1_1 as usize + 1,
+                UnitFields::PlayerSkillInfo1_1 as usize + (index * 3),
+                0,
+                skill.skill_id,
+            );
+            // Note: PlayerSkillInfo1_1 offset 1 is "step"
+            self.values.set_u16(
+                UnitFields::PlayerSkillInfo1_1 as usize + 1 + (index * 3),
+                0,
+                skill.value,
+            );
+            self.values.set_u16(
+                UnitFields::PlayerSkillInfo1_1 as usize + 1 + (index * 3),
                 1,
                 skill.max_value,
             );

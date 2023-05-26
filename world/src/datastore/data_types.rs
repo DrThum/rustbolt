@@ -3,8 +3,8 @@ use crate::{
         ItemTemplateDamage, ItemTemplateSocket, ItemTemplateSpell, ItemTemplateStat,
     },
     shared::constants::{
-        InventoryType, MapType, SkillType, SpellEffect, MAX_SPELL_EFFECT_INDEX, MAX_SPELL_REAGENTS,
-        MAX_SPELL_TOTEMS,
+        AbilityLearnType, InventoryType, MapType, SkillCategory, SkillRangeType, SkillType,
+        SpellEffect, MAX_SPELL_EFFECT_INDEX, MAX_SPELL_REAGENTS, MAX_SPELL_TOTEMS,
     },
 };
 
@@ -691,11 +691,33 @@ pub struct LearnableSkillFromSpell {
 }
 
 pub struct SkillLineRecord {
-    // id: u32
-    pub category_id: i32,
+    pub id: SkillType,
+    pub category: SkillCategory,
     // skill_cost_id: u32
     pub name: String,
     pub spell_icon: u32,
+}
+
+impl SkillLineRecord {
+    pub fn range_type(&self) -> SkillRangeType {
+        match self.category {
+            SkillCategory::Languages => SkillRangeType::Language,
+            SkillCategory::Weapon if self.id == SkillType::FistWeapons => SkillRangeType::Mono,
+            SkillCategory::Weapon => SkillRangeType::Level,
+            SkillCategory::Armor | SkillCategory::Class
+                if self.id == SkillType::Poisons || self.id == SkillType::Lockpicking =>
+            {
+                SkillRangeType::Level
+            }
+            SkillCategory::Armor | SkillCategory::Class => SkillRangeType::Mono,
+            // MaNGOS does some weird calculation for the next one, check
+            // ObjectMgr::GetSkillRangeType if in doubt
+            SkillCategory::PrimaryProfession | SkillCategory::SecondaryProfession => {
+                SkillRangeType::Rank
+            }
+            _ => SkillRangeType::None,
+        }
+    }
 }
 
 impl DbcTypedRecord for SkillLineRecord {
@@ -704,7 +726,12 @@ impl DbcTypedRecord for SkillLineRecord {
             let key = record.fields[0].as_u32;
 
             let record = SkillLineRecord {
-                category_id: record.fields[1].as_i32,
+                id: SkillType::n(record.fields[0].as_u32)
+                    .expect("invalid skill_id in SkillLine.dbc"),
+                category: SkillCategory::n(record.fields[1].as_i32).expect(&format!(
+                    "invalid skill_category_id {} in SkillLine.dbc (record {})",
+                    record.fields[1].as_i32, record.fields[0].as_u32
+                )),
                 name: strings
                     .get(record.fields[3].as_u32 as usize)
                     .expect("invalid name found in SkillLine.dbc"),
@@ -719,13 +746,13 @@ impl DbcTypedRecord for SkillLineRecord {
 #[derive(Clone)]
 pub struct SkillLineAbilityRecord {
     pub id: u32,
-    pub skill_id: u32,
+    pub skill_id: u32, // TODO: make it a SkillType?
     pub spell_id: u32,
-    pub race_mask: u32,
-    pub class_mask: u32,
+    pub race_mask: u32,  // TODO: BitMask<RaceId>
+    pub class_mask: u32, // TODO: BitMask<ClassId>
     pub required_skill_value: u32,
     pub forward_spell_id: u32,
-    pub learn_on_get_skill: u32, // 1 or 2 for spells learned when getting skill
+    pub learn_on_get_skill: AbilityLearnType,
     pub max_value: u32,
     pub min_value: u32,
     pub required_train_points: u32,
@@ -736,7 +763,7 @@ impl DbcTypedRecord for SkillLineAbilityRecord {
         unsafe {
             let key = record.fields[0].as_u32;
 
-            let record = SkillLineAbilityRecord {
+            let mut record = SkillLineAbilityRecord {
                 id: record.fields[0].as_u32,
                 skill_id: record.fields[1].as_u32,
                 spell_id: record.fields[2].as_u32,
@@ -744,11 +771,22 @@ impl DbcTypedRecord for SkillLineAbilityRecord {
                 class_mask: record.fields[4].as_u32,
                 required_skill_value: record.fields[7].as_u32,
                 forward_spell_id: record.fields[8].as_u32,
-                learn_on_get_skill: record.fields[9].as_u32,
+                learn_on_get_skill: AbilityLearnType::n(record.fields[9].as_u32).expect(&format!(
+                    "invalid learn_on_get_skill {} found in SkillLineAbility.dbc",
+                    record.fields[9].as_u32
+                )),
                 max_value: record.fields[10].as_u32,
                 min_value: record.fields[11].as_u32,
                 required_train_points: record.fields[14].as_u32,
             };
+
+            // Client is missing some data
+            if record.skill_id == SkillType::Poisons as u32 && record.max_value == 0 {
+                record.learn_on_get_skill = AbilityLearnType::LearnedOnGetRaceOrClassSkill;
+            }
+            if record.skill_id == SkillType::Lockpicking as u32 && record.max_value == 0 {
+                record.learn_on_get_skill = AbilityLearnType::LearnedOnGetRaceOrClassSkill;
+            }
 
             (key, record)
         }

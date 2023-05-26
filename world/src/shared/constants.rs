@@ -958,3 +958,33 @@ pub enum SkillType {
     PetSerpent = 768,
     Internal = 769,
 }
+
+#[allow(dead_code)]
+#[derive(N, Clone, PartialEq)]
+pub enum AbilityLearnType {
+    None = 0,
+    LearnedOnGetProfessionSkill = 1,
+    LearnedOnGetRaceOrClassSkill = 2,
+}
+
+#[allow(dead_code)]
+pub enum SkillRangeType {
+    Language, // 300..300
+    Level,    // 1..max skill for level
+    Mono,     // 1..1, grey monolite bar
+    Rank,     // 1..skill for known rank
+    None,     // 0..0 always
+}
+
+#[derive(N)]
+pub enum SkillCategory {
+    None = -1,
+    Attributes = 5,
+    Weapon = 6,
+    Class = 7,
+    Armor = 8,
+    SecondaryProfession = 9,
+    Languages = 10,
+    PrimaryProfession = 11,
+    Generic = 12,
+}

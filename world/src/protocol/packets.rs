@@ -633,3 +633,9 @@ impl ServerMessagePayload<{ Opcode::SmsgCreatureQueryResponse as u16 }>
     for SmsgCreatureQueryResponseUnknownTemplate
 {
 }
+
+#[binwrite]
+#[server_opcode]
+pub struct SmsgActionButtons {
+    pub buttons_packed: Vec<u32>,
+}

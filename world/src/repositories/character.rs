@@ -10,11 +10,14 @@ use crate::{
         DataStore,
     },
     entities::{
-        player::{player_data::CharacterSkill, PlayerVisualFeatures},
+        player::{
+            player_data::{ActionButton, CharacterSkill},
+            PlayerVisualFeatures,
+        },
         position::WorldPosition,
     },
     protocol::packets::{CharEnumData, CharEnumEquip, CmsgCharCreate, CmsgCharDelete},
-    shared::constants::{InventorySlot, InventoryType},
+    shared::constants::{ActionButtonType, InventorySlot, InventoryType},
 };
 
 pub struct CharacterRepository;
@@ -290,6 +293,24 @@ impl CharacterRepository {
         rows.filter_map(|r| r.ok()).collect()
     }
 
+    pub fn fetch_action_buttons(
+        conn: &PooledConnection<SqliteConnectionManager>,
+        guid: u64,
+    ) -> Vec<ActionButton> {
+        let mut stmt = conn.prepare_cached("SELECT position, action_type, action_value FROM character_action_buttons WHERE character_guid = :character_guid").unwrap();
+        let rows = stmt
+            .query_map(named_params! { ":character_guid": guid }, |row| {
+                Ok(ActionButton {
+                    position: row.get("position").unwrap(),
+                    action_type: row.get("action_type").unwrap(),
+                    action_value: row.get("action_value").unwrap(),
+                })
+            })
+            .unwrap();
+
+        rows.filter_map(|r| r.ok()).collect()
+    }
+
     pub fn add_item_to_inventory(
         transaction: &Transaction,
         character_guid: u64,
@@ -328,6 +349,24 @@ impl CharacterRepository {
             ":skill_id": skill_id,
             ":value": value,
             ":max_value": max_value,
+        })
+        .unwrap();
+    }
+
+    pub fn add_action(
+        transaction: &Transaction,
+        character_guid: u64,
+        position: u32,
+        action_type: ActionButtonType,
+        action_value: u32,
+    ) {
+        let mut stmt = transaction.prepare_cached("INSERT INTO character_action_buttons(character_guid, position, action_type, action_value) VALUES (:character_guid, :position, :action_type, :action_value)").unwrap();
+
+        stmt.execute(named_params! {
+            ":character_guid": character_guid,
+            ":position": position,
+            ":action_type": action_type as u32,
+            ":action_value": action_value,
         })
         .unwrap();
     }

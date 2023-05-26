@@ -5,8 +5,8 @@ use crate::{
         ItemTemplateDamage, ItemTemplateSocket, ItemTemplateSpell, ItemTemplateStat,
     },
     shared::constants::{
-        AbilityLearnType, CharacterClassBit, CharacterRaceBit, InventoryType, MapType,
-        SkillCategory, SkillRangeType, SkillType, SpellEffect, MAX_SPELL_EFFECT_INDEX,
+        AbilityLearnType, ActionButtonType, CharacterClassBit, CharacterRaceBit, InventoryType,
+        MapType, SkillCategory, SkillRangeType, SkillType, SpellEffect, MAX_SPELL_EFFECT_INDEX,
         MAX_SPELL_REAGENTS, MAX_SPELL_TOTEMS,
     },
 };
@@ -245,6 +245,14 @@ pub struct PlayerCreateSpell {
     pub race: u32,
     pub class: u32,
     pub spell_id: u32,
+}
+
+pub struct PlayerCreateActionButton {
+    pub race: u32,
+    pub class: u32,
+    pub position: u32,
+    pub action_type: ActionButtonType,
+    pub action_value: u32,
 }
 
 #[derive(Debug)]

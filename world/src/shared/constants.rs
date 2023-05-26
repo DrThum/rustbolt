@@ -1,5 +1,6 @@
 use enumflags2::bitflags;
 use enumn::N;
+use rusqlite::types::{FromSql, FromSqlError};
 
 pub const STANDARD_ADDON_CRC: u32 = 0x1C776D01;
 
@@ -1021,3 +1022,23 @@ pub enum SkillCategory {
     PrimaryProfession = 11,
     Generic = 12,
 }
+
+#[allow(dead_code)]
+#[derive(N, Clone, Copy)]
+pub enum ActionButtonType {
+    Spell = 0x00,
+    C = 0x01, // Click?
+    Macro = 0x40,
+    Cmacro = Self::C as isize | Self::Macro as isize,
+    Item = 0x80,
+}
+
+impl FromSql for ActionButtonType {
+    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
+        let value = value.as_i64()?;
+        ActionButtonType::n(value)
+            .map_or(Err(FromSqlError::Other("invalid action_type".into())), Ok)
+    }
+}
+
+pub const PLAYER_MAX_ACTION_BUTTONS: usize = 132;

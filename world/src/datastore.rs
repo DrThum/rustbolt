@@ -23,7 +23,8 @@ use crate::{
 
 use self::data_types::{
     CharStartOutfitRecord, ChrClassesRecord, ChrRacesRecord, EmotesTextRecord, ItemRecord,
-    ItemTemplate, MapRecord, SkillLineAbilityRecord, SkillLineRecord, SpellRecord,
+    ItemTemplate, MapRecord, PlayerCreateActionButton, SkillLineAbilityRecord, SkillLineRecord,
+    SpellRecord,
 };
 
 pub mod data_types;
@@ -32,6 +33,7 @@ pub mod dbc;
 pub type DbcStore<T> = HashMap<u32, T>;
 pub type DbcMultiStore<T> = MultiMap<u32, T>;
 pub type SqlStore<T> = HashMap<u32, T>;
+pub type SqlMultiStore<T> = MultiMap<u32, T>;
 
 pub struct DataStore {
     chr_races: DbcStore<ChrRacesRecord>,
@@ -46,7 +48,8 @@ pub struct DataStore {
     skill_line_ability_by_spell: DbcMultiStore<SkillLineAbilityRecord>,
     item_templates: SqlStore<ItemTemplate>,
     player_create_positions: SqlStore<PlayerCreatePosition>,
-    player_create_spells: SqlStore<Vec<u32>>,
+    player_create_spells: SqlMultiStore<u32>,
+    player_create_action_buttons: SqlMultiStore<PlayerCreateActionButton>,
     creature_templates: SqlStore<CreatureTemplate>,
 }
 
@@ -126,18 +129,27 @@ impl DataStore {
 
         info!("Loading player creation spells...");
         let player_create_spells = PlayerCreationRepository::load_spells(conn);
-        let player_create_spells: SqlStore<Vec<u32>> = {
-            let mut result: HashMap<u32, Vec<u32>> = HashMap::new();
+        let player_create_spells: SqlMultiStore<u32> = {
+            let mut multimap: MultiMap<u32, u32> = MultiMap::new();
 
             for pcs in player_create_spells {
                 let key: u32 = (pcs.race << 8) | pcs.class;
-                result
-                    .entry(key)
-                    .and_modify(|v| v.push(pcs.spell_id))
-                    .or_insert(vec![pcs.spell_id]);
+                multimap.insert(key, pcs.spell_id);
             }
 
-            result
+            multimap
+        };
+
+        info!("Loading player creation action buttons...");
+        let player_create_action_buttons = PlayerCreationRepository::load_action_buttons(conn);
+        let player_create_action_buttons: SqlMultiStore<PlayerCreateActionButton> = {
+            let mut multimap: MultiMap<u32, PlayerCreateActionButton> = MultiMap::new();
+            for action_button in player_create_action_buttons {
+                let key = (action_button.race << 8) | action_button.class;
+                multimap.insert(key, action_button);
+            }
+
+            multimap
         };
 
         Ok(DataStore {
@@ -154,6 +166,7 @@ impl DataStore {
             item_templates,
             player_create_positions,
             player_create_spells,
+            player_create_action_buttons,
             creature_templates,
         })
     }
@@ -228,7 +241,17 @@ impl DataStore {
     pub fn get_player_create_spells(&self, race: u32, class: u32) -> Option<&Vec<u32>> {
         let key: u32 = (race << 8) | class;
 
-        self.player_create_spells.get(&key)
+        self.player_create_spells.get_vec(&key)
+    }
+
+    pub fn get_player_create_action_buttons(
+        &self,
+        race: u32,
+        class: u32,
+    ) -> Option<&Vec<PlayerCreateActionButton>> {
+        let key: u32 = (race << 8) | class;
+
+        self.player_create_action_buttons.get_vec(&key)
     }
 
     pub fn get_creature_template(&self, entry: u32) -> Option<&CreatureTemplate> {

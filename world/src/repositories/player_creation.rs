@@ -2,7 +2,9 @@ use indicatif::ProgressBar;
 use r2d2::PooledConnection;
 use r2d2_sqlite::SqliteConnectionManager;
 
-use crate::datastore::data_types::{PlayerCreatePosition, PlayerCreateSpell};
+use crate::datastore::data_types::{
+    PlayerCreateActionButton, PlayerCreatePosition, PlayerCreateSpell,
+};
 
 pub struct PlayerCreationRepository;
 
@@ -42,7 +44,7 @@ impl PlayerCreationRepository {
 
     pub fn load_spells(conn: &PooledConnection<SqliteConnectionManager>) -> Vec<PlayerCreateSpell> {
         let mut stmt = conn
-            .prepare_cached("SELECT COUNT(*) FROM player_create_spells")
+            .prepare("SELECT COUNT(*) FROM player_create_spells")
             .unwrap();
         let mut count = stmt.query_map([], |row| row.get::<usize, u64>(0)).unwrap();
 
@@ -64,6 +66,39 @@ impl PlayerCreationRepository {
                     race: row.get("race").unwrap(),
                     class: row.get("class").unwrap(),
                     spell_id: row.get("spell_id").unwrap(),
+                })
+            })
+            .unwrap();
+
+        result.filter_map(|res| res.ok()).into_iter().collect()
+    }
+
+    pub fn load_action_buttons(
+        conn: &PooledConnection<SqliteConnectionManager>,
+    ) -> Vec<PlayerCreateActionButton> {
+        let mut stmt = conn
+            .prepare("SELECT COUNT(*) FROM player_create_action_buttons")
+            .unwrap();
+        let mut count = stmt.query_map([], |row| row.get::<usize, u64>(0)).unwrap();
+
+        let count = count.next().unwrap().unwrap_or(0);
+        let bar = ProgressBar::new(count);
+
+        let mut stmt = conn.prepare("SELECT race, class, position, action_type, action_value FROM player_create_action_buttons").unwrap();
+
+        let result = stmt
+            .query_map([], |row| {
+                bar.inc(1);
+                if bar.position() == count {
+                    bar.finish();
+                }
+
+                Ok(PlayerCreateActionButton {
+                    race: row.get("race").unwrap(),
+                    class: row.get("class").unwrap(),
+                    position: row.get("position").unwrap(),
+                    action_type: row.get("action_type").unwrap(),
+                    action_value: row.get("action_value").unwrap(),
                 })
             })
             .unwrap();

@@ -21,6 +21,8 @@ use crate::{
     },
 };
 
+use self::player_data::ActionButton;
+
 use super::{
     internal_values::InternalValues,
     item::Item,
@@ -44,6 +46,7 @@ pub struct Player {
     position: Option<WorldPosition>,
     inventory: PlayerInventory,
     spells: Vec<u32>,
+    action_buttons: HashMap<usize, ActionButton>,
 }
 
 impl Player {
@@ -55,6 +58,7 @@ impl Player {
             position: None,
             inventory: HashMap::new(),
             spells: Vec::new(),
+            action_buttons: HashMap::new(),
         }
     }
 
@@ -212,6 +216,23 @@ impl Player {
                     }
                 }
             }
+        }
+
+        let start_actions = data_store
+            .get_player_create_action_buttons(
+                creation_payload.race as u32,
+                creation_payload.class as u32,
+            )
+            .expect("missing player create action buttons in DB");
+
+        for action_button in start_actions {
+            CharacterRepository::add_action(
+                &transaction,
+                character_guid,
+                action_button.position,
+                action_button.action_type,
+                action_button.action_value,
+            );
         }
 
         transaction.commit()
@@ -372,6 +393,14 @@ impl Player {
                 skill.max_value,
             );
         }
+
+        // Action buttons
+        let action_buttons: HashMap<usize, ActionButton> =
+            CharacterRepository::fetch_action_buttons(conn, guid.raw())
+                .into_iter()
+                .map(|button| (button.position as usize, button))
+                .collect();
+        self.action_buttons = action_buttons;
 
         let inventory: HashMap<u32, Item> =
             ItemRepository::load_player_inventory(&conn, self.guid().raw() as u32)
@@ -540,6 +569,10 @@ impl Player {
 
     pub fn spells(&self) -> &Vec<u32> {
         &self.spells
+    }
+
+    pub fn action_buttons(&self) -> &HashMap<usize, ActionButton> {
+        &self.action_buttons
     }
 
     fn gen_create_data(&self) -> UpdateBlock {

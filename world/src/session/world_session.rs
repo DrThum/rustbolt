@@ -2,6 +2,7 @@ use binrw::{io::Cursor, BinWriterExt, NullString};
 use r2d2::PooledConnection;
 use r2d2_sqlite::SqliteConnectionManager;
 use std::{
+    collections::HashMap,
     sync::{atomic::AtomicU32, Arc},
     time::Duration,
 };
@@ -16,17 +17,20 @@ use tokio::{
 use wow_srp::tbc_header::HeaderCrypto;
 
 use crate::{
-    entities::{object_guid::ObjectGuid, player::Player},
+    entities::{
+        object_guid::ObjectGuid,
+        player::{player_data::ActionButton, Player},
+    },
     game::{map_manager::MapKey, world_context::WorldContext},
     protocol::{
         opcodes::Opcode,
         packets::{
-            InitialSpell, MovementInfo, SmsgCreateObject, SmsgDestroyObject, SmsgInitialSpells,
-            SmsgMessageChat, SmsgTimeSyncReq,
+            InitialSpell, MovementInfo, SmsgActionButtons, SmsgCreateObject, SmsgDestroyObject,
+            SmsgInitialSpells, SmsgMessageChat, SmsgTimeSyncReq,
         },
         server::{ServerMessage, ServerMessageHeader, ServerMessagePayload},
     },
-    shared::constants::{ChatMessageType, Language},
+    shared::constants::{ChatMessageType, Language, PLAYER_MAX_ACTION_BUTTONS},
     WorldSocketError,
 };
 
@@ -306,6 +310,24 @@ impl WorldSession {
             cooldown_count: 0, // TODO
             cooldowns: Vec::new(),
         });
+
+        self.send(&packet).await.unwrap();
+    }
+
+    pub async fn send_initial_action_buttons(&self) {
+        let player_guard = self.player.read().await;
+        let action_buttons: &HashMap<usize, ActionButton> = player_guard.action_buttons();
+
+        let mut buttons_packed: Vec<u32> = Vec::new();
+        for index in 0..PLAYER_MAX_ACTION_BUTTONS {
+            let packed = action_buttons
+                .get(&index)
+                .map_or(0, |button| button.packed());
+
+            buttons_packed.push(packed);
+        }
+
+        let packet = ServerMessage::new(SmsgActionButtons { buttons_packed });
 
         self.send(&packet).await.unwrap();
     }

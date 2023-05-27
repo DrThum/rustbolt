@@ -29,6 +29,13 @@ impl ObjectGuid {
         })
     }
 
+    pub fn zero() -> ObjectGuid {
+        Self {
+            high_guid_type: HighGuidType::Player,
+            raw: 0,
+        }
+    }
+
     pub fn with_entry(high_guid_type: HighGuidType, entry: u32, counter: u32) -> ObjectGuid {
         assert!(
             Self::has_entry_part(high_guid_type),
@@ -103,6 +110,14 @@ impl ObjectGuid {
 
     pub fn is_player(&self) -> bool {
         self.high_guid_type == HighGuidType::Player
+    }
+
+    pub fn is_creature(&self) -> bool {
+        self.high_guid_type == HighGuidType::Unit
+    }
+
+    pub fn is_unit(&self) -> bool {
+        self.is_creature() || self.is_player()
     }
 }
 

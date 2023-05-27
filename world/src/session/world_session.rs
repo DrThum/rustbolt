@@ -25,9 +25,9 @@ use crate::{
     protocol::{
         opcodes::Opcode,
         packets::{
-            FactionInit, InitialSpell, MovementInfo, SmsgActionButtons, SmsgCreateObject,
-            SmsgDestroyObject, SmsgInitialSpells, SmsgInitializeFactions, SmsgMessageChat,
-            SmsgTimeSyncReq,
+            FactionInit, InitialSpell, MovementInfo, SmsgActionButtons, SmsgAttackStop,
+            SmsgCreateObject, SmsgDestroyObject, SmsgInitialSpells, SmsgInitializeFactions,
+            SmsgMessageChat, SmsgTimeSyncReq,
         },
         server::{ServerMessage, ServerMessageHeader, ServerMessagePayload},
     },
@@ -415,6 +415,16 @@ impl WorldSession {
 
         self.send(&packet).await.unwrap();
         self.remove_known_guid(guid).await;
+    }
+
+    pub async fn send_attack_stop(&self, target_guid: Option<ObjectGuid>) {
+        let packet = ServerMessage::new(SmsgAttackStop {
+            player_guid: self.player.read().await.guid().as_packed(),
+            enemy_guid: target_guid.unwrap_or(ObjectGuid::zero()).as_packed(),
+            unk: 0,
+        });
+
+        self.send(&packet).await.unwrap();
     }
 }
 

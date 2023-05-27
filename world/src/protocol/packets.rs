@@ -1,3 +1,4 @@
+use crate::entities::object_guid::PackedObjectGuid;
 use crate::shared::constants::{ChatMessageType, Language};
 use crate::{
     entities::{
@@ -651,4 +652,17 @@ pub struct FactionInit {
 pub struct SmsgInitializeFactions {
     pub unk: u32, // 0x80
     pub factions: Vec<FactionInit>,
+}
+
+#[binread]
+pub struct CmsgAttackSwing {
+    pub guid: u64,
+}
+
+#[binwrite]
+#[server_opcode]
+pub struct SmsgAttackStop {
+    pub player_guid: PackedObjectGuid,
+    pub enemy_guid: PackedObjectGuid,
+    pub unk: u32, // 0 or 1, "NowDead" in TrinityCore
 }

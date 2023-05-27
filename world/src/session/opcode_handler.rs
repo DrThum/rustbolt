@@ -122,6 +122,10 @@ impl OpcodeHandler {
                     Opcode::CmsgCreatureQuery,
                     OpcodeHandler::handle_cmsg_creature_query
                 ),
+                define_handler!(
+                    Opcode::CmsgAttackSwing,
+                    OpcodeHandler::handle_cmsg_attack_swing
+                ),
             ]),
         }
     }

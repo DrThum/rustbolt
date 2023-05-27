@@ -37,7 +37,11 @@ impl Creature {
             .map(|template| {
                 let mut rng = rand::thread_rng();
 
-                let guid = ObjectGuid::with_entry(HighGuidType::Unit, creature_spawn.entry, creature_spawn.guid);
+                let guid = ObjectGuid::with_entry(
+                    HighGuidType::Unit,
+                    creature_spawn.entry,
+                    creature_spawn.guid,
+                );
                 let mut values = InternalValues::new(UNIT_END as usize);
                 values.set_u64(ObjectFields::ObjectFieldGuid.into(), guid.raw());
 

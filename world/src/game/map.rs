@@ -81,6 +81,7 @@ impl Map {
 
         session.send_initial_spells().await;
         session.send_initial_action_buttons().await;
+        session.send_initial_reputations().await;
 
         let mut guard = self.sessions.write().await;
         if let Some(previous_session) = guard.insert(player_guid.clone(), session.clone()) {

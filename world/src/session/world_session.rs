@@ -25,12 +25,15 @@ use crate::{
     protocol::{
         opcodes::Opcode,
         packets::{
-            InitialSpell, MovementInfo, SmsgActionButtons, SmsgCreateObject, SmsgDestroyObject,
-            SmsgInitialSpells, SmsgMessageChat, SmsgTimeSyncReq,
+            FactionInit, InitialSpell, MovementInfo, SmsgActionButtons, SmsgCreateObject,
+            SmsgDestroyObject, SmsgInitialSpells, SmsgInitializeFactions, SmsgMessageChat,
+            SmsgTimeSyncReq,
         },
         server::{ServerMessage, ServerMessageHeader, ServerMessagePayload},
     },
-    shared::constants::{ChatMessageType, Language, PLAYER_MAX_ACTION_BUTTONS},
+    shared::constants::{
+        ChatMessageType, Language, MAX_VISIBLE_REPUTATIONS, PLAYER_MAX_ACTION_BUTTONS,
+    },
     WorldSocketError,
 };
 
@@ -328,6 +331,36 @@ impl WorldSession {
         }
 
         let packet = ServerMessage::new(SmsgActionButtons { buttons_packed });
+
+        self.send(&packet).await.unwrap();
+    }
+
+    pub async fn send_initial_reputations(&self) {
+        let player_guard = self.player.read().await;
+        let faction_standings = player_guard.faction_standings();
+
+        let mut factions: Vec<FactionInit> = Vec::with_capacity(MAX_VISIBLE_REPUTATIONS);
+        for index in 0..MAX_VISIBLE_REPUTATIONS {
+            let faction_init =
+                if let Some(faction_standing) = faction_standings.get(&(index as u32)) {
+                    FactionInit {
+                        flags: faction_standing.flags as u8,
+                        standing: faction_standing.db_standing as u32,
+                    }
+                } else {
+                    FactionInit {
+                        flags: 0,
+                        standing: 0,
+                    }
+                };
+
+            factions.push(faction_init);
+        }
+
+        let packet = ServerMessage::new(SmsgInitializeFactions {
+            unk: 0x80,
+            factions,
+        });
 
         self.send(&packet).await.unwrap();
     }

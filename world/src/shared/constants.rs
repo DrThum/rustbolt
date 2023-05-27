@@ -55,18 +55,36 @@ pub enum CharacterRace {
 #[allow(dead_code)]
 #[bitflags]
 #[repr(u32)]
-#[derive(Clone, Copy)]
+#[derive(N, Clone, Copy)]
 pub enum CharacterRaceBit {
     Human = 1,
-    Orc = 1 << 2,
-    Dwarf = 1 << 3,
-    NightElf = 1 << 4,
-    UndeadPlayer = 1 << 5,
-    Tauren = 1 << 6,
-    Gnome = 1 << 7,
-    Troll = 1 << 8,
-    BloodElf = 1 << 10,
-    Draenei = 1 << 11,
+    Orc = 1 << 1,
+    Dwarf = 1 << 2,
+    NightElf = 1 << 3,
+    UndeadPlayer = 1 << 4,
+    Tauren = 1 << 5,
+    Gnome = 1 << 6,
+    Troll = 1 << 7,
+    BloodElf = 1 << 9,
+    Draenei = 1 << 10,
+}
+
+impl From<CharacterRace> for CharacterRaceBit {
+    fn from(value: CharacterRace) -> Self {
+        match value {
+            CharacterRace::None => panic!("CharacterRace::None has no corresponding mask"),
+            CharacterRace::Human => Self::Human,
+            CharacterRace::Orc => Self::Orc,
+            CharacterRace::Dwarf => Self::Dwarf,
+            CharacterRace::NightElf => Self::NightElf,
+            CharacterRace::UndeadPlayer => Self::UndeadPlayer,
+            CharacterRace::Tauren => Self::Tauren,
+            CharacterRace::Gnome => Self::Gnome,
+            CharacterRace::Troll => Self::Troll,
+            CharacterRace::BloodElf => Self::BloodElf,
+            CharacterRace::Draenei => Self::Draenei,
+        }
+    }
 }
 
 #[allow(dead_code)]
@@ -87,17 +105,34 @@ pub enum CharacterClass {
 #[allow(dead_code)]
 #[bitflags]
 #[repr(u32)]
-#[derive(Clone, Copy)]
+#[derive(N, Clone, Copy)]
 pub enum CharacterClassBit {
-    Warrior = 1 << 1,
-    Paladin = 1 << 2,
-    Hunter = 1 << 3,
-    Rogue = 1 << 4,
-    Priest = 1 << 5,
-    Shaman = 1 << 7,
-    Mage = 1 << 8,
-    Warlock = 1 << 9,
-    Druid = 1 << 11,
+    Warrior = 1,
+    Paladin = 1 << 1,
+    Hunter = 1 << 2,
+    Rogue = 1 << 3,
+    Priest = 1 << 4,
+    Shaman = 1 << 6,
+    Mage = 1 << 7,
+    Warlock = 1 << 8,
+    Druid = 1 << 10,
+}
+
+impl From<CharacterClass> for CharacterClassBit {
+    fn from(value: CharacterClass) -> Self {
+        match value {
+            CharacterClass::None => panic!("CharacterClas::None has no corresponding mask"),
+            CharacterClass::Warrior => CharacterClassBit::Warrior,
+            CharacterClass::Paladin => CharacterClassBit::Paladin,
+            CharacterClass::Hunter => CharacterClassBit::Hunter,
+            CharacterClass::Rogue => CharacterClassBit::Rogue,
+            CharacterClass::Priest => CharacterClassBit::Priest,
+            CharacterClass::Shaman => CharacterClassBit::Shaman,
+            CharacterClass::Mage => CharacterClassBit::Mage,
+            CharacterClass::Warlock => CharacterClassBit::Warlock,
+            CharacterClass::Druid => CharacterClassBit::Druid,
+        }
+    }
 }
 
 #[allow(dead_code)]
@@ -1042,3 +1077,6 @@ impl FromSql for ActionButtonType {
 }
 
 pub const PLAYER_MAX_ACTION_BUTTONS: usize = 132;
+
+pub const FACTION_NUMBER_BASE_REPUTATION_MASKS: usize = 4;
+pub const MAX_VISIBLE_REPUTATIONS: usize = 128;

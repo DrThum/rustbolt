@@ -19,12 +19,13 @@ use crate::{
         creature::CreatureRepository, item::ItemRepository,
         player_creation::PlayerCreationRepository,
     },
+    shared::constants::{CharacterClassBit, CharacterRaceBit},
 };
 
 use self::data_types::{
-    CharStartOutfitRecord, ChrClassesRecord, ChrRacesRecord, EmotesTextRecord, ItemRecord,
-    ItemTemplate, MapRecord, PlayerCreateActionButton, SkillLineAbilityRecord, SkillLineRecord,
-    SpellRecord,
+    CharStartOutfitRecord, ChrClassesRecord, ChrRacesRecord, EmotesTextRecord, FactionRecord,
+    ItemRecord, ItemTemplate, MapRecord, PlayerCreateActionButton, SkillLineAbilityRecord,
+    SkillLineRecord, SpellRecord,
 };
 
 pub mod data_types;
@@ -46,6 +47,7 @@ pub struct DataStore {
     skill_line: DbcStore<SkillLineRecord>,
     skill_line_ability: DbcStore<SkillLineAbilityRecord>,
     skill_line_ability_by_spell: DbcMultiStore<SkillLineAbilityRecord>,
+    faction: DbcStore<FactionRecord>,
     item_templates: SqlStore<ItemTemplate>,
     player_create_positions: SqlStore<PlayerCreatePosition>,
     player_create_spells: SqlMultiStore<u32>,
@@ -88,6 +90,7 @@ impl DataStore {
 
             multimap
         };
+        let faction = parse_dbc!(config.common.data.directory, "Faction");
 
         // SQL stores
         let item_templates = if config.world.dev.load_item_templates {
@@ -163,6 +166,7 @@ impl DataStore {
             skill_line,
             skill_line_ability,
             skill_line_ability_by_spell,
+            faction,
             item_templates,
             player_create_positions,
             player_create_spells,
@@ -222,6 +226,29 @@ impl DataStore {
         spell_id: u32,
     ) -> Option<&Vec<SkillLineAbilityRecord>> {
         self.skill_line_ability_by_spell.get_vec(&spell_id)
+    }
+
+    pub fn get_faction_record(&self, id: u32) -> Option<&FactionRecord> {
+        self.faction.get(&id)
+    }
+
+    pub fn get_starting_factions(
+        &self,
+        race: CharacterRaceBit,
+        class: CharacterClassBit,
+    ) -> Vec<(u32, u32)> {
+        let mut result: Vec<(u32, u32)> = Vec::new();
+        for (id, faction) in self.faction.iter() {
+            match (
+                faction.base_reputation_standing(race, class),
+                faction.reputation_flags(race, class),
+            ) {
+                (Some(_standing), Some(flags)) if flags & 0x01 != 0 => result.push((*id, flags)),
+                _ => (),
+            }
+        }
+
+        result
     }
 
     pub fn get_item_template(&self, entry: u32) -> Option<&ItemTemplate> {

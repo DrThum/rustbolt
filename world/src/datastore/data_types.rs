@@ -6,8 +6,9 @@ use crate::{
     },
     shared::constants::{
         AbilityLearnType, ActionButtonType, CharacterClassBit, CharacterRaceBit, InventoryType,
-        MapType, SkillCategory, SkillRangeType, SkillType, SpellEffect, MAX_SPELL_EFFECT_INDEX,
-        MAX_SPELL_REAGENTS, MAX_SPELL_TOTEMS,
+        MapType, SkillCategory, SkillRangeType, SkillType, SpellEffect,
+        FACTION_NUMBER_BASE_REPUTATION_MASKS, MAX_SPELL_EFFECT_INDEX, MAX_SPELL_REAGENTS,
+        MAX_SPELL_TOTEMS,
     },
 };
 
@@ -802,6 +803,94 @@ impl DbcTypedRecord for SkillLineAbilityRecord {
             if record.skill_id == SkillType::Lockpicking && record.max_value == 0 {
                 record.learn_on_get_skill = AbilityLearnType::LearnedOnGetRaceOrClassSkill;
             }
+
+            (key, record)
+        }
+    }
+}
+
+pub struct FactionRecord {
+    pub position_in_reputation_list: i32,
+    base_reputation_race_mask: [BitFlags<CharacterRaceBit>; FACTION_NUMBER_BASE_REPUTATION_MASKS],
+    base_reputation_class_mask: [BitFlags<CharacterClassBit>; FACTION_NUMBER_BASE_REPUTATION_MASKS],
+    base_reputation_standing: [i32; FACTION_NUMBER_BASE_REPUTATION_MASKS],
+    reputation_flags: [u32; FACTION_NUMBER_BASE_REPUTATION_MASKS],
+    pub team: u32,
+    pub name: String,
+}
+
+impl FactionRecord {
+    pub fn base_reputation_standing(
+        &self,
+        race: CharacterRaceBit,
+        class: CharacterClassBit,
+    ) -> Option<i32> {
+        for index in 0..FACTION_NUMBER_BASE_REPUTATION_MASKS {
+            let race_ok = self.base_reputation_race_mask[index].intersects(race);
+            let class_ok = self.base_reputation_class_mask[index].intersects(class);
+
+            if race_ok || class_ok {
+                return Some(self.base_reputation_standing[index]);
+            }
+        }
+
+        None
+    }
+
+    pub fn reputation_flags(
+        &self,
+        race: CharacterRaceBit,
+        class: CharacterClassBit,
+    ) -> Option<u32> {
+        for index in 0..FACTION_NUMBER_BASE_REPUTATION_MASKS {
+            let race_ok = self.base_reputation_race_mask[index].intersects(race);
+            let class_ok = self.base_reputation_class_mask[index].intersects(class);
+
+            if race_ok || class_ok {
+                return Some(self.reputation_flags[index]);
+            }
+        }
+
+        None
+    }
+}
+
+impl DbcTypedRecord for FactionRecord {
+    fn from_record(record: &DbcRecord, strings: &DbcStringBlock) -> (u32, Self) {
+        unsafe {
+            let key = record.fields[0].as_u32;
+
+            let record = FactionRecord {
+                position_in_reputation_list: record.fields[1].as_i32,
+                base_reputation_race_mask: [
+                    BitFlags::from_bits_unchecked(record.fields[2].as_u32),
+                    BitFlags::from_bits_unchecked(record.fields[3].as_u32),
+                    BitFlags::from_bits_unchecked(record.fields[4].as_u32),
+                    BitFlags::from_bits_unchecked(record.fields[5].as_u32),
+                ],
+                base_reputation_class_mask: [
+                    BitFlags::from_bits_unchecked(record.fields[6].as_u32),
+                    BitFlags::from_bits_unchecked(record.fields[7].as_u32),
+                    BitFlags::from_bits_unchecked(record.fields[8].as_u32),
+                    BitFlags::from_bits_unchecked(record.fields[9].as_u32),
+                ],
+                base_reputation_standing: [
+                    record.fields[10].as_i32,
+                    record.fields[11].as_i32,
+                    record.fields[12].as_i32,
+                    record.fields[13].as_i32,
+                ],
+                reputation_flags: [
+                    record.fields[14].as_u32,
+                    record.fields[15].as_u32,
+                    record.fields[16].as_u32,
+                    record.fields[17].as_u32,
+                ],
+                team: record.fields[18].as_u32,
+                name: strings
+                    .get(record.fields[19].as_u32 as usize)
+                    .expect("invalid name found in Faction.dbc"),
+            };
 
             (key, record)
         }

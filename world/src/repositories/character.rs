@@ -311,6 +311,25 @@ impl CharacterRepository {
         rows.filter_map(|r| r.ok()).collect()
     }
 
+    pub fn fetch_faction_standings(
+        conn: &PooledConnection<SqliteConnectionManager>,
+        guid: u64,
+    ) -> Vec<CharacterReputationDbRecord> {
+        let mut stmt = conn.prepare_cached("SELECT character_guid, faction_id, standing, flags FROM character_reputations WHERE character_guid = :character_guid").unwrap();
+        let rows = stmt
+            .query_map(named_params! { ":character_guid": guid }, |row| {
+                Ok(CharacterReputationDbRecord {
+                    character_guid: guid,
+                    faction_id: row.get("faction_id").unwrap(),
+                    standing: row.get("standing").unwrap(),
+                    flags: row.get("flags").unwrap(),
+                })
+            })
+            .unwrap();
+
+        rows.filter_map(|r| r.ok()).collect()
+    }
+
     pub fn add_item_to_inventory(
         transaction: &Transaction,
         character_guid: u64,
@@ -370,6 +389,24 @@ impl CharacterRepository {
         })
         .unwrap();
     }
+
+    pub fn add_reputation_offline(
+        transaction: &Transaction,
+        character_guid: u64,
+        faction_id: u32,
+        standing: i32,
+        flags: u32,
+    ) {
+        let mut stmt = transaction.prepare_cached("INSERT INTO character_reputations(character_guid, faction_id, standing, flags) VALUES (:character_guid, :faction_id, :standing, :flags)").unwrap();
+
+        stmt.execute(named_params! {
+            ":character_guid": character_guid,
+            ":faction_id": faction_id,
+            ":standing": standing,
+            ":flags": flags,
+        })
+        .unwrap();
+    }
 }
 
 pub struct CharacterRecord {
@@ -382,4 +419,11 @@ pub struct CharacterRecord {
     pub name: String,
     pub position: WorldPosition,
     pub visual_features: PlayerVisualFeatures,
+}
+
+pub struct CharacterReputationDbRecord {
+    pub character_guid: u64,
+    pub faction_id: u32,
+    pub standing: i32,
+    pub flags: u32,
 }

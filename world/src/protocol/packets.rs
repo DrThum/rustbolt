@@ -639,3 +639,16 @@ impl ServerMessagePayload<{ Opcode::SmsgCreatureQueryResponse as u16 }>
 pub struct SmsgActionButtons {
     pub buttons_packed: Vec<u32>,
 }
+
+#[binwrite]
+pub struct FactionInit {
+    pub flags: u8,
+    pub standing: u32,
+}
+
+#[binwrite]
+#[server_opcode]
+pub struct SmsgInitializeFactions {
+    pub unk: u32, // 0x80
+    pub factions: Vec<FactionInit>,
+}

@@ -11,13 +11,14 @@ use rusqlite::{named_params, Error, Transaction};
 
 use crate::{
     datastore::{data_types::PlayerCreatePosition, DataStore},
+    entities::player::player_data::FactionStanding,
     game::world_context::WorldContext,
     protocol::packets::CmsgCharCreate,
     repositories::{character::CharacterRepository, item::ItemRepository},
     shared::constants::{
-        AbilityLearnType, CharacterClass, CharacterRace, Gender, HighGuidType, InventorySlot,
-        InventoryType, ItemClass, ItemSubclassConsumable, ObjectTypeId, ObjectTypeMask, PowerType,
-        SheathState, SkillRangeType, UnitStandState,
+        AbilityLearnType, CharacterClass, CharacterClassBit, CharacterRace, CharacterRaceBit,
+        Gender, HighGuidType, InventorySlot, InventoryType, ItemClass, ItemSubclassConsumable,
+        ObjectTypeId, ObjectTypeMask, PowerType, SheathState, SkillRangeType, UnitStandState,
     },
 };
 
@@ -47,6 +48,7 @@ pub struct Player {
     inventory: PlayerInventory,
     spells: Vec<u32>,
     action_buttons: HashMap<usize, ActionButton>,
+    faction_standings: HashMap<u32, FactionStanding>,
 }
 
 impl Player {
@@ -59,6 +61,7 @@ impl Player {
             inventory: HashMap::new(),
             spells: Vec::new(),
             action_buttons: HashMap::new(),
+            faction_standings: HashMap::new(),
         }
     }
 
@@ -235,6 +238,21 @@ impl Player {
             );
         }
 
+        let start_reputations = data_store.get_starting_factions(
+            CharacterRaceBit::n(1 << (creation_payload.race - 1)).unwrap(),
+            CharacterClassBit::n(1 << (creation_payload.class - 1)).unwrap(),
+        );
+
+        for reputation in start_reputations {
+            CharacterRepository::add_reputation_offline(
+                &transaction,
+                character_guid,
+                reputation.0,
+                0,
+                reputation.1,
+            );
+        }
+
         transaction.commit()
     }
 
@@ -401,6 +419,45 @@ impl Player {
                 .map(|button| (button.position as usize, button))
                 .collect();
         self.action_buttons = action_buttons;
+
+        // Reputations
+        let faction_standings: HashMap<u32, FactionStanding> = {
+            let records = CharacterRepository::fetch_faction_standings(conn, guid.raw());
+            let mut result: HashMap<u32, FactionStanding> = HashMap::new();
+
+            for db_record in records {
+                if let Some(dbc_record) = world_context
+                    .data_store
+                    .get_faction_record(db_record.faction_id)
+                {
+                    if dbc_record.position_in_reputation_list >= 0 {
+                        result.insert(
+                            dbc_record.position_in_reputation_list as u32,
+                            FactionStanding {
+                                faction_id: db_record.faction_id,
+                                base_standing: dbc_record
+                                    .base_reputation_standing(
+                                        self.race().into(),
+                                        self.class().into(),
+                                    )
+                                    .unwrap_or(0),
+                                db_standing: db_record.standing,
+                                flags: db_record.flags,
+                                position_in_reputation_list: dbc_record.position_in_reputation_list
+                                    as u32,
+                            },
+                        );
+                    } else {
+                        warn!("faction with position_in_reputation_list < 0 found in character_reputations");
+                    }
+                } else {
+                    warn!("invalid faction_id in character_reputations");
+                }
+            }
+
+            result
+        };
+        self.faction_standings = faction_standings;
 
         let inventory: HashMap<u32, Item> =
             ItemRepository::load_player_inventory(&conn, self.guid().raw() as u32)
@@ -573,6 +630,10 @@ impl Player {
 
     pub fn action_buttons(&self) -> &HashMap<usize, ActionButton> {
         &self.action_buttons
+    }
+
+    pub fn faction_standings(&self) -> &HashMap<u32, FactionStanding> {
+        &self.faction_standings
     }
 
     fn gen_create_data(&self) -> UpdateBlock {

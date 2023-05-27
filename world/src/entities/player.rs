@@ -18,7 +18,8 @@ use crate::{
     shared::constants::{
         AbilityLearnType, CharacterClass, CharacterClassBit, CharacterRace, CharacterRaceBit,
         Gender, HighGuidType, InventorySlot, InventoryType, ItemClass, ItemSubclassConsumable,
-        ObjectTypeId, ObjectTypeMask, PowerType, SheathState, SkillRangeType, UnitStandState,
+        ObjectTypeId, ObjectTypeMask, PowerType, SheathState, SkillRangeType, UnitFlags,
+        UnitStandState,
     },
 };
 
@@ -411,6 +412,11 @@ impl Player {
                 skill.max_value,
             );
         }
+
+        self.values.set_u32(
+            UnitFields::UnitFieldFlags.into(),
+            UnitFlags::PlayerControlled as u32,
+        );
 
         // Action buttons
         let action_buttons: HashMap<usize, ActionButton> =

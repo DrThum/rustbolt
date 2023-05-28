@@ -1,5 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
+use async_trait::async_trait;
 use enumflags2::make_bitflags;
 
 use crate::{
@@ -62,6 +63,7 @@ impl Item {
     }
 }
 
+#[async_trait]
 impl UpdatableEntity for Item {
     fn guid(&self) -> &ObjectGuid {
         self.guid()
@@ -71,7 +73,7 @@ impl UpdatableEntity for Item {
         "TODO".to_owned()
     }
 
-    fn tick(&mut self, _diff: Duration) {}
+    async fn tick(&mut self, _diff: Duration, _world_context: Arc<WorldContext>) {}
 
     fn get_create_data(
         &self,

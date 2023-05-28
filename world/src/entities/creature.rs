@@ -1,9 +1,11 @@
 use std::{sync::Arc, time::Duration};
 
+use async_trait::async_trait;
 use enumflags2::make_bitflags;
 use rand::{seq::SliceRandom, Rng};
 
 use crate::{
+    game::world_context::WorldContext,
     repositories::creature::CreatureSpawnDbRecord,
     shared::constants::{HighGuidType, ObjectTypeId, ObjectTypeMask},
     DataStore,
@@ -134,6 +136,7 @@ impl Creature {
     }
 }
 
+#[async_trait]
 impl UpdatableEntity for Creature {
     fn guid(&self) -> &ObjectGuid {
         self.guid()
@@ -143,7 +146,7 @@ impl UpdatableEntity for Creature {
         self.name.to_owned()
     }
 
-    fn tick(&mut self, _diff: Duration) {}
+    async fn tick(&mut self, _diff: Duration, _world_context: Arc<WorldContext>) {}
 
     fn get_create_data(
         &self,

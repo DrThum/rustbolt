@@ -31,6 +31,8 @@ impl OpcodeHandler {
                         return;
                     }
 
+                    session.player.write().await.set_attacking(true);
+
                     // If melee
                     let packet = ServerMessage::new(SmsgAttackStart {
                         attacker_guid: session.player.read().await.guid().raw(),
@@ -39,7 +41,13 @@ impl OpcodeHandler {
 
                     world_context
                         .map_manager
-                        .broadcast_packet(session, &packet, None, true)
+                        .broadcast_packet(
+                            session.player.read().await.guid(),
+                            session.get_current_map().await,
+                            &packet,
+                            None,
+                            true,
+                        )
                         .await;
                 }
                 None => {
@@ -71,10 +79,17 @@ impl OpcodeHandler {
 
         world_context
             .map_manager
-            .broadcast_packet(session.clone(), &packet, None, true)
+            .broadcast_packet(
+                session.player.read().await.guid(),
+                session.get_current_map().await,
+                &packet,
+                None,
+                true,
+            )
             .await;
 
         let mut player_guard = session.player.write().await;
+        player_guard.set_attacking(false);
         player_guard.set_selection(0);
     }
 }

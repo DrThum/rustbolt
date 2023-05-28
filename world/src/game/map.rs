@@ -396,10 +396,10 @@ impl Map {
         self.visibility_distance
     }
 
-    pub async fn tick(&self, diff: Duration) {
+    pub async fn tick(&self, diff: Duration, world_context: Arc<WorldContext>) {
         let entities = self.entities.read().await;
         for (_, entity) in &*entities {
-            entity.write().await.tick(diff);
+            entity.write().await.tick(diff, world_context.clone()).await;
         }
     }
 }

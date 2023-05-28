@@ -1158,3 +1158,12 @@ pub enum NpcFlags {
     GuildBanker = 0x00800000,
     SpellClick = 0x01000000,
 }
+
+#[allow(dead_code)]
+pub enum WeaponAttackType {
+    MainHand = 0,
+    OffHand = 1,
+    Ranged = 2,
+}
+
+pub const NUMBER_WEAPON_ATTACK_TYPES: usize = 3;

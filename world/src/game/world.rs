@@ -51,6 +51,9 @@ impl World {
 
     async fn tick(&self, diff: Duration) {
         self.session_holder.tick(self.world_context.clone()).await;
-        self.world_context.map_manager.tick(diff).await;
+        self.world_context
+            .map_manager
+            .tick(diff, self.world_context.clone())
+            .await;
     }
 }

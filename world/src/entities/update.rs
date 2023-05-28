@@ -1,3 +1,5 @@
+use async_trait::async_trait;
+
 use std::{sync::Arc, time::Duration};
 
 use binrw::binwrite;
@@ -11,12 +13,13 @@ use super::{
     position::Position,
 };
 
+#[async_trait]
 pub trait UpdatableEntity {
     fn guid(&self) -> &ObjectGuid;
 
     fn name(&self) -> String;
 
-    fn tick(&mut self, diff: Duration);
+    async fn tick(&mut self, diff: Duration, world_context: Arc<WorldContext>);
 
     fn get_create_data(
         &self,

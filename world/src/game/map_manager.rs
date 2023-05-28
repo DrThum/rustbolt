@@ -318,20 +318,19 @@ impl MapManager {
         Payload: protocol::server::ServerMessagePayload<OPCODE>,
     >(
         &self,
-        origin: Arc<WorldSession>,
+        origin_guid: &ObjectGuid,
+        map_key: Option<MapKey>,
         packet: &ServerMessage<OPCODE, Payload>,
         range: Option<f32>,
         include_self: bool,
     ) {
-        if let Some(current_map_key) = origin.get_current_map().await {
+        if let Some(current_map_key) = map_key {
             let maps_guard = self.maps.read().await;
             if let Some(map) = maps_guard.get(&current_map_key) {
                 let map_guard = map.read().await;
-                let player_guard = origin.player.read().await;
-
                 for session in map_guard
                     .sessions_nearby_entity(
-                        player_guard.guid(),
+                        origin_guid,
                         range.unwrap_or(map_guard.visibility_distance()),
                         true,
                         include_self,
@@ -372,10 +371,10 @@ impl MapManager {
         result
     }
 
-    pub async fn tick(&self, diff: Duration) {
+    pub async fn tick(&self, diff: Duration, world_context: Arc<WorldContext>) {
         let maps = self.maps.read().await;
         for (_, map) in &*maps {
-            map.read().await.tick(diff).await;
+            map.read().await.tick(diff, world_context.clone()).await;
         }
     }
 }

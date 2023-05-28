@@ -47,7 +47,13 @@ impl OpcodeHandler {
                 // Broadcast to nearby players
                 world_context
                     .map_manager
-                    .broadcast_packet(session.clone(), &smsg_message_chat, Some(distance), true)
+                    .broadcast_packet(
+                        session.player.read().await.guid(),
+                        session.get_current_map().await,
+                        &smsg_message_chat,
+                        Some(distance),
+                        true,
+                    )
                     .await;
             }
             t => error!("unsupported message type {:?}", t),
@@ -78,7 +84,13 @@ impl OpcodeHandler {
 
                         world_context
                             .map_manager
-                            .broadcast_packet(session.clone(), &packet, None, true)
+                            .broadcast_packet(
+                                session.player.read().await.guid(),
+                                session.get_current_map().await,
+                                &packet,
+                                None,
+                                true,
+                            )
                             .await;
                     }
                 }
@@ -105,7 +117,13 @@ impl OpcodeHandler {
 
             world_context
                 .map_manager
-                .broadcast_packet(session.clone(), &packet, Some(40.0), true)
+                .broadcast_packet(
+                    session.player.read().await.guid(),
+                    session.get_current_map().await,
+                    &packet,
+                    Some(40.0),
+                    true,
+                )
                 .await;
         }
     }

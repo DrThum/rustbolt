@@ -4,6 +4,7 @@ use std::{
     time::Duration,
 };
 
+use async_trait::async_trait;
 use enumflags2::make_bitflags;
 use log::{error, warn};
 use r2d2::PooledConnection;
@@ -14,13 +15,16 @@ use crate::{
     datastore::{data_types::PlayerCreatePosition, DataStore},
     entities::player::player_data::FactionStanding,
     game::world_context::WorldContext,
-    protocol::packets::CmsgCharCreate,
+    protocol::{
+        packets::{CmsgCharCreate, SmsgAttackerStateUpdate},
+        server::ServerMessage,
+    },
     repositories::{character::CharacterRepository, item::ItemRepository},
     shared::constants::{
         AbilityLearnType, CharacterClass, CharacterClassBit, CharacterRace, CharacterRaceBit,
         Gender, HighGuidType, InventorySlot, InventoryType, ItemClass, ItemSubclassConsumable,
         ObjectTypeId, ObjectTypeMask, PowerType, SheathState, SkillRangeType, UnitFlags,
-        UnitStandState,
+        UnitStandState, WeaponAttackType, NUMBER_WEAPON_ATTACK_TYPES,
     },
 };
 
@@ -52,6 +56,8 @@ pub struct Player {
     action_buttons: HashMap<usize, ActionButton>,
     faction_standings: HashMap<u32, FactionStanding>,
     selection_guid: Option<ObjectGuid>,
+    is_attacking: bool,
+    attack_timers: [Duration; NUMBER_WEAPON_ATTACK_TYPES], // MainHand, OffHand, Ranged
 }
 
 impl Player {
@@ -66,6 +72,12 @@ impl Player {
             action_buttons: HashMap::new(),
             faction_standings: HashMap::new(),
             selection_guid: None,
+            is_attacking: false,
+            attack_timers: [
+                Duration::from_millis(800), /* FIXME */
+                Duration::ZERO,
+                Duration::ZERO,
+            ],
         }
     }
 
@@ -655,6 +667,10 @@ impl Player {
         self.selection_guid
     }
 
+    pub fn set_attacking(&mut self, is_attacking: bool) {
+        self.is_attacking = is_attacking;
+    }
+
     fn gen_create_data(&self) -> UpdateBlock {
         let mut update_builder = UpdateBlockBuilder::new();
 
@@ -688,6 +704,7 @@ pub struct PlayerVisualFeatures {
     pub facialstyle: u8,
 }
 
+#[async_trait]
 impl UpdatableEntity for Player {
     fn guid(&self) -> &ObjectGuid {
         self.guid()
@@ -697,8 +714,57 @@ impl UpdatableEntity for Player {
         self.name.to_owned()
     }
 
-    fn tick(&mut self, diff: Duration) {
-        println!("player {} ticking {:?}", self.guid().counter(), diff);
+    async fn tick(&mut self, diff: Duration, world_context: Arc<WorldContext>) {
+        for timer in self.attack_timers.iter_mut() {
+            if *timer > diff {
+                *timer -= diff;
+            } else {
+                *timer = Duration::ZERO;
+            }
+        }
+
+        if let Some(selection_guid) = self.selection_guid {
+            if self.attack_timers[WeaponAttackType::MainHand as usize].is_zero()
+                && self.is_attacking
+            {
+                let packet = ServerMessage::new(SmsgAttackerStateUpdate {
+                    hit_info: 2, // TODO enum HitInfo
+                    attacker_guid: self.guid().as_packed(),
+                    target_guid: selection_guid.as_packed(),
+                    actual_damage: 10,
+                    sub_damage_count: 1,
+                    sub_damage_school_mask: 1, // Physical
+                    sub_damage: 10.0,
+                    sub_damage_rounded: 10,
+                    sub_damage_absorb: 0,
+                    sub_damage_resist: 0,
+                    target_state: 1, // TODO: Enum VictimState
+                    unk1: 0,
+                    spell_id: 0,
+                    damage_blocked_amount: 0,
+                });
+
+                // FIXME: ugh
+                let session = world_context
+                    .session_holder
+                    .get_session_for_account(1)
+                    .await
+                    .unwrap();
+                world_context
+                    .map_manager
+                    .broadcast_packet(
+                        self.guid(),
+                        session.get_current_map().await,
+                        &packet,
+                        None,
+                        true,
+                    )
+                    .await;
+
+                self.attack_timers[WeaponAttackType::MainHand as usize] =
+                    Duration::from_millis(800);
+            }
+        }
     }
 
     fn get_create_data(

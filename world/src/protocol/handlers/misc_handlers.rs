@@ -23,4 +23,13 @@ impl OpcodeHandler {
 
         session.send(&packet).await.unwrap();
     }
+
+    pub(crate) async fn handle_cmsg_set_selection(
+        session: Arc<WorldSession>,
+        _world_context: Arc<WorldContext>,
+        data: Vec<u8>,
+    ) {
+        let cmsg: CmsgSetSelection = ClientMessage::read_as(data).unwrap();
+        session.player.write().await.set_selection(cmsg.guid);
+    }
 }

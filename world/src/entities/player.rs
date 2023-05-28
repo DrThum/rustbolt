@@ -50,6 +50,7 @@ pub struct Player {
     spells: Vec<u32>,
     action_buttons: HashMap<usize, ActionButton>,
     faction_standings: HashMap<u32, FactionStanding>,
+    selection_guid: Option<ObjectGuid>,
 }
 
 impl Player {
@@ -63,6 +64,7 @@ impl Player {
             spells: Vec::new(),
             action_buttons: HashMap::new(),
             faction_standings: HashMap::new(),
+            selection_guid: None,
         }
     }
 
@@ -640,6 +642,12 @@ impl Player {
 
     pub fn faction_standings(&self) -> &HashMap<u32, FactionStanding> {
         &self.faction_standings
+    }
+
+    pub fn set_selection(&mut self, raw_guid: u64) {
+        let guid = ObjectGuid::from_raw(raw_guid).filter(|&g| g != ObjectGuid::zero());
+        self.values
+            .set_u64(UnitFields::UnitFieldTarget.into(), raw_guid);
     }
 
     fn gen_create_data(&self) -> UpdateBlock {

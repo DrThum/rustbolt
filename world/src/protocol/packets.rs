@@ -666,3 +666,8 @@ pub struct SmsgAttackStop {
     pub enemy_guid: PackedObjectGuid,
     pub unk: u32, // 0 or 1, "NowDead" in TrinityCore
 }
+
+#[binread]
+pub struct CmsgSetSelection {
+    pub guid: u64,
+}

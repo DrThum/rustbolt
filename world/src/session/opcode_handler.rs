@@ -126,6 +126,10 @@ impl OpcodeHandler {
                     Opcode::CmsgAttackSwing,
                     OpcodeHandler::handle_cmsg_attack_swing
                 ),
+                define_handler!(
+                    Opcode::CmsgSetSelection,
+                    OpcodeHandler::handle_cmsg_set_selection
+                ),
             ]),
         }
     }

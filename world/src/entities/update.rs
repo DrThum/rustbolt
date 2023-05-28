@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use binrw::binwrite;
 use enumflags2::{bitflags, BitFlags};
@@ -15,6 +15,8 @@ pub trait UpdatableEntity {
     fn guid(&self) -> &ObjectGuid;
 
     fn name(&self) -> String;
+
+    fn tick(&mut self, diff: Duration);
 
     fn get_create_data(
         &self,

@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use enumflags2::make_bitflags;
 use rand::{seq::SliceRandom, Rng};
@@ -142,6 +142,8 @@ impl UpdatableEntity for Creature {
     fn name(&self) -> String {
         self.name.to_owned()
     }
+
+    fn tick(&mut self, _diff: Duration) {}
 
     fn get_create_data(
         &self,

@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt::Display, sync::Arc};
+use std::{collections::HashMap, fmt::Display, sync::Arc, time::Duration};
 
 use atomic_counter::{AtomicCounter, RelaxedCounter};
 use log::{info, warn};
@@ -370,6 +370,13 @@ impl MapManager {
         }
 
         result
+    }
+
+    pub async fn tick(&self, diff: Duration) {
+        let maps = self.maps.read().await;
+        for (_, map) in &*maps {
+            map.read().await.tick(diff).await;
+        }
     }
 }
 

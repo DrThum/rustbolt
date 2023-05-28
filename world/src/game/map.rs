@@ -1,6 +1,7 @@
 use std::{
     collections::{HashMap, HashSet},
     sync::Arc,
+    time::Duration,
 };
 
 use log::{error, warn};
@@ -393,5 +394,12 @@ impl Map {
 
     pub fn visibility_distance(&self) -> f32 {
         self.visibility_distance
+    }
+
+    pub async fn tick(&self, diff: Duration) {
+        let entities = self.entities.read().await;
+        for (_, entity) in &*entities {
+            entity.write().await.tick(diff);
+        }
     }
 }

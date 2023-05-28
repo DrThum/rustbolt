@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use enumflags2::make_bitflags;
 
@@ -70,6 +70,8 @@ impl UpdatableEntity for Item {
     fn name(&self) -> String {
         "TODO".to_owned()
     }
+
+    fn tick(&mut self, _diff: Duration) {}
 
     fn get_create_data(
         &self,

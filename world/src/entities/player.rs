@@ -1,6 +1,7 @@
 use std::{
     collections::{HashMap, HashSet},
     sync::Arc,
+    time::Duration,
 };
 
 use enumflags2::make_bitflags;
@@ -694,6 +695,10 @@ impl UpdatableEntity for Player {
 
     fn name(&self) -> String {
         self.name.to_owned()
+    }
+
+    fn tick(&mut self, diff: Duration) {
+        println!("player {} ticking {:?}", self.guid().counter(), diff);
     }
 
     fn get_create_data(

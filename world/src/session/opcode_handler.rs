@@ -130,6 +130,10 @@ impl OpcodeHandler {
                     Opcode::CmsgSetSelection,
                     OpcodeHandler::handle_cmsg_set_selection
                 ),
+                define_handler!(
+                    Opcode::CmsgAttackStop,
+                    OpcodeHandler::handle_cmsg_attack_stop
+                ),
             ]),
         }
     }

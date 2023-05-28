@@ -645,9 +645,13 @@ impl Player {
     }
 
     pub fn set_selection(&mut self, raw_guid: u64) {
-        let guid = ObjectGuid::from_raw(raw_guid).filter(|&g| g != ObjectGuid::zero());
+        self.selection_guid = ObjectGuid::from_raw(raw_guid).filter(|&g| g != ObjectGuid::zero());
         self.values
             .set_u64(UnitFields::UnitFieldTarget.into(), raw_guid);
+    }
+
+    pub fn selection(&self) -> Option<ObjectGuid> {
+        self.selection_guid
     }
 
     fn gen_create_data(&self) -> UpdateBlock {

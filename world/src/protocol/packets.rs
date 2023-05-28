@@ -671,3 +671,10 @@ pub struct SmsgAttackStop {
 pub struct CmsgSetSelection {
     pub guid: u64,
 }
+
+#[binwrite]
+#[server_opcode]
+pub struct SmsgAttackStart {
+    pub attacker_guid: u64,
+    pub target_guid: u64,
+}

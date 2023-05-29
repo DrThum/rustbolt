@@ -19,6 +19,8 @@ pub trait WorldEntity {
 
     fn name(&self) -> String;
 
+    fn modify_health(&mut self, damage: i32);
+
     async fn tick(&mut self, diff: Duration, world_context: Arc<WorldContext>);
 
     fn get_create_data(

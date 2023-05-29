@@ -93,14 +93,6 @@ impl Creature {
             })
     }
 
-    pub fn has_changed_since_last_update(&self) -> bool {
-        self.values.has_dirty()
-    }
-
-    pub fn mark_as_up_to_date(&mut self) {
-        self.values.reset_dirty()
-    }
-
     pub fn guid(&self) -> &ObjectGuid {
         &self.guid
     }
@@ -209,5 +201,14 @@ impl WorldEntity for Creature {
             packed_guid: self.guid().as_packed(),
             blocks: self.gen_update_data(),
         }]
+    }
+
+    fn modify_health(&mut self, damage: i32) {
+        let current_health = self.values.get_i32(UnitFields::UnitFieldHealth.into());
+        let max_health = self.values.get_i32(UnitFields::UnitFieldMaxhealth.into());
+        let new_health = (current_health + damage).clamp(0, max_health) as u32;
+
+        self.values
+            .set_u32(UnitFields::UnitFieldHealth.into(), new_health);
     }
 }

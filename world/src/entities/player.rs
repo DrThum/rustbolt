@@ -719,6 +719,20 @@ impl WorldEntity for Player {
             if self.attack_timers[WeaponAttackType::MainHand as usize].is_zero()
                 && self.is_attacking
             {
+                // FIXME: ugh
+                let session = world_context
+                    .session_holder
+                    .get_session_for_account(1)
+                    .await
+                    .unwrap();
+                if let Some(target) = world_context
+                    .map_manager
+                    .lookup_entity(&selection_guid, session.get_current_map().await)
+                    .await
+                {
+                    target.write().await.modify_health(-10);
+                }
+
                 let packet = ServerMessage::new(SmsgAttackerStateUpdate {
                     hit_info: 2, // TODO enum HitInfo
                     attacker_guid: self.guid().as_packed(),
@@ -736,12 +750,6 @@ impl WorldEntity for Player {
                     damage_blocked_amount: 0,
                 });
 
-                // FIXME: ugh
-                let session = world_context
-                    .session_holder
-                    .get_session_for_account(1)
-                    .await
-                    .unwrap();
                 world_context
                     .map_manager
                     .broadcast_packet(
@@ -839,5 +847,14 @@ impl WorldEntity for Player {
 
     fn mark_up_to_date(&mut self) {
         self.values.reset_dirty();
+    }
+
+    fn modify_health(&mut self, damage: i32) {
+        let current_health = self.values.get_i32(UnitFields::UnitFieldHealth.into());
+        let max_health = self.values.get_i32(UnitFields::UnitFieldMaxhealth.into());
+        let new_health = (current_health + damage).clamp(0, max_health) as u32;
+
+        self.values
+            .set_u32(UnitFields::UnitFieldHealth.into(), new_health);
     }
 }

@@ -103,6 +103,7 @@ async fn main() {
 
     let world = World::new(world_context.clone());
 
+    // TODO: Is the lock necessary here?
     let world: Arc<RwLock<World>> = Arc::new(RwLock::new(world));
     World::start(world.clone()).await;
 

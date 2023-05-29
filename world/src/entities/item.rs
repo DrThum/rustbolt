@@ -109,4 +109,8 @@ impl WorldEntity for Item {
     fn mark_up_to_date(&mut self) {
         self.values.reset_dirty();
     }
+
+    fn modify_health(&mut self, _damage: i32) {
+        panic!("attempt to call modify_health on an Item");
+    }
 }

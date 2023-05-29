@@ -67,6 +67,8 @@ impl Creature {
                 let display_id = existing_model_ids.choose(&mut rng).expect("rng error");
                 values.set_u32(UnitFields::UnitFieldDisplayid.into(), **display_id);
                 values.set_u32(UnitFields::UnitFieldNativedisplayid.into(), **display_id);
+                // TODO: CombatReach must come from a DBC
+                values.set_f32(UnitFields::UnitFieldCombatReach.into(), 1.5);
 
                 values.set_u32(UnitFields::UnitFieldHealth.into(), 100); // TODO
                 values.set_u32(UnitFields::UnitFieldMaxhealth.into(), 100); // TODO
@@ -222,5 +224,15 @@ impl WorldEntity for Creature {
                 UnitDynamicFlags::Lootable as u32,
             );
         }
+    }
+
+    fn combat_reach(&self) -> f32 {
+        self.values.get_f32(UnitFields::UnitFieldCombatReach.into())
+    }
+
+    fn position(&self) -> &WorldPosition {
+        self.position
+            .as_ref()
+            .expect("unexpected call to position() for a creature not in world")
     }
 }

@@ -715,3 +715,7 @@ pub struct SmsgAttackerStateUpdate {
     pub spell_id: u32, // Heroic Strike or Disarm for example
     pub damage_blocked_amount: u32,
 }
+
+#[binwrite]
+#[server_opcode]
+pub struct SmsgAttackSwingNotInRange {}

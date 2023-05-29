@@ -11,6 +11,7 @@ use crate::{
 use super::{
     internal_values::InternalValues,
     object_guid::ObjectGuid,
+    position::WorldPosition,
     update::{
         CreateData, UpdateBlock, UpdateBlockBuilder, UpdateData, UpdateFlag, UpdateType,
         WorldEntity,
@@ -111,6 +112,14 @@ impl WorldEntity for Item {
     }
 
     fn modify_health(&mut self, _damage: i32) {
-        panic!("attempt to call modify_health on an Item");
+        panic!("attempt to call modify_health() on an Item");
+    }
+
+    fn combat_reach(&self) -> f32 {
+        panic!("attempt to call combat_reach() on an Item");
+    }
+
+    fn position(&self) -> &WorldPosition {
+        panic!("attempt to call position() on an Item");
     }
 }

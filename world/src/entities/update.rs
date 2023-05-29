@@ -10,7 +10,7 @@ use crate::{game::world_context::WorldContext, shared::constants::ObjectTypeId};
 
 use super::{
     object_guid::{ObjectGuid, PackedObjectGuid},
-    position::Position,
+    position::{Position, WorldPosition},
 };
 
 #[async_trait]
@@ -19,7 +19,12 @@ pub trait WorldEntity {
 
     fn name(&self) -> String;
 
+    // TODO: Move this to a new UnitEntity trait
+    fn combat_reach(&self) -> f32;
+
     fn modify_health(&mut self, damage: i32);
+
+    fn position(&self) -> &WorldPosition;
 
     async fn tick(&mut self, diff: Duration, world_context: Arc<WorldContext>);
 

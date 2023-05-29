@@ -160,6 +160,11 @@ impl MapManager {
         }
     }
 
+    pub async fn get_map(&self, map_key: MapKey) -> Option<Arc<RwLock<Map>>> {
+        let guard = self.maps.read().await;
+        guard.get(&map_key).cloned()
+    }
+
     pub async fn add_session_to_map(
         &self,
         session: Arc<WorldSession>,
@@ -168,23 +173,19 @@ impl MapManager {
     ) {
         let player_guard = player.read().await;
         let from_map = player_guard.current_map();
+        let player_position = player_guard.position().clone();
+        let player_guid = player_guard.guid().clone();
+        drop(player_guard);
 
         let guard = self.maps.read().await;
         if let Some(from_map_key) = from_map {
             if let Some(origin_map) = guard.get(&from_map_key) {
-                origin_map
-                    .write()
-                    .await
-                    .remove_player(player_guard.guid())
-                    .await;
+                origin_map.write().await.remove_player(&player_guid).await;
             }
         }
 
-        let player_position = player_guard.position();
-
         // TODO: handle instance id here
         let destination = MapKey::for_continent(player_position.map);
-        drop(player_guard);
         if let Some(destination_map) = guard.get(&destination) {
             destination_map
                 .read()
@@ -286,13 +287,13 @@ impl MapManager {
         if let Some(current_map_key) = session.get_current_map().await {
             let maps_guard = self.maps.read().await;
             if let Some(map) = maps_guard.get(&current_map_key) {
-                let mut map_guard = map.write().await;
                 let player_guard = session.player.read().await;
 
                 let update_data = player_guard.get_create_data(0, world_context.clone());
 
                 let player_guid = player_guard.guid().clone();
                 drop(player_guard);
+                let mut map_guard = map.write().await;
                 map_guard
                     .update_player_position(
                         &player_guid,

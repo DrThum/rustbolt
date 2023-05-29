@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use enumflags2::bitflags;
 use enumn::N;
 use rusqlite::types::{FromSql, FromSqlError};
@@ -1077,6 +1079,9 @@ impl FromSql for ActionButtonType {
 }
 
 pub const PLAYER_MAX_ACTION_BUTTONS: usize = 132;
+pub const PLAYER_DEFAULT_COMBAT_REACH: f32 = 1.5;
+pub const BASE_MELEE_RANGE_OFFSET: f32 = 1.33;
+pub const ATTACK_DISPLAY_DELAY: Duration = Duration::from_millis(200);
 
 pub const FACTION_NUMBER_BASE_REPUTATION_MASKS: usize = 4;
 pub const MAX_VISIBLE_REPUTATIONS: usize = 128;
@@ -1183,4 +1188,11 @@ pub enum UnitDynamicFlags {
     Rooted = 0x0008,
     Specialinfo = 0x0010,
     Dead = 0x0020,
+}
+
+#[allow(dead_code)]
+#[derive(PartialEq)]
+pub enum MeleeAttackError {
+    NotInRange,
+    NotFacingTarget,
 }

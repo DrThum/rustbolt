@@ -420,4 +420,8 @@ impl Map {
             }
         }
     }
+
+    pub async fn get_session(&self, player_guid: &ObjectGuid) -> Option<Arc<WorldSession>> {
+        self.sessions.read().await.get(player_guid).cloned()
+    }
 }

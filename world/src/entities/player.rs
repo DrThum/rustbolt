@@ -512,7 +512,7 @@ impl Player {
 
         self.inventory = inventory;
 
-        self.mark_as_up_to_date();
+        self.values.reset_dirty();
     }
 
     pub fn save(&mut self, transaction: &Transaction) -> Result<(), Error> {
@@ -533,14 +533,6 @@ impl Player {
         })?;
 
         Ok(())
-    }
-
-    pub fn has_changed_since_last_update(&self) -> bool {
-        self.values.has_dirty()
-    }
-
-    pub fn mark_as_up_to_date(&mut self) {
-        self.values.reset_dirty()
     }
 
     pub fn guid(&self) -> &ObjectGuid {
@@ -843,5 +835,9 @@ impl WorldEntity for Player {
 
     fn has_updates(&self) -> bool {
         self.values.has_dirty()
+    }
+
+    fn mark_up_to_date(&mut self) {
+        self.values.reset_dirty();
     }
 }

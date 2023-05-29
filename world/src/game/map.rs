@@ -16,7 +16,10 @@ use crate::{
         position::Position,
         update::{CreateData, WorldEntity},
     },
-    protocol::packets::SmsgCreateObject,
+    protocol::{
+        packets::{SmsgCreateObject, SmsgUpdateObject},
+        server::ServerMessage,
+    },
     repositories::creature::CreatureSpawnDbRecord,
     session::world_session::WorldSession,
     DataStore,
@@ -399,7 +402,32 @@ impl Map {
     pub async fn tick(&self, diff: Duration, world_context: Arc<WorldContext>) {
         let entities = self.entities.read().await;
         for (_, entity) in &*entities {
-            entity.write().await.tick(diff, world_context.clone()).await;
+            let mut entity = entity.write().await;
+            entity.tick(diff, world_context.clone()).await;
+
+            // Broadcast the changes to nearby players
+            if entity.has_updates() {
+                for session in self
+                    .sessions_nearby_entity(entity.guid(), self.visibility_distance(), true, false)
+                    .await
+                {
+                    let update_data = entity.get_update_data(
+                        session.player.read().await.guid().raw(),
+                        world_context.clone(),
+                    );
+
+                    let smsg_update_object = ServerMessage::new(SmsgUpdateObject {
+                        updates_count: update_data.len() as u32,
+                        has_transport: false,
+                        updates: update_data,
+                    });
+
+                    // TODO: implement and use WorldSession::update_entity
+                    session.send(&smsg_update_object).await.unwrap();
+                }
+
+                entity.mark_up_to_date();
+            }
         }
     }
 }

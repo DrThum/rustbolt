@@ -105,4 +105,8 @@ impl WorldEntity for Item {
     fn has_updates(&self) -> bool {
         self.values.has_dirty()
     }
+
+    fn mark_up_to_date(&mut self) {
+        self.values.reset_dirty();
+    }
 }

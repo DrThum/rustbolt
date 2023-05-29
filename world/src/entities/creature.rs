@@ -195,6 +195,10 @@ impl WorldEntity for Creature {
         self.values.has_dirty()
     }
 
+    fn mark_up_to_date(&mut self) {
+        self.values.reset_dirty();
+    }
+
     fn get_update_data(
         &self,
         _recipient_guid: u64,

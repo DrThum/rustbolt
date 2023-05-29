@@ -101,12 +101,7 @@ async fn main() {
         map_manager,
     });
 
-    let world = World::new(
-        start_time,
-        config.clone(),
-        world_context.clone(),
-        session_holder.clone(),
-    );
+    let world = World::new(world_context.clone());
 
     let world: Arc<RwLock<World>> = Arc::new(RwLock::new(world));
     World::start(world.clone()).await;

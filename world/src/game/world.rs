@@ -5,26 +5,15 @@ use tokio::{
     time::{interval, Instant},
 };
 
-use crate::{config::WorldConfig, SessionHolder};
-
 use super::world_context::WorldContext;
 
 pub struct World {
     world_context: Arc<WorldContext>,
-    session_holder: Arc<SessionHolder>,
 }
 
 impl World {
-    pub fn new(
-        _start_time: Instant,
-        _config: Arc<WorldConfig>,
-        world_context: Arc<WorldContext>,
-        session_holder: Arc<SessionHolder>,
-    ) -> Self {
-        World {
-            session_holder,
-            world_context,
-        }
+    pub fn new(world_context: Arc<WorldContext>) -> Self {
+        World { world_context }
     }
 
     pub async fn start(world: Arc<RwLock<World>>) {
@@ -50,7 +39,6 @@ impl World {
     }
 
     async fn tick(&self, diff: Duration) {
-        self.session_holder.tick(self.world_context.clone()).await;
         self.world_context
             .map_manager
             .tick(diff, self.world_context.clone())

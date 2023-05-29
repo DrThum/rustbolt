@@ -29,6 +29,8 @@ pub trait WorldEntity {
 
     fn has_updates(&self) -> bool;
 
+    fn mark_up_to_date(&mut self);
+
     fn get_update_data(
         &self,
         recipient_guid: u64,

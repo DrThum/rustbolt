@@ -107,7 +107,7 @@ impl Map {
             .insert(player_guid.clone(), player.clone());
 
         {
-            let player = session.player.read().await;
+            let player_guard = player.read().await;
 
             // TODO: Maybe we can group all updates within the same packet?
             for guid in self.entities_tree.read().await.search_around_position(
@@ -123,7 +123,8 @@ impl Map {
                 {
                     // Broadcast the new player to nearby players and to itself
                     if let Some(other_session) = self.sessions.read().await.get(&guid) {
-                        let update_data = player.get_create_data(guid.raw(), world_context.clone());
+                        let update_data =
+                            player_guard.get_create_data(guid.raw(), world_context.clone());
                         let smsg_update_object = SmsgCreateObject {
                             updates_count: update_data.len() as u32,
                             has_transport: false,
@@ -157,10 +158,7 @@ impl Map {
         }
     }
 
-    pub async fn remove_player(&self, session: Arc<WorldSession>) {
-        let player_guard = session.player.read().await;
-        let player_guid = player_guard.guid();
-
+    pub async fn remove_player(&self, player_guid: &ObjectGuid) {
         self.entities.write().await.remove(player_guid);
 
         {
@@ -180,10 +178,7 @@ impl Map {
         {
             let mut guard = self.sessions.write().await;
             if let None = guard.remove(player_guid) {
-                warn!(
-                    "session from account {} was not on map {}",
-                    session.account_id, self.key
-                );
+                warn!("player guid {:?} was not on map {}", player_guid, self.key);
             }
         }
     }

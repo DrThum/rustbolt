@@ -42,7 +42,7 @@ impl OpcodeHandler {
             // Broadcast to nearby players
             world_context
                 .map_manager
-                .broadcast_movement(session.clone(), opcode, &movement_info)
+                .broadcast_movement(session.player.clone(), opcode, &movement_info)
                 .await;
         }
 

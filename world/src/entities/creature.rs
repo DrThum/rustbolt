@@ -7,7 +7,9 @@ use rand::{seq::SliceRandom, Rng};
 use crate::{
     game::world_context::WorldContext,
     repositories::creature::CreatureSpawnDbRecord,
-    shared::constants::{HighGuidType, ObjectTypeId, ObjectTypeMask},
+    shared::constants::{
+        HighGuidType, LifeCycleStage, ObjectTypeId, ObjectTypeMask, UnitDynamicFlags,
+    },
     DataStore,
 };
 
@@ -27,6 +29,7 @@ pub struct Creature {
     name: String,
     values: InternalValues,
     position: Option<WorldPosition>,
+    life_cycle_stage: LifeCycleStage,
 }
 
 impl Creature {
@@ -89,6 +92,7 @@ impl Creature {
                         z: creature_spawn.position_z,
                         o: creature_spawn.orientation,
                     }),
+                    life_cycle_stage: LifeCycleStage::Alive,
                 }
             })
     }
@@ -210,5 +214,13 @@ impl WorldEntity for Creature {
 
         self.values
             .set_u32(UnitFields::UnitFieldHealth.into(), new_health);
+
+        if new_health == 0 {
+            self.life_cycle_stage = LifeCycleStage::Dead;
+            self.values.set_u32(
+                UnitFields::UnitDynamicFlags.into(),
+                UnitDynamicFlags::Lootable as u32,
+            );
+        }
     }
 }

@@ -199,6 +199,7 @@ impl OpcodeHandler {
             game_speed: 0.01666667,
         });
 
+        println!("1");
         session.send(&smsg_login_settimespeed).await.unwrap();
 
         {
@@ -214,6 +215,7 @@ impl OpcodeHandler {
             let mut session_state = session.state.write().await;
             *session_state = WorldSessionState::InWorld;
         }
+        println!("2");
 
         // FIXME: hardcoded position
         let smsg_init_world_states = ServerMessage::new(SmsgInitWorldStates {
@@ -244,10 +246,13 @@ impl OpcodeHandler {
 
         session.send(&packet).await.unwrap();
 
-        world_context
-            .map_manager
-            .remove_session(session.clone())
-            .await;
+        {
+            let player_guard = session.player.read().await;
+            world_context
+                .map_manager
+                .remove_player_from_map(player_guard.guid(), player_guard.current_map())
+                .await;
+        }
 
         // FIXME: Handle future cases when logout might not be instant
         session

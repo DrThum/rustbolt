@@ -171,7 +171,8 @@ impl MapManager {
         world_context: Arc<WorldContext>,
         player: Arc<RwLock<Player>>,
     ) {
-        let from_map = session.get_current_map().await;
+        let player_guard = player.read().await;
+        let from_map = player_guard.current_map();
 
         let guard = self.maps.read().await;
         if let Some(from_map_key) = from_map {
@@ -179,16 +180,16 @@ impl MapManager {
                 origin_map
                     .write()
                     .await
-                    .remove_player(session.clone())
+                    .remove_player(player_guard.guid())
                     .await;
             }
         }
 
-        let player_guard = player.read().await;
         let player_position = player_guard.position();
 
         // TODO: handle instance id here
         let destination = MapKey::for_continent(player_position.map);
+        drop(player_guard);
         if let Some(destination_map) = guard.get(&destination) {
             destination_map
                 .read()
@@ -201,14 +202,11 @@ impl MapManager {
         }
     }
 
-    pub async fn remove_session(&self, session: Arc<WorldSession>) {
-        {
-            let from_map = session.get_current_map().await;
-            let guard = self.maps.read().await;
-            if let Some(from_map_key) = from_map {
-                if let Some(origin_map) = guard.get(&from_map_key) {
-                    origin_map.read().await.remove_player(session.clone()).await;
-                }
+    pub async fn remove_player_from_map(&self, player_guid: &ObjectGuid, from_map: Option<MapKey>) {
+        let guard = self.maps.read().await;
+        if let Some(from_map_key) = from_map {
+            if let Some(origin_map) = guard.get(&from_map_key) {
+                origin_map.read().await.remove_player(player_guid).await;
             }
         }
     }
@@ -256,15 +254,15 @@ impl MapManager {
 
     pub async fn broadcast_movement(
         &self,
-        mover_session: Arc<WorldSession>,
+        mover: Arc<RwLock<Player>>,
         opcode: Opcode,
         movement_info: &MovementInfo,
     ) {
-        if let Some(current_map_key) = mover_session.get_current_map().await {
+        let player_guard = mover.read().await;
+        if let Some(current_map_key) = player_guard.current_map() {
             let maps_guard = self.maps.read().await;
             if let Some(map) = maps_guard.get(&current_map_key) {
                 let map_guard = map.read().await;
-                let player_guard = mover_session.player.read().await;
 
                 for session in map_guard
                     .sessions_nearby_entity(

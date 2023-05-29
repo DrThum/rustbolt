@@ -1167,3 +1167,20 @@ pub enum WeaponAttackType {
 }
 
 pub const NUMBER_WEAPON_ATTACK_TYPES: usize = 3;
+
+#[allow(dead_code)]
+pub enum LifeCycleStage {
+    Alive,
+    Dead,
+}
+
+#[allow(dead_code)]
+pub enum UnitDynamicFlags {
+    None = 0x0000,
+    Lootable = 0x0001,
+    TrackUnit = 0x0002,
+    Tapped = 0x0004, // Indicates the target as grey for the client
+    Rooted = 0x0008,
+    Specialinfo = 0x0010,
+    Dead = 0x0020,
+}

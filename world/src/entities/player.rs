@@ -729,12 +729,6 @@ impl WorldEntity for Player {
             if self.attack_timers[WeaponAttackType::MainHand as usize].is_zero()
                 && self.is_attacking
             {
-                // FIXME: ugh
-                let session = world_context
-                    .session_holder
-                    .get_session_for_account(1)
-                    .await
-                    .unwrap();
                 if let Some(target) = world_context
                     .map_manager
                     .lookup_entity(&selection_guid, self.map_key)

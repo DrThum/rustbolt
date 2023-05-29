@@ -14,7 +14,7 @@ use rusqlite::{named_params, Error, Transaction};
 use crate::{
     datastore::{data_types::PlayerCreatePosition, DataStore},
     entities::player::player_data::FactionStanding,
-    game::world_context::WorldContext,
+    game::{map_manager::MapKey, world_context::WorldContext},
     protocol::{
         packets::{CmsgCharCreate, SmsgAttackerStateUpdate},
         server::ServerMessage,
@@ -50,6 +50,7 @@ pub struct Player {
     guid: Option<ObjectGuid>,
     name: String,
     values: InternalValues,
+    map_key: Option<MapKey>,
     position: Option<WorldPosition>,
     inventory: PlayerInventory,
     spells: Vec<u32>,
@@ -66,6 +67,7 @@ impl Player {
             guid: None,
             name: "".to_owned(),
             values: InternalValues::new(PLAYER_END as usize),
+            map_key: None,
             position: None,
             inventory: HashMap::new(),
             spells: Vec::new(),
@@ -541,6 +543,14 @@ impl Player {
             .expect("Player guid uninitialized. Is the player in world?")
     }
 
+    pub fn current_map(&self) -> Option<MapKey> {
+        self.map_key
+    }
+
+    pub fn set_map(&mut self, map_key: MapKey) {
+        self.map_key.replace(map_key);
+    }
+
     pub fn race(&self) -> CharacterRace {
         let race_id = self.values.get_u8(UnitFields::UnitFieldBytes0.into(), 0);
         CharacterRace::n(race_id)
@@ -727,7 +737,7 @@ impl WorldEntity for Player {
                     .unwrap();
                 if let Some(target) = world_context
                     .map_manager
-                    .lookup_entity(&selection_guid, session.get_current_map().await)
+                    .lookup_entity(&selection_guid, self.map_key)
                     .await
                 {
                     target.write().await.modify_health(-10);
@@ -752,13 +762,7 @@ impl WorldEntity for Player {
 
                 world_context
                     .map_manager
-                    .broadcast_packet(
-                        self.guid(),
-                        session.get_current_map().await,
-                        &packet,
-                        None,
-                        true,
-                    )
+                    .broadcast_packet(self.guid(), self.map_key, &packet, None, true)
                     .await;
 
                 self.attack_timers[WeaponAttackType::MainHand as usize] =

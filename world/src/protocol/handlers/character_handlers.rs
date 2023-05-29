@@ -215,6 +215,7 @@ impl OpcodeHandler {
             *session_state = WorldSessionState::InWorld;
         }
 
+        // FIXME: hardcoded position
         let smsg_init_world_states = ServerMessage::new(SmsgInitWorldStates {
             map_id: 0,
             zone_id: 85,

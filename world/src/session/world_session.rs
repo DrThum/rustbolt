@@ -53,7 +53,6 @@ pub struct WorldSession {
     client_latency: AtomicU32,
     server_time_sync: Mutex<TimeSync>,
     time_sync_handle: Mutex<Option<JoinHandle<()>>>,
-    current_map_key: RwLock<Option<MapKey>>,
     known_guids: RwLock<Vec<ObjectGuid>>,
 }
 
@@ -90,7 +89,6 @@ impl WorldSession {
                 client_last_sync_ticks: 0,
             }),
             time_sync_handle: Mutex::new(None),
-            current_map_key: RwLock::new(None),
             known_guids: RwLock::new(Vec::new()),
         });
 
@@ -116,11 +114,6 @@ impl WorldSession {
                 let transaction = conn.transaction().unwrap();
                 player.save(&transaction).unwrap();
                 transaction.commit().unwrap();
-            }
-
-            {
-                let mut guard = self.current_map_key.write().await;
-                guard.take();
             }
 
             {
@@ -284,13 +277,12 @@ impl WorldSession {
     }
 
     pub async fn get_current_map(&self) -> Option<MapKey> {
-        let guard = self.current_map_key.read().await;
-        guard.to_owned()
+        self.player.read().await.current_map()
     }
 
     pub async fn set_map(&self, key: MapKey) {
-        let mut guard = self.current_map_key.write().await;
-        guard.replace(key);
+        let mut guard = self.player.write().await;
+        guard.set_map(key);
     }
 
     pub async fn send_initial_spells(&self) {

@@ -3,7 +3,7 @@ use std::{collections::HashMap, sync::Arc};
 use tokio::sync::RwLock;
 
 use crate::{
-    entities::update::UpdatableEntity,
+    entities::update::WorldEntity,
     game::world_context::WorldContext,
     protocol::{packets::SmsgUpdateObject, server::ServerMessage},
 };

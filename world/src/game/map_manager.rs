@@ -9,7 +9,7 @@ use crate::{
     config::WorldConfig,
     entities::{
         creature::Creature, object_guid::ObjectGuid, player::Player, position::Position,
-        update::UpdatableEntity,
+        update::WorldEntity,
     },
     protocol::{self, opcodes::Opcode, packets::MovementInfo, server::ServerMessage},
     repositories::creature::CreatureRepository,
@@ -232,7 +232,7 @@ impl MapManager {
         &self,
         guid: &ObjectGuid,
         map_key: Option<MapKey>,
-    ) -> Option<Arc<RwLock<dyn UpdatableEntity + Sync + Send>>> {
+    ) -> Option<Arc<RwLock<dyn WorldEntity + Sync + Send>>> {
         if let Some(map_key) = map_key {
             if let Some(map) = self.maps.read().await.get(&map_key) {
                 map.read().await.lookup_entity(guid).await

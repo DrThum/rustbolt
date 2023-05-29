@@ -16,8 +16,8 @@ use super::{
     object_guid::ObjectGuid,
     position::{Position, WorldPosition},
     update::{
-        CreateData, MovementUpdateData, UpdatableEntity, UpdateBlock, UpdateBlockBuilder,
-        UpdateData, UpdateFlag, UpdateType,
+        CreateData, MovementUpdateData, UpdateBlock, UpdateBlockBuilder, UpdateData, UpdateFlag,
+        UpdateType, WorldEntity,
     },
     update_fields::{ObjectFields, UnitFields, UNIT_END},
 };
@@ -137,7 +137,7 @@ impl Creature {
 }
 
 #[async_trait]
-impl UpdatableEntity for Creature {
+impl WorldEntity for Creature {
     fn guid(&self) -> &ObjectGuid {
         self.guid()
     }

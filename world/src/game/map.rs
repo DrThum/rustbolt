@@ -14,7 +14,7 @@ use crate::{
         object_guid::ObjectGuid,
         player::Player,
         position::Position,
-        update::{CreateData, UpdatableEntity},
+        update::{CreateData, WorldEntity},
     },
     protocol::packets::SmsgCreateObject,
     repositories::creature::CreatureSpawnDbRecord,
@@ -33,7 +33,7 @@ pub const DEFAULT_VISIBILITY_DISTANCE: f32 = 90.0;
 pub struct Map {
     key: MapKey,
     sessions: RwLock<HashMap<ObjectGuid, Arc<WorldSession>>>,
-    entities: RwLock<HashMap<ObjectGuid, Arc<RwLock<dyn UpdatableEntity + Sync + Send>>>>,
+    entities: RwLock<HashMap<ObjectGuid, Arc<RwLock<dyn WorldEntity + Sync + Send>>>>,
     terrain: Arc<HashMap<TerrainBlockCoords, TerrainBlock>>,
     entities_tree: RwLock<QuadTree>,
     visibility_distance: f32,
@@ -311,7 +311,7 @@ impl Map {
     pub async fn lookup_entity(
         &self,
         guid: &ObjectGuid,
-    ) -> Option<Arc<RwLock<dyn UpdatableEntity + Sync + Send>>> {
+    ) -> Option<Arc<RwLock<dyn WorldEntity + Sync + Send>>> {
         self.entities.read().await.get(guid).cloned()
     }
 

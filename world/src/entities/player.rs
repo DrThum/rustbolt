@@ -36,8 +36,8 @@ use super::{
     object_guid::ObjectGuid,
     position::{Position, WorldPosition},
     update::{
-        CreateData, MovementUpdateData, UpdatableEntity, UpdateBlock, UpdateBlockBuilder,
-        UpdateData, UpdateFlag, UpdateType,
+        CreateData, MovementUpdateData, UpdateBlock, UpdateBlockBuilder, UpdateData, UpdateFlag,
+        UpdateType, WorldEntity,
     },
     update_fields::*,
 };
@@ -705,7 +705,7 @@ pub struct PlayerVisualFeatures {
 }
 
 #[async_trait]
-impl UpdatableEntity for Player {
+impl WorldEntity for Player {
     fn guid(&self) -> &ObjectGuid {
         self.guid()
     }

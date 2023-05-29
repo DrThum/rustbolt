@@ -12,8 +12,8 @@ use super::{
     internal_values::InternalValues,
     object_guid::ObjectGuid,
     update::{
-        CreateData, UpdatableEntity, UpdateBlock, UpdateBlockBuilder, UpdateData, UpdateFlag,
-        UpdateType,
+        CreateData, UpdateBlock, UpdateBlockBuilder, UpdateData, UpdateFlag, UpdateType,
+        WorldEntity,
     },
     update_fields::{ItemFields, ObjectFields, ITEM_END},
 };
@@ -64,7 +64,7 @@ impl Item {
 }
 
 #[async_trait]
-impl UpdatableEntity for Item {
+impl WorldEntity for Item {
     fn guid(&self) -> &ObjectGuid {
         self.guid()
     }

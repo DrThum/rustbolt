@@ -14,7 +14,7 @@ use super::{
 };
 
 #[async_trait]
-pub trait UpdatableEntity {
+pub trait WorldEntity {
     fn guid(&self) -> &ObjectGuid;
 
     fn name(&self) -> String;

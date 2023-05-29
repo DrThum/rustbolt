@@ -160,11 +160,6 @@ impl MapManager {
         }
     }
 
-    pub async fn get_map(&self, map_key: MapKey) -> Option<Arc<RwLock<Map>>> {
-        let guard = self.maps.read().await;
-        guard.get(&map_key).cloned()
-    }
-
     pub async fn add_session_to_map(
         &self,
         session: Arc<WorldSession>,

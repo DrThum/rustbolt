@@ -25,9 +25,9 @@ use crate::{
     protocol::{
         opcodes::Opcode,
         packets::{
-            FactionInit, InitialSpell, MovementInfo, SmsgActionButtons, SmsgAttackStop,
-            SmsgCreateObject, SmsgDestroyObject, SmsgInitialSpells, SmsgInitializeFactions,
-            SmsgMessageChat, SmsgTimeSyncReq,
+            FactionInit, MovementInfo, SmsgActionButtons, SmsgAttackStop, SmsgCreateObject,
+            SmsgDestroyObject, SmsgInitialSpells, SmsgInitializeFactions, SmsgMessageChat,
+            SmsgTimeSyncReq, SmsgUpdateObject,
         },
         server::{ServerMessage, ServerMessageHeader, ServerMessagePayload},
     },
@@ -286,26 +286,8 @@ impl WorldSession {
     }
 
     pub async fn send_initial_spells(&self) {
-        let spells: Vec<InitialSpell> = self
-            .player
-            .read()
-            .await
-            .spells()
-            .iter()
-            .map(|spell_id| InitialSpell {
-                spell_id: *spell_id as u16,
-                unk: 0,
-            })
-            .collect();
-
-        let packet = ServerMessage::new(SmsgInitialSpells {
-            unk: 0,
-            spell_count: spells.len() as u16,
-            spells,
-            cooldown_count: 0, // TODO
-            cooldowns: Vec::new(),
-        });
-
+        let spells: Vec<u32> = self.player.read().await.spells().clone();
+        let packet = ServerMessage::new(SmsgInitialSpells::new(spells, Vec::new() /* TODO */));
         self.send(&packet).await.unwrap();
     }
 
@@ -402,11 +384,19 @@ impl WorldSession {
         self.add_known_guid(guid).await;
     }
 
-    pub async fn destroy_entity(&self, guid: &ObjectGuid) {
-        let packet = ServerMessage::new(SmsgDestroyObject { guid: guid.raw() });
+    pub async fn update_entity(&self, payload: SmsgUpdateObject) {
+        let packet = ServerMessage::new(payload);
 
         self.send(&packet).await.unwrap();
-        self.remove_known_guid(guid).await;
+    }
+
+    pub async fn destroy_entity(&self, guid: &ObjectGuid) {
+        if self.is_guid_known(guid).await {
+            let packet = ServerMessage::new(SmsgDestroyObject { guid: guid.raw() });
+
+            self.send(&packet).await.unwrap();
+            self.remove_known_guid(guid).await;
+        }
     }
 
     pub async fn send_attack_stop(&self, target_guid: Option<ObjectGuid>) {

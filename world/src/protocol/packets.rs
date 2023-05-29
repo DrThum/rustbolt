@@ -585,11 +585,29 @@ pub struct InitialSpellCooldown {
 #[binwrite]
 #[server_opcode]
 pub struct SmsgInitialSpells {
-    pub unk: u8, // 0
-    pub spell_count: u16,
-    pub spells: Vec<InitialSpell>,
-    pub cooldown_count: u16,
-    pub cooldowns: Vec<InitialSpellCooldown>,
+    unk: u8, // 0
+    spell_count: u16,
+    spells: Vec<InitialSpell>,
+    cooldown_count: u16,
+    cooldowns: Vec<InitialSpellCooldown>,
+}
+
+impl SmsgInitialSpells {
+    pub fn new(spells: Vec<u32>, cooldowns: Vec<InitialSpellCooldown>) -> Self {
+        SmsgInitialSpells {
+            unk: 0,
+            spell_count: spells.len() as u16,
+            spells: spells
+                .iter()
+                .map(|&spell_id| InitialSpell {
+                    spell_id: spell_id as u16,
+                    unk: 0,
+                })
+                .collect(),
+            cooldown_count: cooldowns.len() as u16,
+            cooldowns,
+        }
+    }
 }
 
 #[binwrite]

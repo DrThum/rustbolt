@@ -16,10 +16,7 @@ use crate::{
         position::Position,
         update::{CreateData, WorldEntity},
     },
-    protocol::{
-        packets::{SmsgCreateObject, SmsgUpdateObject},
-        server::ServerMessage,
-    },
+    protocol::packets::{SmsgCreateObject, SmsgUpdateObject},
     repositories::creature::CreatureSpawnDbRecord,
     session::world_session::WorldSession,
     DataStore,
@@ -87,14 +84,15 @@ impl Map {
         session.send_initial_action_buttons().await;
         session.send_initial_reputations().await;
 
-        let mut guard = self.sessions.write().await;
-        if let Some(previous_session) = guard.insert(player_guid.clone(), session.clone()) {
-            warn!(
-                "session from account {} was already on map {}",
-                previous_session.account_id, self.key
-            );
+        {
+            let mut guard = self.sessions.write().await;
+            if let Some(previous_session) = guard.insert(player_guid.clone(), session.clone()) {
+                warn!(
+                    "session from account {} was already on map {}",
+                    previous_session.account_id, self.key
+                );
+            }
         }
-        drop(guard);
 
         {
             let mut tree = self.entities_tree.write().await;
@@ -166,9 +164,7 @@ impl Map {
                 .sessions_nearby_entity(player_guid, self.visibility_distance(), false, false)
                 .await;
             for other_session in other_sessions {
-                if other_session.is_guid_known(player_guid).await {
-                    other_session.destroy_entity(player_guid).await;
-                }
+                other_session.destroy_entity(player_guid).await;
             }
 
             let mut tree = self.entities_tree.write().await;
@@ -411,14 +407,13 @@ impl Map {
                         world_context.clone(),
                     );
 
-                    let smsg_update_object = ServerMessage::new(SmsgUpdateObject {
+                    let smsg_update_object = SmsgUpdateObject {
                         updates_count: update_data.len() as u32,
                         has_transport: false,
                         updates: update_data,
-                    });
+                    };
 
-                    // TODO: implement and use WorldSession::update_entity
-                    session.send(&smsg_update_object).await.unwrap();
+                    session.update_entity(smsg_update_object).await;
                 }
 
                 entity.mark_up_to_date();

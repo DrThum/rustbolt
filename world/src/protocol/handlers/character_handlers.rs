@@ -50,7 +50,7 @@ impl OpcodeHandler {
         _data: Vec<u8>,
     ) {
         {
-            let mut session_state = session.state.write().await;
+            let mut session_state = session.state.write();
             *session_state = WorldSessionState::OnCharactersList;
         }
 
@@ -211,7 +211,7 @@ impl OpcodeHandler {
                 )
                 .await;
 
-            let mut session_state = session.state.write().await;
+            let mut session_state = session.state.write();
             *session_state = WorldSessionState::InWorld;
         }
 

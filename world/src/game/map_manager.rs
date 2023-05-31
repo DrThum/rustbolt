@@ -35,7 +35,7 @@ pub struct MapManager {
     maps: RwLock<HashMap<MapKey, Arc<RwLock<Map>>>>,
     data_store: Arc<DataStore>,
     next_instance_id: RelaxedCounter,
-    terrains: RwLock<HashMap<u32, Arc<HashMap<TerrainBlockCoords, TerrainBlock>>>>,
+    terrains: parking_lot::RwLock<HashMap<u32, Arc<HashMap<TerrainBlockCoords, TerrainBlock>>>>,
 }
 
 impl MapManager {
@@ -96,7 +96,7 @@ impl MapManager {
             maps: RwLock::new(maps),
             data_store,
             next_instance_id: RelaxedCounter::new(1),
-            terrains: RwLock::new(terrains),
+            terrains: parking_lot::RwLock::new(terrains),
         }
     }
 
@@ -112,7 +112,7 @@ impl MapManager {
                     return Err(MapManagerError::CommonMapAlreadyInstanced);
                 } else {
                     // Load terrain for this map, or get it from the cache
-                    let mut terrain_guard = self.terrains.write().await;
+                    let mut terrain_guard = self.terrains.write();
                     let map_terrain: &mut Arc<HashMap<TerrainBlockCoords, TerrainBlock>> =
                         terrain_guard.entry(map_id).or_insert_with(|| {
                             let mut map_terrains: HashMap<TerrainBlockCoords, TerrainBlock> =

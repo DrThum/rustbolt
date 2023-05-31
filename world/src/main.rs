@@ -10,11 +10,7 @@ use rustbolt_world::{
     session::opcode_handler::OpcodeHandler,
     DataStore, SessionHolder,
 };
-use tokio::{
-    net::TcpListener,
-    sync::{RwLock, Semaphore},
-    time::Instant,
-};
+use tokio::{net::TcpListener, sync::Semaphore, time::Instant};
 
 mod embedded_characters {
     use refinery::embed_migrations;
@@ -104,8 +100,8 @@ async fn main() {
     let world = World::new(world_context.clone());
 
     // TODO: Is the lock necessary here?
-    let world: Arc<RwLock<World>> = Arc::new(RwLock::new(world));
-    World::start(world.clone()).await;
+    let world: Arc<World> = Arc::new(world);
+    World::start(world.clone());
 
     info!("World server ready");
 

@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
-use tokio::sync::RwLock;
+use parking_lot::RwLock;
 
 use super::world_session::WorldSession;
 
@@ -15,14 +15,12 @@ impl SessionHolder {
         }
     }
 
-    pub async fn insert_session(&self, session: Arc<WorldSession>) -> Option<Arc<WorldSession>> {
+    pub fn insert_session(&self, session: Arc<WorldSession>) -> Option<Arc<WorldSession>> {
         let account_id = session.account_id;
-        let mut guard = self.sessions.write().await;
-        guard.insert(account_id, session)
+        self.sessions.write().insert(account_id, session)
     }
 
-    pub async fn get_session_for_account(&self, account_id: u32) -> Option<Arc<WorldSession>> {
-        let guard = self.sessions.read().await;
-        guard.get(&account_id).cloned()
+    pub fn get_session_for_account(&self, account_id: u32) -> Option<Arc<WorldSession>> {
+        self.sessions.read().get(&account_id).cloned()
     }
 }

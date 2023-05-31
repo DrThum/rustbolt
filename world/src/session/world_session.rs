@@ -48,12 +48,12 @@ pub enum WorldSessionState {
 pub struct WorldSession {
     socket: WorldSocket,
     pub account_id: u32,
-    pub state: RwLock<WorldSessionState>,
+    pub state: parking_lot::RwLock<WorldSessionState>,
     pub player: Arc<RwLock<Player>>,
     client_latency: AtomicU32,
     server_time_sync: Mutex<TimeSync>,
     time_sync_handle: Mutex<Option<JoinHandle<()>>>,
-    known_guids: RwLock<Vec<ObjectGuid>>,
+    known_guids: parking_lot::RwLock<Vec<ObjectGuid>>,
 }
 
 impl WorldSession {
@@ -79,7 +79,7 @@ impl WorldSession {
         let session = Arc::new(WorldSession {
             socket,
             account_id,
-            state: RwLock::new(WorldSessionState::OnCharactersList),
+            state: parking_lot::RwLock::new(WorldSessionState::OnCharactersList),
             player: Arc::new(RwLock::new(Player::new())),
             client_latency: AtomicU32::new(0),
             server_time_sync: Mutex::new(TimeSync {
@@ -89,7 +89,7 @@ impl WorldSession {
                 client_last_sync_ticks: 0,
             }),
             time_sync_handle: Mutex::new(None),
-            known_guids: RwLock::new(Vec::new()),
+            known_guids: parking_lot::RwLock::new(Vec::new()),
         });
 
         session
@@ -108,7 +108,7 @@ impl WorldSession {
             handle.abort();
         }
 
-        if self.is_in_world().await {
+        if self.is_in_world() {
             {
                 let mut player = self.player.write().await;
                 let transaction = conn.transaction().unwrap();
@@ -117,7 +117,7 @@ impl WorldSession {
             }
 
             {
-                let mut guard = self.known_guids.write().await;
+                let mut guard = self.known_guids.write();
                 guard.clear();
             }
         }
@@ -133,9 +133,9 @@ impl WorldSession {
             .store(latency, std::sync::atomic::Ordering::Relaxed);
     }
 
-    pub async fn is_in_world(&self) -> bool {
+    pub fn is_in_world(&self) -> bool {
         // TODO: There might be more states here in the future (BeingTeleportedNear, BeingTeleportedFar?)
-        *self.state.read().await == WorldSessionState::InWorld
+        *self.state.read() == WorldSessionState::InWorld
     }
 
     pub async fn handle_time_sync_resp(
@@ -358,14 +358,12 @@ impl WorldSession {
         }
     }
 
-    async fn add_known_guid(&self, guid: &ObjectGuid) {
-        let mut guard = self.known_guids.write().await;
-        guard.push(guid.clone());
+    fn add_known_guid(&self, guid: &ObjectGuid) {
+        self.known_guids.write().push(guid.clone());
     }
 
-    async fn remove_known_guid(&self, guid: &ObjectGuid) {
-        let mut guard = self.known_guids.write().await;
-        guard.retain(|g| g != guid);
+    fn remove_known_guid(&self, guid: &ObjectGuid) {
+        self.known_guids.write().retain(|g| g != guid);
     }
 
     pub async fn is_guid_known(&self, guid: &ObjectGuid) -> bool {
@@ -373,15 +371,14 @@ impl WorldSession {
             return true;
         }
 
-        let guard = self.known_guids.read().await;
-        guard.contains(guid)
+        self.known_guids.read().contains(guid)
     }
 
     pub async fn create_entity(&self, guid: &ObjectGuid, payload: SmsgCreateObject) {
         let packet = ServerMessage::new(payload);
 
         self.send(&packet).await.unwrap();
-        self.add_known_guid(guid).await;
+        self.add_known_guid(guid);
     }
 
     pub async fn update_entity(&self, payload: SmsgUpdateObject) {
@@ -395,7 +392,7 @@ impl WorldSession {
             let packet = ServerMessage::new(SmsgDestroyObject { guid: guid.raw() });
 
             self.send(&packet).await.unwrap();
-            self.remove_known_guid(guid).await;
+            self.remove_known_guid(guid);
         }
     }
 

@@ -1,9 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
-use tokio::{
-    sync::RwLock,
-    time::{interval, Instant},
-};
+use tokio::time::{interval, Instant};
 
 use super::world_context::WorldContext;
 
@@ -16,9 +13,9 @@ impl World {
         World { world_context }
     }
 
-    pub async fn start(world: Arc<RwLock<World>>) {
+    pub fn start(world: Arc<World>) {
         tokio::spawn(async move {
-            world.read().await.game_loop().await;
+            world.game_loop().await;
         });
     }
 

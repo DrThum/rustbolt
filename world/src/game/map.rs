@@ -218,7 +218,7 @@ impl Map {
     }
 
     pub async fn update_player_position(
-        &mut self,
+        &self,
         player_guid: &ObjectGuid,
         origin_session: Arc<WorldSession>,
         new_position: &Position,

@@ -1191,7 +1191,7 @@ pub enum UnitDynamicFlags {
 }
 
 #[allow(dead_code)]
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 pub enum MeleeAttackError {
     NotInRange,
     NotFacingTarget,

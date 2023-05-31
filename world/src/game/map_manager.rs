@@ -180,7 +180,7 @@ impl MapManager {
         let guard = self.maps.read().await;
         if let Some(from_map_key) = from_map {
             if let Some(origin_map) = guard.get(&from_map_key) {
-                origin_map.write().await.remove_player(&player_guid).await;
+                origin_map.read().await.remove_player(&player_guid).await;
             }
         }
 
@@ -293,8 +293,8 @@ impl MapManager {
 
                 let player_guid = player_guard.guid().clone();
                 drop(player_guard);
-                let mut map_guard = map.write().await;
-                map_guard
+                map.read()
+                    .await
                     .update_player_position(
                         &player_guid,
                         session.clone(),

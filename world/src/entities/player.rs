@@ -10,7 +10,7 @@ use log::{error, warn};
 use r2d2::PooledConnection;
 use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::{named_params, Error, Transaction};
-use tokio::sync::{RwLock, RwLockWriteGuard};
+use tokio::sync::RwLock;
 
 use crate::{
     datastore::{data_types::PlayerCreatePosition, DataStore},
@@ -719,6 +719,13 @@ impl Player {
         self.attack_timers[weap_type as usize] = timer;
     }
 
+    fn ensure_attack_timer(&mut self, weap_type: WeaponAttackType, timer: Duration) {
+        let weap_type = weap_type as usize;
+        if self.attack_timers[weap_type] < timer {
+            self.attack_timers[weap_type] = timer;
+        }
+    }
+
     fn is_weapon_ready(&self, weap_type: WeaponAttackType) -> bool {
         match weap_type {
             WeaponAttackType::MainHand => self.attack_timers[weap_type as usize].is_zero(),
@@ -762,10 +769,15 @@ impl Player {
 
         if distance >= melee_reach_for_target {
             // Retry a bit later
-            self.set_attack_timer(WeaponAttackType::MainHand, Duration::from_millis(100));
-            self.set_attack_timer(WeaponAttackType::OffHand, Duration::from_millis(100));
+            self.ensure_attack_timer(WeaponAttackType::MainHand, Duration::from_millis(100));
+            self.ensure_attack_timer(WeaponAttackType::OffHand, Duration::from_millis(100));
 
-            if self.last_melee_error != Some(MeleeAttackError::NotInRange) {
+            if self
+                .last_melee_error
+                .as_ref()
+                .filter(|&e| *e == MeleeAttackError::NotInRange)
+                .is_none()
+            {
                 let packet = ServerMessage::new(SmsgAttackSwingNotInRange {});
 
                 // TODO: Keep a reference to the Map in Player
@@ -777,9 +789,9 @@ impl Player {
                 let map_guard = guard.read().await;
                 let my_session = map_guard.get_session(self.guid()).await.unwrap();
                 my_session.send(&packet).await.unwrap();
-
-                self.last_melee_error = Some(MeleeAttackError::NotInRange);
             }
+
+            self.last_melee_error = Some(MeleeAttackError::NotInRange);
 
             return;
         }
@@ -787,7 +799,7 @@ impl Player {
         self.last_melee_error = None;
 
         if self.is_weapon_ready(WeaponAttackType::MainHand) {
-            target.write().await.modify_health(-1);
+            target.write().await.modify_health(-5);
 
             let packet = ServerMessage::new(SmsgAttackerStateUpdate {
                 hit_info: 2, // TODO enum HitInfo
@@ -813,9 +825,7 @@ impl Player {
 
             self.set_attack_timer(WeaponAttackType::MainHand, Duration::from_millis(800));
             // Offset off hand just a bit to avoid weird animation
-            if self.attack_timers[WeaponAttackType::OffHand as usize] < ATTACK_DISPLAY_DELAY {
-                self.set_attack_timer(WeaponAttackType::OffHand, ATTACK_DISPLAY_DELAY);
-            }
+            self.ensure_attack_timer(WeaponAttackType::OffHand, ATTACK_DISPLAY_DELAY);
         }
     }
 
@@ -851,23 +861,23 @@ impl WorldEntity for Player {
         self.name.to_owned()
     }
 
-    async fn tick(&mut self, diff: Duration, _world_context: Arc<WorldContext>) {
+    async fn tick(&mut self, diff: Duration, world_context: Arc<WorldContext>) {
         self.update_attack_timers(diff);
 
-        // let target_entity = match self.selection_guid {
-        //     Some(sel) => {
-        //         world_context
-        //             .map_manager
-        //             .lookup_entity(&sel, self.map_key)
-        //             .await
-        //     }
-        //     _ => None,
-        // };
-        //
-        // if let Some(target_entity) = target_entity {
-        //     self.attempt_melee_attack(target_entity, world_context.clone())
-        //         .await;
-        // }
+        let target_entity = match self.selection_guid {
+            Some(sel) => {
+                world_context
+                    .map_manager
+                    .lookup_entity(&sel, self.map_key)
+                    .await
+            }
+            _ => None,
+        };
+
+        if let Some(target_entity) = target_entity {
+            self.attempt_melee_attack(target_entity, world_context.clone())
+                .await;
+        }
     }
 
     fn get_create_data(

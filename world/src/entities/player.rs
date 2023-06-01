@@ -781,13 +781,12 @@ impl Player {
                 let packet = ServerMessage::new(SmsgAttackSwingNotInRange {});
 
                 // TODO: Keep a reference to the Map in Player
-                let guard = world_context
+                let map = world_context
                     .map_manager
                     .get_map(self.map_key.unwrap())
                     .await
                     .unwrap();
-                let map_guard = guard.read().await;
-                let my_session = map_guard.get_session(self.guid()).await.unwrap();
+                let my_session = map.get_session(self.guid()).await.unwrap();
                 my_session.send(&packet).await.unwrap();
             }
 

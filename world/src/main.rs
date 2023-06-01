@@ -6,7 +6,7 @@ use r2d2_sqlite::SqliteConnectionManager;
 use rustbolt_world::{
     config::WorldConfig,
     database_context::DatabaseContext,
-    game::{map_manager::MapManager, world::World, world_context::WorldContext},
+    game::{map_manager::MapManager, world_context::WorldContext},
     session::opcode_handler::OpcodeHandler,
     DataStore, SessionHolder,
 };
@@ -85,18 +85,24 @@ fn main() {
     let map_manager = Arc::new(MapManager::create_with_continents(
         data_store.clone(),
         config.clone(),
-        &conn,
     ));
 
     let world_context = Arc::new(WorldContext {
-        data_store,
+        data_store: data_store.clone(),
         database: database_context,
         opcode_handler: opcode_handler.clone(),
         config: config.clone(),
         start_time,
         session_holder: session_holder.clone(),
-        map_manager,
+        map_manager: map_manager.clone(),
     });
+
+    map_manager.clone().instantiate_continents(
+        data_store.clone(),
+        world_context.clone(),
+        config.clone(),
+        &conn,
+    );
 
     // let world = World::new(world_context.clone());
     //
@@ -104,7 +110,7 @@ fn main() {
     // World::start(world.clone());
 
     let network_runtime = tokio::runtime::Builder::new_multi_thread()
-        .enable_all()
+        .enable_all() // TODO: Allow to conf the # of worker threads
         .build()
         .unwrap();
 

@@ -1,9 +1,9 @@
-use std::{collections::HashMap, fmt::Display, sync::Arc, time::Duration};
+use std::{collections::HashMap, fmt::Display, sync::Arc};
 
 use atomic_counter::{AtomicCounter, RelaxedCounter};
 use log::{info, warn};
 use shared::models::terrain_info::{TerrainBlock, MAP_WIDTH_IN_BLOCKS};
-use tokio::sync::RwLock;
+use tokio::{runtime::Runtime, sync::RwLock};
 
 use crate::{
     config::WorldConfig,
@@ -31,24 +31,42 @@ pub struct TerrainBlockCoords {
 }
 
 pub struct MapManager {
+    rt: Runtime,
     config: Arc<WorldConfig>,
-    maps: RwLock<HashMap<MapKey, Arc<RwLock<Map>>>>,
+    maps: RwLock<HashMap<MapKey, Arc<Map>>>,
     data_store: Arc<DataStore>,
     next_instance_id: RelaxedCounter,
     terrains: parking_lot::RwLock<HashMap<u32, Arc<HashMap<TerrainBlockCoords, TerrainBlock>>>>,
 }
 
 impl MapManager {
-    pub fn create_with_continents(
+    pub fn create_with_continents(data_store: Arc<DataStore>, config: Arc<WorldConfig>) -> Self {
+        let world_runtime = tokio::runtime::Builder::new_multi_thread()
+            .enable_all() // TODO: Allow to conf the # of worker threads
+            .build()
+            .unwrap();
+
+        let maps: HashMap<MapKey, Arc<Map>> = HashMap::new();
+        let terrains: HashMap<u32, Arc<HashMap<TerrainBlockCoords, TerrainBlock>>> = HashMap::new();
+
+        Self {
+            rt: world_runtime,
+            config,
+            maps: RwLock::new(maps),
+            data_store,
+            next_instance_id: RelaxedCounter::new(1),
+            terrains: parking_lot::RwLock::new(terrains),
+        }
+    }
+
+    // Instantiate all common (= continents) maps on startup
+    pub fn instantiate_continents(
+        &self,
         data_store: Arc<DataStore>,
+        world_context: Arc<WorldContext>,
         config: Arc<WorldConfig>,
         conn: &r2d2::PooledConnection<r2d2_sqlite::SqliteConnectionManager>,
-    ) -> Self {
-        let mut maps: HashMap<MapKey, Arc<RwLock<Map>>> = HashMap::new();
-        let mut terrains: HashMap<u32, Arc<HashMap<TerrainBlockCoords, TerrainBlock>>> =
-            HashMap::new();
-
-        // Instantiate all common (= continents) maps on startup
+    ) {
         info!("Instantiating continents...");
         for map in data_store
             .get_all_map_records()
@@ -78,33 +96,33 @@ impl MapManager {
             }
 
             let map_terrains = Arc::new(map_terrains);
-            terrains.insert(map.id, map_terrains.clone());
+            self.terrains.write().insert(map.id, map_terrains.clone());
 
             let spawns = CreatureRepository::load_creature_spawns(conn, map.id);
 
             let key = MapKey::for_continent(map.id);
-            // maps.insert(
-            //     key,
-            //     Arc::new(RwLock::new(
-            //         Map::new(key, map_terrains, spawns, data_store.clone()).await,
-            //     )),
-            // );
-        }
-
-        Self {
-            config,
-            maps: RwLock::new(maps),
-            data_store,
-            next_instance_id: RelaxedCounter::new(1),
-            terrains: parking_lot::RwLock::new(terrains),
+            self.rt.block_on(async {
+                self.maps.write().await.insert(
+                    key,
+                    Map::new(
+                        key,
+                        world_context.clone(),
+                        map_terrains,
+                        spawns,
+                        data_store.clone(),
+                    )
+                    .await,
+                );
+            });
         }
     }
 
     pub async fn instantiate_map(
         &self,
         map_id: u32,
+        world_context: Arc<WorldContext>,
         conn: &r2d2::PooledConnection<r2d2_sqlite::SqliteConnectionManager>,
-    ) -> Result<Arc<RwLock<Map>>, MapManagerError> {
+    ) -> Result<Arc<Map>, MapManagerError> {
         match self.data_store.get_map_record(map_id) {
             None => Err(MapManagerError::UnknownMapId),
             Some(map_record) => {
@@ -143,15 +161,14 @@ impl MapManager {
                     let spawns = CreatureRepository::load_creature_spawns(conn, map_id);
 
                     let map_key = MapKey::for_instance(map_id, instance_id);
-                    let map = Arc::new(RwLock::new(
-                        Map::new(
-                            map_key,
-                            map_terrain.clone(),
-                            spawns,
-                            self.data_store.clone(),
-                        )
-                        .await,
-                    ));
+                    let map = Map::new(
+                        map_key,
+                        world_context.clone(),
+                        map_terrain.clone(),
+                        spawns,
+                        self.data_store.clone(),
+                    )
+                    .await;
                     map_guard.insert(map_key, map.clone());
 
                     Ok(map)
@@ -160,7 +177,7 @@ impl MapManager {
         }
     }
 
-    pub async fn get_map(&self, map_key: MapKey) -> Option<Arc<RwLock<Map>>> {
+    pub async fn get_map(&self, map_key: MapKey) -> Option<Arc<Map>> {
         let guard = self.maps.read().await;
         guard.get(&map_key).cloned()
     }
@@ -180,7 +197,7 @@ impl MapManager {
         let guard = self.maps.read().await;
         if let Some(from_map_key) = from_map {
             if let Some(origin_map) = guard.get(&from_map_key) {
-                origin_map.read().await.remove_player(&player_guid).await;
+                origin_map.remove_player(&player_guid).await;
             }
         }
 
@@ -188,8 +205,6 @@ impl MapManager {
         let destination = MapKey::for_continent(player_position.map);
         if let Some(destination_map) = guard.get(&destination) {
             destination_map
-                .read()
-                .await
                 .add_player(session.clone(), world_context.clone(), player.clone())
                 .await;
             session.set_map(destination).await;
@@ -202,7 +217,7 @@ impl MapManager {
         let guard = self.maps.read().await;
         if let Some(from_map_key) = from_map {
             if let Some(origin_map) = guard.get(&from_map_key) {
-                origin_map.read().await.remove_player(player_guid).await;
+                origin_map.remove_player(player_guid).await;
             }
         }
     }
@@ -215,9 +230,7 @@ impl MapManager {
     ) {
         let guard = self.maps.read().await;
         if let Some(map) = guard.get(&map_key) {
-            map.read()
-                .await
-                .add_creature(Some(world_context.clone()), creature.clone())
+            map.add_creature(Some(world_context.clone()), creature.clone())
                 .await;
         }
     }
@@ -229,14 +242,14 @@ impl MapManager {
     ) -> Option<Arc<RwLock<dyn WorldEntity + Sync + Send>>> {
         if let Some(map_key) = map_key {
             if let Some(map) = self.maps.read().await.get(&map_key) {
-                map.read().await.lookup_entity(guid).await
+                map.lookup_entity(guid).await
             } else {
                 None
             }
         } else if guid.is_player() {
             let map_guard = self.maps.read().await;
             for (_, map) in &*map_guard {
-                if let Some(entity) = map.read().await.lookup_entity(guid).await {
+                if let Some(entity) = map.lookup_entity(guid).await {
                     return Some(entity);
                 }
             }
@@ -258,12 +271,10 @@ impl MapManager {
         if let Some(current_map_key) = player_guard.current_map() {
             let maps_guard = self.maps.read().await;
             if let Some(map) = maps_guard.get(&current_map_key) {
-                let map_guard = map.read().await;
-
-                for session in map_guard
+                for session in map
                     .sessions_nearby_entity(
                         player_guard.guid(),
-                        map_guard.visibility_distance(),
+                        map.visibility_distance(),
                         true,
                         false,
                     )
@@ -293,16 +304,14 @@ impl MapManager {
 
                 let player_guid = player_guard.guid().clone();
                 drop(player_guard);
-                map.read()
-                    .await
-                    .update_player_position(
-                        &player_guid,
-                        session.clone(),
-                        position,
-                        update_data,
-                        world_context.clone(),
-                    )
-                    .await;
+                map.update_player_position(
+                    &player_guid,
+                    session.clone(),
+                    position,
+                    update_data,
+                    world_context.clone(),
+                )
+                .await;
             }
         }
     }
@@ -321,11 +330,10 @@ impl MapManager {
         if let Some(current_map_key) = map_key {
             let maps_guard = self.maps.read().await;
             if let Some(map) = maps_guard.get(&current_map_key) {
-                let map_guard = map.read().await;
-                for session in map_guard
+                for session in map
                     .sessions_nearby_entity(
                         origin_guid,
-                        range.unwrap_or(map_guard.visibility_distance()),
+                        range.unwrap_or(map.visibility_distance()),
                         true,
                         include_self,
                     )
@@ -348,12 +356,10 @@ impl MapManager {
         if let Some(current_map_key) = map {
             let maps_guard = self.maps.read().await;
             if let Some(map) = maps_guard.get(&current_map_key) {
-                let map_guard = map.read().await;
-
-                let sessions = &mut map_guard
+                let sessions = &mut map
                     .sessions_nearby_entity(
                         player_guid,
-                        map_guard.visibility_distance(),
+                        map.visibility_distance(),
                         true,
                         include_self,
                     )
@@ -365,12 +371,12 @@ impl MapManager {
         result
     }
 
-    pub async fn tick(&self, diff: Duration, world_context: Arc<WorldContext>) {
-        let maps = self.maps.read().await;
-        for (_, map) in &*maps {
-            map.read().await.tick(diff, world_context.clone()).await;
-        }
-    }
+    // pub async fn tick(&self, diff: Duration, world_context: Arc<WorldContext>) {
+    //     let maps = self.maps.read().await;
+    //     for (_, map) in &*maps {
+    //         map.read().await.tick(diff, world_context.clone()).await;
+    //     }
+    // }
 }
 
 #[derive(Eq, Hash, PartialEq, Clone, Copy)]

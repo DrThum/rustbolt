@@ -5,12 +5,14 @@ use tokio::time::{interval, Instant};
 use super::world_context::WorldContext;
 
 pub struct World {
-    world_context: Arc<WorldContext>,
+    _world_context: Arc<WorldContext>,
 }
 
 impl World {
     pub fn new(world_context: Arc<WorldContext>) -> Self {
-        World { world_context }
+        World {
+            _world_context: world_context,
+        }
     }
 
     pub fn start(world: Arc<World>) {
@@ -35,10 +37,10 @@ impl World {
         }
     }
 
-    async fn tick(&self, diff: Duration) {
-        self.world_context
-            .map_manager
-            .tick(diff, self.world_context.clone())
-            .await;
+    async fn tick(&self, _diff: Duration) {
+        //     self.world_context
+        //         .map_manager
+        //         .tick(diff, self.world_context.clone())
+        //         .await;
     }
 }

@@ -6,7 +6,10 @@ use std::{
 
 use log::{error, warn};
 use shared::models::terrain_info::{TerrainBlock, BLOCK_WIDTH, MAP_WIDTH_IN_BLOCKS};
-use tokio::sync::RwLock;
+use tokio::{
+    sync::RwLock,
+    time::{interval, Instant},
+};
 
 use crate::{
     entities::{
@@ -32,6 +35,7 @@ pub const DEFAULT_VISIBILITY_DISTANCE: f32 = 90.0;
 
 pub struct Map {
     key: MapKey,
+    world_context: Arc<WorldContext>,
     sessions: RwLock<HashMap<ObjectGuid, Arc<WorldSession>>>,
     entities: RwLock<HashMap<ObjectGuid, Arc<RwLock<dyn WorldEntity + Sync + Send>>>>,
     terrain: Arc<HashMap<TerrainBlockCoords, TerrainBlock>>,
@@ -42,12 +46,14 @@ pub struct Map {
 impl Map {
     pub async fn new(
         key: MapKey,
+        world_context: Arc<WorldContext>,
         terrain: Arc<HashMap<TerrainBlockCoords, TerrainBlock>>,
         spawns: Vec<CreatureSpawnDbRecord>,
         data_store: Arc<DataStore>,
-    ) -> Map {
+    ) -> Arc<Map> {
         let map = Map {
             key,
+            world_context,
             sessions: RwLock::new(HashMap::new()),
             entities: RwLock::new(HashMap::new()),
             terrain,
@@ -65,6 +71,25 @@ impl Map {
                 warn!("failed to spawn creature with guid {}", spawn.guid);
             }
         }
+
+        let map = Arc::new(map);
+
+        let map_clone = map.clone();
+        tokio::spawn(async move {
+            let mut interval = interval(Duration::from_millis(50));
+            interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+            let mut time = Instant::now();
+
+            loop {
+                let new_time = Instant::now();
+                let diff = new_time.duration_since(time);
+
+                time = new_time;
+                map_clone.tick(diff).await;
+
+                interval.tick().await;
+            }
+        });
 
         map
     }
@@ -390,11 +415,11 @@ impl Map {
         self.visibility_distance
     }
 
-    pub async fn tick(&self, diff: Duration, world_context: Arc<WorldContext>) {
+    pub async fn tick(&self, diff: Duration) {
         let entities = self.entities.read().await;
         for (_, entity) in &*entities {
             let mut entity = entity.write().await;
-            entity.tick(diff, world_context.clone()).await;
+            entity.tick(diff, self.world_context.clone()).await;
 
             // Broadcast the changes to nearby players
             if entity.has_updates() {
@@ -404,7 +429,7 @@ impl Map {
                 {
                     let update_data = entity.get_update_data(
                         session.player.read().await.guid().raw(),
-                        world_context.clone(),
+                        self.world_context.clone(),
                     );
 
                     let smsg_update_object = SmsgUpdateObject {

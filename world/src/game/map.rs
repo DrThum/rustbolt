@@ -73,22 +73,22 @@ impl Map {
 
         let map = Arc::new(map);
 
-        let map_clone = map.clone();
-        tokio::spawn(async move {
-            let mut interval = interval(Duration::from_millis(50));
-            interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
-            let mut time = Instant::now();
-
-            loop {
-                let new_time = Instant::now();
-                let diff = new_time.duration_since(time);
-
-                time = new_time;
-                map_clone.tick(diff).await;
-
-                interval.tick().await;
-            }
-        });
+        // let map_clone = map.clone();
+        // tokio::spawn(async move {
+        //     let mut interval = interval(Duration::from_millis(50));
+        //     interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+        //     let mut time = Instant::now();
+        //
+        //     loop {
+        //         let new_time = Instant::now();
+        //         let diff = new_time.duration_since(time);
+        //
+        //         time = new_time;
+        //         map_clone.tick(diff).await;
+        //
+        //         interval.tick().await;
+        //     }
+        // });
 
         map
     }
@@ -99,10 +99,13 @@ impl Map {
         world_context: Arc<WorldContext>,
         player: Arc<parking_lot::RwLock<Player>>,
     ) {
-        let player_guard = player.read();
-        let player_guid = player_guard.guid().clone();
-        let player_position = player_guard.position().to_position();
-        drop(player_guard);
+        let player_guid: ObjectGuid;
+        let player_position: Position;
+        {
+            let player_guard = player.read();
+            player_guid = player_guard.guid().clone();
+            player_position = player_guard.position().to_position();
+        }
 
         session.send_initial_spells().await;
         session.send_initial_action_buttons().await;
@@ -128,23 +131,24 @@ impl Map {
             .insert(player_guid.clone(), player.clone());
 
         {
-            let player_guard = player.read();
-
             // TODO: Maybe we can group all updates within the same packet?
-            for guid in self.entities_tree.read().search_around_position(
+            let guids_around: Vec<ObjectGuid> = self.entities_tree.read().search_around_position(
                 &player_position,
                 self.visibility_distance(),
                 true,
                 None,
-            ) {
+            );
+            for guid in guids_around {
                 if let Some(entity) = world_context
                     .map_manager
                     .lookup_entity(&guid, Some(self.key))
                 {
                     // Broadcast the new player to nearby players and to itself
-                    if let Some(other_session) = self.sessions.read().get(&guid) {
-                        let update_data =
-                            player_guard.get_create_data(guid.raw(), world_context.clone());
+                    let other_session = self.sessions.read().get(&guid).cloned();
+                    if let Some(other_session) = other_session {
+                        let update_data = player
+                            .read()
+                            .get_create_data(guid.raw(), world_context.clone());
                         let smsg_update_object = SmsgCreateObject {
                             updates_count: update_data.len() as u32,
                             has_transport: false,

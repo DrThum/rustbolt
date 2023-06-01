@@ -2,20 +2,21 @@ use binrw::{io::Cursor, BinWriterExt, NullString};
 use r2d2::PooledConnection;
 use r2d2_sqlite::SqliteConnectionManager;
 use std::{
-    collections::HashMap,
     sync::{atomic::AtomicU32, Arc},
     time::Duration,
 };
 
 use log::trace;
-use tokio::{io::AsyncWriteExt, net::TcpStream, sync::Mutex, task::JoinHandle};
+use tokio::{
+    io::AsyncWriteExt,
+    net::TcpStream,
+    sync::{mpsc, Mutex},
+    task::JoinHandle,
+};
 use wow_srp::tbc_header::HeaderCrypto;
 
 use crate::{
-    entities::{
-        object_guid::ObjectGuid,
-        player::{player_data::ActionButton, Player},
-    },
+    entities::{object_guid::ObjectGuid, player::Player},
     game::{map_manager::MapKey, world_context::WorldContext},
     protocol::{
         opcodes::Opcode,
@@ -286,8 +287,7 @@ impl WorldSession {
     }
 
     pub async fn send_initial_action_buttons(&self) {
-        let player_guard = self.player.read();
-        let action_buttons: &HashMap<usize, ActionButton> = player_guard.action_buttons();
+        let action_buttons = self.player.read().action_buttons().clone();
 
         let mut buttons_packed: Vec<u32> = Vec::new();
         for index in 0..PLAYER_MAX_ACTION_BUTTONS {
@@ -304,8 +304,7 @@ impl WorldSession {
     }
 
     pub async fn send_initial_reputations(&self) {
-        let player_guard = self.player.read();
-        let faction_standings = player_guard.faction_standings();
+        let faction_standings = self.player.read().faction_standings().clone();
 
         let mut factions: Vec<FactionInit> = Vec::with_capacity(MAX_VISIBLE_REPUTATIONS);
         for index in 0..MAX_VISIBLE_REPUTATIONS {

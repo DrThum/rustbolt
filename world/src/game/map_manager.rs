@@ -11,7 +11,7 @@ use crate::{
         creature::Creature,
         object_guid::ObjectGuid,
         player::Player,
-        position::Position,
+        position::{Position, WorldPosition},
         update::{CreateData, WorldEntity},
     },
     protocol::{self, opcodes::Opcode, packets::MovementInfo, server::ServerMessage},
@@ -185,29 +185,36 @@ impl MapManager {
         guard.get(&map_key).cloned()
     }
 
-    pub fn add_session_to_map(
+    pub async fn add_session_to_map(
         &self,
         session: Arc<WorldSession>,
         world_context: Arc<WorldContext>,
         player: Arc<parking_lot::RwLock<Player>>,
     ) {
-        let player_guard = player.read();
-        let from_map = player_guard.current_map();
-        let player_position = player_guard.position().clone();
-        let player_guid = player_guard.guid().clone();
-        drop(player_guard);
+        let from_map: Option<MapKey>;
+        let player_position: WorldPosition;
+        let player_guid: ObjectGuid;
+        {
+            let player_guard = player.read();
+            from_map = player_guard.current_map();
+            player_position = player_guard.position().clone();
+            player_guid = player_guard.guid().clone();
+        }
 
-        let guard = self.maps.read();
         if let Some(from_map_key) = from_map {
-            if let Some(origin_map) = guard.get(&from_map_key) {
-                origin_map.remove_player(&player_guid);
+            let origin_map = self.maps.read().get(&from_map_key).cloned();
+            if let Some(origin_map) = origin_map {
+                origin_map.remove_player(&player_guid).await;
             }
         }
 
         // TODO: handle instance id here
         let destination = MapKey::for_continent(player_position.map);
-        if let Some(destination_map) = guard.get(&destination) {
-            destination_map.add_player(session.clone(), world_context.clone(), player.clone());
+        let destination_map = self.maps.read().get(&destination).cloned();
+        if let Some(destination_map) = destination_map {
+            destination_map
+                .add_player(session.clone(), world_context.clone(), player.clone())
+                .await;
             session.set_map(destination);
         } else {
             warn!("map {} not found as destination in MapManager", destination);
@@ -215,10 +222,10 @@ impl MapManager {
     }
 
     pub async fn remove_player_from_map(&self, player_guid: &ObjectGuid, from_map: Option<MapKey>) {
-        let guard = self.maps.read();
         if let Some(from_map_key) = from_map {
-            if let Some(origin_map) = guard.get(&from_map_key) {
-                origin_map.remove_player(player_guid);
+            let origin_map = self.maps.read().get(&from_map_key).cloned();
+            if let Some(origin_map) = origin_map {
+                origin_map.remove_player(player_guid).await;
             }
         }
     }

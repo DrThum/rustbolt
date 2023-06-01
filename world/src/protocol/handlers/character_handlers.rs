@@ -205,7 +205,7 @@ impl OpcodeHandler {
                 session.clone(),
                 world_context.clone(),
                 session.player.clone(),
-            );
+            ).await;
 
             let mut session_state = session.state.write();
             *session_state = WorldSessionState::InWorld;

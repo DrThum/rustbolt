@@ -6,6 +6,7 @@ pub struct CharacterSkill {
     pub max_value: u16,
 }
 
+#[derive(Clone)]
 pub struct ActionButton {
     pub position: u32,
     pub action_type: ActionButtonType,
@@ -18,6 +19,7 @@ impl ActionButton {
     }
 }
 
+#[derive(Clone)]
 pub struct FactionStanding {
     pub faction_id: u32,
     pub base_standing: i32,

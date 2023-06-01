@@ -22,8 +22,7 @@ mod embedded_world {
     embed_migrations!("../sql_migrations/world");
 }
 
-#[tokio::main]
-async fn main() {
+fn main() {
     // Load config
     let config = Arc::new(WorldConfig::load().expect("Error in config file"));
 
@@ -83,9 +82,11 @@ async fn main() {
     let start_time = Instant::now();
 
     let session_holder = Arc::new(SessionHolder::new());
-    let map_manager = Arc::new(
-        MapManager::create_with_continents(data_store.clone(), config.clone(), &conn).await,
-    );
+    let map_manager = Arc::new(MapManager::create_with_continents(
+        data_store.clone(),
+        config.clone(),
+        &conn,
+    ));
 
     let world_context = Arc::new(WorldContext {
         data_store,
@@ -97,38 +98,46 @@ async fn main() {
         map_manager,
     });
 
-    let world = World::new(world_context.clone());
+    // let world = World::new(world_context.clone());
+    //
+    // let world: Arc<World> = Arc::new(world);
+    // World::start(world.clone());
 
-    // TODO: Is the lock necessary here?
-    let world: Arc<World> = Arc::new(world);
-    World::start(world.clone());
+    let network_runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+
+    // Bind the listener to the address
+    let listener = network_runtime.block_on(async {
+        TcpListener::bind(format!(
+            "{}:{}",
+            config.world.network.host, config.world.network.port
+        ))
+        .await
+        .unwrap()
+    });
 
     info!("World server ready");
 
-    // Bind the listener to the address
-    let listener = TcpListener::bind(format!(
-        "{}:{}",
-        config.world.network.host, config.world.network.port
-    ))
-    .await
-    .unwrap();
+    network_runtime.block_on(async {
+        let join_handle = tokio::spawn(async move {
+            loop {
+                // The second item contains the IP and port of the new connection
+                let (socket, _) = listener.accept().await.unwrap();
 
-    let join_handle = tokio::spawn(async move {
-        loop {
-            // The second item contains the IP and port of the new connection
-            let (socket, _) = listener.accept().await.unwrap();
+                let world_context = world_context.clone();
+                let session_holder = session_holder.clone();
 
-            let world_context = world_context.clone();
-            let session_holder = session_holder.clone();
+                // Spawn a new task for each inbound socket
+                tokio::spawn(async move {
+                    rustbolt_world::process(socket, world_context, session_holder)
+                        .await
+                        .expect("World socket error");
+                });
+            }
+        });
 
-            // Spawn a new task for each inbound socket
-            tokio::spawn(async move {
-                rustbolt_world::process(socket, world_context, session_holder)
-                    .await
-                    .expect("World socket error");
-            });
-        }
+        let _ = tokio::join!(join_handle);
     });
-
-    let _ = tokio::join!(join_handle);
 }

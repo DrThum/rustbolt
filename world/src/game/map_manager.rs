@@ -39,7 +39,7 @@ pub struct MapManager {
 }
 
 impl MapManager {
-    pub async fn create_with_continents(
+    pub fn create_with_continents(
         data_store: Arc<DataStore>,
         config: Arc<WorldConfig>,
         conn: &r2d2::PooledConnection<r2d2_sqlite::SqliteConnectionManager>,
@@ -83,12 +83,12 @@ impl MapManager {
             let spawns = CreatureRepository::load_creature_spawns(conn, map.id);
 
             let key = MapKey::for_continent(map.id);
-            maps.insert(
-                key,
-                Arc::new(RwLock::new(
-                    Map::new(key, map_terrains, spawns, data_store.clone()).await,
-                )),
-            );
+            // maps.insert(
+            //     key,
+            //     Arc::new(RwLock::new(
+            //         Map::new(key, map_terrains, spawns, data_store.clone()).await,
+            //     )),
+            // );
         }
 
         Self {

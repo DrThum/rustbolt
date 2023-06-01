@@ -115,7 +115,7 @@ impl WorldSocket {
         }
     }
 
-    pub async fn shutdown(&self) {
+    pub fn shutdown(&self) {
         // self.write_half
         //     .lock()
         //     .await

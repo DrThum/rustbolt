@@ -7,6 +7,7 @@ use std::{
 use async_trait::async_trait;
 use enumflags2::make_bitflags;
 use log::{error, warn};
+use parking_lot::RwLock;
 use r2d2::PooledConnection;
 use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::{named_params, Error, Transaction};
@@ -747,7 +748,7 @@ impl Player {
     // - (later) is not currently casting a non-melee spell
     fn attempt_melee_attack(
         &mut self,
-        target: Arc<parking_lot::RwLock<dyn WorldEntity + Send + Sync>>,
+        target: Arc<RwLock<dyn WorldEntity + Send + Sync>>,
         world_context: Arc<WorldContext>,
     ) {
         if !self.is_attacking {

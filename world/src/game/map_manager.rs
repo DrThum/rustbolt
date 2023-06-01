@@ -2,6 +2,7 @@ use std::{collections::HashMap, fmt::Display, sync::Arc};
 
 use atomic_counter::{AtomicCounter, RelaxedCounter};
 use log::{info, warn};
+use parking_lot::RwLock;
 use shared::models::terrain_info::{TerrainBlock, MAP_WIDTH_IN_BLOCKS};
 use tokio::runtime::Runtime;
 
@@ -36,10 +37,10 @@ pub struct TerrainBlockCoords {
 pub struct MapManager {
     pub runtime: Runtime,
     config: Arc<WorldConfig>,
-    maps: parking_lot::RwLock<HashMap<MapKey, Arc<Map>>>,
+    maps: RwLock<HashMap<MapKey, Arc<Map>>>,
     data_store: Arc<DataStore>,
     next_instance_id: RelaxedCounter,
-    terrains: parking_lot::RwLock<HashMap<u32, Arc<HashMap<TerrainBlockCoords, TerrainBlock>>>>,
+    terrains: RwLock<HashMap<u32, Arc<HashMap<TerrainBlockCoords, TerrainBlock>>>>,
 }
 
 impl MapManager {
@@ -52,10 +53,10 @@ impl MapManager {
         Self {
             runtime: world_runtime,
             config,
-            maps: parking_lot::RwLock::new(HashMap::new()),
+            maps: RwLock::new(HashMap::new()),
             data_store,
             next_instance_id: RelaxedCounter::new(1),
-            terrains: parking_lot::RwLock::new(HashMap::new()),
+            terrains: RwLock::new(HashMap::new()),
         }
     }
 
@@ -186,7 +187,7 @@ impl MapManager {
         &self,
         session: Arc<WorldSession>,
         world_context: Arc<WorldContext>,
-        player: Arc<parking_lot::RwLock<Player>>,
+        player: Arc<RwLock<Player>>,
     ) {
         let from_map: Option<MapKey>;
         let player_position: WorldPosition;
@@ -231,7 +232,7 @@ impl MapManager {
         &self,
         map_key: MapKey,
         world_context: Arc<WorldContext>,
-        creature: Arc<parking_lot::RwLock<Creature>>,
+        creature: Arc<RwLock<Creature>>,
     ) {
         let guard = self.maps.read();
         if let Some(map) = guard.get(&map_key) {
@@ -244,7 +245,7 @@ impl MapManager {
         &self,
         guid: &ObjectGuid,
         map_key: Option<MapKey>,
-    ) -> Option<Arc<parking_lot::RwLock<dyn WorldEntity + Sync + Send>>> {
+    ) -> Option<Arc<RwLock<dyn WorldEntity + Sync + Send>>> {
         if let Some(map_key) = map_key {
             let maps = self.maps.read();
             let map = maps.get(&map_key);
@@ -270,7 +271,7 @@ impl MapManager {
 
     pub async fn broadcast_movement(
         &self,
-        mover: Arc<parking_lot::RwLock<Player>>,
+        mover: Arc<RwLock<Player>>,
         opcode: Opcode,
         movement_info: &MovementInfo,
     ) {

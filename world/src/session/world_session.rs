@@ -1,6 +1,7 @@
 use binrw::{io::Cursor, BinWriterExt, NullString};
 use bytemuck::cast_slice;
 use miniz_oxide::deflate::CompressionLevel;
+use parking_lot::RwLock;
 use r2d2::PooledConnection;
 use r2d2_sqlite::SqliteConnectionManager;
 use std::{
@@ -49,16 +50,16 @@ pub struct WorldSession {
     socket: WorldSocket,
     tx: Sender<(ServerMessageHeader, Vec<u8>)>,
     pub account_id: u32,
-    pub state: parking_lot::RwLock<WorldSessionState>,
-    pub player: Arc<parking_lot::RwLock<Player>>,
+    pub state: RwLock<WorldSessionState>,
+    pub player: Arc<RwLock<Player>>,
     client_latency: AtomicU32,
     server_time_sync: Mutex<TimeSync>,
     time_sync_handle: Mutex<Option<JoinHandle<()>>>,
-    known_guids: parking_lot::RwLock<Vec<ObjectGuid>>,
+    known_guids: RwLock<Vec<ObjectGuid>>,
 }
 
 impl WorldSession {
-    pub async fn new(
+    pub fn new(
         socket: TcpStream,
         encryption: HeaderCrypto,
         account_id: u32,
@@ -78,8 +79,8 @@ impl WorldSession {
             socket,
             tx,
             account_id,
-            state: parking_lot::RwLock::new(WorldSessionState::OnCharactersList),
-            player: Arc::new(parking_lot::RwLock::new(Player::new())),
+            state: RwLock::new(WorldSessionState::OnCharactersList),
+            player: Arc::new(RwLock::new(Player::new())),
             client_latency: AtomicU32::new(0),
             server_time_sync: Mutex::new(TimeSync {
                 server_counter: 0,
@@ -88,7 +89,7 @@ impl WorldSession {
                 client_last_sync_ticks: 0,
             }),
             time_sync_handle: Mutex::new(None),
-            known_guids: parking_lot::RwLock::new(Vec::new()),
+            known_guids: RwLock::new(Vec::new()),
         });
 
         session
@@ -96,7 +97,7 @@ impl WorldSession {
 
     pub async fn shutdown(&self, conn: &mut PooledConnection<SqliteConnectionManager>) {
         self.cleanup_on_world_leave(conn).await;
-        self.socket.shutdown().await;
+        self.socket.shutdown();
     }
 
     pub async fn cleanup_on_world_leave(

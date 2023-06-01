@@ -5,6 +5,7 @@ use std::{
 };
 
 use log::{error, warn};
+use parking_lot::RwLock;
 use shared::models::terrain_info::{TerrainBlock, BLOCK_WIDTH, MAP_WIDTH_IN_BLOCKS};
 use tokio::time::{interval, Instant};
 
@@ -33,12 +34,10 @@ pub const DEFAULT_VISIBILITY_DISTANCE: f32 = 90.0;
 pub struct Map {
     key: MapKey,
     world_context: Arc<WorldContext>,
-    sessions: parking_lot::RwLock<HashMap<ObjectGuid, Arc<WorldSession>>>,
-    entities: parking_lot::RwLock<
-        HashMap<ObjectGuid, Arc<parking_lot::RwLock<dyn WorldEntity + Sync + Send>>>,
-    >,
+    sessions: RwLock<HashMap<ObjectGuid, Arc<WorldSession>>>,
+    entities: RwLock<HashMap<ObjectGuid, Arc<RwLock<dyn WorldEntity + Sync + Send>>>>,
     terrain: Arc<HashMap<TerrainBlockCoords, TerrainBlock>>,
-    entities_tree: parking_lot::RwLock<QuadTree>,
+    entities_tree: RwLock<QuadTree>,
     visibility_distance: f32,
 }
 
@@ -53,10 +52,10 @@ impl Map {
         let map = Map {
             key,
             world_context,
-            sessions: parking_lot::RwLock::new(HashMap::new()),
-            entities: parking_lot::RwLock::new(HashMap::new()),
+            sessions: RwLock::new(HashMap::new()),
+            entities: RwLock::new(HashMap::new()),
             terrain,
-            entities_tree: parking_lot::RwLock::new(QuadTree::new(
+            entities_tree: RwLock::new(QuadTree::new(
                 super::quad_tree::QUADTREE_DEFAULT_NODE_CAPACITY,
             )),
             visibility_distance: DEFAULT_VISIBILITY_DISTANCE,
@@ -64,7 +63,7 @@ impl Map {
 
         for spawn in spawns {
             if let Some(creature) = Creature::from_spawn(&spawn, data_store.clone()) {
-                map.add_creature(None, Arc::new(parking_lot::RwLock::new(creature)))
+                map.add_creature(None, Arc::new(RwLock::new(creature)))
                     .await;
             } else {
                 warn!("failed to spawn creature with guid {}", spawn.guid);
@@ -97,7 +96,7 @@ impl Map {
         &self,
         session: Arc<WorldSession>,
         world_context: Arc<WorldContext>,
-        player: Arc<parking_lot::RwLock<Player>>,
+        player: Arc<RwLock<Player>>,
     ) {
         let player_guid: ObjectGuid;
         let player_position: Position;
@@ -206,7 +205,7 @@ impl Map {
     pub async fn add_creature(
         &self,
         world_context: Option<Arc<WorldContext>>, // None during startup
-        creature: Arc<parking_lot::RwLock<Creature>>,
+        creature: Arc<RwLock<Creature>>,
     ) {
         let creature_guard = creature.read();
         let position = creature_guard.position().to_position();
@@ -331,7 +330,7 @@ impl Map {
     pub fn lookup_entity(
         &self,
         guid: &ObjectGuid,
-    ) -> Option<Arc<parking_lot::RwLock<dyn WorldEntity + Sync + Send>>> {
+    ) -> Option<Arc<RwLock<dyn WorldEntity + Sync + Send>>> {
         self.entities.read().get(guid).cloned()
     }
 

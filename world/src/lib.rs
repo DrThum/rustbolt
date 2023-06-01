@@ -216,8 +216,7 @@ impl WorldSocketState<ServerSentAuthChallenge> {
             encryption,
             account_id,
             self.state.world_context.clone(),
-        )
-        .await;
+        );
 
         let packet = ServerMessage::new(SmsgAuthResponse {
             result: ResponseCodes::AuthOk as u8,

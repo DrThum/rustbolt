@@ -10,7 +10,8 @@ use wow_srp::tbc_header::HeaderCrypto;
 use crate::protocol::opcodes::Opcode;
 
 #[binwrite]
-pub(crate) struct ServerMessageHeader {
+#[derive(Debug)]
+pub struct ServerMessageHeader {
     #[bw(big)]
     pub size: u16,
     pub opcode: u16,
@@ -48,6 +49,10 @@ impl<const OPCODE: u16, Payload: ServerMessagePayload<OPCODE> + BinWrite>
         packet.extend(payload);
         socket.write(&packet).await?;
         Ok(())
+    }
+
+    pub fn encode_payload(&self) -> Result<Vec<u8>, binrw::Error> {
+        self.payload.encode()
     }
 
     pub async fn send(

@@ -34,7 +34,7 @@ pub struct TerrainBlockCoords {
 }
 
 pub struct MapManager {
-    rt: Runtime,
+    pub runtime: Runtime,
     config: Arc<WorldConfig>,
     maps: parking_lot::RwLock<HashMap<MapKey, Arc<Map>>>,
     data_store: Arc<DataStore>,
@@ -43,22 +43,19 @@ pub struct MapManager {
 }
 
 impl MapManager {
-    pub fn create_with_continents(data_store: Arc<DataStore>, config: Arc<WorldConfig>) -> Self {
+    pub fn new(data_store: Arc<DataStore>, config: Arc<WorldConfig>) -> Self {
         let world_runtime = tokio::runtime::Builder::new_multi_thread()
             .enable_all() // TODO: Allow to conf the # of worker threads
             .build()
             .unwrap();
 
-        let maps: HashMap<MapKey, Arc<Map>> = HashMap::new();
-        let terrains: HashMap<u32, Arc<HashMap<TerrainBlockCoords, TerrainBlock>>> = HashMap::new();
-
         Self {
-            rt: world_runtime,
+            runtime: world_runtime,
             config,
-            maps: parking_lot::RwLock::new(maps),
+            maps: parking_lot::RwLock::new(HashMap::new()),
             data_store,
             next_instance_id: RelaxedCounter::new(1),
-            terrains: parking_lot::RwLock::new(terrains),
+            terrains: parking_lot::RwLock::new(HashMap::new()),
         }
     }
 
@@ -104,7 +101,7 @@ impl MapManager {
             let spawns = CreatureRepository::load_creature_spawns(conn, map.id);
 
             let key = MapKey::for_continent(map.id);
-            self.rt.block_on(async {
+            self.runtime.block_on(async {
                 self.maps.write().insert(
                     key,
                     Map::new(
@@ -294,7 +291,6 @@ impl MapManager {
                 {
                     session
                         .send_movement(opcode, &player_guid, movement_info)
-                        .await
                         .unwrap();
                 }
             }
@@ -356,7 +352,7 @@ impl MapManager {
                     true,
                     include_self,
                 ) {
-                    session.send(packet).await.unwrap();
+                    session.send(packet).unwrap();
                 }
             }
         }

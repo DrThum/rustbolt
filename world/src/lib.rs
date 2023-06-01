@@ -228,11 +228,11 @@ impl WorldSocketState<ServerSentAuthChallenge> {
             position_in_queue: 0,
         });
 
-        session.send(&packet).await.unwrap();
+        session.send(&packet).unwrap();
 
         let packet = ServerMessage::new(Self::build_addon_infos(addon_infos));
 
-        session.send(&packet).await.unwrap();
+        session.send(&packet).unwrap();
 
         if let Some(previous_session) = session_holder.insert_session(session) {
             previous_session

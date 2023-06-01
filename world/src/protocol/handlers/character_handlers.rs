@@ -41,7 +41,7 @@ impl OpcodeHandler {
             result: result as u8,
         });
 
-        session.send(&packet).await.unwrap();
+        session.send(&packet).unwrap();
     }
 
     pub(crate) async fn handle_cmsg_char_enum(
@@ -66,7 +66,7 @@ impl OpcodeHandler {
             character_data,
         });
 
-        session.send(&packet).await.unwrap();
+        session.send(&packet).unwrap();
     }
 
     pub(crate) async fn handle_cmsg_char_delete(
@@ -82,7 +82,7 @@ impl OpcodeHandler {
             result: ResponseCodes::CharDeleteSuccess as u8,
         });
 
-        session.send(&packet).await.unwrap();
+        session.send(&packet).unwrap();
     }
 
     pub(crate) async fn handle_cmsg_player_login(
@@ -111,7 +111,7 @@ impl OpcodeHandler {
             is_in_group: 0, // FIXME after group implementation
         });
 
-        session.send(&msg_set_dungeon_difficulty).await.unwrap();
+        session.send(&msg_set_dungeon_difficulty).unwrap();
 
         {
             let player_position = session.player.read().position().clone();
@@ -123,31 +123,31 @@ impl OpcodeHandler {
                 orientation: player_position.o,
             });
 
-            session.send(&smsg_login_verify_world).await.unwrap();
+            session.send(&smsg_login_verify_world).unwrap();
         }
 
         let smsg_account_data_times =
             ServerMessage::new(SmsgAccountDataTimes { data: [0_u32; 32] });
 
-        session.send(&smsg_account_data_times).await.unwrap();
+        session.send(&smsg_account_data_times).unwrap();
 
         let smsg_feature_system_status = ServerMessage::new(SmsgFeatureSystemStatus {
             unk: 2,
             voice_chat_enabled: 0,
         });
 
-        session.send(&smsg_feature_system_status).await.unwrap();
+        session.send(&smsg_feature_system_status).unwrap();
 
         let smsg_motd = ServerMessage::new(SmsgMotd {
             line_count: 1,
             message: NullString::from("MOTD"), // TODO: store this in config file
         });
 
-        session.send(&smsg_motd).await.unwrap();
+        session.send(&smsg_motd).unwrap();
 
         let smsg_set_rest_start = ServerMessage::new(SmsgSetRestStart { rest_start: 0 });
 
-        session.send(&smsg_set_rest_start).await.unwrap();
+        session.send(&smsg_set_rest_start).unwrap();
 
         // TODO
         let smsg_bindpointupdate = ServerMessage::new(SmsgBindpointupdate {
@@ -158,7 +158,7 @@ impl OpcodeHandler {
             homebind_area_id: 85,
         });
 
-        session.send(&smsg_bindpointupdate).await.unwrap();
+        session.send(&smsg_bindpointupdate).unwrap();
 
         let smsg_tutorial_flags = ServerMessage::new(SmsgTutorialFlags {
             tutorial_data0: 0, // FIXME: 0xFFFFFFFF to disable tutorials
@@ -171,7 +171,7 @@ impl OpcodeHandler {
             tutorial_data7: 0,
         });
 
-        session.send(&smsg_tutorial_flags).await.unwrap();
+        session.send(&smsg_tutorial_flags).unwrap();
 
         // The client expects a specific format which is not unix timestamp
         // See secsToTimeBitFields in MaNGOS
@@ -198,14 +198,17 @@ impl OpcodeHandler {
             game_speed: 0.01666667,
         });
 
-        session.send(&smsg_login_settimespeed).await.unwrap();
+        session.send(&smsg_login_settimespeed).unwrap();
 
         {
-            world_context.map_manager.add_session_to_map(
-                session.clone(),
-                world_context.clone(),
-                session.player.clone(),
-            ).await;
+            world_context
+                .map_manager
+                .add_session_to_map(
+                    session.clone(),
+                    world_context.clone(),
+                    session.player.clone(),
+                )
+                .await;
 
             let mut session_state = session.state.write();
             *session_state = WorldSessionState::InWorld;
@@ -219,7 +222,7 @@ impl OpcodeHandler {
             block_count: 0,
         });
 
-        session.send(&smsg_init_world_states).await.unwrap();
+        session.send(&smsg_init_world_states).unwrap();
 
         WorldSession::reset_time_sync(session, world_context).await;
     }
@@ -234,11 +237,11 @@ impl OpcodeHandler {
             is_instant_logout: 1,
         });
 
-        session.send(&packet).await.unwrap();
+        session.send(&packet).unwrap();
 
         let packet = ServerMessage::new(SmsgLogoutComplete {});
 
-        session.send(&packet).await.unwrap();
+        session.send(&packet).unwrap();
 
         {
             let player_guid = session.player.read().guid().clone();
@@ -289,7 +292,7 @@ impl OpcodeHandler {
             })
         };
 
-        session.send(&packet).await.unwrap();
+        session.send(&packet).unwrap();
     }
 
     pub(crate) async fn handle_cmsg_stand_state_change(
@@ -309,7 +312,7 @@ impl OpcodeHandler {
             animstate: cmsg_stand_state_change.animstate as u8,
         });
 
-        session.send(&packet).await.unwrap();
+        session.send(&packet).unwrap();
     }
 
     pub(crate) async fn handle_cmsg_set_sheathed(

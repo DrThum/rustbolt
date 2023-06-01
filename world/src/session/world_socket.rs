@@ -1,26 +1,73 @@
 use std::sync::Arc;
 
-use log::{error, trace};
+use binrw::BinWriterExt;
+use log::{error, info, trace};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt, ReadHalf, WriteHalf},
     net::TcpStream,
-    sync::Mutex,
+    sync::{mpsc::Receiver, Mutex},
 };
 use wow_srp::tbc_header::HeaderCrypto;
 
 use crate::{
-    protocol::client::{ClientMessage, ClientMessageHeader},
+    protocol::{
+        client::{ClientMessage, ClientMessageHeader},
+        opcodes::Opcode,
+        server::ServerMessageHeader,
+    },
     WorldSocketError,
 };
 
 pub struct WorldSocket {
-    pub write_half: Arc<Mutex<WriteHalf<TcpStream>>>,
     pub read_half: Arc<Mutex<ReadHalf<TcpStream>>>,
     pub encryption: Arc<Mutex<HeaderCrypto>>,
     pub account_id: u32,
 }
 
 impl WorldSocket {
+    pub fn new(
+        write_half: Arc<Mutex<WriteHalf<TcpStream>>>,
+        read_half: Arc<Mutex<ReadHalf<TcpStream>>>,
+        encryption: Arc<Mutex<HeaderCrypto>>,
+        account_id: u32,
+        mut rx: Receiver<(ServerMessageHeader, Vec<u8>)>,
+    ) -> WorldSocket {
+        let encryption_clone = encryption.clone();
+        tokio::spawn(async move {
+            while let Some((header, payload)) = rx.recv().await {
+                let mut socket = write_half.lock().await;
+                let mut encryption = encryption_clone.lock().await;
+
+                info!(
+                    "Sending {:?} ({:#X})",
+                    Opcode::n(header.opcode).unwrap(),
+                    header.opcode
+                );
+                let mut encrypted_header: Vec<u8> = Vec::new();
+                encryption
+                    .write_encrypted_server_header(
+                        &mut encrypted_header,
+                        header.size,
+                        header.opcode,
+                    )
+                    .unwrap();
+
+                let mut writer = binrw::io::Cursor::new(Vec::new());
+                writer.write_le(&encrypted_header).unwrap();
+                let packet = writer.get_mut();
+                trace!("Payload for opcode {:X}: {:X?}", header.opcode, payload);
+                packet.extend(payload);
+                socket.write(&packet).await.unwrap();
+            }
+        });
+
+        WorldSocket {
+            read_half,
+            encryption,
+            account_id,
+        }
+    }
+
     pub async fn read_packet(&self) -> Result<ClientMessage, WorldSocketError> {
         let mut buf = [0_u8; 6];
         let mut socket = self.read_half.lock().await;
@@ -69,11 +116,11 @@ impl WorldSocket {
     }
 
     pub async fn shutdown(&self) {
-        self.write_half
-            .lock()
-            .await
-            .shutdown()
-            .await
-            .expect("Failed to shutdown WorldSocket");
+        // self.write_half
+        //     .lock()
+        //     .await
+        //     .shutdown()
+        //     .await
+        //     .expect("Failed to shutdown WorldSocket");
     }
 }

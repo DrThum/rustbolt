@@ -23,7 +23,7 @@ impl OpcodeHandler {
             ping: cmsg_ping.ping,
         });
 
-        session.send(&packet).await.unwrap();
+        session.send(&packet).unwrap();
     }
 
     pub(crate) async fn handle_cmsg_query_time(
@@ -41,7 +41,7 @@ impl OpcodeHandler {
             seconds_until_daily_quests_reset: 0, // TODO: Change this when implementing daily quests
         });
 
-        session.send(&packet).await.unwrap();
+        session.send(&packet).unwrap();
     }
 
     pub(crate) async fn handle_time_sync_resp(

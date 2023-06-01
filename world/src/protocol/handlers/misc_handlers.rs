@@ -21,7 +21,7 @@ impl OpcodeHandler {
             split_date: binrw::NullString::from("01/01/01"),
         });
 
-        session.send(&packet).await.unwrap();
+        session.send(&packet).unwrap();
     }
 
     pub(crate) async fn handle_cmsg_set_selection(

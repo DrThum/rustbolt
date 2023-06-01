@@ -782,7 +782,7 @@ impl Player {
                     .get_map(self.map_key.unwrap())
                     .unwrap();
                 let my_session = map.get_session(self.guid()).await.unwrap();
-                my_session.send(&packet).await.unwrap();
+                my_session.send(&packet).unwrap();
             }
 
             self.last_melee_error = Some(MeleeAttackError::NotInRange);
@@ -859,11 +859,7 @@ impl WorldEntity for Player {
         self.update_attack_timers(diff);
 
         let target_entity = match self.selection_guid {
-            Some(sel) => {
-                world_context
-                    .map_manager
-                    .lookup_entity(&sel, self.map_key)
-            }
+            Some(sel) => world_context.map_manager.lookup_entity(&sel, self.map_key),
             _ => None,
         };
 

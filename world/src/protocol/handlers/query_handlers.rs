@@ -43,13 +43,13 @@ impl OpcodeHandler {
                 racial_leader: template.racial_leader,
             });
 
-            session.send(&packet).await.unwrap();
+            session.send(&packet).unwrap();
         } else {
             let packet = ServerMessage::new(SmsgCreatureQueryResponseUnknownTemplate {
                 masked_entry: cmsg.entry | 0x80000000,
             });
 
-            session.send(&packet).await.unwrap();
+            session.send(&packet).unwrap();
         }
     }
 }

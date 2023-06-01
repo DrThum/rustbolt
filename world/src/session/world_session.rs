@@ -1,4 +1,6 @@
 use binrw::{io::Cursor, BinWriterExt, NullString};
+use bytemuck::cast_slice;
+use miniz_oxide::deflate::CompressionLevel;
 use r2d2::PooledConnection;
 use r2d2_sqlite::SqliteConnectionManager;
 use std::{
@@ -8,9 +10,11 @@ use std::{
 
 use log::trace;
 use tokio::{
-    io::AsyncWriteExt,
     net::TcpStream,
-    sync::{mpsc, Mutex},
+    sync::{
+        mpsc::{self, error::SendError, Sender},
+        Mutex,
+    },
     task::JoinHandle,
 };
 use wow_srp::tbc_header::HeaderCrypto;
@@ -43,6 +47,7 @@ pub enum WorldSessionState {
 
 pub struct WorldSession {
     socket: WorldSocket,
+    tx: Sender<(ServerMessageHeader, Vec<u8>)>,
     pub account_id: u32,
     pub state: parking_lot::RwLock<WorldSessionState>,
     pub player: Arc<parking_lot::RwLock<Player>>,
@@ -65,15 +70,13 @@ impl WorldSession {
         let write_half = Arc::new(Mutex::new(write_half));
         let encryption = Arc::new(Mutex::new(encryption));
 
-        let socket = WorldSocket {
-            write_half,
-            read_half,
-            encryption,
-            account_id,
-        };
+        let (tx, rx) = mpsc::channel::<(ServerMessageHeader, Vec<u8>)>(50);
+
+        let socket = WorldSocket::new(write_half, read_half, encryption, account_id, rx);
 
         let session = Arc::new(WorldSession {
             socket,
+            tx,
             account_id,
             state: parking_lot::RwLock::new(WorldSessionState::OnCharactersList),
             player: Arc::new(parking_lot::RwLock::new(Player::new())),
@@ -162,54 +165,65 @@ impl WorldSession {
         time_sync.client_last_sync_ticks = client_ticks;
     }
 
-    pub async fn send<const OPCODE: u16, Payload: ServerMessagePayload<OPCODE>>(
+    pub fn send<const OPCODE: u16, Payload: ServerMessagePayload<OPCODE>>(
         &self,
         packet: &ServerMessage<OPCODE, Payload>,
-    ) -> Result<(), binrw::Error> {
-        let mut socket = self.socket.write_half.lock().await;
-        let mut encryption = self.socket.encryption.lock().await;
+    ) -> Result<(), SendError<(ServerMessageHeader, Vec<u8>)>> {
+        let tx = self.tx.clone();
+        futures::executor::block_on(async move {
+            // Handle::current().block_on(async move {
+            let payload = packet.encode_payload().expect("failed to encode payload");
+            let channel_payload = if OPCODE == Opcode::SmsgUpdateObject as u16 && payload.len() > 50
+            {
+                // Change to SMSG_COMPRESSED_UPDATE_OBJECT and compress the payload
+                let uncompressed_size = payload.len();
+                let compressed_payload: Vec<u8> = miniz_oxide::deflate::compress_to_vec_zlib(
+                    &payload,
+                    CompressionLevel::DefaultLevel as u8,
+                );
 
-        trace!("Sending {:?} ({:#X})", Opcode::n(OPCODE).unwrap(), OPCODE);
-        packet.send(&mut socket, &mut encryption).await
+                let header = ServerMessageHeader {
+                    size: compressed_payload.len() as u16 + 2 + 4, /* + 2 for opcode + 4 for uncompressed_size */
+                    opcode: Opcode::SmsgCompressedUpdateObject as u16,
+                };
+
+                let payload: Vec<u32> = vec![uncompressed_size as u32];
+                let mut payload: Vec<u8> = cast_slice(&payload).to_vec();
+                payload.extend(compressed_payload);
+                (header, payload)
+            } else {
+                let header = ServerMessageHeader {
+                    size: payload.len() as u16 + 2, // + 2 for the opcode size
+                    opcode: OPCODE,
+                };
+
+                (header, payload)
+            };
+
+            tx.send(channel_payload).await
+        })
     }
 
-    pub async fn send_movement(
+    pub fn send_movement(
         &self,
         opcode: Opcode,
         origin_guid: &ObjectGuid,
         movement_info: &MovementInfo,
-    ) -> Result<(), binrw::Error> {
-        let mut socket = self.socket.write_half.lock().await;
-        let mut encryption = self.socket.encryption.lock().await;
+    ) -> Result<(), SendError<(ServerMessageHeader, Vec<u8>)>> {
+        let tx = self.tx.clone();
+        futures::executor::block_on(async move {
+            let mut writer = Cursor::new(Vec::new());
+            writer.write_le(&origin_guid.as_packed()).unwrap();
+            writer.write_le(movement_info).unwrap();
+            let payload = writer.get_ref().clone();
 
-        let mut writer = Cursor::new(Vec::new());
-        writer.write_le(&origin_guid.as_packed())?;
-        writer.write_le(movement_info)?;
-        let payload = writer.get_ref();
+            let header = ServerMessageHeader {
+                size: payload.len() as u16 + 2, // + 2 for the opcode size
+                opcode: opcode as u16,
+            };
 
-        trace!(
-            "Sending {:?} ({:#X})",
-            Opcode::n(opcode as u16).unwrap(),
-            opcode as u16
-        );
-        let header = ServerMessageHeader {
-            size: payload.len() as u16 + 2, // + 2 for the opcode size
-            opcode: opcode as u16,
-        };
-        let mut encrypted_header: Vec<u8> = Vec::new();
-        encryption.write_encrypted_server_header(
-            &mut encrypted_header,
-            header.size,
-            header.opcode,
-        )?;
-
-        let mut writer = Cursor::new(Vec::new());
-        writer.write_le(&encrypted_header)?;
-        let packet = writer.get_mut();
-        trace!("Payload for opcode {:X}: {:X?}", header.opcode, payload);
-        packet.extend(payload);
-        socket.write(&packet).await?;
-        Ok(())
+            tx.send((header, payload)).await
+        })
     }
 
     pub async fn process_incoming_packet(
@@ -217,16 +231,21 @@ impl WorldSession {
         world_context: Arc<WorldContext>,
     ) -> Result<(), WorldSocketError> {
         let client_message = session.socket.read_packet().await?;
-        let handler = world_context
-            .opcode_handler
-            .get_handler(client_message.header.opcode);
 
-        handler(
-            session.clone(),
-            world_context.clone(),
-            client_message.payload,
-        )
-        .await;
+        // Process the packet on the world's runtime
+        let context_clone = world_context.clone();
+        world_context.clone().map_manager.runtime.spawn(async move {
+            let handler = context_clone
+                .opcode_handler
+                .get_handler(client_message.header.opcode);
+
+            handler(
+                session.clone(),
+                world_context.clone(),
+                client_message.payload,
+            )
+            .await;
+        });
 
         Ok(())
     }
@@ -245,7 +264,7 @@ impl WorldSession {
                     let smsg_time_sync_req = ServerMessage::new(SmsgTimeSyncReq {
                         sync_counter: time_sync.server_counter,
                     });
-                    session.send(&smsg_time_sync_req).await.unwrap();
+                    session.send(&smsg_time_sync_req).unwrap();
 
                     time_sync.server_counter += 1;
                     time_sync.server_last_sync_ticks = world_context.game_time().as_millis() as u32;
@@ -283,7 +302,7 @@ impl WorldSession {
     pub async fn send_initial_spells(&self) {
         let spells: Vec<u32> = self.player.read().spells().clone();
         let packet = ServerMessage::new(SmsgInitialSpells::new(spells, Vec::new() /* TODO */));
-        self.send(&packet).await.unwrap();
+        self.send(&packet).unwrap();
     }
 
     pub async fn send_initial_action_buttons(&self) {
@@ -300,7 +319,7 @@ impl WorldSession {
 
         let packet = ServerMessage::new(SmsgActionButtons { buttons_packed });
 
-        self.send(&packet).await.unwrap();
+        self.send(&packet).unwrap();
     }
 
     pub async fn send_initial_reputations(&self) {
@@ -329,7 +348,7 @@ impl WorldSession {
             factions,
         });
 
-        self.send(&packet).await.unwrap();
+        self.send(&packet).unwrap();
     }
 
     pub async fn build_chat_packet(
@@ -370,21 +389,21 @@ impl WorldSession {
     pub async fn create_entity(&self, guid: &ObjectGuid, payload: SmsgCreateObject) {
         let packet = ServerMessage::new(payload);
 
-        self.send(&packet).await.unwrap();
+        self.send(&packet).unwrap();
         self.add_known_guid(guid);
     }
 
     pub async fn update_entity(&self, payload: SmsgUpdateObject) {
         let packet = ServerMessage::new(payload);
 
-        self.send(&packet).await.unwrap();
+        self.send(&packet).unwrap();
     }
 
     pub async fn destroy_entity(&self, guid: &ObjectGuid) {
         if self.is_guid_known(guid).await {
             let packet = ServerMessage::new(SmsgDestroyObject { guid: guid.raw() });
 
-            self.send(&packet).await.unwrap();
+            self.send(&packet).unwrap();
             self.remove_known_guid(guid);
         }
     }
@@ -396,7 +415,7 @@ impl WorldSession {
             unk: 0,
         });
 
-        self.send(&packet).await.unwrap();
+        self.send(&packet).unwrap();
     }
 }
 

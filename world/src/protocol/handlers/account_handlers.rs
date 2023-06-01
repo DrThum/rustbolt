@@ -20,6 +20,6 @@ impl OpcodeHandler {
             data: 0,
         });
 
-        session.send(&packet).await.unwrap();
+        session.send(&packet).unwrap();
     }
 }

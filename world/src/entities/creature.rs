@@ -144,7 +144,7 @@ impl WorldEntity for Creature {
         self.name.to_owned()
     }
 
-    async fn tick(&mut self, _diff: Duration, _world_context: Arc<WorldContext>) {}
+    fn tick(&mut self, _diff: Duration, _world_context: Arc<WorldContext>) {}
 
     fn get_create_data(
         &self,

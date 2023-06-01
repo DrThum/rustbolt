@@ -26,7 +26,7 @@ pub trait WorldEntity {
 
     fn position(&self) -> &WorldPosition;
 
-    async fn tick(&mut self, diff: Duration, world_context: Arc<WorldContext>);
+    fn tick(&mut self, diff: Duration, world_context: Arc<WorldContext>);
 
     fn get_create_data(
         &self,

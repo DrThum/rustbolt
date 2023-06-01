@@ -329,7 +329,7 @@ impl MapManager {
         }
     }
 
-    pub async fn broadcast_packet<
+    pub fn broadcast_packet<
         const OPCODE: u16,
         Payload: protocol::server::ServerMessagePayload<OPCODE>,
     >(

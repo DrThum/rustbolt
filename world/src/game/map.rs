@@ -73,22 +73,22 @@ impl Map {
 
         let map = Arc::new(map);
 
-        // let map_clone = map.clone();
-        // tokio::spawn(async move {
-        //     let mut interval = interval(Duration::from_millis(50));
-        //     interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
-        //     let mut time = Instant::now();
-        //
-        //     loop {
-        //         let new_time = Instant::now();
-        //         let diff = new_time.duration_since(time);
-        //
-        //         time = new_time;
-        //         map_clone.tick(diff).await;
-        //
-        //         interval.tick().await;
-        //     }
-        // });
+        let map_clone = map.clone();
+        tokio::spawn(async move {
+            let mut interval = interval(Duration::from_millis(50));
+            interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+            let mut time = Instant::now();
+
+            loop {
+                let new_time = Instant::now();
+                let diff = new_time.duration_since(time);
+
+                time = new_time;
+                map_clone.tick(diff).await;
+
+                interval.tick().await;
+            }
+        });
 
         map
     }
@@ -418,7 +418,7 @@ impl Map {
         let entities = self.entities.read();
         for (_, entity) in &*entities {
             let mut entity = entity.write();
-            entity.tick(diff, self.world_context.clone()).await;
+            entity.tick(diff, self.world_context.clone());
 
             // Broadcast the changes to nearby players
             if entity.has_updates() {
@@ -439,7 +439,7 @@ impl Map {
                         updates: update_data,
                     };
 
-                    session.update_entity(smsg_update_object).await;
+                    session.update_entity(smsg_update_object);
                 }
 
                 entity.mark_up_to_date();
@@ -447,7 +447,7 @@ impl Map {
         }
     }
 
-    pub async fn get_session(&self, player_guid: &ObjectGuid) -> Option<Arc<WorldSession>> {
+    pub fn get_session(&self, player_guid: &ObjectGuid) -> Option<Arc<WorldSession>> {
         self.sessions.read().get(player_guid).cloned()
     }
 }

@@ -74,7 +74,7 @@ impl WorldEntity for Item {
         "TODO".to_owned()
     }
 
-    async fn tick(&mut self, _diff: Duration, _world_context: Arc<WorldContext>) {}
+    fn tick(&mut self, _diff: Duration, _world_context: Arc<WorldContext>) {}
 
     fn get_create_data(
         &self,

@@ -46,16 +46,13 @@ impl OpcodeHandler {
                 };
 
                 // Broadcast to nearby players
-                world_context
-                    .map_manager
-                    .broadcast_packet(
-                        &player_guid,
-                        session.get_current_map(),
-                        &smsg_message_chat,
-                        Some(distance),
-                        true,
-                    )
-                    .await;
+                world_context.map_manager.broadcast_packet(
+                    &player_guid,
+                    session.get_current_map(),
+                    &smsg_message_chat,
+                    Some(distance),
+                    true,
+                );
             }
             t => error!("unsupported message type {:?}", t),
         }
@@ -84,16 +81,13 @@ impl OpcodeHandler {
                             origin_guid: session.player.read().guid().raw(),
                         });
 
-                        world_context
-                            .map_manager
-                            .broadcast_packet(
-                                &player_guid,
-                                session.get_current_map(),
-                                &packet,
-                                None,
-                                true,
-                            )
-                            .await;
+                        world_context.map_manager.broadcast_packet(
+                            &player_guid,
+                            session.get_current_map(),
+                            &packet,
+                            None,
+                            true,
+                        );
                     }
                 }
             }
@@ -116,16 +110,13 @@ impl OpcodeHandler {
                 target_name: target_name.into(),
             });
 
-            world_context
-                .map_manager
-                .broadcast_packet(
-                    &player_guid,
-                    session.get_current_map(),
-                    &packet,
-                    Some(40.0),
-                    true,
-                )
-                .await;
+            world_context.map_manager.broadcast_packet(
+                &player_guid,
+                session.get_current_map(),
+                &packet,
+                Some(40.0),
+                true,
+            );
         }
     }
 }

@@ -745,7 +745,7 @@ impl Player {
     // - is in melee range
     // - is looking at the target (120° angle)
     // - (later) is not currently casting a non-melee spell
-    async fn attempt_melee_attack(
+    fn attempt_melee_attack(
         &mut self,
         target: Arc<parking_lot::RwLock<dyn WorldEntity + Send + Sync>>,
         world_context: Arc<WorldContext>,
@@ -781,7 +781,7 @@ impl Player {
                     .map_manager
                     .get_map(self.map_key.unwrap())
                     .unwrap();
-                let my_session = map.get_session(self.guid()).await.unwrap();
+                let my_session = map.get_session(self.guid()).unwrap();
                 my_session.send(&packet).unwrap();
             }
 
@@ -812,10 +812,13 @@ impl Player {
                 damage_blocked_amount: 0,
             });
 
-            world_context
-                .map_manager
-                .broadcast_packet(self.guid(), self.map_key, &packet, None, true)
-                .await;
+            world_context.map_manager.broadcast_packet(
+                self.guid(),
+                self.map_key,
+                &packet,
+                None,
+                true,
+            );
 
             self.set_attack_timer(WeaponAttackType::MainHand, Duration::from_millis(800));
             // Offset off hand just a bit to avoid weird animation
@@ -855,7 +858,7 @@ impl WorldEntity for Player {
         self.name.to_owned()
     }
 
-    async fn tick(&mut self, diff: Duration, world_context: Arc<WorldContext>) {
+    fn tick(&mut self, diff: Duration, world_context: Arc<WorldContext>) {
         self.update_attack_timers(diff);
 
         let target_entity = match self.selection_guid {
@@ -864,8 +867,7 @@ impl WorldEntity for Player {
         };
 
         if let Some(target_entity) = target_entity {
-            self.attempt_melee_attack(target_entity, world_context.clone())
-                .await;
+            self.attempt_melee_attack(target_entity, world_context.clone());
         }
     }
 

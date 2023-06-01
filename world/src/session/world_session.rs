@@ -393,7 +393,7 @@ impl WorldSession {
         self.add_known_guid(guid);
     }
 
-    pub async fn update_entity(&self, payload: SmsgUpdateObject) {
+    pub fn update_entity(&self, payload: SmsgUpdateObject) {
         let packet = ServerMessage::new(payload);
 
         self.send(&packet).unwrap();

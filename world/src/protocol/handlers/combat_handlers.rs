@@ -39,10 +39,13 @@ impl OpcodeHandler {
                     });
 
                     let guid: &ObjectGuid = &session.player.read().guid().clone();
-                    world_context
-                        .map_manager
-                        .broadcast_packet(guid, session.get_current_map(), &packet, None, true)
-                        .await;
+                    world_context.map_manager.broadcast_packet(
+                        guid,
+                        session.get_current_map(),
+                        &packet,
+                        None,
+                        true,
+                    );
                 }
                 None => {
                     warn!("player attempted to attack non-existing entity {target_guid:?}");
@@ -72,10 +75,13 @@ impl OpcodeHandler {
         };
 
         let guid: &ObjectGuid = &session.player.read().guid().clone();
-        world_context
-            .map_manager
-            .broadcast_packet(guid, session.get_current_map(), &packet, None, true)
-            .await;
+        world_context.map_manager.broadcast_packet(
+            guid,
+            session.get_current_map(),
+            &packet,
+            None,
+            true,
+        );
 
         let mut player_guard = session.player.write();
         player_guard.set_attacking(false);

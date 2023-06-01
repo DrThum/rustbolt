@@ -201,14 +201,11 @@ impl OpcodeHandler {
         session.send(&smsg_login_settimespeed).unwrap();
 
         {
-            world_context
-                .map_manager
-                .add_session_to_map(
-                    session.clone(),
-                    world_context.clone(),
-                    session.player.clone(),
-                )
-                .await;
+            world_context.map_manager.add_session_to_map(
+                session.clone(),
+                world_context.clone(),
+                session.player.clone(),
+            );
 
             let mut session_state = session.state.write();
             *session_state = WorldSessionState::InWorld;
@@ -248,8 +245,7 @@ impl OpcodeHandler {
             let current_map_key = session.player.read().current_map();
             world_context
                 .map_manager
-                .remove_player_from_map(&player_guid, current_map_key)
-                .await;
+                .remove_player_from_map(&player_guid, current_map_key);
         }
 
         // FIXME: Handle future cases when logout might not be instant

@@ -42,7 +42,7 @@ pub struct Map {
 }
 
 impl Map {
-    pub async fn new(
+    pub fn new(
         key: MapKey,
         world_context: Arc<WorldContext>,
         terrain: Arc<HashMap<TerrainBlockCoords, TerrainBlock>>,
@@ -63,8 +63,7 @@ impl Map {
 
         for spawn in spawns {
             if let Some(creature) = Creature::from_spawn(&spawn, data_store.clone()) {
-                map.add_creature(None, Arc::new(RwLock::new(creature)))
-                    .await;
+                map.add_creature(None, Arc::new(RwLock::new(creature)));
             } else {
                 warn!("failed to spawn creature with guid {}", spawn.guid);
             }
@@ -83,7 +82,7 @@ impl Map {
                 let diff = new_time.duration_since(time);
 
                 time = new_time;
-                map_clone.tick(diff).await;
+                map_clone.tick(diff);
 
                 interval.tick().await;
             }
@@ -92,7 +91,7 @@ impl Map {
         map
     }
 
-    pub async fn add_player(
+    pub fn add_player(
         &self,
         session: Arc<WorldSession>,
         world_context: Arc<WorldContext>,
@@ -106,9 +105,9 @@ impl Map {
             player_position = player_guard.position().to_position();
         }
 
-        session.send_initial_spells().await;
-        session.send_initial_action_buttons().await;
-        session.send_initial_reputations().await;
+        session.send_initial_spells();
+        session.send_initial_action_buttons();
+        session.send_initial_reputations();
 
         {
             let mut guard = self.sessions.write();
@@ -154,9 +153,7 @@ impl Map {
                             updates: update_data,
                         };
 
-                        other_session
-                            .create_entity(&player_guid, smsg_update_object)
-                            .await;
+                        other_session.create_entity(&player_guid, smsg_update_object);
                     }
 
                     // Send nearby entities to the new player
@@ -171,7 +168,7 @@ impl Map {
                             updates: update_data,
                         };
 
-                        session.create_entity(&guid, smsg_update_object).await;
+                        session.create_entity(&guid, smsg_update_object);
                     }
                 } else {
                     error!("found an entity in quadtree but not in MapManager");
@@ -180,14 +177,14 @@ impl Map {
         }
     }
 
-    pub async fn remove_player(&self, player_guid: &ObjectGuid) {
+    pub fn remove_player(&self, player_guid: &ObjectGuid) {
         self.entities.write().remove(player_guid);
 
         {
             let other_sessions =
                 self.sessions_nearby_entity(player_guid, self.visibility_distance(), false, false);
             for other_session in other_sessions {
-                other_session.destroy_entity(player_guid).await;
+                other_session.destroy_entity(player_guid);
             }
 
             let mut tree = self.entities_tree.write();
@@ -202,7 +199,7 @@ impl Map {
         }
     }
 
-    pub async fn add_creature(
+    pub fn add_creature(
         &self,
         world_context: Option<Arc<WorldContext>>, // None during startup
         creature: Arc<RwLock<Creature>>,
@@ -219,9 +216,8 @@ impl Map {
         }
 
         if let Some(world_context) = world_context {
-            for session in self
-                .sessions_nearby_position(&position, self.visibility_distance(), true, None)
-                .await
+            for session in
+                self.sessions_nearby_position(&position, self.visibility_distance(), true, None)
             {
                 // Broadcast the new creature to nearby players
                 let player = session.player.read();
@@ -233,14 +229,12 @@ impl Map {
                     updates: update_data,
                 };
 
-                session
-                    .create_entity(player.guid(), smsg_update_object)
-                    .await;
+                session.create_entity(player.guid(), smsg_update_object);
             }
         }
     }
 
-    pub async fn update_player_position(
+    pub fn update_player_position(
         &self,
         player_guid: &ObjectGuid,
         origin_session: Arc<WorldSession>,
@@ -292,9 +286,7 @@ impl Map {
                     let other_session = self.sessions.read().get(&other_guid).cloned();
                     if let Some(other_session) = other_session {
                         // Make the moving player appear for the other player
-                        other_session
-                            .create_entity(player_guid, smsg_create_object.clone())
-                            .await;
+                        other_session.create_entity(player_guid, smsg_create_object.clone());
                     }
 
                     // Make the entity (player or otherwise) appear for the moving player
@@ -306,9 +298,7 @@ impl Map {
                         has_transport: false,
                         updates: create_data,
                     };
-                    origin_session
-                        .create_entity(&other_guid, smsg_create_object)
-                        .await;
+                    origin_session.create_entity(&other_guid, smsg_create_object);
                 }
             }
 
@@ -316,11 +306,11 @@ impl Map {
                 let other_session = self.sessions.read().get(&other_guid).cloned();
                 if let Some(other_session) = other_session {
                     // Destroy the moving player for the other player
-                    other_session.destroy_entity(player_guid).await;
+                    other_session.destroy_entity(player_guid);
                 }
 
                 // Destroy the other entity for the moving player
-                origin_session.destroy_entity(&other_guid).await;
+                origin_session.destroy_entity(&other_guid);
             }
         } else {
             error!("updating position for player not on map");
@@ -365,7 +355,7 @@ impl Map {
             .collect()
     }
 
-    pub async fn sessions_nearby_position(
+    pub fn sessions_nearby_position(
         &self,
         position: &Position,
         range: f32,
@@ -413,7 +403,7 @@ impl Map {
         self.visibility_distance
     }
 
-    pub async fn tick(&self, diff: Duration) {
+    pub fn tick(&self, diff: Duration) {
         let entities = self.entities.read();
         for (_, entity) in &*entities {
             let mut entity = entity.write();

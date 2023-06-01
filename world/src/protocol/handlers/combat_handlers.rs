@@ -26,7 +26,7 @@ impl OpcodeHandler {
                     let entity_guard = entity.read().guid().is_unit();
                     if !entity_guard {
                         warn!("player attempted to attack non-unit entity {target_guid:?}");
-                        session.send_attack_stop(Some(target_guid)).await;
+                        session.send_attack_stop(Some(target_guid));
                         return;
                     }
 
@@ -49,11 +49,11 @@ impl OpcodeHandler {
                 }
                 None => {
                     warn!("player attempted to attack non-existing entity {target_guid:?}");
-                    session.send_attack_stop(Some(target_guid)).await;
+                    session.send_attack_stop(Some(target_guid));
                 }
             }
         } else {
-            session.send_attack_stop(None).await;
+            session.send_attack_stop(None);
         }
     }
 

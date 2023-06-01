@@ -28,16 +28,12 @@ impl OpcodeHandler {
         let player_guid = session.player.read().guid().clone();
         match cmsg_message_chat.chat_type {
             ChatMessageType::Say | ChatMessageType::Yell | ChatMessageType::Emote => {
-                let smsg_message_chat = ServerMessage::new(
-                    session
-                        .build_chat_packet(
-                            cmsg_message_chat.chat_type.clone(),
-                            cmsg_message_chat.language,
-                            None,
-                            cmsg_message_chat.msg,
-                        )
-                        .await,
-                );
+                let smsg_message_chat = ServerMessage::new(session.build_chat_packet(
+                    cmsg_message_chat.chat_type.clone(),
+                    cmsg_message_chat.language,
+                    None,
+                    cmsg_message_chat.msg,
+                ));
 
                 let distance = match cmsg_message_chat.chat_type {
                     ChatMessageType::Say | ChatMessageType::Emote => 40.0,

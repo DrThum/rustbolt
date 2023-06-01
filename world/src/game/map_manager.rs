@@ -111,14 +111,13 @@ impl MapManager {
                         map_terrains,
                         spawns,
                         data_store.clone(),
-                    )
-                    .await,
+                    ),
                 );
             });
         }
     }
 
-    pub async fn instantiate_map(
+    pub fn instantiate_map(
         &self,
         map_id: u32,
         world_context: Arc<WorldContext>,
@@ -168,8 +167,7 @@ impl MapManager {
                         map_terrain.clone(),
                         spawns,
                         self.data_store.clone(),
-                    )
-                    .await;
+                    );
                     map_guard.insert(map_key, map.clone());
 
                     Ok(map)
@@ -183,7 +181,7 @@ impl MapManager {
         guard.get(&map_key).cloned()
     }
 
-    pub async fn add_session_to_map(
+    pub fn add_session_to_map(
         &self,
         session: Arc<WorldSession>,
         world_context: Arc<WorldContext>,
@@ -202,7 +200,7 @@ impl MapManager {
         if let Some(from_map_key) = from_map {
             let origin_map = self.maps.read().get(&from_map_key).cloned();
             if let Some(origin_map) = origin_map {
-                origin_map.remove_player(&player_guid).await;
+                origin_map.remove_player(&player_guid);
             }
         }
 
@@ -210,25 +208,23 @@ impl MapManager {
         let destination = MapKey::for_continent(player_position.map);
         let destination_map = self.maps.read().get(&destination).cloned();
         if let Some(destination_map) = destination_map {
-            destination_map
-                .add_player(session.clone(), world_context.clone(), player.clone())
-                .await;
+            destination_map.add_player(session.clone(), world_context.clone(), player.clone());
             session.set_map(destination);
         } else {
             warn!("map {} not found as destination in MapManager", destination);
         }
     }
 
-    pub async fn remove_player_from_map(&self, player_guid: &ObjectGuid, from_map: Option<MapKey>) {
+    pub fn remove_player_from_map(&self, player_guid: &ObjectGuid, from_map: Option<MapKey>) {
         if let Some(from_map_key) = from_map {
             let origin_map = self.maps.read().get(&from_map_key).cloned();
             if let Some(origin_map) = origin_map {
-                origin_map.remove_player(player_guid).await;
+                origin_map.remove_player(player_guid);
             }
         }
     }
 
-    pub async fn add_creature_to_map(
+    pub fn add_creature_to_map(
         &self,
         map_key: MapKey,
         world_context: Arc<WorldContext>,
@@ -236,8 +232,7 @@ impl MapManager {
     ) {
         let guard = self.maps.read();
         if let Some(map) = guard.get(&map_key) {
-            map.add_creature(Some(world_context.clone()), creature.clone())
-                .await;
+            map.add_creature(Some(world_context.clone()), creature.clone());
         }
     }
 
@@ -269,7 +264,7 @@ impl MapManager {
         }
     }
 
-    pub async fn broadcast_movement(
+    pub fn broadcast_movement(
         &self,
         mover: Arc<RwLock<Player>>,
         opcode: Opcode,
@@ -298,7 +293,7 @@ impl MapManager {
         }
     }
 
-    pub async fn update_player_position(
+    pub fn update_player_position(
         &self,
         world_context: Arc<WorldContext>,
         session: Arc<WorldSession>,
@@ -324,8 +319,7 @@ impl MapManager {
                     position,
                     update_data,
                     world_context.clone(),
-                )
-                .await;
+                );
             }
         }
     }
@@ -359,7 +353,7 @@ impl MapManager {
         }
     }
 
-    pub async fn nearby_sessions(
+    pub fn nearby_sessions(
         &self,
         map: Option<MapKey>,
         player_guid: &ObjectGuid,
@@ -382,13 +376,6 @@ impl MapManager {
 
         result
     }
-
-    // pub async fn tick(&self, diff: Duration, world_context: Arc<WorldContext>) {
-    //     let maps = self.maps.read().await;
-    //     for (_, map) in &*maps {
-    //         map.read().await.tick(diff, world_context.clone()).await;
-    //     }
-    // }
 }
 
 #[derive(Eq, Hash, PartialEq, Clone, Copy)]

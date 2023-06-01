@@ -26,24 +26,22 @@ impl OpcodeHandler {
 
             // Register new position
             {
-                world_context
-                    .map_manager
-                    .update_player_position(
-                        world_context.clone(),
-                        session.clone(),
-                        &movement_info.position,
-                    )
-                    .await;
+                world_context.map_manager.update_player_position(
+                    world_context.clone(),
+                    session.clone(),
+                    &movement_info.position,
+                );
 
                 let mut player = session.player.write();
                 player.set_position(&movement_info.position);
             }
 
             // Broadcast to nearby players
-            world_context
-                .map_manager
-                .broadcast_movement(session.player.clone(), opcode, &movement_info)
-                .await;
+            world_context.map_manager.broadcast_movement(
+                session.player.clone(),
+                opcode,
+                &movement_info,
+            );
         }
 
         Box::new(move |session, ctx, data| { handle_movement(opcode, session, ctx, data) }.boxed())

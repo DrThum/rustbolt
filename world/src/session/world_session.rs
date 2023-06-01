@@ -235,18 +235,24 @@ impl WorldSession {
 
         // Process the packet on the world's runtime
         let context_clone = world_context.clone();
-        world_context.clone().map_manager.runtime.spawn(async move {
-            let handler = context_clone
-                .opcode_handler
-                .get_handler(client_message.header.opcode);
+        world_context
+            .clone()
+            .map_manager
+            .runtime
+            .spawn(async move {
+                let handler = context_clone
+                    .opcode_handler
+                    .get_handler(client_message.header.opcode);
 
-            handler(
-                session.clone(),
-                world_context.clone(),
-                client_message.payload,
-            )
-            .await;
-        });
+                handler(
+                    session.clone(),
+                    world_context.clone(),
+                    client_message.payload,
+                )
+                .await;
+            })
+            .await
+            .unwrap();
 
         Ok(())
     }
@@ -300,13 +306,13 @@ impl WorldSession {
         self.player.write().set_map(key);
     }
 
-    pub async fn send_initial_spells(&self) {
+    pub fn send_initial_spells(&self) {
         let spells: Vec<u32> = self.player.read().spells().clone();
         let packet = ServerMessage::new(SmsgInitialSpells::new(spells, Vec::new() /* TODO */));
         self.send(&packet).unwrap();
     }
 
-    pub async fn send_initial_action_buttons(&self) {
+    pub fn send_initial_action_buttons(&self) {
         let action_buttons = self.player.read().action_buttons().clone();
 
         let mut buttons_packed: Vec<u32> = Vec::new();
@@ -323,7 +329,7 @@ impl WorldSession {
         self.send(&packet).unwrap();
     }
 
-    pub async fn send_initial_reputations(&self) {
+    pub fn send_initial_reputations(&self) {
         let faction_standings = self.player.read().faction_standings().clone();
 
         let mut factions: Vec<FactionInit> = Vec::with_capacity(MAX_VISIBLE_REPUTATIONS);
@@ -352,7 +358,7 @@ impl WorldSession {
         self.send(&packet).unwrap();
     }
 
-    pub async fn build_chat_packet(
+    pub fn build_chat_packet(
         &self,
         message_type: ChatMessageType,
         language: Language,
@@ -379,7 +385,7 @@ impl WorldSession {
         self.known_guids.write().retain(|g| g != guid);
     }
 
-    pub async fn is_guid_known(&self, guid: &ObjectGuid) -> bool {
+    pub fn is_guid_known(&self, guid: &ObjectGuid) -> bool {
         if guid == self.player.read().guid() {
             return true;
         }
@@ -387,7 +393,7 @@ impl WorldSession {
         self.known_guids.read().contains(guid)
     }
 
-    pub async fn create_entity(&self, guid: &ObjectGuid, payload: SmsgCreateObject) {
+    pub fn create_entity(&self, guid: &ObjectGuid, payload: SmsgCreateObject) {
         let packet = ServerMessage::new(payload);
 
         self.send(&packet).unwrap();
@@ -400,8 +406,8 @@ impl WorldSession {
         self.send(&packet).unwrap();
     }
 
-    pub async fn destroy_entity(&self, guid: &ObjectGuid) {
-        if self.is_guid_known(guid).await {
+    pub fn destroy_entity(&self, guid: &ObjectGuid) {
+        if self.is_guid_known(guid) {
             let packet = ServerMessage::new(SmsgDestroyObject { guid: guid.raw() });
 
             self.send(&packet).unwrap();
@@ -409,7 +415,7 @@ impl WorldSession {
         }
     }
 
-    pub async fn send_attack_stop(&self, target_guid: Option<ObjectGuid>) {
+    pub fn send_attack_stop(&self, target_guid: Option<ObjectGuid>) {
         let packet = ServerMessage::new(SmsgAttackStop {
             player_guid: self.player.read().guid().as_packed(),
             enemy_guid: target_guid.unwrap_or(ObjectGuid::zero()).as_packed(),

@@ -21,7 +21,6 @@ impl OpcodeHandler {
             match world_context
                 .map_manager
                 .lookup_entity(&target_guid, session.get_current_map())
-                .await
             {
                 Some(entity) => {
                     let entity_guard = entity.read().guid().is_unit();

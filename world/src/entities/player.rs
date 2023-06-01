@@ -863,7 +863,6 @@ impl WorldEntity for Player {
                 world_context
                     .map_manager
                     .lookup_entity(&sel, self.map_key)
-                    .await
             }
             _ => None,
         };

@@ -104,7 +104,6 @@ impl OpcodeHandler {
             if let Some(entity_ref) = world_context
                 .map_manager
                 .lookup_entity(&target_guid, session.get_current_map())
-                .await
             {
                 target_name = entity_ref.read().name();
             }

@@ -236,7 +236,7 @@ impl MapManager {
         }
     }
 
-    pub async fn lookup_entity(
+    pub fn lookup_entity(
         &self,
         guid: &ObjectGuid,
         map_key: Option<MapKey>,

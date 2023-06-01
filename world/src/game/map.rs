@@ -140,7 +140,6 @@ impl Map {
                 if let Some(entity) = world_context
                     .map_manager
                     .lookup_entity(&guid, Some(self.key))
-                    .await
                 {
                     // Broadcast the new player to nearby players and to itself
                     if let Some(other_session) = self.sessions.read().get(&guid) {

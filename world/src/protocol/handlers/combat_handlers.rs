@@ -20,34 +20,29 @@ impl OpcodeHandler {
         if let Some(target_guid) = ObjectGuid::from_raw(cmsg.guid) {
             match world_context
                 .map_manager
-                .lookup_entity(&target_guid, session.get_current_map().await)
+                .lookup_entity(&target_guid, session.get_current_map())
                 .await
             {
                 Some(entity) => {
-                    let entity_guard = entity.read().await;
-                    if !entity_guard.guid().is_unit() {
+                    let entity_guard = entity.read().guid().is_unit();
+                    if !entity_guard {
                         warn!("player attempted to attack non-unit entity {target_guid:?}");
                         session.send_attack_stop(Some(target_guid)).await;
                         return;
                     }
 
-                    session.player.write().await.set_attacking(true);
+                    session.player.write().set_attacking(true);
 
                     // If melee
                     let packet = ServerMessage::new(SmsgAttackStart {
-                        attacker_guid: session.player.read().await.guid().raw(),
+                        attacker_guid: session.player.read().guid().raw(),
                         target_guid: cmsg.guid,
                     });
 
+                    let guid: &ObjectGuid = &session.player.read().guid().clone();
                     world_context
                         .map_manager
-                        .broadcast_packet(
-                            session.player.read().await.guid(),
-                            session.get_current_map().await,
-                            &packet,
-                            None,
-                            true,
-                        )
+                        .broadcast_packet(guid, session.get_current_map(), &packet, None, true)
                         .await;
                 }
                 None => {
@@ -66,7 +61,7 @@ impl OpcodeHandler {
         _data: Vec<u8>,
     ) {
         let packet = {
-            let player_guard = session.player.read().await;
+            let player_guard = session.player.read();
             ServerMessage::new(SmsgAttackStop {
                 player_guid: player_guard.guid().as_packed(),
                 enemy_guid: player_guard
@@ -77,18 +72,13 @@ impl OpcodeHandler {
             })
         };
 
+        let guid: &ObjectGuid = &session.player.read().guid().clone();
         world_context
             .map_manager
-            .broadcast_packet(
-                session.player.read().await.guid(),
-                session.get_current_map().await,
-                &packet,
-                None,
-                true,
-            )
+            .broadcast_packet(guid, session.get_current_map(), &packet, None, true)
             .await;
 
-        let mut player_guard = session.player.write().await;
+        let mut player_guard = session.player.write();
         player_guard.set_attacking(false);
         player_guard.set_selection(0);
     }

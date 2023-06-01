@@ -35,7 +35,7 @@ impl OpcodeHandler {
                     )
                     .await;
 
-                let mut player = session.player.write().await;
+                let mut player = session.player.write();
                 player.set_position(&movement_info.position);
             }
 

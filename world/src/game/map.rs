@@ -6,10 +6,7 @@ use std::{
 
 use log::{error, warn};
 use shared::models::terrain_info::{TerrainBlock, BLOCK_WIDTH, MAP_WIDTH_IN_BLOCKS};
-use tokio::{
-    sync::RwLock,
-    time::{interval, Instant},
-};
+use tokio::time::{interval, Instant};
 
 use crate::{
     entities::{
@@ -36,10 +33,12 @@ pub const DEFAULT_VISIBILITY_DISTANCE: f32 = 90.0;
 pub struct Map {
     key: MapKey,
     world_context: Arc<WorldContext>,
-    sessions: RwLock<HashMap<ObjectGuid, Arc<WorldSession>>>,
-    entities: RwLock<HashMap<ObjectGuid, Arc<RwLock<dyn WorldEntity + Sync + Send>>>>,
+    sessions: parking_lot::RwLock<HashMap<ObjectGuid, Arc<WorldSession>>>,
+    entities: parking_lot::RwLock<
+        HashMap<ObjectGuid, Arc<parking_lot::RwLock<dyn WorldEntity + Sync + Send>>>,
+    >,
     terrain: Arc<HashMap<TerrainBlockCoords, TerrainBlock>>,
-    entities_tree: RwLock<QuadTree>,
+    entities_tree: parking_lot::RwLock<QuadTree>,
     visibility_distance: f32,
 }
 
@@ -54,10 +53,10 @@ impl Map {
         let map = Map {
             key,
             world_context,
-            sessions: RwLock::new(HashMap::new()),
-            entities: RwLock::new(HashMap::new()),
+            sessions: parking_lot::RwLock::new(HashMap::new()),
+            entities: parking_lot::RwLock::new(HashMap::new()),
             terrain,
-            entities_tree: RwLock::new(QuadTree::new(
+            entities_tree: parking_lot::RwLock::new(QuadTree::new(
                 super::quad_tree::QUADTREE_DEFAULT_NODE_CAPACITY,
             )),
             visibility_distance: DEFAULT_VISIBILITY_DISTANCE,
@@ -65,7 +64,7 @@ impl Map {
 
         for spawn in spawns {
             if let Some(creature) = Creature::from_spawn(&spawn, data_store.clone()) {
-                map.add_creature(None, Arc::new(RwLock::new(creature)))
+                map.add_creature(None, Arc::new(parking_lot::RwLock::new(creature)))
                     .await;
             } else {
                 warn!("failed to spawn creature with guid {}", spawn.guid);
@@ -98,9 +97,9 @@ impl Map {
         &self,
         session: Arc<WorldSession>,
         world_context: Arc<WorldContext>,
-        player: Arc<RwLock<Player>>,
+        player: Arc<parking_lot::RwLock<Player>>,
     ) {
-        let player_guard = player.read().await;
+        let player_guard = player.read();
         let player_guid = player_guard.guid().clone();
         let player_position = player_guard.position().to_position();
         drop(player_guard);
@@ -110,7 +109,7 @@ impl Map {
         session.send_initial_reputations().await;
 
         {
-            let mut guard = self.sessions.write().await;
+            let mut guard = self.sessions.write();
             if let Some(previous_session) = guard.insert(player_guid.clone(), session.clone()) {
                 warn!(
                     "session from account {} was already on map {}",
@@ -120,20 +119,19 @@ impl Map {
         }
 
         {
-            let mut tree = self.entities_tree.write().await;
+            let mut tree = self.entities_tree.write();
             tree.insert(player_position, player_guid);
         }
 
         self.entities
             .write()
-            .await
             .insert(player_guid.clone(), player.clone());
 
         {
-            let player_guard = player.read().await;
+            let player_guard = player.read();
 
             // TODO: Maybe we can group all updates within the same packet?
-            for guid in self.entities_tree.read().await.search_around_position(
+            for guid in self.entities_tree.read().search_around_position(
                 &player_position,
                 self.visibility_distance(),
                 true,
@@ -145,7 +143,7 @@ impl Map {
                     .await
                 {
                     // Broadcast the new player to nearby players and to itself
-                    if let Some(other_session) = self.sessions.read().await.get(&guid) {
+                    if let Some(other_session) = self.sessions.read().get(&guid) {
                         let update_data =
                             player_guard.get_create_data(guid.raw(), world_context.clone());
                         let smsg_update_object = SmsgCreateObject {
@@ -164,7 +162,6 @@ impl Map {
                         // Don't send the player to itself twice
                         let update_data = entity
                             .read()
-                            .await
                             .get_create_data(player_guid.raw(), world_context.clone());
                         let smsg_update_object = SmsgCreateObject {
                             updates_count: update_data.len() as u32,
@@ -182,22 +179,21 @@ impl Map {
     }
 
     pub async fn remove_player(&self, player_guid: &ObjectGuid) {
-        self.entities.write().await.remove(player_guid);
+        self.entities.write().remove(player_guid);
 
         {
-            let other_sessions = self
-                .sessions_nearby_entity(player_guid, self.visibility_distance(), false, false)
-                .await;
+            let other_sessions =
+                self.sessions_nearby_entity(player_guid, self.visibility_distance(), false, false);
             for other_session in other_sessions {
                 other_session.destroy_entity(player_guid).await;
             }
 
-            let mut tree = self.entities_tree.write().await;
+            let mut tree = self.entities_tree.write();
             tree.delete(player_guid);
         }
 
         {
-            let mut guard = self.sessions.write().await;
+            let mut guard = self.sessions.write();
             if let None = guard.remove(player_guid) {
                 warn!("player guid {:?} was not on map {}", player_guid, self.key);
             }
@@ -207,16 +203,16 @@ impl Map {
     pub async fn add_creature(
         &self,
         world_context: Option<Arc<WorldContext>>, // None during startup
-        creature: Arc<RwLock<Creature>>,
+        creature: Arc<parking_lot::RwLock<Creature>>,
     ) {
-        let creature_guard = creature.read().await;
+        let creature_guard = creature.read();
         let position = creature_guard.position().to_position();
         let guid = creature_guard.guid().clone();
 
-        self.entities.write().await.insert(guid, creature.clone());
+        self.entities.write().insert(guid, creature.clone());
 
         {
-            let mut tree = self.entities_tree.write().await;
+            let mut tree = self.entities_tree.write();
             tree.insert(position, guid);
         }
 
@@ -226,7 +222,7 @@ impl Map {
                 .await
             {
                 // Broadcast the new creature to nearby players
-                let player = session.player.read().await;
+                let player = session.player.read();
                 let update_data =
                     creature_guard.get_create_data(player.guid().raw(), world_context.clone());
                 let smsg_update_object = SmsgCreateObject {
@@ -250,10 +246,11 @@ impl Map {
         create_data: Vec<CreateData>,
         world_context: Arc<WorldContext>,
     ) {
-        let mut tree = self.entities_tree.write().await;
-
-        let previous_position = tree.update(new_position, player_guid);
-        drop(tree);
+        let previous_position: Option<Position>;
+        {
+            let mut tree = self.entities_tree.write();
+            previous_position = tree.update(new_position, player_guid);
+        }
 
         if let Some(previous_position) = previous_position {
             if previous_position.x == new_position.x
@@ -264,14 +261,14 @@ impl Map {
             }
 
             let visibility_distance = self.visibility_distance();
-            let in_range_before = self.entities_tree.read().await.search_around_position(
+            let in_range_before = self.entities_tree.read().search_around_position(
                 &previous_position,
                 visibility_distance,
                 true,
                 Some(player_guid),
             );
             let in_range_before: HashSet<ObjectGuid> = in_range_before.iter().cloned().collect();
-            let in_range_now = self.entities_tree.read().await.search_around_position(
+            let in_range_now = self.entities_tree.read().search_around_position(
                 new_position,
                 self.visibility_distance(),
                 true,
@@ -289,8 +286,9 @@ impl Map {
             };
 
             for other_guid in appeared_for {
-                if let Some(entity) = self.lookup_entity(&other_guid).await {
-                    if let Some(other_session) = self.sessions.read().await.get(&other_guid) {
+                if let Some(entity) = self.lookup_entity(&other_guid) {
+                    let other_session = self.sessions.read().get(&other_guid).cloned();
+                    if let Some(other_session) = other_session {
                         // Make the moving player appear for the other player
                         other_session
                             .create_entity(player_guid, smsg_create_object.clone())
@@ -300,7 +298,6 @@ impl Map {
                     // Make the entity (player or otherwise) appear for the moving player
                     let create_data = entity
                         .read()
-                        .await
                         .get_create_data(player_guid.raw(), world_context.clone());
                     let smsg_create_object = SmsgCreateObject {
                         updates_count: create_data.len() as u32,
@@ -314,7 +311,8 @@ impl Map {
             }
 
             for other_guid in disappeared_for {
-                if let Some(other_session) = self.sessions.read().await.get(&other_guid) {
+                let other_session = self.sessions.read().get(&other_guid).cloned();
+                if let Some(other_session) = other_session {
                     // Destroy the moving player for the other player
                     other_session.destroy_entity(player_guid).await;
                 }
@@ -327,21 +325,21 @@ impl Map {
         }
     }
 
-    pub async fn lookup_entity(
+    pub fn lookup_entity(
         &self,
         guid: &ObjectGuid,
-    ) -> Option<Arc<RwLock<dyn WorldEntity + Sync + Send>>> {
-        self.entities.read().await.get(guid).cloned()
+    ) -> Option<Arc<parking_lot::RwLock<dyn WorldEntity + Sync + Send>>> {
+        self.entities.read().get(guid).cloned()
     }
 
-    pub async fn sessions_nearby_entity(
+    pub fn sessions_nearby_entity(
         &self,
         source_guid: &ObjectGuid,
         range: f32,
         search_in_3d: bool,
         include_self: bool,
     ) -> Vec<Arc<WorldSession>> {
-        let guids = self.entities_tree.read().await.search_around_entity(
+        let guids = self.entities_tree.read().search_around_entity(
             source_guid,
             range,
             search_in_3d,
@@ -354,7 +352,6 @@ impl Map {
 
         self.sessions
             .read()
-            .await
             .iter()
             .filter_map(|(&guid, session)| {
                 if guids.contains(&guid) {
@@ -373,7 +370,7 @@ impl Map {
         search_in_3d: bool,
         exclude_guid: Option<&ObjectGuid>,
     ) -> Vec<Arc<WorldSession>> {
-        let guids = self.entities_tree.read().await.search_around_position(
+        let guids = self.entities_tree.read().search_around_position(
             position,
             range,
             search_in_3d,
@@ -382,7 +379,6 @@ impl Map {
 
         self.sessions
             .read()
-            .await
             .iter()
             .filter_map(|(&guid, session)| {
                 if guids.contains(&guid) {
@@ -416,19 +412,21 @@ impl Map {
     }
 
     pub async fn tick(&self, diff: Duration) {
-        let entities = self.entities.read().await;
+        let entities = self.entities.read();
         for (_, entity) in &*entities {
-            let mut entity = entity.write().await;
+            let mut entity = entity.write();
             entity.tick(diff, self.world_context.clone()).await;
 
             // Broadcast the changes to nearby players
             if entity.has_updates() {
-                for session in self
-                    .sessions_nearby_entity(entity.guid(), self.visibility_distance(), true, false)
-                    .await
-                {
+                for session in self.sessions_nearby_entity(
+                    entity.guid(),
+                    self.visibility_distance(),
+                    true,
+                    false,
+                ) {
                     let update_data = entity.get_update_data(
-                        session.player.read().await.guid().raw(),
+                        session.player.read().guid().raw(),
                         self.world_context.clone(),
                     );
 
@@ -447,6 +445,6 @@ impl Map {
     }
 
     pub async fn get_session(&self, player_guid: &ObjectGuid) -> Option<Arc<WorldSession>> {
-        self.sessions.read().await.get(player_guid).cloned()
+        self.sessions.read().get(player_guid).cloned()
     }
 }

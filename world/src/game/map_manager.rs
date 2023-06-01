@@ -3,13 +3,16 @@ use std::{collections::HashMap, fmt::Display, sync::Arc};
 use atomic_counter::{AtomicCounter, RelaxedCounter};
 use log::{info, warn};
 use shared::models::terrain_info::{TerrainBlock, MAP_WIDTH_IN_BLOCKS};
-use tokio::{runtime::Runtime, sync::RwLock};
+use tokio::runtime::Runtime;
 
 use crate::{
     config::WorldConfig,
     entities::{
-        creature::Creature, object_guid::ObjectGuid, player::Player, position::Position,
-        update::WorldEntity,
+        creature::Creature,
+        object_guid::ObjectGuid,
+        player::Player,
+        position::Position,
+        update::{CreateData, WorldEntity},
     },
     protocol::{self, opcodes::Opcode, packets::MovementInfo, server::ServerMessage},
     repositories::creature::CreatureRepository,
@@ -33,7 +36,7 @@ pub struct TerrainBlockCoords {
 pub struct MapManager {
     rt: Runtime,
     config: Arc<WorldConfig>,
-    maps: RwLock<HashMap<MapKey, Arc<Map>>>,
+    maps: parking_lot::RwLock<HashMap<MapKey, Arc<Map>>>,
     data_store: Arc<DataStore>,
     next_instance_id: RelaxedCounter,
     terrains: parking_lot::RwLock<HashMap<u32, Arc<HashMap<TerrainBlockCoords, TerrainBlock>>>>,
@@ -52,7 +55,7 @@ impl MapManager {
         Self {
             rt: world_runtime,
             config,
-            maps: RwLock::new(maps),
+            maps: parking_lot::RwLock::new(maps),
             data_store,
             next_instance_id: RelaxedCounter::new(1),
             terrains: parking_lot::RwLock::new(terrains),
@@ -102,7 +105,7 @@ impl MapManager {
 
             let key = MapKey::for_continent(map.id);
             self.rt.block_on(async {
-                self.maps.write().await.insert(
+                self.maps.write().insert(
                     key,
                     Map::new(
                         key,
@@ -155,7 +158,7 @@ impl MapManager {
                             Arc::new(map_terrains)
                         });
 
-                    let mut map_guard = self.maps.write().await;
+                    let mut map_guard = self.maps.write();
                     let instance_id: u32 = self.next_instance_id.inc().try_into().unwrap();
 
                     let spawns = CreatureRepository::load_creature_spawns(conn, map_id);
@@ -177,47 +180,45 @@ impl MapManager {
         }
     }
 
-    pub async fn get_map(&self, map_key: MapKey) -> Option<Arc<Map>> {
-        let guard = self.maps.read().await;
+    pub fn get_map(&self, map_key: MapKey) -> Option<Arc<Map>> {
+        let guard = self.maps.read();
         guard.get(&map_key).cloned()
     }
 
-    pub async fn add_session_to_map(
+    pub fn add_session_to_map(
         &self,
         session: Arc<WorldSession>,
         world_context: Arc<WorldContext>,
-        player: Arc<RwLock<Player>>,
+        player: Arc<parking_lot::RwLock<Player>>,
     ) {
-        let player_guard = player.read().await;
+        let player_guard = player.read();
         let from_map = player_guard.current_map();
         let player_position = player_guard.position().clone();
         let player_guid = player_guard.guid().clone();
         drop(player_guard);
 
-        let guard = self.maps.read().await;
+        let guard = self.maps.read();
         if let Some(from_map_key) = from_map {
             if let Some(origin_map) = guard.get(&from_map_key) {
-                origin_map.remove_player(&player_guid).await;
+                origin_map.remove_player(&player_guid);
             }
         }
 
         // TODO: handle instance id here
         let destination = MapKey::for_continent(player_position.map);
         if let Some(destination_map) = guard.get(&destination) {
-            destination_map
-                .add_player(session.clone(), world_context.clone(), player.clone())
-                .await;
-            session.set_map(destination).await;
+            destination_map.add_player(session.clone(), world_context.clone(), player.clone());
+            session.set_map(destination);
         } else {
             warn!("map {} not found as destination in MapManager", destination);
         }
     }
 
     pub async fn remove_player_from_map(&self, player_guid: &ObjectGuid, from_map: Option<MapKey>) {
-        let guard = self.maps.read().await;
+        let guard = self.maps.read();
         if let Some(from_map_key) = from_map {
             if let Some(origin_map) = guard.get(&from_map_key) {
-                origin_map.remove_player(player_guid).await;
+                origin_map.remove_player(player_guid);
             }
         }
     }
@@ -226,9 +227,9 @@ impl MapManager {
         &self,
         map_key: MapKey,
         world_context: Arc<WorldContext>,
-        creature: Arc<RwLock<Creature>>,
+        creature: Arc<parking_lot::RwLock<Creature>>,
     ) {
-        let guard = self.maps.read().await;
+        let guard = self.maps.read();
         if let Some(map) = guard.get(&map_key) {
             map.add_creature(Some(world_context.clone()), creature.clone())
                 .await;
@@ -239,17 +240,19 @@ impl MapManager {
         &self,
         guid: &ObjectGuid,
         map_key: Option<MapKey>,
-    ) -> Option<Arc<RwLock<dyn WorldEntity + Sync + Send>>> {
+    ) -> Option<Arc<parking_lot::RwLock<dyn WorldEntity + Sync + Send>>> {
         if let Some(map_key) = map_key {
-            if let Some(map) = self.maps.read().await.get(&map_key) {
-                map.lookup_entity(guid).await
+            let maps = self.maps.read();
+            let map = maps.get(&map_key);
+            if let Some(map) = map {
+                map.lookup_entity(guid)
             } else {
                 None
             }
         } else if guid.is_player() {
-            let map_guard = self.maps.read().await;
+            let map_guard = self.maps.read();
             for (_, map) in &*map_guard {
-                if let Some(entity) = map.lookup_entity(guid).await {
+                if let Some(entity) = map.lookup_entity(guid) {
                     return Some(entity);
                 }
             }
@@ -263,25 +266,27 @@ impl MapManager {
 
     pub async fn broadcast_movement(
         &self,
-        mover: Arc<RwLock<Player>>,
+        mover: Arc<parking_lot::RwLock<Player>>,
         opcode: Opcode,
         movement_info: &MovementInfo,
     ) {
-        let player_guard = mover.read().await;
-        if let Some(current_map_key) = player_guard.current_map() {
-            let maps_guard = self.maps.read().await;
-            if let Some(map) = maps_guard.get(&current_map_key) {
-                for session in map
-                    .sessions_nearby_entity(
-                        player_guard.guid(),
-                        map.visibility_distance(),
-                        true,
-                        false,
-                    )
-                    .await
+        let player_guid: ObjectGuid;
+        let current_map_key: Option<MapKey>;
+
+        {
+            let player_guard = mover.read();
+            player_guid = player_guard.guid().clone();
+            current_map_key = player_guard.current_map();
+        }
+
+        if let Some(current_map_key) = current_map_key {
+            let map: Option<Arc<Map>> = self.maps.read().get(&current_map_key).cloned();
+            if let Some(map) = map {
+                for session in
+                    map.sessions_nearby_entity(&player_guid, map.visibility_distance(), true, false)
                 {
                     session
-                        .send_movement(opcode, player_guard.guid(), movement_info)
+                        .send_movement(opcode, &player_guid, movement_info)
                         .await
                         .unwrap();
                 }
@@ -295,15 +300,20 @@ impl MapManager {
         session: Arc<WorldSession>,
         position: &Position,
     ) {
-        if let Some(current_map_key) = session.get_current_map().await {
-            let maps_guard = self.maps.read().await;
-            if let Some(map) = maps_guard.get(&current_map_key) {
-                let player_guard = session.player.read().await;
+        if let Some(current_map_key) = session.get_current_map() {
+            let map: Option<Arc<Map>>;
+            {
+                map = self.maps.read().get(&current_map_key).cloned();
+            }
+            if let Some(map) = map {
+                let update_data: Vec<CreateData>;
+                let player_guid: ObjectGuid;
+                {
+                    let player_guard = session.player.read();
+                    update_data = player_guard.get_create_data(0, world_context.clone());
+                    player_guid = player_guard.guid().clone();
+                }
 
-                let update_data = player_guard.get_create_data(0, world_context.clone());
-
-                let player_guid = player_guard.guid().clone();
-                drop(player_guard);
                 map.update_player_position(
                     &player_guid,
                     session.clone(),
@@ -328,17 +338,17 @@ impl MapManager {
         include_self: bool,
     ) {
         if let Some(current_map_key) = map_key {
-            let maps_guard = self.maps.read().await;
-            if let Some(map) = maps_guard.get(&current_map_key) {
-                for session in map
-                    .sessions_nearby_entity(
-                        origin_guid,
-                        range.unwrap_or(map.visibility_distance()),
-                        true,
-                        include_self,
-                    )
-                    .await
-                {
+            let map: Option<Arc<Map>>;
+            {
+                map = self.maps.read().get(&current_map_key).cloned();
+            }
+            if let Some(map) = map {
+                for session in map.sessions_nearby_entity(
+                    origin_guid,
+                    range.unwrap_or(map.visibility_distance()),
+                    true,
+                    include_self,
+                ) {
                     session.send(packet).await.unwrap();
                 }
             }
@@ -354,16 +364,14 @@ impl MapManager {
         let mut result = Vec::new();
 
         if let Some(current_map_key) = map {
-            let maps_guard = self.maps.read().await;
+            let maps_guard = self.maps.read();
             if let Some(map) = maps_guard.get(&current_map_key) {
-                let sessions = &mut map
-                    .sessions_nearby_entity(
-                        player_guid,
-                        map.visibility_distance(),
-                        true,
-                        include_self,
-                    )
-                    .await;
+                let sessions = &mut map.sessions_nearby_entity(
+                    player_guid,
+                    map.visibility_distance(),
+                    true,
+                    include_self,
+                );
                 result.append(sessions);
             }
         }

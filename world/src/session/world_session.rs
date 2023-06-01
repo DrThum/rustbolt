@@ -8,12 +8,7 @@ use std::{
 };
 
 use log::trace;
-use tokio::{
-    io::AsyncWriteExt,
-    net::TcpStream,
-    sync::{Mutex, RwLock},
-    task::JoinHandle,
-};
+use tokio::{io::AsyncWriteExt, net::TcpStream, sync::Mutex, task::JoinHandle};
 use wow_srp::tbc_header::HeaderCrypto;
 
 use crate::{
@@ -49,7 +44,7 @@ pub struct WorldSession {
     socket: WorldSocket,
     pub account_id: u32,
     pub state: parking_lot::RwLock<WorldSessionState>,
-    pub player: Arc<RwLock<Player>>,
+    pub player: Arc<parking_lot::RwLock<Player>>,
     client_latency: AtomicU32,
     server_time_sync: Mutex<TimeSync>,
     time_sync_handle: Mutex<Option<JoinHandle<()>>>,
@@ -80,7 +75,7 @@ impl WorldSession {
             socket,
             account_id,
             state: parking_lot::RwLock::new(WorldSessionState::OnCharactersList),
-            player: Arc::new(RwLock::new(Player::new())),
+            player: Arc::new(parking_lot::RwLock::new(Player::new())),
             client_latency: AtomicU32::new(0),
             server_time_sync: Mutex::new(TimeSync {
                 server_counter: 0,
@@ -110,7 +105,7 @@ impl WorldSession {
 
         if self.is_in_world() {
             {
-                let mut player = self.player.write().await;
+                let mut player = self.player.write();
                 let transaction = conn.transaction().unwrap();
                 player.save(&transaction).unwrap();
                 transaction.commit().unwrap();
@@ -276,23 +271,22 @@ impl WorldSession {
         *guard = Some(jh);
     }
 
-    pub async fn get_current_map(&self) -> Option<MapKey> {
-        self.player.read().await.current_map()
+    pub fn get_current_map(&self) -> Option<MapKey> {
+        self.player.read().current_map()
     }
 
-    pub async fn set_map(&self, key: MapKey) {
-        let mut guard = self.player.write().await;
-        guard.set_map(key);
+    pub fn set_map(&self, key: MapKey) {
+        self.player.write().set_map(key);
     }
 
     pub async fn send_initial_spells(&self) {
-        let spells: Vec<u32> = self.player.read().await.spells().clone();
+        let spells: Vec<u32> = self.player.read().spells().clone();
         let packet = ServerMessage::new(SmsgInitialSpells::new(spells, Vec::new() /* TODO */));
         self.send(&packet).await.unwrap();
     }
 
     pub async fn send_initial_action_buttons(&self) {
-        let player_guard = self.player.read().await;
+        let player_guard = self.player.read();
         let action_buttons: &HashMap<usize, ActionButton> = player_guard.action_buttons();
 
         let mut buttons_packed: Vec<u32> = Vec::new();
@@ -310,7 +304,7 @@ impl WorldSession {
     }
 
     pub async fn send_initial_reputations(&self) {
-        let player_guard = self.player.read().await;
+        let player_guard = self.player.read();
         let faction_standings = player_guard.faction_standings();
 
         let mut factions: Vec<FactionInit> = Vec::with_capacity(MAX_VISIBLE_REPUTATIONS);
@@ -349,7 +343,7 @@ impl WorldSession {
         SmsgMessageChat {
             message_type,
             language,
-            sender_guid: self.player.read().await.guid().raw(),
+            sender_guid: self.player.read().guid().raw(),
             unk: 0,
             target_guid: target_guid.map_or(0, |g| g.raw()),
             message_len: message.len() as u32 + 1,
@@ -367,7 +361,7 @@ impl WorldSession {
     }
 
     pub async fn is_guid_known(&self, guid: &ObjectGuid) -> bool {
-        if guid == self.player.read().await.guid() {
+        if guid == self.player.read().guid() {
             return true;
         }
 
@@ -398,7 +392,7 @@ impl WorldSession {
 
     pub async fn send_attack_stop(&self, target_guid: Option<ObjectGuid>) {
         let packet = ServerMessage::new(SmsgAttackStop {
-            player_guid: self.player.read().await.guid().as_packed(),
+            player_guid: self.player.read().guid().as_packed(),
             enemy_guid: target_guid.unwrap_or(ObjectGuid::zero()).as_packed(),
             unk: 0,
         });

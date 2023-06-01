@@ -96,7 +96,7 @@ impl OpcodeHandler {
         let conn = world_context.database.characters.get().unwrap();
 
         {
-            let mut player = session.player.write().await;
+            let mut player = session.player.write();
             player.load(
                 &conn,
                 account_id,
@@ -114,8 +114,7 @@ impl OpcodeHandler {
         session.send(&msg_set_dungeon_difficulty).await.unwrap();
 
         {
-            let player = session.player.read().await;
-            let player_position = player.position();
+            let player_position = session.player.read().position().clone();
             let smsg_login_verify_world = ServerMessage::new(SmsgLoginVerifyWorld {
                 map: player_position.map,
                 position_x: player_position.x,
@@ -202,14 +201,11 @@ impl OpcodeHandler {
         session.send(&smsg_login_settimespeed).await.unwrap();
 
         {
-            world_context
-                .map_manager
-                .add_session_to_map(
-                    session.clone(),
-                    world_context.clone(),
-                    session.player.clone(),
-                )
-                .await;
+            world_context.map_manager.add_session_to_map(
+                session.clone(),
+                world_context.clone(),
+                session.player.clone(),
+            );
 
             let mut session_state = session.state.write();
             *session_state = WorldSessionState::InWorld;
@@ -245,10 +241,11 @@ impl OpcodeHandler {
         session.send(&packet).await.unwrap();
 
         {
-            let player_guard = session.player.read().await;
+            let player_guid = session.player.read().guid().clone();
+            let current_map_key = session.player.read().current_map();
             world_context
                 .map_manager
-                .remove_player_from_map(player_guard.guid(), player_guard.current_map())
+                .remove_player_from_map(&player_guid, current_map_key)
                 .await;
         }
 
@@ -305,7 +302,6 @@ impl OpcodeHandler {
             session
                 .player
                 .write()
-                .await
                 .set_stand_state(cmsg_stand_state_change.animstate);
         }
 
@@ -325,7 +321,6 @@ impl OpcodeHandler {
         session
             .player
             .write()
-            .await
             .set_sheath_state(cmsg_set_sheathed.sheath_state);
     }
 }

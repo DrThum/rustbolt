@@ -10,7 +10,6 @@ use log::{error, warn};
 use r2d2::PooledConnection;
 use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::{named_params, Error, Transaction};
-use tokio::sync::RwLock;
 
 use crate::{
     datastore::{data_types::PlayerCreatePosition, DataStore},
@@ -748,7 +747,7 @@ impl Player {
     // - (later) is not currently casting a non-melee spell
     async fn attempt_melee_attack(
         &mut self,
-        target: Arc<RwLock<dyn WorldEntity + Send + Sync>>,
+        target: Arc<parking_lot::RwLock<dyn WorldEntity + Send + Sync>>,
         world_context: Arc<WorldContext>,
     ) {
         if !self.is_attacking {
@@ -761,11 +760,8 @@ impl Player {
             return;
         }
 
-        let melee_reach_for_target =
-            self.melee_reach_for_target(target.read().await.combat_reach());
-        let distance = self
-            .position()
-            .distance_to(target.read().await.position(), true);
+        let melee_reach_for_target = self.melee_reach_for_target(target.read().combat_reach());
+        let distance = self.position().distance_to(target.read().position(), true);
 
         if distance >= melee_reach_for_target {
             // Retry a bit later
@@ -784,7 +780,6 @@ impl Player {
                 let map = world_context
                     .map_manager
                     .get_map(self.map_key.unwrap())
-                    .await
                     .unwrap();
                 let my_session = map.get_session(self.guid()).await.unwrap();
                 my_session.send(&packet).await.unwrap();
@@ -798,12 +793,12 @@ impl Player {
         self.last_melee_error = None;
 
         if self.is_weapon_ready(WeaponAttackType::MainHand) {
-            target.write().await.modify_health(-5);
+            target.write().modify_health(-5);
 
             let packet = ServerMessage::new(SmsgAttackerStateUpdate {
                 hit_info: 2, // TODO enum HitInfo
                 attacker_guid: self.guid().as_packed(),
-                target_guid: target.read().await.guid().as_packed(),
+                target_guid: target.read().guid().as_packed(),
                 actual_damage: 1,
                 sub_damage_count: 1,
                 sub_damage_school_mask: 1, // Physical

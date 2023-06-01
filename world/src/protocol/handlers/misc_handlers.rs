@@ -30,6 +30,6 @@ impl OpcodeHandler {
         data: Vec<u8>,
     ) {
         let cmsg: CmsgSetSelection = ClientMessage::read_as(data).unwrap();
-        session.player.write().await.set_selection(cmsg.guid);
+        session.player.write().set_selection(cmsg.guid);
     }
 }

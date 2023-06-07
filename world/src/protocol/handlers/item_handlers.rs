@@ -8,7 +8,7 @@ use crate::session::opcode_handler::OpcodeHandler;
 use crate::session::world_session::WorldSession;
 
 impl OpcodeHandler {
-    pub(crate) async fn handle_cmsg_item_query_single(
+    pub(crate) fn handle_cmsg_item_query_single(
         session: Arc<WorldSession>,
         world_context: Arc<WorldContext>,
         data: Vec<u8>,

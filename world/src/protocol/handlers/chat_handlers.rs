@@ -15,7 +15,7 @@ use crate::{
 };
 
 impl OpcodeHandler {
-    pub(crate) async fn handle_cmsg_message_chat(
+    pub(crate) fn handle_cmsg_message_chat(
         session: Arc<WorldSession>,
         world_context: Arc<WorldContext>,
         data: Vec<u8>,
@@ -54,7 +54,7 @@ impl OpcodeHandler {
         }
     }
 
-    pub(crate) async fn handle_cmsg_text_emote(
+    pub(crate) fn handle_cmsg_text_emote(
         session: Arc<WorldSession>,
         world_context: Arc<WorldContext>,
         data: Vec<u8>,

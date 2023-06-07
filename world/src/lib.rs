@@ -20,6 +20,7 @@ pub use session::session_holder::SessionHolder;
 use session::world_session::WorldSession;
 use tokio::io::AsyncReadExt;
 use tokio::net::TcpStream;
+use tokio::sync::mpsc::error::SendError;
 use wow_srp::normalized_string::NormalizedString;
 use wow_srp::tbc_header::ProofSeed;
 
@@ -100,6 +101,15 @@ pub enum WorldSocketError {
 impl From<std::io::Error> for WorldSocketError {
     fn from(value: std::io::Error) -> Self {
         Self::SocketError(value)
+    }
+}
+
+impl<T> From<SendError<T>> for WorldSocketError {
+    fn from(_value: SendError<T>) -> Self {
+        Self::SocketError(std::io::Error::new(
+            std::io::ErrorKind::BrokenPipe,
+            "mpsc channel",
+        ))
     }
 }
 
@@ -235,8 +245,7 @@ impl WorldSocketState<ServerSentAuthChallenge> {
 
         if let Some(previous_session) = session_holder.insert_session(session) {
             previous_session
-                .shutdown(&mut self.state.world_context.database.characters.get().unwrap())
-                .await;
+                .shutdown(&mut self.state.world_context.database.characters.get().unwrap());
         }
 
         if let Some(session) = session_holder.get_session_for_account(account_id) {
@@ -314,6 +323,6 @@ pub async fn process(
 
     loop {
         let session = state.state.session.clone();
-        WorldSession::process_incoming_packet(session, world_context.clone()).await?;
+        WorldSession::process_incoming_packet(session).await?;
     }
 }

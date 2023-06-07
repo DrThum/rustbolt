@@ -24,6 +24,7 @@ use crate::{
     entities::{object_guid::ObjectGuid, player::Player},
     game::{map_manager::MapKey, world_context::WorldContext},
     protocol::{
+        client::ClientMessage,
         opcodes::Opcode,
         packets::{
             FactionInit, MovementInfo, SmsgActionButtons, SmsgAttackStop, SmsgCreateObject,
@@ -48,13 +49,13 @@ pub enum WorldSessionState {
 
 pub struct WorldSession {
     socket: WorldSocket,
-    tx: Sender<(ServerMessageHeader, Vec<u8>)>,
+    session_to_socket_tx: Sender<(ServerMessageHeader, Vec<u8>)>,
     pub account_id: u32,
     pub state: RwLock<WorldSessionState>,
     pub player: Arc<RwLock<Player>>,
     client_latency: AtomicU32,
-    server_time_sync: Mutex<TimeSync>,
-    time_sync_handle: Mutex<Option<JoinHandle<()>>>,
+    server_time_sync: parking_lot::Mutex<TimeSync>,
+    time_sync_handle: parking_lot::Mutex<Option<JoinHandle<()>>>,
     known_guids: RwLock<Vec<ObjectGuid>>,
 }
 
@@ -71,40 +72,63 @@ impl WorldSession {
         let write_half = Arc::new(Mutex::new(write_half));
         let encryption = Arc::new(Mutex::new(encryption));
 
-        let (tx, rx) = mpsc::channel::<(ServerMessageHeader, Vec<u8>)>(50);
+        let (session_to_socket_tx, session_to_socket_rx) =
+            mpsc::channel::<(ServerMessageHeader, Vec<u8>)>(50);
 
-        let socket = WorldSocket::new(write_half, read_half, encryption, account_id, rx);
+        let (socket_to_session_tx, mut socket_to_session_rx) = mpsc::channel::<ClientMessage>(50);
+
+        let socket = WorldSocket::new(
+            write_half,
+            read_half,
+            encryption,
+            account_id,
+            session_to_socket_rx,
+            socket_to_session_tx,
+        );
 
         let session = Arc::new(WorldSession {
             socket,
-            tx,
+            session_to_socket_tx,
             account_id,
             state: RwLock::new(WorldSessionState::OnCharactersList),
             player: Arc::new(RwLock::new(Player::new())),
             client_latency: AtomicU32::new(0),
-            server_time_sync: Mutex::new(TimeSync {
+            server_time_sync: parking_lot::Mutex::new(TimeSync {
                 server_counter: 0,
                 server_last_sync_ticks: world_context.game_time().as_millis() as u32,
                 client_counter: 0,
                 client_last_sync_ticks: 0,
             }),
-            time_sync_handle: Mutex::new(None),
+            time_sync_handle: parking_lot::Mutex::new(None),
             known_guids: RwLock::new(Vec::new()),
+        });
+
+        let world_context_clone = world_context.clone();
+        let session_clone = session.clone();
+        tokio::spawn(async move {
+            while let Some(client_message) = socket_to_session_rx.recv().await {
+                let handler = world_context_clone
+                    .opcode_handler
+                    .get_handler(client_message.header.opcode);
+
+                handler(
+                    session_clone.clone(),
+                    world_context_clone.clone(),
+                    client_message.payload,
+                );
+            }
         });
 
         session
     }
 
-    pub async fn shutdown(&self, conn: &mut PooledConnection<SqliteConnectionManager>) {
-        self.cleanup_on_world_leave(conn).await;
+    pub fn shutdown(&self, conn: &mut PooledConnection<SqliteConnectionManager>) {
+        self.cleanup_on_world_leave(conn);
         self.socket.shutdown();
     }
 
-    pub async fn cleanup_on_world_leave(
-        &self,
-        conn: &mut PooledConnection<SqliteConnectionManager>,
-    ) {
-        if let Some(handle) = self.time_sync_handle.lock().await.take() {
+    pub fn cleanup_on_world_leave(&self, conn: &mut PooledConnection<SqliteConnectionManager>) {
+        if let Some(handle) = self.time_sync_handle.lock().take() {
             handle.abort();
         }
 
@@ -138,13 +162,8 @@ impl WorldSession {
         *self.state.read() == WorldSessionState::InWorld
     }
 
-    pub async fn handle_time_sync_resp(
-        &self,
-        client_counter: u32,
-        client_ticks: u32,
-        server_ticks: u32,
-    ) {
-        let mut time_sync = self.server_time_sync.lock().await;
+    pub fn handle_time_sync_resp(&self, client_counter: u32, client_ticks: u32, server_ticks: u32) {
+        let mut time_sync = self.server_time_sync.lock();
 
         let counter_ok = client_counter == time_sync.server_counter - 1;
         let server_ticks = client_ticks + (server_ticks - time_sync.server_last_sync_ticks);
@@ -170,7 +189,7 @@ impl WorldSession {
         &self,
         packet: &ServerMessage<OPCODE, Payload>,
     ) -> Result<(), SendError<(ServerMessageHeader, Vec<u8>)>> {
-        let tx = self.tx.clone();
+        let tx = self.session_to_socket_tx.clone();
         futures::executor::block_on(async move {
             // Handle::current().block_on(async move {
             let payload = packet.encode_payload().expect("failed to encode payload");
@@ -211,7 +230,7 @@ impl WorldSession {
         origin_guid: &ObjectGuid,
         movement_info: &MovementInfo,
     ) -> Result<(), SendError<(ServerMessageHeader, Vec<u8>)>> {
-        let tx = self.tx.clone();
+        let tx = self.session_to_socket_tx.clone();
         futures::executor::block_on(async move {
             let mut writer = Cursor::new(Vec::new());
             writer.write_le(&origin_guid.as_packed()).unwrap();
@@ -229,35 +248,16 @@ impl WorldSession {
 
     pub async fn process_incoming_packet(
         session: Arc<WorldSession>,
-        world_context: Arc<WorldContext>,
     ) -> Result<(), WorldSocketError> {
         let client_message = session.socket.read_packet().await?;
-
-        // Process the packet on the world's runtime
-        let context_clone = world_context.clone();
-        world_context
-            .clone()
-            .map_manager
-            .runtime
-            .spawn(async move {
-                let handler = context_clone
-                    .opcode_handler
-                    .get_handler(client_message.header.opcode);
-
-                handler(
-                    session.clone(),
-                    world_context.clone(),
-                    client_message.payload,
-                )
-                .await;
-            })
-            .await
-            .unwrap();
+        if let Err(e) = session.socket.queue_client_message(client_message).await {
+            return Err(e.into());
+        }
 
         Ok(())
     }
 
-    async fn schedule_time_sync(
+    fn schedule_time_sync(
         session: Arc<WorldSession>,
         world_context: Arc<WorldContext>,
     ) -> tokio::task::JoinHandle<()> {
@@ -266,7 +266,7 @@ impl WorldSession {
 
             loop {
                 {
-                    let mut time_sync = session.server_time_sync.lock().await;
+                    let mut time_sync = session.server_time_sync.lock();
 
                     let smsg_time_sync_req = ServerMessage::new(SmsgTimeSyncReq {
                         sync_counter: time_sync.server_counter,
@@ -283,18 +283,18 @@ impl WorldSession {
     }
 
     // TODO: Reset time sync after each teleport
-    pub async fn reset_time_sync(session: Arc<WorldSession>, world_context: Arc<WorldContext>) {
-        let mut guard = session.time_sync_handle.lock().await;
+    pub fn reset_time_sync(session: Arc<WorldSession>, world_context: Arc<WorldContext>) {
+        let mut guard = session.time_sync_handle.lock();
         if let Some(handle) = guard.take() {
             handle.abort();
         }
 
         {
-            let mut time_sync = session.server_time_sync.lock().await;
+            let mut time_sync = session.server_time_sync.lock();
             time_sync.reset();
         }
 
-        let jh = WorldSession::schedule_time_sync(session.clone(), world_context).await;
+        let jh = WorldSession::schedule_time_sync(session.clone(), world_context);
         *guard = Some(jh);
     }
 

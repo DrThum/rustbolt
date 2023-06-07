@@ -11,7 +11,7 @@ use crate::session::opcode_handler::OpcodeHandler;
 use crate::session::world_session::WorldSession;
 
 impl OpcodeHandler {
-    pub(crate) async fn handle_cmsg_attack_swing(
+    pub(crate) fn handle_cmsg_attack_swing(
         session: Arc<WorldSession>,
         world_context: Arc<WorldContext>,
         data: Vec<u8>,
@@ -57,7 +57,7 @@ impl OpcodeHandler {
         }
     }
 
-    pub(crate) async fn handle_cmsg_attack_stop(
+    pub(crate) fn handle_cmsg_attack_stop(
         session: Arc<WorldSession>,
         world_context: Arc<WorldContext>,
         _data: Vec<u8>,

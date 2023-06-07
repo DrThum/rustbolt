@@ -5,7 +5,10 @@ use log::{error, info, trace};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt, ReadHalf, WriteHalf},
     net::TcpStream,
-    sync::{mpsc::Receiver, Mutex},
+    sync::{
+        mpsc::{error::SendError, Receiver},
+        Mutex,
+    },
 };
 use wow_srp::tbc_header::HeaderCrypto;
 
@@ -22,6 +25,7 @@ pub struct WorldSocket {
     pub read_half: Arc<Mutex<ReadHalf<TcpStream>>>,
     pub encryption: Arc<Mutex<HeaderCrypto>>,
     pub account_id: u32,
+    socket_to_session_tx: tokio::sync::mpsc::Sender<ClientMessage>,
 }
 
 impl WorldSocket {
@@ -31,6 +35,7 @@ impl WorldSocket {
         encryption: Arc<Mutex<HeaderCrypto>>,
         account_id: u32,
         mut rx: Receiver<(ServerMessageHeader, Vec<u8>)>,
+        socket_to_session_tx: tokio::sync::mpsc::Sender<ClientMessage>,
     ) -> WorldSocket {
         let encryption_clone = encryption.clone();
         tokio::spawn(async move {
@@ -65,7 +70,15 @@ impl WorldSocket {
             read_half,
             encryption,
             account_id,
+            socket_to_session_tx,
         }
+    }
+
+    pub async fn queue_client_message(
+        &self,
+        client_message: ClientMessage,
+    ) -> Result<(), SendError<ClientMessage>> {
+        self.socket_to_session_tx.send(client_message).await
     }
 
     pub async fn read_packet(&self) -> Result<ClientMessage, WorldSocketError> {

@@ -4,7 +4,6 @@ use atomic_counter::{AtomicCounter, RelaxedCounter};
 use log::{info, warn};
 use parking_lot::RwLock;
 use shared::models::terrain_info::{TerrainBlock, MAP_WIDTH_IN_BLOCKS};
-use tokio::runtime::Runtime;
 
 use crate::{
     config::WorldConfig,
@@ -35,7 +34,6 @@ pub struct TerrainBlockCoords {
 }
 
 pub struct MapManager {
-    pub runtime: Runtime,
     config: Arc<WorldConfig>,
     maps: RwLock<HashMap<MapKey, Arc<Map>>>,
     data_store: Arc<DataStore>,
@@ -45,13 +43,7 @@ pub struct MapManager {
 
 impl MapManager {
     pub fn new(data_store: Arc<DataStore>, config: Arc<WorldConfig>) -> Self {
-        let world_runtime = tokio::runtime::Builder::new_multi_thread()
-            .enable_all() // TODO: Allow to conf the # of worker threads
-            .build()
-            .unwrap();
-
         Self {
-            runtime: world_runtime,
             config,
             maps: RwLock::new(HashMap::new()),
             data_store,
@@ -102,18 +94,16 @@ impl MapManager {
             let spawns = CreatureRepository::load_creature_spawns(conn, map.id);
 
             let key = MapKey::for_continent(map.id);
-            self.runtime.block_on(async {
-                self.maps.write().insert(
+            self.maps.write().insert(
+                key,
+                Map::new(
                     key,
-                    Map::new(
-                        key,
-                        world_context.clone(),
-                        map_terrains,
-                        spawns,
-                        data_store.clone(),
-                    ),
-                );
-            });
+                    world_context.clone(),
+                    map_terrains,
+                    spawns,
+                    data_store.clone(),
+                ),
+            );
         }
     }
 

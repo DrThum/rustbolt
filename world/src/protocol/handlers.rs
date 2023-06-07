@@ -15,7 +15,7 @@ mod query_handlers;
 mod synchronization_handlers;
 
 impl OpcodeHandler {
-    pub async fn unhandled(
+    pub fn unhandled(
         _session: Arc<WorldSession>,
         _world_context: Arc<WorldContext>,
         _data: Vec<u8>,

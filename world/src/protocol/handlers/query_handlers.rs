@@ -15,7 +15,7 @@ use crate::{
 };
 
 impl OpcodeHandler {
-    pub(crate) async fn handle_cmsg_creature_query(
+    pub(crate) fn handle_cmsg_creature_query(
         session: Arc<WorldSession>,
         world_context: Arc<WorldContext>,
         data: Vec<u8>,

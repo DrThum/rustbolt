@@ -1,22 +1,18 @@
-use futures::FutureExt;
 use log::{error, trace};
 use std::{collections::HashMap, sync::Arc};
-
-use futures::future::BoxFuture;
 
 use crate::{game::world_context::WorldContext, protocol::opcodes::Opcode};
 
 use super::world_session::WorldSession;
 
-pub type PacketHandler = Box<
-    dyn Send + Sync + Fn(Arc<WorldSession>, Arc<WorldContext>, Vec<u8>) -> BoxFuture<'static, ()>,
->;
+pub type PacketHandler =
+    Box<dyn Send + Sync + Fn(Arc<WorldSession>, Arc<WorldContext>, Vec<u8>) -> ()>;
 
 macro_rules! define_handler {
     ($opcode:expr, $handler:expr) => {
         (
             $opcode as u32,
-            Box::new(|session, ctx, data| $handler(session, ctx, data).boxed()) as PacketHandler,
+            Box::new(|session, ctx, data| $handler(session, ctx, data)) as PacketHandler,
         )
     };
 }
@@ -26,7 +22,7 @@ macro_rules! define_movement_handler {
         (
             $opcode as u32,
             Box::new(|session, ctx, data| {
-                OpcodeHandler::handle_movement_packet($opcode)(session, ctx, data).boxed()
+                OpcodeHandler::handle_movement_packet($opcode)(session, ctx, data)
             }) as PacketHandler,
         )
     };

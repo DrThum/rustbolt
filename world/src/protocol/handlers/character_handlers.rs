@@ -13,7 +13,7 @@ use crate::session::world_session::{WorldSession, WorldSessionState};
 use crate::shared::response_codes::ResponseCodes;
 
 impl OpcodeHandler {
-    pub(crate) async fn handle_cmsg_char_create(
+    pub(crate) fn handle_cmsg_char_create(
         session: Arc<WorldSession>,
         world_context: Arc<WorldContext>,
         data: Vec<u8>,
@@ -44,7 +44,7 @@ impl OpcodeHandler {
         session.send(&packet).unwrap();
     }
 
-    pub(crate) async fn handle_cmsg_char_enum(
+    pub(crate) fn handle_cmsg_char_enum(
         session: Arc<WorldSession>,
         world_context: Arc<WorldContext>,
         _data: Vec<u8>,
@@ -69,7 +69,7 @@ impl OpcodeHandler {
         session.send(&packet).unwrap();
     }
 
-    pub(crate) async fn handle_cmsg_char_delete(
+    pub(crate) fn handle_cmsg_char_delete(
         session: Arc<WorldSession>,
         world_context: Arc<WorldContext>,
         data: Vec<u8>,
@@ -85,7 +85,7 @@ impl OpcodeHandler {
         session.send(&packet).unwrap();
     }
 
-    pub(crate) async fn handle_cmsg_player_login(
+    pub(crate) fn handle_cmsg_player_login(
         session: Arc<WorldSession>,
         world_context: Arc<WorldContext>,
         data: Vec<u8>,
@@ -221,10 +221,10 @@ impl OpcodeHandler {
 
         session.send(&smsg_init_world_states).unwrap();
 
-        WorldSession::reset_time_sync(session, world_context).await;
+        WorldSession::reset_time_sync(session, world_context);
     }
 
-    pub(crate) async fn handle_cmsg_logout_request(
+    pub(crate) fn handle_cmsg_logout_request(
         session: Arc<WorldSession>,
         world_context: Arc<WorldContext>,
         _data: Vec<u8>,
@@ -249,12 +249,10 @@ impl OpcodeHandler {
         }
 
         // FIXME: Handle future cases when logout might not be instant
-        session
-            .cleanup_on_world_leave(&mut world_context.database.characters.get().unwrap())
-            .await;
+        session.cleanup_on_world_leave(&mut world_context.database.characters.get().unwrap());
     }
 
-    pub(crate) async fn handle_cmsg_name_query(
+    pub(crate) fn handle_cmsg_name_query(
         session: Arc<WorldSession>,
         world_context: Arc<WorldContext>,
         data: Vec<u8>,
@@ -291,7 +289,7 @@ impl OpcodeHandler {
         session.send(&packet).unwrap();
     }
 
-    pub(crate) async fn handle_cmsg_stand_state_change(
+    pub(crate) fn handle_cmsg_stand_state_change(
         session: Arc<WorldSession>,
         _world_context: Arc<WorldContext>,
         data: Vec<u8>,
@@ -311,7 +309,7 @@ impl OpcodeHandler {
         session.send(&packet).unwrap();
     }
 
-    pub(crate) async fn handle_cmsg_set_sheathed(
+    pub(crate) fn handle_cmsg_set_sheathed(
         session: Arc<WorldSession>,
         _world_context: Arc<WorldContext>,
         data: Vec<u8>,

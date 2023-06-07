@@ -1,4 +1,3 @@
-use futures::FutureExt;
 use std::sync::Arc;
 
 use crate::{
@@ -12,7 +11,7 @@ use crate::{
 
 impl OpcodeHandler {
     pub fn handle_movement_packet(opcode: Opcode) -> PacketHandler {
-        async fn handle_movement(
+        fn handle_movement(
             opcode: Opcode,
             session: Arc<WorldSession>,
             world_context: Arc<WorldContext>,
@@ -44,7 +43,7 @@ impl OpcodeHandler {
             );
         }
 
-        Box::new(move |session, ctx, data| { handle_movement(opcode, session, ctx, data) }.boxed())
+        Box::new(move |session, ctx, data| handle_movement(opcode, session, ctx, data))
             as PacketHandler
     }
 }

@@ -10,7 +10,7 @@ use crate::session::opcode_handler::OpcodeHandler;
 use crate::session::world_session::WorldSession;
 
 impl OpcodeHandler {
-    pub(crate) async fn handle_cmsg_ping(
+    pub(crate) fn handle_cmsg_ping(
         session: Arc<WorldSession>,
         _world_context: Arc<WorldContext>,
         data: Vec<u8>,
@@ -26,7 +26,7 @@ impl OpcodeHandler {
         session.send(&packet).unwrap();
     }
 
-    pub(crate) async fn handle_cmsg_query_time(
+    pub(crate) fn handle_cmsg_query_time(
         session: Arc<WorldSession>,
         _world_context: Arc<WorldContext>,
         _data: Vec<u8>,
@@ -44,18 +44,16 @@ impl OpcodeHandler {
         session.send(&packet).unwrap();
     }
 
-    pub(crate) async fn handle_time_sync_resp(
+    pub(crate) fn handle_time_sync_resp(
         session: Arc<WorldSession>,
         world_context: Arc<WorldContext>,
         data: Vec<u8>,
     ) {
         let cmsg_time_sync_resp: CmsgTimeSyncResp = ClientMessage::read_as(data).unwrap();
-        session
-            .handle_time_sync_resp(
-                cmsg_time_sync_resp.counter,
-                cmsg_time_sync_resp.ticks,
-                world_context.game_time().as_millis() as u32,
-            )
-            .await;
+        session.handle_time_sync_resp(
+            cmsg_time_sync_resp.counter,
+            cmsg_time_sync_resp.ticks,
+            world_context.game_time().as_millis() as u32,
+        );
     }
 }

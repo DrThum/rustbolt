@@ -1,13 +1,13 @@
 use std::{
     collections::{HashMap, HashSet},
     sync::Arc,
-    time::Duration,
+    thread,
+    time::{Duration, Instant},
 };
 
 use log::{error, warn};
 use parking_lot::RwLock;
 use shared::models::terrain_info::{TerrainBlock, BLOCK_WIDTH, MAP_WIDTH_IN_BLOCKS};
-use tokio::time::{interval, Instant};
 
 use crate::{
     entities::{
@@ -72,19 +72,19 @@ impl Map {
         let map = Arc::new(map);
 
         let map_clone = map.clone();
-        tokio::spawn(async move {
-            let mut interval = interval(Duration::from_millis(50));
-            interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+        thread::spawn(move || {
             let mut time = Instant::now();
 
             loop {
-                let new_time = Instant::now();
-                let diff = new_time.duration_since(time);
+                let tick_start_time = Instant::now();
+                let elapsed_since_last_tick = tick_start_time.duration_since(time);
+                time = tick_start_time;
 
-                time = new_time;
-                map_clone.tick(diff);
+                map_clone.tick(elapsed_since_last_tick);
 
-                interval.tick().await;
+                let tick_duration = Instant::now().duration_since(tick_start_time);
+                // TODO: 50 in config
+                thread::sleep(Duration::from_millis(50).saturating_sub(tick_duration));
             }
         });
 

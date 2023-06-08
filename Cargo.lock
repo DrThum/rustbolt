@@ -1415,6 +1415,7 @@ dependencies = [
  "rusqlite",
  "serde",
  "shared",
+ "shipyard",
  "tokio",
  "wow_srp",
 ]
@@ -1530,6 +1531,29 @@ dependencies = [
  "enumflags2",
  "enumn",
  "fixedbitset",
+]
+
+[[package]]
+name = "shipyard"
+version = "0.6.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3511ae730f2e1c3d62a9025e2f9b2acbf130968057f1b3caab6d74a54a5e0e56"
+dependencies = [
+ "hashbrown",
+ "lock_api",
+ "rayon",
+ "shipyard_proc",
+]
+
+[[package]]
+name = "shipyard_proc"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3eb847f4b9582e468198b5cfb5731b65cc67fe5e535acc9cbf3c11703d15f08c"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
 ]
 
 [[package]]

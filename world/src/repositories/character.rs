@@ -16,6 +16,7 @@ use crate::{
         },
         position::WorldPosition,
     },
+    game::map_manager::MapKey,
     protocol::packets::{CharEnumData, CharEnumEquip, CmsgCharCreate, CmsgCharDelete},
     shared::constants::{ActionButtonType, InventorySlot, InventoryType},
 };
@@ -241,7 +242,7 @@ impl CharacterRepository {
                     facialstyle: row.get("facialstyle").unwrap(),
                 },
                 position: WorldPosition {
-                    map: row.get("map_id").unwrap(),
+                    map_key: MapKey::for_continent(row.get("map_id").unwrap()), // FIXME
                     zone: row.get("zone_id").unwrap(),
                     x: row.get("position_x").unwrap(),
                     y: row.get("position_y").unwrap(),

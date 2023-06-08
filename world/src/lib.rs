@@ -27,6 +27,11 @@ use wow_srp::tbc_header::ProofSeed;
 pub mod config;
 pub mod database_context;
 mod datastore;
+mod ecs {
+    pub mod components;
+    pub mod resources;
+    pub mod systems;
+}
 mod entities {
     pub mod object_guid;
     pub mod position;

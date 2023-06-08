@@ -1,4 +1,7 @@
 use binrw::binrw;
+use shipyard::Component;
+
+use crate::game::map_manager::MapKey;
 
 #[binrw]
 #[derive(Copy, Clone, Debug)]
@@ -9,9 +12,9 @@ pub struct Position {
     pub o: f32,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Component)]
 pub struct WorldPosition {
-    pub map: u32,
+    pub map_key: MapKey,
     pub zone: u32,
     pub x: f32,
     pub y: f32,
@@ -30,7 +33,7 @@ impl WorldPosition {
     }
 
     pub fn distance_to(&self, other: &WorldPosition, is_3d: bool) -> f32 {
-        if self.map != other.map {
+        if self.map_key != other.map_key {
             panic!("measuring distance from WorldPositions on different maps");
         }
 
@@ -44,5 +47,12 @@ impl WorldPosition {
         } else {
             dist_x * dist_x + dist_y * dist_y
         }
+    }
+
+    pub fn update_local(&mut self, pos: &Position) {
+        self.x = pos.x;
+        self.y = pos.y;
+        self.z = pos.z;
+        self.o = pos.o;
     }
 }

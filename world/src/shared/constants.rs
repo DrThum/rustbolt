@@ -1165,6 +1165,7 @@ pub enum NpcFlags {
 }
 
 #[allow(dead_code)]
+#[derive(Copy, Clone)]
 pub enum WeaponAttackType {
     MainHand = 0,
     OffHand = 1,
@@ -1191,8 +1192,9 @@ pub enum UnitDynamicFlags {
 }
 
 #[allow(dead_code)]
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone, Copy)]
 pub enum MeleeAttackError {
+    None,
     NotInRange,
     NotFacingTarget,
 }

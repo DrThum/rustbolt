@@ -1,7 +1,9 @@
 use std::sync::Arc;
 
 use log::warn;
+use shipyard::ViewMut;
 
+use crate::ecs::components::melee::Melee;
 use crate::entities::object_guid::ObjectGuid;
 use crate::game::world_context::WorldContext;
 use crate::protocol::client::ClientMessage;
@@ -18,6 +20,19 @@ impl OpcodeHandler {
     ) {
         let cmsg: CmsgAttackSwing = ClientMessage::read_as(data).unwrap();
         if let Some(target_guid) = ObjectGuid::from_raw(cmsg.guid) {
+            if let Some(map) = world_context
+                .map_manager
+                .get_map(session.get_current_map().unwrap())
+            {
+                if let Some(player_ecs_entity) = map.lookup_entity_ecs(session.player.read().guid())
+                {
+                    let world = map.ecs_world();
+                    world.lock().run(|mut vm_melee: ViewMut<Melee>| {
+                        vm_melee[player_ecs_entity].is_attacking = true;
+                    });
+                }
+            }
+
             match world_context
                 .map_manager
                 .lookup_entity(&target_guid, session.get_current_map())
@@ -62,6 +77,18 @@ impl OpcodeHandler {
         world_context: Arc<WorldContext>,
         _data: Vec<u8>,
     ) {
+        if let Some(map) = world_context
+            .map_manager
+            .get_map(session.get_current_map().unwrap())
+        {
+            if let Some(player_ecs_entity) = map.lookup_entity_ecs(session.player.read().guid()) {
+                let world = map.ecs_world();
+                world.lock().run(|mut vm_melee: ViewMut<Melee>| {
+                    vm_melee[player_ecs_entity].is_attacking = false;
+                });
+            }
+        }
+
         let packet = {
             let player_guard = session.player.read();
             ServerMessage::new(SmsgAttackStop {

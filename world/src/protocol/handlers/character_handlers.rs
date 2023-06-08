@@ -116,7 +116,7 @@ impl OpcodeHandler {
         {
             let player_position = session.player.read().position().clone();
             let smsg_login_verify_world = ServerMessage::new(SmsgLoginVerifyWorld {
-                map: player_position.map,
+                map: player_position.map_key.map_id,
                 position_x: player_position.x,
                 position_y: player_position.y,
                 position_z: player_position.z,

@@ -533,7 +533,7 @@ impl Player {
             .as_ref()
             .expect("player has no position in Player::save");
         stmt.execute(named_params! {
-            ":map_id": position.map,
+            ":map_id": position.map_key.map_id,
             ":zone_id": position.zone,
             ":x": position.x,
             ":y": position.y,

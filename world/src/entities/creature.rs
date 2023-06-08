@@ -5,7 +5,7 @@ use enumflags2::make_bitflags;
 use rand::{seq::SliceRandom, Rng};
 
 use crate::{
-    game::world_context::WorldContext,
+    game::{map_manager::MapKey, world_context::WorldContext},
     repositories::creature::CreatureSpawnDbRecord,
     shared::constants::{
         HighGuidType, LifeCycleStage, ObjectTypeId, ObjectTypeMask, UnitDynamicFlags,
@@ -34,6 +34,7 @@ pub struct Creature {
 
 impl Creature {
     pub fn from_spawn(
+        map_key: &MapKey,
         creature_spawn: &CreatureSpawnDbRecord,
         data_store: Arc<DataStore>,
     ) -> Option<Self> {
@@ -87,7 +88,7 @@ impl Creature {
                     name: template.name.to_owned(),
                     values,
                     position: Some(WorldPosition {
-                        map: creature_spawn.map,
+                        map_key: map_key.clone(),
                         zone: 1, // FIXME: calculate from position and terrain?
                         x: creature_spawn.position_x,
                         y: creature_spawn.position_y,

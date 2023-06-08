@@ -4,6 +4,7 @@ use atomic_counter::{AtomicCounter, RelaxedCounter};
 use log::{info, warn};
 use parking_lot::RwLock;
 use shared::models::terrain_info::{TerrainBlock, MAP_WIDTH_IN_BLOCKS};
+use shipyard::Unique;
 
 use crate::{
     config::WorldConfig,
@@ -195,7 +196,7 @@ impl MapManager {
         }
 
         // TODO: handle instance id here
-        let destination = MapKey::for_continent(player_position.map);
+        let destination = player_position.map_key;
         let destination_map = self.maps.read().get(&destination).cloned();
         if let Some(destination_map) = destination_map {
             destination_map.add_player(session.clone(), world_context.clone(), player.clone());
@@ -331,6 +332,7 @@ impl MapManager {
                 map = self.maps.read().get(&current_map_key).cloned();
             }
             if let Some(map) = map {
+                // TODO: Implement Map::broadcast_packet
                 for session in map.sessions_nearby_entity(
                     origin_guid,
                     range.unwrap_or(map.visibility_distance()),
@@ -368,10 +370,13 @@ impl MapManager {
     }
 }
 
+#[derive(Unique)]
+pub struct WrappedMapManager(pub Arc<MapManager>);
+
 #[derive(Eq, Hash, PartialEq, Clone, Copy)]
 pub struct MapKey {
-    map_id: u32,
-    instance_id: Option<u32>,
+    pub map_id: u32,
+    pub instance_id: Option<u32>,
 }
 
 impl MapKey {

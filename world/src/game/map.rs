@@ -6,25 +6,32 @@ use std::{
 };
 
 use log::{error, warn};
-use parking_lot::RwLock;
+use parking_lot::{Mutex, RwLock};
 use shared::models::terrain_info::{TerrainBlock, BLOCK_WIDTH, MAP_WIDTH_IN_BLOCKS};
+use shipyard::{AllStoragesViewMut, EntitiesViewMut, EntityId, UniqueViewMut, ViewMut, World};
 
 use crate::{
+    ecs::{
+        components::{guid::Guid, health::Health, melee::Melee, unit::Unit},
+        resources::DeltaTime,
+        systems::melee,
+    },
     entities::{
         creature::Creature,
         object_guid::ObjectGuid,
         player::Player,
-        position::Position,
+        position::{Position, WorldPosition},
         update::{CreateData, WorldEntity},
     },
-    protocol::packets::{SmsgCreateObject, SmsgUpdateObject},
+    protocol::packets::SmsgCreateObject,
     repositories::creature::CreatureSpawnDbRecord,
     session::world_session::WorldSession,
+    shared::constants::PLAYER_DEFAULT_COMBAT_REACH,
     DataStore,
 };
 
 use super::{
-    map_manager::{MapKey, TerrainBlockCoords},
+    map_manager::{MapKey, TerrainBlockCoords, WrappedMapManager},
     quad_tree::QuadTree,
     world_context::WorldContext,
 };
@@ -33,9 +40,11 @@ pub const DEFAULT_VISIBILITY_DISTANCE: f32 = 90.0;
 
 pub struct Map {
     key: MapKey,
-    world_context: Arc<WorldContext>,
+    world: Arc<Mutex<World>>, // Maybe a Mutex is needed
+    _world_context: Arc<WorldContext>,
     sessions: RwLock<HashMap<ObjectGuid, Arc<WorldSession>>>,
     entities: RwLock<HashMap<ObjectGuid, Arc<RwLock<dyn WorldEntity + Sync + Send>>>>,
+    ecs_entities: RwLock<HashMap<ObjectGuid, EntityId>>,
     terrain: Arc<HashMap<TerrainBlockCoords, TerrainBlock>>,
     entities_tree: RwLock<QuadTree>,
     visibility_distance: f32,
@@ -49,11 +58,19 @@ impl Map {
         spawns: Vec<CreatureSpawnDbRecord>,
         data_store: Arc<DataStore>,
     ) -> Arc<Map> {
+        let world = World::new();
+        world.add_unique(DeltaTime::default());
+        world.add_unique(WrappedMapManager(world_context.map_manager.clone()));
+
+        let world = Arc::new(Mutex::new(world));
+
         let map = Map {
             key,
-            world_context,
+            world: world.clone(),
+            _world_context: world_context,
             sessions: RwLock::new(HashMap::new()),
             entities: RwLock::new(HashMap::new()),
+            ecs_entities: RwLock::new(HashMap::new()),
             terrain,
             entities_tree: RwLock::new(QuadTree::new(
                 super::quad_tree::QUADTREE_DEFAULT_NODE_CAPACITY,
@@ -62,7 +79,7 @@ impl Map {
         };
 
         for spawn in spawns {
-            if let Some(creature) = Creature::from_spawn(&spawn, data_store.clone()) {
+            if let Some(creature) = Creature::from_spawn(&key, &spawn, data_store.clone()) {
                 map.add_creature(None, Arc::new(RwLock::new(creature)));
             } else {
                 warn!("failed to spawn creature with guid {}", spawn.guid);
@@ -80,6 +97,14 @@ impl Map {
                 let elapsed_since_last_tick = tick_start_time.duration_since(time);
                 time = tick_start_time;
 
+                {
+                    let world_guard = world.lock();
+                    world_guard.run(|mut dt: UniqueViewMut<DeltaTime>| {
+                        *dt = DeltaTime(elapsed_since_last_tick);
+                    });
+                    world_guard.run(melee::attempt_melee_attack);
+                }
+
                 map_clone.tick(elapsed_since_last_tick);
 
                 let tick_duration = Instant::now().duration_since(tick_start_time);
@@ -89,6 +114,14 @@ impl Map {
         });
 
         map
+    }
+
+    pub fn ecs_world(&self) -> Arc<Mutex<World>> {
+        self.world.clone()
+    }
+
+    pub fn lookup_entity_ecs(&self, guid: &ObjectGuid) -> Option<EntityId> {
+        self.ecs_entities.read().get(guid).copied()
     }
 
     pub fn add_player(
@@ -104,6 +137,43 @@ impl Map {
             player_guid = player_guard.guid().clone();
             player_position = player_guard.position().to_position();
         }
+
+        self.world.lock().run(
+            |mut entities: EntitiesViewMut,
+             mut vm_guid: ViewMut<Guid>,
+             mut vm_health: ViewMut<Health>,
+             mut vm_melee: ViewMut<Melee>,
+             mut vm_unit: ViewMut<Unit>,
+             mut vm_wpos: ViewMut<WorldPosition>| {
+                let entity_id = entities.add_entity(
+                    (
+                        &mut vm_guid,
+                        &mut vm_health,
+                        &mut vm_melee,
+                        &mut vm_unit,
+                        &mut vm_wpos,
+                    ),
+                    (
+                        Guid::new(player_guid.clone()),
+                        Health::new(100, 100),
+                        Melee::new(5, PLAYER_DEFAULT_COMBAT_REACH),
+                        Unit::new(),
+                        WorldPosition {
+                            map_key: self.key,
+                            zone: 0, /* TODO */
+                            x: player_position.x,
+                            y: player_position.y,
+                            z: player_position.z,
+                            o: player_position.o,
+                        },
+                    ),
+                );
+
+                self.ecs_entities
+                    .write()
+                    .insert(player_guid.clone(), entity_id);
+            },
+        );
 
         session.send_initial_spells();
         session.send_initial_action_buttons();
@@ -178,6 +248,19 @@ impl Map {
     }
 
     pub fn remove_player(&self, player_guid: &ObjectGuid) {
+        self.world
+            .lock()
+            .run(|mut all_storages: AllStoragesViewMut| {
+                if let Some(entity_id) = self.ecs_entities.write().remove(player_guid) {
+                    all_storages.delete_entity(entity_id);
+                } else {
+                    error!(
+                        "attempt to remove player {} who is not on map",
+                        player_guid.counter()
+                    );
+                }
+            });
+
         self.entities.write().remove(player_guid);
 
         {
@@ -206,13 +289,53 @@ impl Map {
     ) {
         let creature_guard = creature.read();
         let position = creature_guard.position().to_position();
-        let guid = creature_guard.guid().clone();
+        let creature_guid = creature_guard.guid().clone();
 
-        self.entities.write().insert(guid, creature.clone());
+        self.world.lock().run(
+            |mut entities: EntitiesViewMut,
+             mut vm_guid: ViewMut<Guid>,
+             mut vm_health: ViewMut<Health>,
+             mut vm_melee: ViewMut<Melee>,
+             mut vm_unit: ViewMut<Unit>,
+             mut vm_wpos: ViewMut<WorldPosition>| {
+                let entity_id = entities.add_entity(
+                    (
+                        &mut vm_guid,
+                        &mut vm_health,
+                        &mut vm_melee,
+                        &mut vm_unit,
+                        &mut vm_wpos,
+                    ),
+                    (
+                        Guid::new(creature_guid.clone()),
+                        Health::new(80, 80),
+                        Melee::new(5, PLAYER_DEFAULT_COMBAT_REACH), // FIXME: wrong, it's based on
+                        // the 3D model
+                        Unit::new(),
+                        WorldPosition {
+                            map_key: self.key,
+                            zone: 0, /* TODO */
+                            x: position.x,
+                            y: position.y,
+                            z: position.z,
+                            o: position.o,
+                        },
+                    ),
+                );
+
+                self.ecs_entities
+                    .write()
+                    .insert(creature_guid.clone(), entity_id);
+            },
+        );
+
+        self.entities
+            .write()
+            .insert(creature_guid, creature.clone());
 
         {
             let mut tree = self.entities_tree.write();
-            tree.insert(position, guid);
+            tree.insert(position, creature_guid);
         }
 
         if let Some(world_context) = world_context {
@@ -254,6 +377,14 @@ impl Map {
                 && previous_position.z == new_position.z
             {
                 return;
+            }
+
+            if let Some(player_ecs_entity) = self.lookup_entity_ecs(player_guid) {
+                self.world
+                    .lock()
+                    .run(|mut vm_wpos: ViewMut<WorldPosition>| {
+                        vm_wpos[player_ecs_entity].update_local(new_position);
+                    });
             }
 
             let visibility_distance = self.visibility_distance();
@@ -403,37 +534,37 @@ impl Map {
         self.visibility_distance
     }
 
-    pub fn tick(&self, diff: Duration) {
-        let entities = self.entities.read();
-        for (_, entity) in &*entities {
-            let mut entity = entity.write();
-            entity.tick(diff, self.world_context.clone());
-
-            // Broadcast the changes to nearby players
-            if entity.has_updates() {
-                for session in self.sessions_nearby_entity(
-                    entity.guid(),
-                    self.visibility_distance(),
-                    true,
-                    false,
-                ) {
-                    let update_data = entity.get_update_data(
-                        session.player.read().guid().raw(),
-                        self.world_context.clone(),
-                    );
-
-                    let smsg_update_object = SmsgUpdateObject {
-                        updates_count: update_data.len() as u32,
-                        has_transport: false,
-                        updates: update_data,
-                    };
-
-                    session.update_entity(smsg_update_object);
-                }
-
-                entity.mark_up_to_date();
-            }
-        }
+    pub fn tick(&self, _diff: Duration) {
+        // let entities = self.entities.read();
+        // for (_, entity) in &*entities {
+        //     let mut entity = entity.write();
+        //     entity.tick(diff, self.world_context.clone());
+        //
+        //     // Broadcast the changes to nearby players
+        //     if entity.has_updates() {
+        //         for session in self.sessions_nearby_entity(
+        //             entity.guid(),
+        //             self.visibility_distance(),
+        //             true,
+        //             false,
+        //         ) {
+        //             let update_data = entity.get_update_data(
+        //                 session.player.read().guid().raw(),
+        //                 self.world_context.clone(),
+        //             );
+        //
+        //             let smsg_update_object = SmsgUpdateObject {
+        //                 updates_count: update_data.len() as u32,
+        //                 has_transport: false,
+        //                 updates: update_data,
+        //             };
+        //
+        //             session.update_entity(smsg_update_object);
+        //         }
+        //
+        //         entity.mark_up_to_date();
+        //     }
+        // }
     }
 
     pub fn get_session(&self, player_guid: &ObjectGuid) -> Option<Arc<WorldSession>> {

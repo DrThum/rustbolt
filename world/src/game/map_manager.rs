@@ -345,25 +345,18 @@ impl MapManager {
         }
     }
 
-    pub fn nearby_sessions(
-        &self,
-        map: Option<MapKey>,
-        player_guid: &ObjectGuid,
-        include_self: bool,
-    ) -> Vec<Arc<WorldSession>> {
+    pub fn nearby_sessions(&self, world_position: &WorldPosition) -> Vec<Arc<WorldSession>> {
         let mut result = Vec::new();
 
-        if let Some(current_map_key) = map {
-            let maps_guard = self.maps.read();
-            if let Some(map) = maps_guard.get(&current_map_key) {
-                let sessions = &mut map.sessions_nearby_entity(
-                    player_guid,
-                    map.visibility_distance(),
-                    true,
-                    include_self,
-                );
-                result.append(sessions);
-            }
+        let maps_guard = self.maps.read();
+        if let Some(map) = maps_guard.get(&world_position.map_key) {
+            let sessions = &mut map.sessions_nearby_position(
+                &world_position.to_position(),
+                map.visibility_distance(),
+                true,
+                None,
+            );
+            result.append(sessions);
         }
 
         result

@@ -8,20 +8,24 @@ use std::{
 use log::{error, warn};
 use parking_lot::{Mutex, RwLock};
 use shared::models::terrain_info::{TerrainBlock, BLOCK_WIDTH, MAP_WIDTH_IN_BLOCKS};
-use shipyard::{AllStoragesViewMut, EntitiesViewMut, EntityId, UniqueViewMut, ViewMut, World};
+use shipyard::{
+    AllStoragesViewMut, EntitiesViewMut, EntityId, IntoWorkload, UniqueViewMut, ViewMut, World,
+};
 
 use crate::{
     ecs::{
         components::{guid::Guid, health::Health, melee::Melee, unit::Unit},
         resources::DeltaTime,
-        systems::melee,
+        systems::{melee, updates},
     },
     entities::{
         creature::Creature,
+        internal_values::{InternalValues, WrappedInternalValues},
         object_guid::ObjectGuid,
         player::Player,
         position::{Position, WorldPosition},
         update::{CreateData, WorldEntity},
+        update_fields::{PLAYER_END, UNIT_END},
     },
     protocol::packets::SmsgCreateObject,
     repositories::creature::CreatureSpawnDbRecord,
@@ -61,6 +65,10 @@ impl Map {
         let world = World::new();
         world.add_unique(DeltaTime::default());
         world.add_unique(WrappedMapManager(world_context.map_manager.clone()));
+
+        let workload =
+            || (melee::attempt_melee_attack, updates::send_entity_update).into_workload();
+        world.add_workload(workload);
 
         let world = Arc::new(Mutex::new(world));
 
@@ -102,7 +110,7 @@ impl Map {
                     world_guard.run(|mut dt: UniqueViewMut<DeltaTime>| {
                         *dt = DeltaTime(elapsed_since_last_tick);
                     });
-                    world_guard.run(melee::attempt_melee_attack);
+                    world_guard.run_workload(workload).unwrap();
                 }
 
                 map_clone.tick(elapsed_since_last_tick);
@@ -144,7 +152,10 @@ impl Map {
              mut vm_health: ViewMut<Health>,
              mut vm_melee: ViewMut<Melee>,
              mut vm_unit: ViewMut<Unit>,
-             mut vm_wpos: ViewMut<WorldPosition>| {
+             mut vm_wpos: ViewMut<WorldPosition>,
+             mut vm_int_vals: ViewMut<WrappedInternalValues>| {
+                let internal_values =
+                    Arc::new(RwLock::new(InternalValues::new(PLAYER_END as usize)));
                 let entity_id = entities.add_entity(
                     (
                         &mut vm_guid,
@@ -152,12 +163,13 @@ impl Map {
                         &mut vm_melee,
                         &mut vm_unit,
                         &mut vm_wpos,
+                        &mut vm_int_vals,
                     ),
                     (
-                        Guid::new(player_guid.clone()),
-                        Health::new(100, 100),
+                        Guid::new(player_guid.clone(), internal_values.clone()),
+                        Health::new(100, 100, internal_values.clone()),
                         Melee::new(5, PLAYER_DEFAULT_COMBAT_REACH),
-                        Unit::new(),
+                        Unit::new(internal_values.clone()),
                         WorldPosition {
                             map_key: self.key,
                             zone: 0, /* TODO */
@@ -166,6 +178,7 @@ impl Map {
                             z: player_position.z,
                             o: player_position.o,
                         },
+                        WrappedInternalValues(internal_values.clone()),
                     ),
                 );
 
@@ -297,7 +310,9 @@ impl Map {
              mut vm_health: ViewMut<Health>,
              mut vm_melee: ViewMut<Melee>,
              mut vm_unit: ViewMut<Unit>,
-             mut vm_wpos: ViewMut<WorldPosition>| {
+             mut vm_wpos: ViewMut<WorldPosition>,
+             mut vm_int_vals: ViewMut<WrappedInternalValues>| {
+                let internal_values = Arc::new(RwLock::new(InternalValues::new(UNIT_END as usize)));
                 let entity_id = entities.add_entity(
                     (
                         &mut vm_guid,
@@ -305,13 +320,14 @@ impl Map {
                         &mut vm_melee,
                         &mut vm_unit,
                         &mut vm_wpos,
+                        &mut vm_int_vals,
                     ),
                     (
-                        Guid::new(creature_guid.clone()),
-                        Health::new(80, 80),
+                        Guid::new(creature_guid.clone(), internal_values.clone()),
+                        Health::new(80, 80, internal_values.clone()),
                         Melee::new(5, PLAYER_DEFAULT_COMBAT_REACH), // FIXME: wrong, it's based on
-                        // the 3D model
-                        Unit::new(),
+                        // the 3D model for creatures
+                        Unit::new(internal_values.clone()),
                         WorldPosition {
                             map_key: self.key,
                             zone: 0, /* TODO */
@@ -320,6 +336,7 @@ impl Map {
                             z: position.z,
                             o: position.o,
                         },
+                        WrappedInternalValues(internal_values.clone()),
                     ),
                 );
 

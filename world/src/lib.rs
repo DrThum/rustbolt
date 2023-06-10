@@ -42,7 +42,7 @@ mod entities {
     pub mod item;
     pub mod player;
 
-    mod internal_values;
+    pub mod internal_values;
 }
 pub mod game {
     pub mod map;

@@ -46,7 +46,7 @@ impl OpcodeHandler {
 
                 let world = map.ecs_world();
                 world.lock().run(|mut vm_unit: ViewMut<Unit>| {
-                    vm_unit[player_ecs_entity].set_target(target_ecs_entity);
+                    vm_unit[player_ecs_entity].set_target(target_ecs_entity, cmsg.guid);
                 });
             }
         }

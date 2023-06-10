@@ -1,4 +1,8 @@
+use std::sync::Arc;
+
 use fixedbitset::{FixedBitSet, Ones};
+use parking_lot::RwLock;
+use shipyard::Component;
 
 pub struct InternalValues {
     size: usize,
@@ -152,6 +156,9 @@ impl InternalValues {
         unsafe { self.values[index].as_i32 }
     }
 }
+
+#[derive(Component)]
+pub struct WrappedInternalValues(pub Arc<RwLock<InternalValues>>);
 
 #[derive(Clone, Copy)]
 pub union Value {

@@ -5,6 +5,7 @@ use std::{
     time::{Duration, Instant},
 };
 
+use enumflags2::make_bitflags;
 use log::{error, warn};
 use parking_lot::{Mutex, RwLock};
 use shared::models::terrain_info::{TerrainBlock, BLOCK_WIDTH, MAP_WIDTH_IN_BLOCKS};
@@ -19,18 +20,19 @@ use crate::{
         systems::{melee, updates},
     },
     entities::{
-        creature::Creature,
         internal_values::{InternalValues, WrappedInternalValues},
         object_guid::ObjectGuid,
         player::Player,
         position::{Position, WorldPosition},
-        update::{CreateData, WorldEntity},
-        update_fields::{PLAYER_END, UNIT_END},
+        update::{
+            CreateData, MovementUpdateData, UpdateBlockBuilder, UpdateFlag, UpdateType, WorldEntity,
+        },
+        update_fields::UNIT_END,
     },
     protocol::packets::SmsgCreateObject,
     repositories::creature::CreatureSpawnDbRecord,
     session::world_session::WorldSession,
-    shared::constants::PLAYER_DEFAULT_COMBAT_REACH,
+    shared::constants::{HighGuidType, ObjectTypeId, PLAYER_DEFAULT_COMBAT_REACH},
     DataStore,
 };
 
@@ -87,11 +89,24 @@ impl Map {
         };
 
         for spawn in spawns {
-            if let Some(creature) = Creature::from_spawn(&key, &spawn, data_store.clone()) {
-                map.add_creature(None, Arc::new(RwLock::new(creature)));
-            } else {
-                warn!("failed to spawn creature with guid {}", spawn.guid);
-            }
+            let guid = ObjectGuid::with_entry(HighGuidType::Unit, spawn.entry, spawn.guid);
+
+            let position = WorldPosition {
+                map_key: key,
+                zone: 1, // FIXME: calculate from position and terrain
+                x: spawn.position_x,
+                y: spawn.position_y,
+                z: spawn.position_z,
+                o: spawn.orientation,
+            };
+
+            map.add_creature(
+                None,
+                &guid,
+                InternalValues::build_for_creature(&spawn, data_store.clone(), &guid)
+                    .expect("unable to build InternalValues for creature from DB spawn"),
+                &position,
+            );
         }
 
         let map = Arc::new(map);
@@ -154,8 +169,10 @@ impl Map {
              mut vm_unit: ViewMut<Unit>,
              mut vm_wpos: ViewMut<WorldPosition>,
              mut vm_int_vals: ViewMut<WrappedInternalValues>| {
-                let internal_values =
-                    Arc::new(RwLock::new(InternalValues::new(PLAYER_END as usize)));
+                let internal_values = Arc::new(RwLock::new(InternalValues::build_for_player(
+                    &player_guid,
+                    world_context.clone(),
+                )));
                 let entity_id = entities.add_entity(
                     (
                         &mut vm_guid,
@@ -298,12 +315,11 @@ impl Map {
     pub fn add_creature(
         &self,
         world_context: Option<Arc<WorldContext>>, // None during startup
-        creature: Arc<RwLock<Creature>>,
+        creature_guid: &ObjectGuid,
+        values: InternalValues,
+        wpos: &WorldPosition,
     ) {
-        let creature_guard = creature.read();
-        let position = creature_guard.position().to_position();
-        let creature_guid = creature_guard.guid().clone();
-
+        let internal_values = Arc::new(RwLock::new(values));
         self.world.lock().run(
             |mut entities: EntitiesViewMut,
              mut vm_guid: ViewMut<Guid>,
@@ -312,7 +328,6 @@ impl Map {
              mut vm_unit: ViewMut<Unit>,
              mut vm_wpos: ViewMut<WorldPosition>,
              mut vm_int_vals: ViewMut<WrappedInternalValues>| {
-                let internal_values = Arc::new(RwLock::new(InternalValues::new(UNIT_END as usize)));
                 let entity_id = entities.add_entity(
                     (
                         &mut vm_guid,
@@ -328,14 +343,7 @@ impl Map {
                         Melee::new(5, PLAYER_DEFAULT_COMBAT_REACH), // FIXME: wrong, it's based on
                         // the 3D model for creatures
                         Unit::new(internal_values.clone()),
-                        WorldPosition {
-                            map_key: self.key,
-                            zone: 0, /* TODO */
-                            x: position.x,
-                            y: position.y,
-                            z: position.z,
-                            o: position.o,
-                        },
+                        *wpos,
                         WrappedInternalValues(internal_values.clone()),
                     ),
                 );
@@ -346,30 +354,67 @@ impl Map {
             },
         );
 
-        self.entities
-            .write()
-            .insert(creature_guid, creature.clone());
-
         {
             let mut tree = self.entities_tree.write();
-            tree.insert(position, creature_guid);
+            tree.insert(wpos.to_position(), *creature_guid);
         }
 
         if let Some(world_context) = world_context {
-            for session in
-                self.sessions_nearby_position(&position, self.visibility_distance(), true, None)
-            {
+            for session in self.sessions_nearby_position(
+                &wpos.to_position(),
+                self.visibility_distance(),
+                true,
+                None,
+            ) {
                 // Broadcast the new creature to nearby players
-                let player = session.player.read();
-                let update_data =
-                    creature_guard.get_create_data(player.guid().raw(), world_context.clone());
+                let movement = Some(MovementUpdateData {
+                    movement_flags: 0,  // 0x02000000, // TEMP: Flying
+                    movement_flags2: 0, // Always 0 in 2.4.3
+                    timestamp: world_context.game_time().as_millis() as u32, // Will overflow every 49.7 days
+                    position: wpos.to_position(),
+                    // pitch: Some(0.0),
+                    pitch: None,
+                    fall_time: 0,
+                    speed_walk: 2.5,
+                    speed_run: 7.0,
+                    speed_run_backward: 4.5,
+                    speed_swim: 4.722222,
+                    speed_swim_backward: 2.5,
+                    speed_flight: 70.0,
+                    speed_flight_backward: 4.5,
+                    speed_turn: 3.141594,
+                });
+
+                let flags = make_bitflags!(UpdateFlag::{HighGuid | Living | HasPosition});
+                let mut update_builder = UpdateBlockBuilder::new();
+
+                for index in 0..UNIT_END {
+                    let value = internal_values.read().get_u32(index as usize);
+                    if value != 0 {
+                        update_builder.add(index as usize, value);
+                    }
+                }
+
+                let blocks = update_builder.build();
+
+                let update_data = vec![CreateData {
+                    update_type: UpdateType::CreateObject2,
+                    packed_guid: creature_guid.as_packed(),
+                    object_type: ObjectTypeId::Unit,
+                    flags,
+                    movement,
+                    low_guid_part: None,
+                    high_guid_part: Some(HighGuidType::Unit as u32),
+                    blocks,
+                }];
+
                 let smsg_update_object = SmsgCreateObject {
                     updates_count: update_data.len() as u32,
                     has_transport: false,
                     updates: update_data,
                 };
 
-                session.create_entity(player.guid(), smsg_update_object);
+                session.create_entity(creature_guid, smsg_update_object);
             }
         }
     }
@@ -393,7 +438,7 @@ impl Map {
                 && previous_position.y == new_position.y
                 && previous_position.z == new_position.z
             {
-                return;
+                return; // FIXME: this might cause orientation-only changes to not be reflected
             }
 
             if let Some(player_ecs_entity) = self.lookup_entity_ecs(player_guid) {

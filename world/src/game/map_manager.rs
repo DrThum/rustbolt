@@ -9,7 +9,6 @@ use shipyard::Unique;
 use crate::{
     config::WorldConfig,
     entities::{
-        creature::Creature,
         object_guid::ObjectGuid,
         player::Player,
         position::{Position, WorldPosition},
@@ -212,18 +211,6 @@ impl MapManager {
             if let Some(origin_map) = origin_map {
                 origin_map.remove_player(player_guid);
             }
-        }
-    }
-
-    pub fn add_creature_to_map(
-        &self,
-        map_key: MapKey,
-        world_context: Arc<WorldContext>,
-        creature: Arc<RwLock<Creature>>,
-    ) {
-        let guard = self.maps.read();
-        if let Some(map) = guard.get(&map_key) {
-            map.add_creature(Some(world_context.clone()), creature.clone());
         }
     }
 

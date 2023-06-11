@@ -2,15 +2,10 @@ use std::{sync::Arc, time::Duration};
 
 use async_trait::async_trait;
 use enumflags2::make_bitflags;
-use rand::{seq::SliceRandom, Rng};
 
 use crate::{
-    game::{map_manager::MapKey, world_context::WorldContext},
-    repositories::creature::CreatureSpawnDbRecord,
-    shared::constants::{
-        HighGuidType, LifeCycleStage, ObjectTypeId, ObjectTypeMask, UnitDynamicFlags,
-    },
-    DataStore,
+    game::world_context::WorldContext,
+    shared::constants::{HighGuidType, LifeCycleStage, ObjectTypeId, UnitDynamicFlags},
 };
 
 use super::{
@@ -21,7 +16,7 @@ use super::{
         CreateData, MovementUpdateData, UpdateBlock, UpdateBlockBuilder, UpdateData, UpdateFlag,
         UpdateType, WorldEntity,
     },
-    update_fields::{ObjectFields, UnitFields, UNIT_END},
+    update_fields::{UnitFields, UNIT_END},
 };
 
 pub struct Creature {
@@ -33,72 +28,72 @@ pub struct Creature {
 }
 
 impl Creature {
-    pub fn from_spawn(
-        map_key: &MapKey,
-        creature_spawn: &CreatureSpawnDbRecord,
-        data_store: Arc<DataStore>,
-    ) -> Option<Self> {
-        data_store
-            .get_creature_template(creature_spawn.entry)
-            .map(|template| {
-                let mut rng = rand::thread_rng();
-
-                let guid = ObjectGuid::with_entry(
-                    HighGuidType::Unit,
-                    creature_spawn.entry,
-                    creature_spawn.guid,
-                );
-                let mut values = InternalValues::new(UNIT_END as usize);
-                values.set_u64(ObjectFields::ObjectFieldGuid.into(), guid.raw());
-
-                let object_type = make_bitflags!(ObjectTypeMask::{Object | Unit}).bits();
-                values.set_u32(ObjectFields::ObjectFieldType.into(), object_type);
-
-                values.set_u32(ObjectFields::ObjectFieldEntry.into(), template.entry);
-
-                values.set_f32(ObjectFields::ObjectFieldScaleX.into(), template.scale);
-
-                values.set_u32(
-                    UnitFields::UnitFieldLevel.into(),
-                    rng.gen_range(template.min_level..=template.max_level),
-                );
-
-                let existing_model_ids: Vec<&u32> =
-                    template.model_ids.iter().filter(|&&id| id != 0).collect();
-                let display_id = existing_model_ids.choose(&mut rng).expect("rng error");
-                values.set_u32(UnitFields::UnitFieldDisplayid.into(), **display_id);
-                values.set_u32(UnitFields::UnitFieldNativedisplayid.into(), **display_id);
-                // TODO: CombatReach must come from a DBC
-                values.set_f32(UnitFields::UnitFieldCombatReach.into(), 1.5);
-
-                values.set_u32(UnitFields::UnitFieldHealth.into(), 100); // TODO
-                values.set_u32(UnitFields::UnitFieldMaxhealth.into(), 100); // TODO
-
-                values.set_u32(
-                    UnitFields::UnitFieldFactiontemplate.into(),
-                    template.faction_template_id,
-                );
-
-                values.set_u32(UnitFields::UnitNpcFlags.into(), template.npc_flags);
-                values.set_u32(UnitFields::UnitFieldFlags.into(), template.unit_flags);
-                values.set_u32(UnitFields::UnitDynamicFlags.into(), template.dynamic_flags);
-
-                Creature {
-                    guid: guid.clone(),
-                    name: template.name.to_owned(),
-                    values,
-                    position: Some(WorldPosition {
-                        map_key: map_key.clone(),
-                        zone: 1, // FIXME: calculate from position and terrain?
-                        x: creature_spawn.position_x,
-                        y: creature_spawn.position_y,
-                        z: creature_spawn.position_z,
-                        o: creature_spawn.orientation,
-                    }),
-                    life_cycle_stage: LifeCycleStage::Alive,
-                }
-            })
-    }
+    // pub fn from_spawn(
+    //     map_key: &MapKey,
+    //     creature_spawn: &CreatureSpawnDbRecord,
+    //     data_store: Arc<DataStore>,
+    // ) -> Option<Self> {
+    //     data_store
+    //         .get_creature_template(creature_spawn.entry)
+    //         .map(|template| {
+    //             let mut rng = rand::thread_rng();
+    //
+    //             let guid = ObjectGuid::with_entry(
+    //                 HighGuidType::Unit,
+    //                 creature_spawn.entry,
+    //                 creature_spawn.guid,
+    //             );
+    //             let mut values = InternalValues::new(UNIT_END as usize);
+    //             values.set_u64(ObjectFields::ObjectFieldGuid.into(), guid.raw());
+    //
+    //             let object_type = make_bitflags!(ObjectTypeMask::{Object | Unit}).bits();
+    //             values.set_u32(ObjectFields::ObjectFieldType.into(), object_type);
+    //
+    //             values.set_u32(ObjectFields::ObjectFieldEntry.into(), template.entry);
+    //
+    //             values.set_f32(ObjectFields::ObjectFieldScaleX.into(), template.scale);
+    //
+    //             values.set_u32(
+    //                 UnitFields::UnitFieldLevel.into(),
+    //                 rng.gen_range(template.min_level..=template.max_level),
+    //             );
+    //
+    //             let existing_model_ids: Vec<&u32> =
+    //                 template.model_ids.iter().filter(|&&id| id != 0).collect();
+    //             let display_id = existing_model_ids.choose(&mut rng).expect("rng error");
+    //             values.set_u32(UnitFields::UnitFieldDisplayid.into(), **display_id);
+    //             values.set_u32(UnitFields::UnitFieldNativedisplayid.into(), **display_id);
+    //             // TODO: CombatReach must come from a DBC
+    //             values.set_f32(UnitFields::UnitFieldCombatReach.into(), 1.5);
+    //
+    //             values.set_u32(UnitFields::UnitFieldHealth.into(), 100); // TODO
+    //             values.set_u32(UnitFields::UnitFieldMaxhealth.into(), 100); // TODO
+    //
+    //             values.set_u32(
+    //                 UnitFields::UnitFieldFactiontemplate.into(),
+    //                 template.faction_template_id,
+    //             );
+    //
+    //             values.set_u32(UnitFields::UnitNpcFlags.into(), template.npc_flags);
+    //             values.set_u32(UnitFields::UnitFieldFlags.into(), template.unit_flags);
+    //             values.set_u32(UnitFields::UnitDynamicFlags.into(), template.dynamic_flags);
+    //
+    //             Creature {
+    //                 guid: guid.clone(),
+    //                 name: template.name.to_owned(),
+    //                 values,
+    //                 position: Some(WorldPosition {
+    //                     map_key: map_key.clone(),
+    //                     zone: 1, // FIXME: calculate from position and terrain?
+    //                     x: creature_spawn.position_x,
+    //                     y: creature_spawn.position_y,
+    //                     z: creature_spawn.position_z,
+    //                     o: creature_spawn.orientation,
+    //                 }),
+    //                 life_cycle_stage: LifeCycleStage::Alive,
+    //             }
+    //         })
+    // }
 
     pub fn guid(&self) -> &ObjectGuid {
         &self.guid

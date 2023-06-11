@@ -1,8 +1,30 @@
 use std::sync::Arc;
 
+use enumflags2::make_bitflags;
 use fixedbitset::{FixedBitSet, Ones};
 use parking_lot::RwLock;
+use rand::{seq::SliceRandom, Rng};
 use shipyard::Component;
+
+use crate::{
+    game::world_context::WorldContext,
+    repositories::{
+        character::CharacterRepository, creature::CreatureSpawnDbRecord, item::ItemRepository,
+    },
+    shared::constants::{
+        CharacterClass, CharacterRace, Gender, InventorySlot, ObjectTypeMask, PowerType, UnitFlags,
+        PLAYER_DEFAULT_COMBAT_REACH,
+    },
+    DataStore,
+};
+
+use super::{
+    item::Item,
+    object_guid::ObjectGuid,
+    update_fields::{
+        ObjectFields, UnitFields, MAX_PLAYER_VISIBLE_ITEM_OFFSET, PLAYER_END, UNIT_END,
+    },
+};
 
 pub struct InternalValues {
     size: usize,
@@ -154,6 +176,222 @@ impl InternalValues {
         assert!(index < self.size, "index is too high");
 
         unsafe { self.values[index].as_i32 }
+    }
+
+    pub fn build_for_creature(
+        creature_spawn: &CreatureSpawnDbRecord,
+        data_store: Arc<DataStore>,
+        guid: &ObjectGuid,
+    ) -> Option<InternalValues> {
+        data_store
+            .get_creature_template(creature_spawn.entry)
+            .map(|template| {
+                let mut rng = rand::thread_rng();
+
+                let mut values = InternalValues::new(UNIT_END as usize);
+                values.set_u64(ObjectFields::ObjectFieldGuid.into(), guid.raw());
+
+                let object_type = make_bitflags!(ObjectTypeMask::{Object | Unit}).bits();
+                values.set_u32(ObjectFields::ObjectFieldType.into(), object_type);
+
+                values.set_u32(ObjectFields::ObjectFieldEntry.into(), template.entry);
+
+                values.set_f32(ObjectFields::ObjectFieldScaleX.into(), template.scale);
+
+                values.set_u32(
+                    UnitFields::UnitFieldLevel.into(),
+                    rng.gen_range(template.min_level..=template.max_level),
+                );
+
+                let existing_model_ids: Vec<&u32> =
+                    template.model_ids.iter().filter(|&&id| id != 0).collect();
+                let display_id = existing_model_ids.choose(&mut rng).expect("rng error");
+                values.set_u32(UnitFields::UnitFieldDisplayid.into(), **display_id);
+                values.set_u32(UnitFields::UnitFieldNativedisplayid.into(), **display_id);
+                // TODO: CombatReach must come from a DBC
+                values.set_f32(UnitFields::UnitFieldCombatReach.into(), 1.5);
+
+                values.set_u32(UnitFields::UnitFieldHealth.into(), 100); // TODO
+                values.set_u32(UnitFields::UnitFieldMaxhealth.into(), 100); // TODO
+
+                values.set_u32(
+                    UnitFields::UnitFieldFactiontemplate.into(),
+                    template.faction_template_id,
+                );
+
+                values.set_u32(UnitFields::UnitNpcFlags.into(), template.npc_flags);
+                values.set_u32(UnitFields::UnitFieldFlags.into(), template.unit_flags);
+                values.set_u32(UnitFields::UnitDynamicFlags.into(), template.dynamic_flags);
+
+                values
+            })
+    }
+
+    pub fn build_for_player(guid: &ObjectGuid, world_context: Arc<WorldContext>) -> InternalValues {
+        let conn = world_context.database.characters.get().unwrap();
+        let character = CharacterRepository::fetch_basic_character_data(&conn, guid.raw())
+            .expect("Failed to load character from DB");
+
+        let mut values = InternalValues::new(PLAYER_END as usize);
+
+        values.set_u64(ObjectFields::ObjectFieldGuid.into(), guid.raw());
+
+        let object_type = make_bitflags!(ObjectTypeMask::{Object | Unit | Player}).bits();
+        values.set_u32(ObjectFields::ObjectFieldType.into(), object_type);
+
+        values.set_f32(ObjectFields::ObjectFieldScaleX.into(), 1.0);
+
+        values.set_u32(UnitFields::UnitFieldLevel.into(), character.level as u32);
+        values.set_u32(
+            UnitFields::PlayerFieldMaxLevel.into(),
+            world_context.config.world.game.player.maxlevel,
+        );
+
+        let race = CharacterRace::n(character.race).expect("Character has invalid race id in DB");
+        values.set_u8(UnitFields::UnitFieldBytes0.into(), 0, race as u8);
+
+        let class =
+            CharacterClass::n(character.class).expect("Character has invalid class id in DB");
+        values.set_u8(UnitFields::UnitFieldBytes0.into(), 1, class as u8);
+
+        let gender = Gender::n(character.gender).expect("Character has invalid gender in DB");
+        values.set_u8(UnitFields::UnitFieldBytes0.into(), 2, gender as u8);
+
+        let power_type = world_context
+            .data_store
+            .get_class_record(character.class as u32)
+            .map(|cl| PowerType::n(cl.power_type).unwrap())
+            .expect("Cannot load character because it has an invalid class id in DB");
+        values.set_u8(UnitFields::UnitFieldBytes0.into(), 3, power_type as u8);
+
+        values.set_u8(UnitFields::UnitFieldBytes2.into(), 1, 0x28); // UNIT_BYTE2_FLAG_UNK3 | UNIT_BYTE2_FLAG_UNK5
+
+        values.set_u8(
+            UnitFields::PlayerBytes.into(),
+            0,
+            character.visual_features.skin,
+        );
+        values.set_u8(
+            UnitFields::PlayerBytes.into(),
+            1,
+            character.visual_features.face,
+        );
+        values.set_u8(
+            UnitFields::PlayerBytes.into(),
+            2,
+            character.visual_features.hairstyle,
+        );
+        values.set_u8(
+            UnitFields::PlayerBytes.into(),
+            3,
+            character.visual_features.haircolor,
+        );
+        values.set_u8(
+            UnitFields::PlayerBytes2.into(),
+            0,
+            character.visual_features.facialstyle,
+        );
+        values.set_u8(UnitFields::PlayerBytes2.into(), 3, 0x02); // Unk
+        values.set_u8(UnitFields::PlayerBytes3.into(), 0, gender as u8);
+
+        let chr_races_record = world_context
+            .data_store
+            .get_race_record(character.race as u32)
+            .expect("Cannot load character because it has an invalid race id in DB");
+        let display_id = if character.gender == Gender::Male as u8 {
+            chr_races_record.male_display_id
+        } else {
+            chr_races_record.female_display_id
+        };
+        values.set_u32(UnitFields::UnitFieldDisplayid.into(), display_id);
+        values.set_u32(UnitFields::UnitFieldNativedisplayid.into(), display_id);
+        values.set_f32(
+            UnitFields::UnitFieldCombatReach.into(),
+            PLAYER_DEFAULT_COMBAT_REACH,
+        );
+
+        /* BEGIN TO REFACTOR LATER */
+        values.set_u32(UnitFields::UnitFieldHealth.into(), 100);
+        values.set_u32(UnitFields::UnitFieldMaxhealth.into(), 100);
+
+        let power_type = world_context
+            .data_store
+            .get_class_record(character.class as u32)
+            .map(|cl| PowerType::n(cl.power_type).unwrap())
+            .expect("Cannot load character because it has an invalid class id in DB");
+        values.set_u32(
+            UnitFields::UnitFieldPower1 as usize + power_type as usize,
+            100,
+        );
+        values.set_u32(
+            UnitFields::UnitFieldMaxpower1 as usize + power_type as usize,
+            100,
+        );
+
+        values.set_u32(
+            UnitFields::UnitFieldFactiontemplate.into(),
+            chr_races_record.faction_id,
+        );
+
+        values.set_i32(UnitFields::PlayerFieldWatchedFactionIndex.into(), -1);
+
+        // Skills
+        let skills = CharacterRepository::fetch_character_skills(&conn, guid.raw());
+        for (index, skill) in skills.iter().enumerate() {
+            values.set_u16(
+                UnitFields::PlayerSkillInfo1_1 as usize + (index * 3),
+                0,
+                skill.skill_id,
+            );
+            // Note: PlayerSkillInfo1_1 offset 1 is "step"
+            values.set_u16(
+                UnitFields::PlayerSkillInfo1_1 as usize + 1 + (index * 3),
+                0,
+                skill.value,
+            );
+            values.set_u16(
+                UnitFields::PlayerSkillInfo1_1 as usize + 1 + (index * 3),
+                1,
+                skill.max_value,
+            );
+        }
+
+        values.set_u32(
+            UnitFields::UnitFieldFlags.into(),
+            UnitFlags::PlayerControlled as u32,
+        );
+
+        let _ = ItemRepository::load_player_inventory(&conn, guid.raw() as u32)
+            .into_iter()
+            .map(|record| {
+                let item = Item::new(
+                    record.guid,
+                    record.entry,
+                    record.owner_guid.unwrap(),
+                    record.stack_count,
+                );
+                values.set_u64(
+                    UnitFields::PlayerFieldInvSlotHead as usize + (2 * record.slot) as usize,
+                    item.guid().raw(),
+                );
+
+                // Visible bits
+                if record.slot >= InventorySlot::EQUIPMENT_START
+                    && record.slot < InventorySlot::EQUIPMENT_END
+                {
+                    values.set_u32(
+                        UnitFields::PlayerVisibleItem1_0 as usize
+                            + (record.slot * MAX_PLAYER_VISIBLE_ITEM_OFFSET) as usize,
+                        item.entry(),
+                    );
+                }
+
+                (record.slot, item)
+            });
+
+        values.reset_dirty();
+
+        values
     }
 }
 

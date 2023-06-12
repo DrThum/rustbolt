@@ -242,10 +242,7 @@ impl Map {
                 None,
             );
             for guid in guids_around {
-                if let Some(entity) = world_context
-                    .map_manager
-                    .lookup_entity(&guid, Some(self.key))
-                {
+                if let Some(entity) = self.lookup_entity(&guid) {
                     // Broadcast the new player to nearby players and to itself
                     let other_session = self.sessions.read().get(&guid).cloned();
                     if let Some(other_session) = other_session {

@@ -211,34 +211,6 @@ impl MapManager {
         }
     }
 
-    pub fn lookup_entity(
-        &self,
-        guid: &ObjectGuid,
-        map_key: Option<MapKey>,
-    ) -> Option<Arc<RwLock<dyn WorldEntity + Sync + Send>>> {
-        if let Some(map_key) = map_key {
-            let maps = self.maps.read();
-            let map = maps.get(&map_key);
-            if let Some(map) = map {
-                map.lookup_entity(guid)
-            } else {
-                None
-            }
-        } else if guid.is_player() {
-            let map_guard = self.maps.read();
-            for (_, map) in &*map_guard {
-                if let Some(entity) = map.lookup_entity(guid) {
-                    return Some(entity);
-                }
-            }
-
-            None
-        } else {
-            warn!("lookup on multiple maps is only allowed for players");
-            None
-        }
-    }
-
     pub fn broadcast_packet<
         const OPCODE: u16,
         Payload: protocol::server::ServerMessagePayload<OPCODE>,

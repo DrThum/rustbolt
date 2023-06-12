@@ -18,7 +18,7 @@ impl OpcodeHandler {
             data: Vec<u8>,
         ) {
             let movement_info: MovementInfo = ClientMessage::read_as(data).unwrap();
-            let player_guid = session.player_guid.unwrap();
+            let player_guid = session.player_guid().unwrap();
 
             // TODO: Validate movement (unitBeingMoved guid)
             // TODO: Validate position
@@ -30,7 +30,6 @@ impl OpcodeHandler {
                     &player_guid,
                     session.clone(),
                     &movement_info.position,
-                    Vec::new(), // TODO-ECS
                     world_context.clone(),
                 );
             }

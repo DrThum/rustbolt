@@ -13,7 +13,7 @@ use crate::{
         packets::{SmsgAttackStop, SmsgAttackerStateUpdate},
         server::ServerMessage,
     },
-    shared::constants::{MeleeAttackError, WeaponAttackType},
+    shared::constants::{MeleeAttackError, WeaponAttackType, ATTACK_DISPLAY_DELAY},
 };
 
 pub fn attempt_melee_attack(
@@ -47,7 +47,7 @@ pub fn attempt_melee_attack(
             let melee = (&mut v_melee).get(my_id).unwrap();
 
             if !melee.is_attacking {
-                return;
+                continue;
             }
 
             if !target_health.is_alive() {
@@ -69,7 +69,7 @@ pub fn attempt_melee_attack(
 
                 melee.is_attacking = false;
 
-                return;
+                continue;
             }
 
             if !melee.can_reach_target_in_melee(my_position, target_position, target_melee_reach) {
@@ -79,7 +79,7 @@ pub fn attempt_melee_attack(
 
                 melee.ensure_attack_time(WeaponAttackType::MainHand, Duration::from_millis(100));
                 melee.ensure_attack_time(WeaponAttackType::OffHand, Duration::from_millis(100));
-                return;
+                continue;
             }
 
             if melee.is_attack_ready(WeaponAttackType::MainHand) {
@@ -112,7 +112,7 @@ pub fn attempt_melee_attack(
                 );
 
                 melee.reset_attack_type(WeaponAttackType::MainHand);
-                melee.ensure_attack_time(WeaponAttackType::OffHand, Duration::from_millis(100));
+                melee.ensure_attack_time(WeaponAttackType::OffHand, ATTACK_DISPLAY_DELAY);
                 melee.set_error(MeleeAttackError::None, None);
             } else if melee.is_attack_ready(WeaponAttackType::OffHand) {
                 todo!();

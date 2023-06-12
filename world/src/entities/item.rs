@@ -1,21 +1,11 @@
-use std::{sync::Arc, time::Duration};
-
-use async_trait::async_trait;
 use enumflags2::make_bitflags;
 
-use crate::{
-    game::world_context::WorldContext,
-    shared::constants::{HighGuidType, ObjectTypeId, ObjectTypeMask},
-};
+use crate::shared::constants::{HighGuidType, ObjectTypeId, ObjectTypeMask};
 
 use super::{
     internal_values::InternalValues,
     object_guid::ObjectGuid,
-    position::WorldPosition,
-    update::{
-        CreateData, UpdateBlock, UpdateBlockBuilder, UpdateData, UpdateFlag, UpdateType,
-        WorldEntity,
-    },
+    update::{CreateData, UpdateBlockBuilder, UpdateFlag, UpdateType},
     update_fields::{ItemFields, ObjectFields, ITEM_END},
 };
 
@@ -50,7 +40,7 @@ impl Item {
         self.values.get_u32(ObjectFields::ObjectFieldEntry.into())
     }
 
-    fn gen_create_data(&self) -> UpdateBlock {
+    pub fn build_create_data(&self) -> CreateData {
         let mut update_builder = UpdateBlockBuilder::new();
 
         for index in 0..ITEM_END {
@@ -60,28 +50,9 @@ impl Item {
             }
         }
 
-        update_builder.build()
-    }
-}
+        let blocks = update_builder.build();
 
-#[async_trait]
-impl WorldEntity for Item {
-    fn guid(&self) -> &ObjectGuid {
-        self.guid()
-    }
-
-    fn name(&self) -> String {
-        "TODO".to_owned()
-    }
-
-    fn tick(&mut self, _diff: Duration, _world_context: Arc<WorldContext>) {}
-
-    fn get_create_data(
-        &self,
-        _recipient_guid: u64,
-        _world_context: Arc<WorldContext>,
-    ) -> Vec<CreateData> {
-        let update_data = CreateData {
+        CreateData {
             update_type: UpdateType::CreateObject,
             packed_guid: self.guid.as_packed(),
             object_type: ObjectTypeId::Item,
@@ -89,37 +60,7 @@ impl WorldEntity for Item {
             movement: None,
             low_guid_part: Some(self.guid.counter()),
             high_guid_part: Some(HighGuidType::ItemOrContainer as u32),
-            blocks: self.gen_create_data(),
-        };
-
-        vec![update_data]
-    }
-
-    fn get_update_data(
-        &self,
-        _recipient_guid: u64,
-        _world_context: Arc<WorldContext>,
-    ) -> Vec<UpdateData> {
-        todo!()
-    }
-
-    fn has_updates(&self) -> bool {
-        self.values.has_dirty()
-    }
-
-    fn mark_up_to_date(&mut self) {
-        self.values.reset_dirty();
-    }
-
-    fn modify_health(&mut self, _damage: i32) {
-        panic!("attempt to call modify_health() on an Item");
-    }
-
-    fn combat_reach(&self) -> f32 {
-        panic!("attempt to call combat_reach() on an Item");
-    }
-
-    fn position(&self) -> &WorldPosition {
-        panic!("attempt to call position() on an Item");
+            blocks,
+        }
     }
 }

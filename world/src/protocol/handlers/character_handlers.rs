@@ -1,7 +1,11 @@
 use binrw::NullString;
 use chrono::{Datelike, Timelike};
+use shipyard::ViewMut;
 use std::sync::Arc;
 
+use crate::ecs::components::melee::Melee;
+use crate::ecs::components::unit::Unit;
+use crate::entities::object_guid::ObjectGuid;
 use crate::entities::player::Player;
 use crate::game::world_context::WorldContext;
 use crate::protocol::client::ClientMessage;
@@ -24,7 +28,7 @@ impl OpcodeHandler {
         let name_available =
             CharacterRepository::is_name_available(&conn, cmsg_char_create.name.to_string());
         let result = if name_available {
-            match Player::create(
+            match Player::create_in_db(
                 &mut conn,
                 &cmsg_char_create,
                 session.account_id,
@@ -90,21 +94,19 @@ impl OpcodeHandler {
         world_context: Arc<WorldContext>,
         data: Vec<u8>,
     ) {
-        let _cmsg_player_login: CmsgPlayerLogin = ClientMessage::read_as(data).unwrap();
+        let cmsg_player_login: CmsgPlayerLogin = ClientMessage::read_as(data).unwrap();
 
-        let _account_id = session.account_id;
-        let _conn = world_context.database.characters.get().unwrap();
+        let account_id = session.account_id;
+        let conn = world_context.database.characters.get().unwrap();
 
-        // TODO-ECS
-        // {
-        //     let mut player = session.player.write();
-        //     player.load(
-        //         &conn,
-        //         account_id,
-        //         cmsg_player_login.guid,
-        //         world_context.clone(),
-        //     );
-        // }
+        let character_data =
+            CharacterRepository::fetch_basic_character_data(&conn, cmsg_player_login.guid)
+                .expect("Failed to load character from DB");
+
+        assert!(
+            character_data.account_id == account_id,
+            "Attempt to load a character belonging to another account"
+        );
 
         let msg_set_dungeon_difficulty = ServerMessage::new(MsgSetDungeonDifficulty {
             difficulty: 0, // FIXME
@@ -114,19 +116,15 @@ impl OpcodeHandler {
 
         session.send(&msg_set_dungeon_difficulty).unwrap();
 
-        {
-            // TODO-ECS
-            // let player_position = session.player.read().position().clone();
-            // let smsg_login_verify_world = ServerMessage::new(SmsgLoginVerifyWorld {
-            //     map: player_position.map_key.map_id,
-            //     position_x: player_position.x,
-            //     position_y: player_position.y,
-            //     position_z: player_position.z,
-            //     orientation: player_position.o,
-            // });
-            //
-            // session.send(&smsg_login_verify_world).unwrap();
-        }
+        let smsg_login_verify_world = ServerMessage::new(SmsgLoginVerifyWorld {
+            map: character_data.position.map_key.map_id,
+            position_x: character_data.position.x,
+            position_y: character_data.position.y,
+            position_z: character_data.position.z,
+            orientation: character_data.position.o,
+        });
+
+        session.send(&smsg_login_verify_world).unwrap();
 
         let smsg_account_data_times =
             ServerMessage::new(SmsgAccountDataTimes { data: [0_u32; 32] });
@@ -203,15 +201,17 @@ impl OpcodeHandler {
         session.send(&smsg_login_settimespeed).unwrap();
 
         {
-            // TODO-ECS
-            // world_context.map_manager.add_session_to_map(
-            //     session.clone(),
-            //     world_context.clone(),
-            //     session.player.clone(),
-            // );
-
             let mut session_state = session.state.write();
             *session_state = WorldSessionState::InWorld;
+        }
+
+        if let Some(map) = world_context
+            .map_manager
+            .get_map(character_data.position.map_key)
+        {
+            session.set_map(map.clone());
+            session.set_player_guid(ObjectGuid::from_raw(character_data.guid).unwrap());
+            map.add_player_on_login(session.clone(), &character_data, world_context.clone());
         }
 
         // FIXME: hardcoded position
@@ -243,16 +243,16 @@ impl OpcodeHandler {
 
         session.send(&packet).unwrap();
 
+        // FIXME: Handle future cases when logout might not be instant
+        session.cleanup_on_world_leave(&mut world_context.database.characters.get().unwrap());
+
         if let Some(ref map) = session.current_map() {
             let player_guid = &session
-                .player_guid
+                .player_guid()
                 .expect("attempt to logout from a session with no player");
 
             map.remove_player(player_guid);
         }
-
-        // FIXME: Handle future cases when logout might not be instant
-        session.cleanup_on_world_leave(&mut world_context.database.characters.get().unwrap());
     }
 
     pub(crate) fn handle_cmsg_name_query(
@@ -298,13 +298,15 @@ impl OpcodeHandler {
         data: Vec<u8>,
     ) {
         let cmsg_stand_state_change: CmsgStandStateChange = ClientMessage::read_as(data).unwrap();
-        // TODO-ECS
-        // {
-        //     session
-        //         .player
-        //         .write()
-        //         .set_stand_state(cmsg_stand_state_change.animstate);
-        // }
+        if let Some(map) = session.current_map() {
+            let world = map.ecs_world();
+            let world_guard = world.lock();
+
+            if let Some(entity_id) = map.lookup_entity_ecs(&session.player_guid().unwrap()) {
+                let mut vm_unit = world_guard.borrow::<ViewMut<Unit>>().unwrap();
+                vm_unit[entity_id].set_stand_state(cmsg_stand_state_change.animstate);
+            }
+        }
 
         let packet = ServerMessage::new(SmsgStandStateUpdate {
             animstate: cmsg_stand_state_change.animstate as u8,
@@ -314,15 +316,19 @@ impl OpcodeHandler {
     }
 
     pub(crate) fn handle_cmsg_set_sheathed(
-        _session: Arc<WorldSession>,
+        session: Arc<WorldSession>,
         _world_context: Arc<WorldContext>,
         data: Vec<u8>,
     ) {
-        let _cmsg_set_sheathed: CmsgSetSheathed = ClientMessage::read_as(data).unwrap();
-        // TODO-ECS
-        // session
-        //     .player
-        //     .write()
-        //     .set_sheath_state(cmsg_set_sheathed.sheath_state);
+        let cmsg_set_sheathed: CmsgSetSheathed = ClientMessage::read_as(data).unwrap();
+        if let Some(map) = session.current_map() {
+            let world = map.ecs_world();
+            let world_guard = world.lock();
+
+            if let Some(entity_id) = map.lookup_entity_ecs(&session.player_guid().unwrap()) {
+                let mut vm_melee = world_guard.borrow::<ViewMut<Melee>>().unwrap();
+                vm_melee[entity_id].set_sheath_state(cmsg_set_sheathed.sheath_state);
+            }
+        }
     }
 }

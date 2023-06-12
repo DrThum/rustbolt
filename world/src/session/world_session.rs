@@ -4,7 +4,7 @@ use miniz_oxide::deflate::CompressionLevel;
 use parking_lot::RwLock;
 use r2d2::PooledConnection;
 use r2d2_sqlite::SqliteConnectionManager;
-use shipyard::EntityId;
+use shipyard::{EntityId, View};
 use std::{
     sync::{atomic::AtomicU32, Arc},
     time::Duration,
@@ -22,18 +22,21 @@ use tokio::{
 use wow_srp::tbc_header::HeaderCrypto;
 
 use crate::{
-    entities::object_guid::ObjectGuid,
+    entities::{object_guid::ObjectGuid, player::Player, position::WorldPosition},
     game::{map::Map, world_context::WorldContext},
     protocol::{
         client::ClientMessage,
         opcodes::Opcode,
         packets::{
-            MovementInfo, SmsgAttackStop, SmsgCreateObject, SmsgDestroyObject, SmsgMessageChat,
+            FactionInit, MovementInfo, SmsgActionButtons, SmsgAttackStop, SmsgCreateObject,
+            SmsgDestroyObject, SmsgInitialSpells, SmsgInitializeFactions, SmsgMessageChat,
             SmsgTimeSyncReq, SmsgUpdateObject,
         },
         server::{ServerMessage, ServerMessageHeader, ServerMessagePayload},
     },
-    shared::constants::{ChatMessageType, Language},
+    shared::constants::{
+        ChatMessageType, Language, MAX_VISIBLE_REPUTATIONS, PLAYER_MAX_ACTION_BUTTONS,
+    },
     WorldSocketError,
 };
 
@@ -51,8 +54,8 @@ pub struct WorldSession {
     pub account_id: u32,
     pub state: RwLock<WorldSessionState>,
     current_map: RwLock<Option<Arc<Map>>>,
-    pub player_entity_id: Option<EntityId>,
-    pub player_guid: Option<ObjectGuid>,
+    player_entity_id: RwLock<Option<EntityId>>,
+    player_guid: RwLock<Option<ObjectGuid>>,
     client_latency: AtomicU32,
     server_time_sync: parking_lot::Mutex<TimeSync>,
     time_sync_handle: parking_lot::Mutex<Option<JoinHandle<()>>>,
@@ -73,9 +76,9 @@ impl WorldSession {
         let encryption = Arc::new(Mutex::new(encryption));
 
         let (session_to_socket_tx, session_to_socket_rx) =
-            mpsc::channel::<(ServerMessageHeader, Vec<u8>)>(50);
+            mpsc::channel::<(ServerMessageHeader, Vec<u8>)>(150);
 
-        let (socket_to_session_tx, mut socket_to_session_rx) = mpsc::channel::<ClientMessage>(50);
+        let (socket_to_session_tx, mut socket_to_session_rx) = mpsc::channel::<ClientMessage>(150);
 
         let socket = WorldSocket::new(
             write_half,
@@ -92,8 +95,8 @@ impl WorldSession {
             account_id,
             state: RwLock::new(WorldSessionState::OnCharactersList),
             current_map: RwLock::new(None),
-            player_entity_id: None,
-            player_guid: None,
+            player_entity_id: RwLock::new(None),
+            player_guid: RwLock::new(None),
             client_latency: AtomicU32::new(0),
             server_time_sync: parking_lot::Mutex::new(TimeSync {
                 server_counter: 0,
@@ -129,18 +132,24 @@ impl WorldSession {
         self.socket.shutdown();
     }
 
-    pub fn cleanup_on_world_leave(&self, _conn: &mut PooledConnection<SqliteConnectionManager>) {
+    pub fn cleanup_on_world_leave(&self, conn: &mut PooledConnection<SqliteConnectionManager>) {
         if let Some(handle) = self.time_sync_handle.lock().take() {
             handle.abort();
         }
 
-        if let Some(_map) = self.current_map.read().as_ref() {
-            {
-                // let mut player = self.player.write();
-                // let transaction = conn.transaction().unwrap();
-                // player.save(&transaction).unwrap();
-                // transaction.commit().unwrap();
-                // TODO-ECS: Implement player save by getting data from ECS world on map
+        if let Some(map) = self.current_map() {
+            if let Some(entity_id) = map.lookup_entity_ecs(&self.player_guid.read().unwrap()) {
+                let world = map.ecs_world();
+                let world_guard = world.lock();
+
+                let (v_player, v_wpos) = world_guard
+                    .borrow::<(View<Player>, View<WorldPosition>)>()
+                    .unwrap();
+                let transaction = conn.transaction().unwrap();
+                v_player[entity_id]
+                    .save_position_to_db(&transaction, &v_wpos[entity_id])
+                    .unwrap();
+                transaction.commit().unwrap();
             }
 
             {
@@ -193,38 +202,34 @@ impl WorldSession {
         packet: &ServerMessage<OPCODE, Payload>,
     ) -> Result<(), SendError<(ServerMessageHeader, Vec<u8>)>> {
         let tx = self.session_to_socket_tx.clone();
-        futures::executor::block_on(async move {
-            // Handle::current().block_on(async move {
-            let payload = packet.encode_payload().expect("failed to encode payload");
-            let channel_payload = if OPCODE == Opcode::SmsgUpdateObject as u16 && payload.len() > 50
-            {
-                // Change to SMSG_COMPRESSED_UPDATE_OBJECT and compress the payload
-                let uncompressed_size = payload.len();
-                let compressed_payload: Vec<u8> = miniz_oxide::deflate::compress_to_vec_zlib(
-                    &payload,
-                    CompressionLevel::DefaultLevel as u8,
-                );
+        // Handle::current().block_on(async move {
+        let payload = packet.encode_payload().expect("failed to encode payload");
+        let channel_payload = if OPCODE == Opcode::SmsgUpdateObject as u16 && payload.len() > 50 {
+            // Change to SMSG_COMPRESSED_UPDATE_OBJECT and compress the payload
+            let uncompressed_size = payload.len();
+            let compressed_payload: Vec<u8> = miniz_oxide::deflate::compress_to_vec_zlib(
+                &payload,
+                CompressionLevel::DefaultLevel as u8,
+            );
 
-                let header = ServerMessageHeader {
-                    size: compressed_payload.len() as u16 + 2 + 4, /* + 2 for opcode + 4 for uncompressed_size */
-                    opcode: Opcode::SmsgCompressedUpdateObject as u16,
-                };
-
-                let payload: Vec<u32> = vec![uncompressed_size as u32];
-                let mut payload: Vec<u8> = cast_slice(&payload).to_vec();
-                payload.extend(compressed_payload);
-                (header, payload)
-            } else {
-                let header = ServerMessageHeader {
-                    size: payload.len() as u16 + 2, // + 2 for the opcode size
-                    opcode: OPCODE,
-                };
-
-                (header, payload)
+            let header = ServerMessageHeader {
+                size: compressed_payload.len() as u16 + 2 + 4, /* + 2 for opcode + 4 for uncompressed_size */
+                opcode: Opcode::SmsgCompressedUpdateObject as u16,
             };
 
-            tx.send(channel_payload).await
-        })
+            let payload: Vec<u32> = vec![uncompressed_size as u32];
+            let mut payload: Vec<u8> = cast_slice(&payload).to_vec();
+            payload.extend(compressed_payload);
+            (header, payload)
+        } else {
+            let header = ServerMessageHeader {
+                size: payload.len() as u16 + 2, // + 2 for the opcode size
+                opcode: OPCODE,
+            };
+
+            (header, payload)
+        };
+        futures::executor::block_on(async move { tx.send(channel_payload).await })
     }
 
     pub fn send_movement(
@@ -305,63 +310,76 @@ impl WorldSession {
         self.current_map.read().as_ref().cloned()
     }
 
+    pub fn set_player_guid(&self, guid: ObjectGuid) {
+        self.player_guid.write().replace(guid);
+    }
+
+    pub fn player_guid(&self) -> Option<ObjectGuid> {
+        self.player_guid.read().as_ref().cloned()
+    }
+
+    pub fn set_player_entity_id(&self, entity_id: EntityId) {
+        self.player_entity_id.write().replace(entity_id);
+    }
+
+    pub fn player_entity_id(&self) -> Option<EntityId> {
+        self.player_entity_id.read().as_ref().cloned()
+    }
+
     pub fn set_map(&self, key: Arc<Map>) {
         self.current_map.write().replace(key);
     }
 
-    pub fn send_initial_spells(&self) {
-        // TODO-ECS
-        // let spells: Vec<u32> = self.player.read().spells().clone();
-        // let packet = ServerMessage::new(SmsgInitialSpells::new(spells, Vec::new() /* TODO */));
-        // self.send(&packet).unwrap();
+    pub fn send_initial_spells(&self, player: &Player) {
+        let spells: Vec<u32> = player.spells().clone();
+        let packet = ServerMessage::new(SmsgInitialSpells::new(spells, Vec::new() /* TODO */));
+        self.send(&packet).unwrap();
     }
 
-    pub fn send_initial_action_buttons(&self) {
-        // TODO-ECS
-        // let action_buttons = self.player.read().action_buttons().clone();
-        //
-        // let mut buttons_packed: Vec<u32> = Vec::new();
-        // for index in 0..PLAYER_MAX_ACTION_BUTTONS {
-        //     let packed = action_buttons
-        //         .get(&index)
-        //         .map_or(0, |button| button.packed());
-        //
-        //     buttons_packed.push(packed);
-        // }
-        //
-        // let packet = ServerMessage::new(SmsgActionButtons { buttons_packed });
-        //
-        // self.send(&packet).unwrap();
+    pub fn send_initial_action_buttons(&self, player: &Player) {
+        let action_buttons = player.action_buttons().clone();
+
+        let mut buttons_packed: Vec<u32> = Vec::new();
+        for index in 0..PLAYER_MAX_ACTION_BUTTONS {
+            let packed = action_buttons
+                .get(&index)
+                .map_or(0, |button| button.packed());
+
+            buttons_packed.push(packed);
+        }
+
+        let packet = ServerMessage::new(SmsgActionButtons { buttons_packed });
+
+        self.send(&packet).unwrap();
     }
 
-    pub fn send_initial_reputations(&self) {
-        // TODO-ECS
-        // let faction_standings = self.player.read().faction_standings().clone();
-        //
-        // let mut factions: Vec<FactionInit> = Vec::with_capacity(MAX_VISIBLE_REPUTATIONS);
-        // for index in 0..MAX_VISIBLE_REPUTATIONS {
-        //     let faction_init =
-        //         if let Some(faction_standing) = faction_standings.get(&(index as u32)) {
-        //             FactionInit {
-        //                 flags: faction_standing.flags as u8,
-        //                 standing: faction_standing.db_standing as u32,
-        //             }
-        //         } else {
-        //             FactionInit {
-        //                 flags: 0,
-        //                 standing: 0,
-        //             }
-        //         };
-        //
-        //     factions.push(faction_init);
-        // }
-        //
-        // let packet = ServerMessage::new(SmsgInitializeFactions {
-        //     unk: 0x80,
-        //     factions,
-        // });
-        //
-        // self.send(&packet).unwrap();
+    pub fn send_initial_reputations(&self, player: &Player) {
+        let faction_standings = player.faction_standings().clone();
+
+        let mut factions: Vec<FactionInit> = Vec::with_capacity(MAX_VISIBLE_REPUTATIONS);
+        for index in 0..MAX_VISIBLE_REPUTATIONS {
+            let faction_init =
+                if let Some(faction_standing) = faction_standings.get(&(index as u32)) {
+                    FactionInit {
+                        flags: faction_standing.flags as u8,
+                        standing: faction_standing.db_standing as u32,
+                    }
+                } else {
+                    FactionInit {
+                        flags: 0,
+                        standing: 0,
+                    }
+                };
+
+            factions.push(faction_init);
+        }
+
+        let packet = ServerMessage::new(SmsgInitializeFactions {
+            unk: 0x80,
+            factions,
+        });
+
+        self.send(&packet).unwrap();
     }
 
     pub fn build_chat_packet(
@@ -374,7 +392,7 @@ impl WorldSession {
         SmsgMessageChat {
             message_type,
             language,
-            sender_guid: self.player_guid.unwrap().raw(),
+            sender_guid: self.player_guid.read().unwrap().raw(),
             unk: 0,
             target_guid: target_guid.map_or(0, |g| g.raw()),
             message_len: message.len() as u32 + 1,
@@ -392,7 +410,7 @@ impl WorldSession {
     }
 
     pub fn is_guid_known(&self, guid: &ObjectGuid) -> bool {
-        if *guid == self.player_guid.unwrap() {
+        if *guid == self.player_guid.read().unwrap() {
             return true;
         }
 
@@ -423,7 +441,7 @@ impl WorldSession {
 
     pub fn send_attack_stop(&self, target_guid: Option<ObjectGuid>) {
         let packet = ServerMessage::new(SmsgAttackStop {
-            player_guid: self.player_guid.unwrap().as_packed(),
+            player_guid: self.player_guid.read().unwrap().as_packed(),
             enemy_guid: target_guid.unwrap_or(ObjectGuid::zero()).as_packed(),
             unk: 0,
         });

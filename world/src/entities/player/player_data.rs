@@ -29,6 +29,7 @@ pub struct FactionStanding {
 }
 
 impl FactionStanding {
+    #[allow(dead_code)]
     pub fn standing(&self) -> i32 {
         self.base_standing + self.db_standing
     }

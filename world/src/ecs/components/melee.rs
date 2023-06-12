@@ -3,20 +3,25 @@ use std::{
     time::{Duration, Instant},
 };
 
-use log::error;
+use log::{error, warn};
+use parking_lot::RwLock;
 use shipyard::Component;
 
 use crate::{
-    entities::position::WorldPosition,
+    entities::{
+        internal_values::InternalValues, position::WorldPosition, update_fields::UnitFields,
+    },
     protocol::{packets::SmsgAttackSwingNotInRange, server::ServerMessage},
     session::world_session::WorldSession,
     shared::constants::{
-        MeleeAttackError, WeaponAttackType, BASE_MELEE_RANGE_OFFSET, NUMBER_WEAPON_ATTACK_TYPES,
+        MeleeAttackError, SheathState, WeaponAttackType, BASE_MELEE_RANGE_OFFSET,
+        NUMBER_WEAPON_ATTACK_TYPES,
     },
 };
 
 #[derive(Component)]
 pub struct Melee {
+    internal_values: Arc<RwLock<InternalValues>>,
     damage: u32,
     pub is_attacking: bool,
     next_attack_times: [Instant; NUMBER_WEAPON_ATTACK_TYPES], // MainHand, OffHand, Ranged
@@ -24,13 +29,25 @@ pub struct Melee {
     has_off_hand: bool,
     pub melee_reach: f32, // How far the unit can reach with its melee weapons
     last_error: MeleeAttackError,
+    sheath_state: SheathState,
 }
 
 impl Melee {
-    pub fn new(damage: u32, melee_reach: f32) -> Self {
+    pub fn new(
+        internal_values: Arc<RwLock<InternalValues>>,
+        damage: u32,
+        melee_reach: f32,
+    ) -> Self {
         let now = Instant::now();
 
+        internal_values.write().set_u8(
+            UnitFields::UnitFieldBytes2.into(),
+            0,
+            SheathState::Unarmed as u8,
+        );
+
         Self {
+            internal_values,
             damage,
             is_attacking: false,
             next_attack_times: [now, now, now],
@@ -38,6 +55,7 @@ impl Melee {
             has_off_hand: false,
             melee_reach,
             last_error: MeleeAttackError::None,
+            sheath_state: SheathState::Unarmed,
         }
     }
 
@@ -94,6 +112,23 @@ impl Melee {
                 MeleeAttackError::NotFacingTarget => todo!(),
                 _ => (),
             }
+        }
+    }
+
+    pub fn set_sheath_state(&mut self, sheath_state: u32) {
+        if let Some(sheath_state_enum) = SheathState::n(sheath_state) {
+            self.internal_values.write().set_u8(
+                UnitFields::UnitFieldBytes2.into(),
+                0,
+                sheath_state as u8,
+            );
+
+            self.sheath_state = sheath_state_enum;
+        } else {
+            warn!(
+                "attempted to set an invalid sheath state ({}) on player",
+                sheath_state
+            );
         }
     }
 }

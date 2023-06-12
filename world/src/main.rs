@@ -101,11 +101,6 @@ fn main() {
         &conn,
     );
 
-    // let world = World::new(world_context.clone());
-    //
-    // let world: Arc<World> = Arc::new(world);
-    // World::start(world.clone());
-
     let network_runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all() // TODO: Allow to conf the # of worker threads
         .build()

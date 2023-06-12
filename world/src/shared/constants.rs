@@ -253,7 +253,7 @@ pub enum HighGuidType {
 }
 
 #[allow(dead_code)]
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub enum ObjectTypeId {
     Object = 0,
     Item = 1,

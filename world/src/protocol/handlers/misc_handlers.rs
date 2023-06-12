@@ -36,7 +36,8 @@ impl OpcodeHandler {
         let cmsg: CmsgSetSelection = ClientMessage::read_as(data).unwrap();
 
         if let Some(map) = session.current_map() {
-            if let Some(player_ecs_entity) = map.lookup_entity_ecs(&session.player_guid.unwrap()) {
+            if let Some(player_ecs_entity) = map.lookup_entity_ecs(&session.player_guid().unwrap())
+            {
                 let target_ecs_entity =
                     map.lookup_entity_ecs(&ObjectGuid::from_raw(cmsg.guid).unwrap());
 

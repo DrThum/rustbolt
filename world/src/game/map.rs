@@ -5,29 +5,26 @@ use std::{
     time::{Duration, Instant},
 };
 
-use enumflags2::make_bitflags;
 use log::{error, warn};
 use parking_lot::{Mutex, RwLock};
 use shared::models::terrain_info::{TerrainBlock, BLOCK_WIDTH, MAP_WIDTH_IN_BLOCKS};
 use shipyard::{
-    AllStoragesViewMut, EntitiesViewMut, EntityId, IntoWorkload, UniqueViewMut, ViewMut, World,
+    AllStoragesViewMut, EntitiesViewMut, EntityId, Get, IntoWorkload, UniqueViewMut, View, ViewMut,
+    World,
 };
 
 use crate::{
     ecs::{
-        components::{guid::Guid, health::Health, melee::Melee, unit::Unit},
+        components::{guid::Guid, health::Health, melee::Melee, movement::Movement, unit::Unit},
         resources::DeltaTime,
         systems::{melee, updates},
     },
     entities::{
-        internal_values::{InternalValues, WrappedInternalValues},
+        creature::Creature,
+        internal_values::WrappedInternalValues,
         object_guid::ObjectGuid,
         player::Player,
         position::{Position, WorldPosition},
-        update::{
-            CreateData, MovementUpdateData, UpdateBlockBuilder, UpdateFlag, UpdateType, WorldEntity,
-        },
-        update_fields::UNIT_END,
     },
     protocol::{
         self,
@@ -35,9 +32,9 @@ use crate::{
         packets::{MovementInfo, SmsgCreateObject},
         server::ServerMessage,
     },
-    repositories::creature::CreatureSpawnDbRecord,
+    repositories::{character::CharacterRecord, creature::CreatureSpawnDbRecord},
     session::world_session::WorldSession,
-    shared::constants::{HighGuidType, ObjectTypeId, PLAYER_DEFAULT_COMBAT_REACH},
+    shared::constants::{HighGuidType, PLAYER_DEFAULT_COMBAT_REACH},
     DataStore,
 };
 
@@ -54,7 +51,6 @@ pub struct Map {
     world: Arc<Mutex<World>>, // Maybe a Mutex is needed
     _world_context: Arc<WorldContext>,
     sessions: RwLock<HashMap<ObjectGuid, Arc<WorldSession>>>,
-    entities: RwLock<HashMap<ObjectGuid, Arc<RwLock<dyn WorldEntity + Sync + Send>>>>,
     ecs_entities: RwLock<HashMap<ObjectGuid, EntityId>>,
     terrain: Arc<HashMap<TerrainBlockCoords, TerrainBlock>>,
     entities_tree: RwLock<QuadTree>,
@@ -84,7 +80,6 @@ impl Map {
             world: world.clone(),
             _world_context: world_context,
             sessions: RwLock::new(HashMap::new()),
-            entities: RwLock::new(HashMap::new()),
             ecs_entities: RwLock::new(HashMap::new()),
             terrain,
             entities_tree: RwLock::new(QuadTree::new(
@@ -105,13 +100,10 @@ impl Map {
                 o: spawn.orientation,
             };
 
-            map.add_creature(
-                None,
-                &guid,
-                InternalValues::build_for_creature(&spawn, data_store.clone(), &guid)
-                    .expect("unable to build InternalValues for creature from DB spawn"),
-                &position,
-            );
+            let creature = Creature::from_spawn(&spawn, data_store.clone())
+                .expect("unable to build InternalValues for creature from DB spawn");
+
+            map.add_creature(None, &guid, creature, &position);
         }
 
         let map = Arc::new(map);
@@ -152,67 +144,18 @@ impl Map {
         self.ecs_entities.read().get(guid).copied()
     }
 
-    pub fn add_player(
+    pub fn add_player_on_login(
         &self,
         session: Arc<WorldSession>,
+        char_data: &CharacterRecord,
         world_context: Arc<WorldContext>,
-        player: Arc<RwLock<Player>>,
     ) {
-        let player_guid: ObjectGuid;
-        let player_position: Position;
+        let player_guid = ObjectGuid::from_raw(char_data.guid).unwrap();
+
         {
-            let player_guard = player.read();
-            player_guid = player_guard.guid().clone();
-            player_position = player_guard.position().to_position();
+            let mut tree = self.entities_tree.write();
+            tree.insert(char_data.position.to_position(), player_guid);
         }
-
-        self.world.lock().run(
-            |mut entities: EntitiesViewMut,
-             mut vm_guid: ViewMut<Guid>,
-             mut vm_health: ViewMut<Health>,
-             mut vm_melee: ViewMut<Melee>,
-             mut vm_unit: ViewMut<Unit>,
-             mut vm_wpos: ViewMut<WorldPosition>,
-             mut vm_int_vals: ViewMut<WrappedInternalValues>| {
-                let internal_values = Arc::new(RwLock::new(InternalValues::build_for_player(
-                    &player_guid,
-                    world_context.clone(),
-                )));
-                let entity_id = entities.add_entity(
-                    (
-                        &mut vm_guid,
-                        &mut vm_health,
-                        &mut vm_melee,
-                        &mut vm_unit,
-                        &mut vm_wpos,
-                        &mut vm_int_vals,
-                    ),
-                    (
-                        Guid::new(player_guid.clone(), internal_values.clone()),
-                        Health::new(100, 100, internal_values.clone()),
-                        Melee::new(5, PLAYER_DEFAULT_COMBAT_REACH),
-                        Unit::new(internal_values.clone()),
-                        WorldPosition {
-                            map_key: self.key,
-                            zone: 0, /* TODO */
-                            x: player_position.x,
-                            y: player_position.y,
-                            z: player_position.z,
-                            o: player_position.o,
-                        },
-                        WrappedInternalValues(internal_values.clone()),
-                    ),
-                );
-
-                self.ecs_entities
-                    .write()
-                    .insert(player_guid.clone(), entity_id);
-            },
-        );
-
-        session.send_initial_spells();
-        session.send_initial_action_buttons();
-        session.send_initial_reputations();
 
         {
             let mut guard = self.sessions.write();
@@ -224,53 +167,155 @@ impl Map {
             }
         }
 
-        {
-            let mut tree = self.entities_tree.write();
-            tree.insert(player_position, player_guid);
-        }
+        self.world.lock().run(
+            |mut entities: EntitiesViewMut,
+             mut vm_guid: ViewMut<Guid>,
+             mut vm_health: ViewMut<Health>,
+             mut vm_melee: ViewMut<Melee>,
+             mut vm_unit: ViewMut<Unit>,
+             mut vm_wpos: ViewMut<WorldPosition>,
+             mut vm_int_vals: ViewMut<WrappedInternalValues>,
+             mut vm_player: ViewMut<Player>,
+             mut vm_movement: ViewMut<Movement>| {
+                let player =
+                    Player::load_from_db(session.account_id, char_data.guid, world_context.clone());
 
-        self.entities
-            .write()
-            .insert(player_guid.clone(), player.clone());
+                session.send_initial_spells(&player);
+                session.send_initial_action_buttons(&player);
+                session.send_initial_reputations(&player);
+
+                let entity_id = entities.add_entity(
+                    (
+                        &mut vm_guid,
+                        &mut vm_health,
+                        &mut vm_melee,
+                        &mut vm_unit,
+                        &mut vm_wpos,
+                        &mut vm_int_vals,
+                        &mut vm_player,
+                        &mut vm_movement,
+                    ),
+                    (
+                        Guid::new(player_guid.clone(), player.internal_values.clone()),
+                        Health::new(100, 100, player.internal_values.clone()),
+                        Melee::new(
+                            player.internal_values.clone(),
+                            5,
+                            PLAYER_DEFAULT_COMBAT_REACH,
+                        ),
+                        Unit::new(player.internal_values.clone()),
+                        WorldPosition {
+                            map_key: self.key,
+                            zone: 0, /* TODO */
+                            x: char_data.position.x,
+                            y: char_data.position.y,
+                            z: char_data.position.z,
+                            o: char_data.position.o,
+                        },
+                        WrappedInternalValues(player.internal_values.clone()),
+                        player,
+                        Movement {
+                            flags: 0,
+                            pitch: None,
+                            fall_time: 0,
+                            speed_walk: 2.5,
+                            speed_run: 7.0,
+                            speed_run_backward: 4.5,
+                            speed_swim: 4.722222,
+                            speed_swim_backward: 2.5,
+                            speed_flight: 70.0,
+                            speed_flight_backward: 4.5,
+                            speed_turn: 3.141594,
+                        },
+                    ),
+                );
+
+                self.ecs_entities
+                    .write()
+                    .insert(player_guid.clone(), entity_id);
+
+                session.set_player_entity_id(entity_id);
+
+                let movement = vm_movement.get(entity_id).ok().map(|m| {
+                    m.build_update(world_context.clone(), &char_data.position.to_position())
+                });
+
+                let player = vm_player.get(entity_id).unwrap();
+                player.internal_values.write().reset_dirty();
+                let smsg_create_object = player.build_create_object(movement, true);
+
+                session.create_entity(&player_guid, smsg_create_object);
+            },
+        );
 
         {
-            // TODO: Maybe we can group all updates within the same packet?
             let guids_around: Vec<ObjectGuid> = self.entities_tree.read().search_around_position(
-                &player_position,
+                &char_data.position.to_position(),
                 self.visibility_distance(),
                 true,
-                None,
+                Some(&player_guid),
             );
-            for guid in guids_around {
-                if let Some(entity) = self.lookup_entity(&guid) {
-                    // Broadcast the new player to nearby players and to itself
-                    let other_session = self.sessions.read().get(&guid).cloned();
+            for other_guid in guids_around {
+                if let Some(other_entity_id) = self.lookup_entity_ecs(&other_guid) {
+                    // Broadcast the new player to nearby players
+                    let other_session = self.sessions.read().get(&other_guid).cloned();
                     if let Some(other_session) = other_session {
-                        let update_data = player
-                            .read()
-                            .get_create_data(guid.raw(), world_context.clone());
-                        let smsg_update_object = SmsgCreateObject {
-                            updates_count: update_data.len() as u32,
-                            has_transport: false,
-                            updates: update_data,
-                        };
+                        let smsg_create_object: SmsgCreateObject;
+                        {
+                            let new_player_entity_id = session.player_entity_id().unwrap();
+                            let world_guard = self.world.lock();
+                            let (v_movement, v_player) = world_guard
+                                .borrow::<(View<Movement>, View<Player>)>()
+                                .unwrap();
 
-                        other_session.create_entity(&player_guid, smsg_update_object);
+                            let movement = v_movement.get(new_player_entity_id).ok().map(|m| {
+                                m.build_update(
+                                    world_context.clone(),
+                                    &char_data.position.to_position(),
+                                )
+                            });
+
+                            smsg_create_object = v_player
+                                .get(new_player_entity_id)
+                                .unwrap()
+                                .build_create_object(movement, false);
+                        }
+
+                        other_session.create_entity(&player_guid, smsg_create_object);
                     }
 
                     // Send nearby entities to the new player
-                    if guid != player_guid {
-                        // Don't send the player to itself twice
-                        let update_data = entity
-                            .read()
-                            .get_create_data(player_guid.raw(), world_context.clone());
-                        let smsg_update_object = SmsgCreateObject {
-                            updates_count: update_data.len() as u32,
-                            has_transport: false,
-                            updates: update_data,
-                        };
+                    let mut smsg_create_object: Option<SmsgCreateObject> = None;
+                    {
+                        let world_guard = self.world.lock();
 
-                        session.create_entity(&guid, smsg_update_object);
+                        let (v_movement, v_player, v_creature, v_wpos) = world_guard
+                            .borrow::<(
+                                View<Movement>,
+                                View<Player>,
+                                View<Creature>,
+                                View<WorldPosition>,
+                            )>()
+                            .unwrap();
+
+                        let movement = v_movement.get(other_entity_id).ok().map(|m| {
+                            m.build_update(
+                                world_context.clone(),
+                                &v_wpos[other_entity_id].to_position(),
+                            )
+                        });
+
+                        if let Some(player) = v_player.get(other_entity_id).ok() {
+                            smsg_create_object = Some(player.build_create_object(movement, false));
+                        } else if let Some(creature) = v_creature.get(other_entity_id).ok() {
+                            smsg_create_object = Some(creature.build_create_object(movement));
+                        }
+                    }
+
+                    if let Some(smsg) = smsg_create_object {
+                        session.create_entity(&other_guid, smsg);
+                    } else {
+                        warn!("add_player_on_login: unable to generate a SmsgCreateObject for guid {:?}", other_guid);
                     }
                 } else {
                     error!("found an entity in quadtree but not in MapManager");
@@ -292,8 +337,6 @@ impl Map {
                     );
                 }
             });
-
-        self.entities.write().remove(player_guid);
 
         {
             let other_sessions =
@@ -318,10 +361,9 @@ impl Map {
         &self,
         world_context: Option<Arc<WorldContext>>, // None during startup
         creature_guid: &ObjectGuid,
-        values: InternalValues,
+        creature: Creature,
         wpos: &WorldPosition,
     ) {
-        let internal_values = Arc::new(RwLock::new(values));
         self.world.lock().run(
             |mut entities: EntitiesViewMut,
              mut vm_guid: ViewMut<Guid>,
@@ -329,7 +371,9 @@ impl Map {
              mut vm_melee: ViewMut<Melee>,
              mut vm_unit: ViewMut<Unit>,
              mut vm_wpos: ViewMut<WorldPosition>,
-             mut vm_int_vals: ViewMut<WrappedInternalValues>| {
+             mut vm_int_vals: ViewMut<WrappedInternalValues>,
+             mut vm_creature: ViewMut<Creature>,
+             mut vm_movement: ViewMut<Movement>| {
                 let entity_id = entities.add_entity(
                     (
                         &mut vm_guid,
@@ -338,21 +382,47 @@ impl Map {
                         &mut vm_unit,
                         &mut vm_wpos,
                         &mut vm_int_vals,
+                        &mut vm_creature,
+                        &mut vm_movement,
                     ),
                     (
-                        Guid::new(creature_guid.clone(), internal_values.clone()),
-                        Health::new(80, 80, internal_values.clone()),
-                        Melee::new(5, PLAYER_DEFAULT_COMBAT_REACH), // FIXME: wrong, it's based on
-                        // the 3D model for creatures
-                        Unit::new(internal_values.clone()),
+                        Guid::new(creature_guid.clone(), creature.internal_values.clone()),
+                        Health::new(80, 80, creature.internal_values.clone()),
+                        Melee::new(
+                            creature.internal_values.clone(),
+                            5,
+                            PLAYER_DEFAULT_COMBAT_REACH,
+                        ), // FIXME: wrong, it's based on the 3D model for creatures
+                        Unit::new(creature.internal_values.clone()),
                         *wpos,
-                        WrappedInternalValues(internal_values.clone()),
+                        WrappedInternalValues(creature.internal_values.clone()),
+                        creature,
+                        Movement {
+                            flags: 0,
+                            pitch: None,
+                            fall_time: 0,
+                            speed_walk: 2.5,
+                            speed_run: 7.0,
+                            speed_run_backward: 4.5,
+                            speed_swim: 4.722222,
+                            speed_swim_backward: 2.5,
+                            speed_flight: 70.0,
+                            speed_flight_backward: 4.5,
+                            speed_turn: 3.141594,
+                        },
                     ),
                 );
 
                 self.ecs_entities
                     .write()
                     .insert(creature_guid.clone(), entity_id);
+
+                vm_creature
+                    .get(entity_id)
+                    .unwrap()
+                    .internal_values
+                    .write()
+                    .reset_dirty();
             },
         );
 
@@ -369,54 +439,26 @@ impl Map {
                 None,
             ) {
                 // Broadcast the new creature to nearby players
-                let movement = Some(MovementUpdateData {
-                    movement_flags: 0,  // 0x02000000, // TEMP: Flying
-                    movement_flags2: 0, // Always 0 in 2.4.3
-                    timestamp: world_context.game_time().as_millis() as u32, // Will overflow every 49.7 days
-                    position: wpos.to_position(),
-                    // pitch: Some(0.0),
-                    pitch: None,
-                    fall_time: 0,
-                    speed_walk: 2.5,
-                    speed_run: 7.0,
-                    speed_run_backward: 4.5,
-                    speed_swim: 4.722222,
-                    speed_swim_backward: 2.5,
-                    speed_flight: 70.0,
-                    speed_flight_backward: 4.5,
-                    speed_turn: 3.141594,
-                });
+                let smsg_create_object: SmsgCreateObject;
+                {
+                    let new_creature_entity_id = self.lookup_entity_ecs(creature_guid).unwrap();
+                    let world_guard = self.world.lock();
+                    let (v_movement, v_creature) = world_guard
+                        .borrow::<(View<Movement>, View<Creature>)>()
+                        .unwrap();
 
-                let flags = make_bitflags!(UpdateFlag::{HighGuid | Living | HasPosition});
-                let mut update_builder = UpdateBlockBuilder::new();
+                    let movement = v_movement
+                        .get(new_creature_entity_id)
+                        .ok()
+                        .map(|m| m.build_update(world_context.clone(), &wpos.to_position()));
 
-                for index in 0..UNIT_END {
-                    let value = internal_values.read().get_u32(index as usize);
-                    if value != 0 {
-                        update_builder.add(index as usize, value);
-                    }
+                    smsg_create_object = v_creature
+                        .get(new_creature_entity_id)
+                        .unwrap()
+                        .build_create_object(movement);
                 }
 
-                let blocks = update_builder.build();
-
-                let update_data = vec![CreateData {
-                    update_type: UpdateType::CreateObject2,
-                    packed_guid: creature_guid.as_packed(),
-                    object_type: ObjectTypeId::Unit,
-                    flags,
-                    movement,
-                    low_guid_part: None,
-                    high_guid_part: Some(HighGuidType::Unit as u32),
-                    blocks,
-                }];
-
-                let smsg_update_object = SmsgCreateObject {
-                    updates_count: update_data.len() as u32,
-                    has_transport: false,
-                    updates: update_data,
-                };
-
-                session.create_entity(creature_guid, smsg_update_object);
+                session.create_entity(creature_guid, smsg_create_object);
             }
         }
     }
@@ -426,7 +468,6 @@ impl Map {
         player_guid: &ObjectGuid,
         origin_session: Arc<WorldSession>,
         new_position: &Position,
-        create_data: Vec<CreateData>,
         world_context: Arc<WorldContext>,
     ) {
         let previous_position: Option<Position>;
@@ -440,15 +481,23 @@ impl Map {
                 && previous_position.y == new_position.y
                 && previous_position.z == new_position.z
             {
-                return; // FIXME: this might cause orientation-only changes to not be reflected
+                return;
             }
 
+            let mut moving_player_smsg_create_object: Option<SmsgCreateObject> = None;
             if let Some(player_ecs_entity) = self.lookup_entity_ecs(player_guid) {
-                self.world
-                    .lock()
-                    .run(|mut vm_wpos: ViewMut<WorldPosition>| {
-                        vm_wpos[player_ecs_entity].update_local(new_position);
-                    });
+                let world_guard = self.world.lock();
+                let (mut vm_wpos, v_movement, v_player) = world_guard
+                    .borrow::<(ViewMut<WorldPosition>, View<Movement>, View<Player>)>()
+                    .unwrap();
+                vm_wpos[player_ecs_entity].update_local(new_position);
+
+                let movement = v_movement
+                    .get(player_ecs_entity)
+                    .ok()
+                    .map(|m| m.build_update(world_context.clone(), new_position));
+                moving_player_smsg_create_object =
+                    Some(v_player[player_ecs_entity].build_create_object(movement, false));
             }
 
             let visibility_distance = self.visibility_distance();
@@ -470,30 +519,51 @@ impl Map {
             let appeared_for = &in_range_now - &in_range_before;
             let disappeared_for = &in_range_before - &in_range_now;
 
-            let smsg_create_object = SmsgCreateObject {
-                updates_count: create_data.len() as u32,
-                has_transport: false,
-                updates: create_data,
-            };
-
             for other_guid in appeared_for {
-                if let Some(entity) = self.lookup_entity(&other_guid) {
+                if let Some(other_entity_id) = self.lookup_entity_ecs(&other_guid) {
                     let other_session = self.sessions.read().get(&other_guid).cloned();
                     if let Some(other_session) = other_session {
                         // Make the moving player appear for the other player
-                        other_session.create_entity(player_guid, smsg_create_object.clone());
+                        other_session.create_entity(
+                            player_guid,
+                            moving_player_smsg_create_object.as_ref().unwrap().clone(),
+                        );
                     }
 
                     // Make the entity (player or otherwise) appear for the moving player
-                    let create_data = entity
-                        .read()
-                        .get_create_data(player_guid.raw(), world_context.clone());
-                    let smsg_create_object = SmsgCreateObject {
-                        updates_count: create_data.len() as u32,
-                        has_transport: false,
-                        updates: create_data,
-                    };
-                    origin_session.create_entity(&other_guid, smsg_create_object);
+                    let mut smsg_create_object: Option<SmsgCreateObject> = None;
+
+                    {
+                        let world_guard = self.world.lock();
+
+                        let (v_movement, v_player, v_creature, v_wpos) = world_guard
+                            .borrow::<(
+                                View<Movement>,
+                                View<Player>,
+                                View<Creature>,
+                                View<WorldPosition>,
+                            )>()
+                            .unwrap();
+
+                        let movement = v_movement.get(other_entity_id).ok().map(|m| {
+                            m.build_update(
+                                world_context.clone(),
+                                &v_wpos[other_entity_id].to_position(),
+                            )
+                        });
+
+                        if let Some(player) = v_player.get(other_entity_id).ok() {
+                            smsg_create_object = Some(player.build_create_object(movement, false));
+                        } else if let Some(creature) = v_creature.get(other_entity_id).ok() {
+                            smsg_create_object = Some(creature.build_create_object(movement));
+                        }
+                    }
+
+                    if let Some(smsg) = smsg_create_object {
+                        origin_session.create_entity(&other_guid, smsg);
+                    } else {
+                        warn!("add_player_on_login: unable to generate a SmsgCreateObject for guid {:?}", other_guid);
+                    }
                 }
             }
 
@@ -510,13 +580,6 @@ impl Map {
         } else {
             error!("updating position for player not on map");
         }
-    }
-
-    pub fn lookup_entity(
-        &self,
-        guid: &ObjectGuid,
-    ) -> Option<Arc<RwLock<dyn WorldEntity + Sync + Send>>> {
-        self.entities.read().get(guid).cloned()
     }
 
     pub fn sessions_nearby_entity(

@@ -1,27 +1,27 @@
 use std::{
     collections::{HashMap, HashSet},
     sync::Arc,
-    time::Duration,
 };
 
-use async_trait::async_trait;
 use enumflags2::make_bitflags;
 use log::{error, warn};
+use parking_lot::RwLock;
 use r2d2::PooledConnection;
 use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::{named_params, Error, Transaction};
+use shipyard::Component;
 
 use crate::{
     datastore::{data_types::PlayerCreatePosition, DataStore},
     entities::player::player_data::FactionStanding,
-    game::{map_manager::MapKey, world_context::WorldContext},
-    protocol::packets::CmsgCharCreate,
+    game::world_context::WorldContext,
+    protocol::packets::{CmsgCharCreate, SmsgCreateObject},
     repositories::{character::CharacterRepository, item::ItemRepository},
     shared::constants::{
         AbilityLearnType, CharacterClass, CharacterClassBit, CharacterRace, CharacterRaceBit,
         Gender, HighGuidType, InventorySlot, InventoryType, ItemClass, ItemSubclassConsumable,
-        ObjectTypeId, ObjectTypeMask, PowerType, SheathState, SkillRangeType, UnitFlags,
-        UnitStandState, PLAYER_DEFAULT_COMBAT_REACH,
+        ObjectTypeId, ObjectTypeMask, PowerType, SkillRangeType, UnitFlags,
+        PLAYER_DEFAULT_COMBAT_REACH,
     },
 };
 
@@ -31,11 +31,8 @@ use super::{
     internal_values::InternalValues,
     item::Item,
     object_guid::ObjectGuid,
-    position::{Position, WorldPosition},
-    update::{
-        CreateData, MovementUpdateData, UpdateBlock, UpdateBlockBuilder, UpdateData, UpdateFlag,
-        UpdateType, WorldEntity,
-    },
+    position::WorldPosition,
+    update::{CreateData, MovementUpdateData, UpdateBlockBuilder, UpdateFlag, UpdateType},
     update_fields::*,
 };
 
@@ -43,12 +40,11 @@ pub mod player_data;
 
 pub type PlayerInventory = HashMap<u32, Item>; // Key is slot
 
+#[derive(Component)]
 pub struct Player {
-    guid: Option<ObjectGuid>,
-    name: String,
-    values: InternalValues,
-    map_key: Option<MapKey>,
-    position: Option<WorldPosition>,
+    guid: ObjectGuid,
+    pub name: String,
+    pub internal_values: Arc<RwLock<InternalValues>>,
     inventory: PlayerInventory,
     spells: Vec<u32>,
     action_buttons: HashMap<usize, ActionButton>,
@@ -56,21 +52,7 @@ pub struct Player {
 }
 
 impl Player {
-    pub fn new() -> Self {
-        Self {
-            guid: None,
-            name: "".to_owned(),
-            values: InternalValues::new(PLAYER_END as usize),
-            map_key: None,
-            position: None,
-            inventory: HashMap::new(),
-            spells: Vec::new(),
-            action_buttons: HashMap::new(),
-            faction_standings: HashMap::new(),
-        }
-    }
-
-    pub fn create(
+    pub fn create_in_db(
         conn: &mut PooledConnection<SqliteConnectionManager>,
         creation_payload: &CmsgCharCreate,
         account_id: u32,
@@ -261,17 +243,12 @@ impl Player {
         transaction.commit()
     }
 
-    pub fn load(
-        &mut self,
-        conn: &PooledConnection<SqliteConnectionManager>,
-        account_id: u32,
-        guid: u64,
-        world_context: Arc<WorldContext>,
-    ) {
-        self.values.reset();
-
-        let character = CharacterRepository::fetch_basic_character_data(conn, guid)
+    pub fn load_from_db(account_id: u32, guid: u64, world_context: Arc<WorldContext>) -> Player {
+        let conn = world_context.database.characters.get().unwrap();
+        let character = CharacterRepository::fetch_basic_character_data(&conn, guid)
             .expect("Failed to load character from DB");
+
+        let mut values = InternalValues::new(PLAYER_END as usize);
 
         assert!(
             character.account_id == account_id,
@@ -295,148 +272,127 @@ impl Player {
             .map(|cl| PowerType::n(cl.power_type).unwrap())
             .expect("Cannot load character because it has an invalid class id in DB");
 
-        let spells = CharacterRepository::fetch_character_spells(conn, guid);
-        self.spells = spells;
+        let spells = CharacterRepository::fetch_character_spells(&conn, guid);
 
         let guid = ObjectGuid::new(HighGuidType::Player, guid as u32);
-        self.guid = Some(guid);
-        self.values
-            .set_u64(ObjectFields::ObjectFieldGuid.into(), self.guid().raw());
-
-        self.name = character.name;
+        values.set_u64(ObjectFields::ObjectFieldGuid.into(), guid.raw());
 
         let object_type = make_bitflags!(ObjectTypeMask::{Object | Unit | Player}).bits();
-        self.values
-            .set_u32(ObjectFields::ObjectFieldType.into(), object_type);
+        values.set_u32(ObjectFields::ObjectFieldType.into(), object_type);
 
-        self.values
-            .set_f32(ObjectFields::ObjectFieldScaleX.into(), 1.0);
+        values.set_f32(ObjectFields::ObjectFieldScaleX.into(), 1.0);
 
-        self.values
-            .set_u32(UnitFields::UnitFieldLevel.into(), character.level as u32);
-        self.values.set_u32(
+        values.set_u32(UnitFields::UnitFieldLevel.into(), character.level as u32);
+        values.set_u32(
             UnitFields::PlayerFieldMaxLevel.into(),
             world_context.config.world.game.player.maxlevel,
         );
 
         let race = CharacterRace::n(character.race).expect("Character has invalid race id in DB");
-        self.values
-            .set_u8(UnitFields::UnitFieldBytes0.into(), 0, race as u8);
+        values.set_u8(UnitFields::UnitFieldBytes0.into(), 0, race as u8);
 
         let class =
             CharacterClass::n(character.class).expect("Character has invalid class id in DB");
-        self.values
-            .set_u8(UnitFields::UnitFieldBytes0.into(), 1, class as u8);
+        values.set_u8(UnitFields::UnitFieldBytes0.into(), 1, class as u8);
 
         let gender = Gender::n(character.gender).expect("Character has invalid gender in DB");
-        self.values
-            .set_u8(UnitFields::UnitFieldBytes0.into(), 2, gender as u8);
+        values.set_u8(UnitFields::UnitFieldBytes0.into(), 2, gender as u8);
 
-        self.values
-            .set_u8(UnitFields::UnitFieldBytes0.into(), 3, power_type as u8);
+        values.set_u8(UnitFields::UnitFieldBytes0.into(), 3, power_type as u8);
 
-        self.values
-            .set_u8(UnitFields::UnitFieldBytes2.into(), 1, 0x28); // UNIT_BYTE2_FLAG_UNK3 | UNIT_BYTE2_FLAG_UNK5
+        values.set_u8(UnitFields::UnitFieldBytes2.into(), 1, 0x28); // UNIT_BYTE2_FLAG_UNK3 | UNIT_BYTE2_FLAG_UNK5
 
-        self.position = Some(character.position);
-
-        self.values.set_u8(
+        values.set_u8(
             UnitFields::PlayerBytes.into(),
             0,
             character.visual_features.skin,
         );
-        self.values.set_u8(
+        values.set_u8(
             UnitFields::PlayerBytes.into(),
             1,
             character.visual_features.face,
         );
-        self.values.set_u8(
+        values.set_u8(
             UnitFields::PlayerBytes.into(),
             2,
             character.visual_features.hairstyle,
         );
-        self.values.set_u8(
+        values.set_u8(
             UnitFields::PlayerBytes.into(),
             3,
             character.visual_features.haircolor,
         );
-        self.values.set_u8(
+        values.set_u8(
             UnitFields::PlayerBytes2.into(),
             0,
             character.visual_features.facialstyle,
         );
-        self.values.set_u8(UnitFields::PlayerBytes2.into(), 3, 0x02); // Unk
-        self.values
-            .set_u8(UnitFields::PlayerBytes3.into(), 0, gender as u8);
+        values.set_u8(UnitFields::PlayerBytes2.into(), 3, 0x02); // Unk
+        values.set_u8(UnitFields::PlayerBytes3.into(), 0, gender as u8);
 
-        self.values
-            .set_u32(UnitFields::UnitFieldDisplayid.into(), display_id);
-        self.values
-            .set_u32(UnitFields::UnitFieldNativedisplayid.into(), display_id);
-        self.values.set_f32(
+        values.set_u32(UnitFields::UnitFieldDisplayid.into(), display_id);
+        values.set_u32(UnitFields::UnitFieldNativedisplayid.into(), display_id);
+        values.set_f32(
             UnitFields::UnitFieldCombatReach.into(),
             PLAYER_DEFAULT_COMBAT_REACH,
         );
 
         /* BEGIN TO REFACTOR LATER */
-        self.values.set_u32(UnitFields::UnitFieldHealth.into(), 100);
-        self.values
-            .set_u32(UnitFields::UnitFieldMaxhealth.into(), 100);
+        values.set_u32(UnitFields::UnitFieldHealth.into(), 100);
+        values.set_u32(UnitFields::UnitFieldMaxhealth.into(), 100);
 
-        self.values.set_u32(
+        values.set_u32(
             UnitFields::UnitFieldPower1 as usize + power_type as usize,
             100,
         );
-        self.values.set_u32(
+        values.set_u32(
             UnitFields::UnitFieldMaxpower1 as usize + power_type as usize,
             100,
         );
 
-        self.values.set_u32(
+        values.set_u32(
             UnitFields::UnitFieldFactiontemplate.into(),
             chr_races_record.faction_id,
         );
 
-        self.values
-            .set_i32(UnitFields::PlayerFieldWatchedFactionIndex.into(), -1);
+        values.set_i32(UnitFields::PlayerFieldWatchedFactionIndex.into(), -1);
 
         // Skills
-        let skills = CharacterRepository::fetch_character_skills(conn, guid.raw());
+        let skills = CharacterRepository::fetch_character_skills(&conn, guid.raw());
         for (index, skill) in skills.iter().enumerate() {
-            self.values.set_u16(
+            values.set_u16(
                 UnitFields::PlayerSkillInfo1_1 as usize + (index * 3),
                 0,
                 skill.skill_id,
             );
             // Note: PlayerSkillInfo1_1 offset 1 is "step"
-            self.values.set_u16(
+            values.set_u16(
                 UnitFields::PlayerSkillInfo1_1 as usize + 1 + (index * 3),
                 0,
                 skill.value,
             );
-            self.values.set_u16(
+            values.set_u16(
                 UnitFields::PlayerSkillInfo1_1 as usize + 1 + (index * 3),
                 1,
                 skill.max_value,
             );
         }
 
-        self.values.set_u32(
+        values.set_u32(
             UnitFields::UnitFieldFlags.into(),
             UnitFlags::PlayerControlled as u32,
         );
 
         // Action buttons
         let action_buttons: HashMap<usize, ActionButton> =
-            CharacterRepository::fetch_action_buttons(conn, guid.raw())
+            CharacterRepository::fetch_action_buttons(&conn, guid.raw())
                 .into_iter()
                 .map(|button| (button.position as usize, button))
                 .collect();
-        self.action_buttons = action_buttons;
 
         // Reputations
         let faction_standings: HashMap<u32, FactionStanding> = {
-            let records = CharacterRepository::fetch_faction_standings(conn, guid.raw());
+            let records = CharacterRepository::fetch_faction_standings(&conn, guid.raw());
             let mut result: HashMap<u32, FactionStanding> = HashMap::new();
 
             for db_record in records {
@@ -450,10 +406,7 @@ impl Player {
                             FactionStanding {
                                 faction_id: db_record.faction_id,
                                 base_standing: dbc_record
-                                    .base_reputation_standing(
-                                        self.race().into(),
-                                        self.class().into(),
-                                    )
+                                    .base_reputation_standing(race.into(), class.into())
                                     .unwrap_or(0),
                                 db_standing: db_record.standing,
                                 flags: db_record.flags,
@@ -471,10 +424,9 @@ impl Player {
 
             result
         };
-        self.faction_standings = faction_standings;
 
         let inventory: HashMap<u32, Item> =
-            ItemRepository::load_player_inventory(&conn, self.guid().raw() as u32)
+            ItemRepository::load_player_inventory(&conn, guid.raw() as u32)
                 .into_iter()
                 .map(|record| {
                     let item = Item::new(
@@ -483,7 +435,7 @@ impl Player {
                         record.owner_guid.unwrap(),
                         record.stack_count,
                     );
-                    self.values.set_u64(
+                    values.set_u64(
                         UnitFields::PlayerFieldInvSlotHead as usize + (2 * record.slot) as usize,
                         item.guid().raw(),
                     );
@@ -492,7 +444,7 @@ impl Player {
                     if record.slot >= InventorySlot::EQUIPMENT_START
                         && record.slot < InventorySlot::EQUIPMENT_END
                     {
-                        self.values.set_u32(
+                        values.set_u32(
                             UnitFields::PlayerVisibleItem1_0 as usize
                                 + (record.slot * MAX_PLAYER_VISIBLE_ITEM_OFFSET) as usize,
                             item.entry(),
@@ -503,18 +455,26 @@ impl Player {
                 })
                 .collect();
 
-        self.inventory = inventory;
+        values.reset_dirty();
 
-        self.values.reset_dirty();
+        Self {
+            guid,
+            name: character.name,
+            internal_values: Arc::new(RwLock::new(values)),
+            inventory,
+            spells,
+            action_buttons,
+            faction_standings,
+        }
     }
 
-    pub fn save(&mut self, transaction: &Transaction) -> Result<(), Error> {
+    pub fn save_position_to_db(
+        &self,
+        transaction: &Transaction,
+        position: &WorldPosition,
+    ) -> Result<(), Error> {
         let mut stmt = transaction.prepare_cached("UPDATE characters SET map_id = :map_id, zone_id = :zone_id, position_x = :x, position_y = :y, position_z = :z, orientation = :o WHERE guid = :guid").unwrap();
 
-        let position = self
-            .position
-            .as_ref()
-            .expect("player has no position in Player::save");
         stmt.execute(named_params! {
             ":map_id": position.map_key.map_id,
             ":zone_id": position.zone,
@@ -522,96 +482,10 @@ impl Player {
             ":y": position.y,
             ":z": position.z,
             ":o": position.o,
-            ":guid": self.guid().raw() as u32,
+            ":guid": self.guid.counter(),
         })?;
 
         Ok(())
-    }
-
-    pub fn guid(&self) -> &ObjectGuid {
-        self.guid
-            .as_ref()
-            .expect("Player guid uninitialized. Is the player in world?")
-    }
-
-    pub fn current_map(&self) -> Option<MapKey> {
-        self.map_key
-    }
-
-    pub fn race(&self) -> CharacterRace {
-        let race_id = self.values.get_u8(UnitFields::UnitFieldBytes0.into(), 0);
-        CharacterRace::n(race_id)
-            .to_owned()
-            .expect("Player race uninitialized. Is the player in world?")
-    }
-
-    pub fn class(&self) -> CharacterClass {
-        let class_id = self.values.get_u8(UnitFields::UnitFieldBytes0.into(), 1);
-        CharacterClass::n(class_id)
-            .to_owned()
-            .expect("Player class uninitialized. Is the player in world?")
-    }
-
-    pub fn level(&self) -> u8 {
-        self.values.get_u32(UnitFields::UnitFieldLevel.into()) as u8
-    }
-
-    pub fn gender(&self) -> Gender {
-        let gender_id = self.values.get_u8(UnitFields::UnitFieldBytes0.into(), 2);
-        Gender::n(gender_id)
-            .to_owned()
-            .expect("Player gender uninitialized. Is the player in world?")
-    }
-
-    pub fn visual_features(&self) -> PlayerVisualFeatures {
-        PlayerVisualFeatures {
-            haircolor: self.values.get_u8(UnitFields::PlayerBytes.into(), 3),
-            hairstyle: self.values.get_u8(UnitFields::PlayerBytes.into(), 2),
-            face: self.values.get_u8(UnitFields::PlayerBytes.into(), 1),
-            skin: self.values.get_u8(UnitFields::PlayerBytes.into(), 0),
-            facialstyle: self.values.get_u8(UnitFields::PlayerBytes2.into(), 0),
-        }
-    }
-
-    pub fn display_id(&self) -> u32 {
-        self.values.get_u32(UnitFields::UnitFieldDisplayid.into())
-    }
-
-    pub fn native_display_id(&self) -> u32 {
-        self.values
-            .get_u32(UnitFields::UnitFieldNativedisplayid.into())
-    }
-
-    pub fn power_type(&self) -> PowerType {
-        let power_type_id = self.values.get_u8(UnitFields::UnitFieldBytes0.into(), 3);
-        PowerType::n(power_type_id)
-            .to_owned()
-            .expect("Player power type uninitialized. Is the player in world?")
-    }
-
-    pub fn set_stand_state(&mut self, animstate: u32) {
-        if UnitStandState::n(animstate).is_some() {
-            self.values
-                .set_u8(UnitFields::UnitFieldBytes1.into(), 0, animstate as u8);
-        } else {
-            warn!(
-                "attempted to set an invalid stand state ({}) on player",
-                animstate
-            );
-        }
-    }
-
-    pub fn set_sheath_state(&mut self, sheath_state: u32) {
-        if SheathState::n(sheath_state).is_some() {
-            // TODO: See Player::SetVirtualItemSlot in MaNGOS (enchantment visual stuff)
-            self.values
-                .set_u8(UnitFields::UnitFieldBytes2.into(), 0, sheath_state as u8);
-        } else {
-            warn!(
-                "attempted to set an invalid sheath state ({}) on player",
-                sheath_state
-            );
-        }
     }
 
     pub fn spells(&self) -> &Vec<u32> {
@@ -626,28 +500,54 @@ impl Player {
         &self.faction_standings
     }
 
-    fn gen_create_data(&self) -> UpdateBlock {
+    pub fn build_create_object(
+        &self,
+        movement: Option<MovementUpdateData>,
+        for_self: bool,
+    ) -> SmsgCreateObject {
         let mut update_builder = UpdateBlockBuilder::new();
-
+        let internal_values = self.internal_values.read();
         for index in 0..PLAYER_END {
-            let value = self.values.get_u32(index as usize);
+            let value = internal_values.get_u32(index as usize);
             if value != 0 {
                 update_builder.add(index as usize, value);
             }
         }
+        drop(internal_values);
 
-        update_builder.build()
-    }
+        let blocks = update_builder.build();
+        let flags = if for_self {
+            make_bitflags!(UpdateFlag::{HighGuid | Living | HasPosition | SelfUpdate})
+        } else {
+            make_bitflags!(UpdateFlag::{HighGuid | Living | HasPosition})
+        };
 
-    fn gen_update_data(&self) -> UpdateBlock {
-        let mut update_builder = UpdateBlockBuilder::new();
+        let mut update_data = vec![CreateData {
+            update_type: UpdateType::CreateObject2,
+            packed_guid: self.guid.as_packed(),
+            object_type: ObjectTypeId::Player,
+            flags,
+            movement,
+            low_guid_part: None,
+            high_guid_part: Some(HighGuidType::Player as u32),
+            blocks,
+        }];
 
-        for index in self.values.get_dirty_indexes() {
-            let value = self.values.get_u32(index as usize);
-            update_builder.add(index as usize, value);
+        if for_self {
+            let inventory_updates: Vec<CreateData> = self
+                .inventory
+                .iter()
+                .map(|item| item.1.build_create_data())
+                .collect();
+
+            update_data.extend(inventory_updates);
         }
 
-        update_builder.build()
+        SmsgCreateObject {
+            updates_count: update_data.len() as u32,
+            has_transport: false,
+            updates: update_data,
+        }
     }
 }
 
@@ -657,118 +557,4 @@ pub struct PlayerVisualFeatures {
     pub face: u8,
     pub skin: u8,
     pub facialstyle: u8,
-}
-
-#[async_trait]
-impl WorldEntity for Player {
-    fn guid(&self) -> &ObjectGuid {
-        self.guid()
-    }
-
-    fn name(&self) -> String {
-        self.name.to_owned()
-    }
-
-    fn tick(&mut self, _diff: Duration, _world_contextt: Arc<WorldContext>) {
-        todo!();
-    }
-
-    fn get_create_data(
-        &self,
-        recipient_guid: u64, // TODO: Change this to ObjectGuid
-        world_context: Arc<WorldContext>,
-    ) -> Vec<CreateData> {
-        let movement = Some(MovementUpdateData {
-            movement_flags: 0,  // 0x02000000, // TEMP: Flying
-            movement_flags2: 0, // Always 0 in 2.4.3
-            timestamp: world_context.game_time().as_millis() as u32, // Will overflow every 49.7 days
-            position: Position {
-                // FIXME: Into impl?
-                x: self.position().x,
-                y: self.position().y,
-                z: self.position().z,
-                o: self.position().o,
-            },
-            // pitch: Some(0.0),
-            pitch: None,
-            fall_time: 0,
-            speed_walk: 2.5,
-            speed_run: 7.0,
-            speed_run_backward: 4.5,
-            speed_swim: 4.722222,
-            speed_swim_backward: 2.5,
-            speed_flight: 70.0,
-            speed_flight_backward: 4.5,
-            speed_turn: 3.141594,
-        });
-
-        let flags = if recipient_guid == self.guid().raw() {
-            make_bitflags!(UpdateFlag::{HighGuid | Living | HasPosition | SelfUpdate})
-        } else {
-            make_bitflags!(UpdateFlag::{HighGuid | Living | HasPosition})
-        };
-
-        let mut player_update_data = vec![CreateData {
-            update_type: UpdateType::CreateObject2,
-            packed_guid: self.guid().as_packed(),
-            object_type: ObjectTypeId::Player,
-            flags,
-            movement,
-            low_guid_part: None,
-            high_guid_part: Some(HighGuidType::Player as u32),
-            blocks: self.gen_create_data(),
-        }];
-
-        let inventory_updates: Vec<CreateData> = if recipient_guid == self.guid().raw() {
-            self.inventory
-                .iter()
-                .flat_map(|item| {
-                    item.1
-                        .get_create_data(self.guid().raw(), world_context.clone())
-                })
-                .collect()
-        } else {
-            Vec::new()
-        };
-
-        player_update_data.extend(inventory_updates);
-        player_update_data
-    }
-
-    fn get_update_data(
-        &self,
-        _recipient_guid: u64,
-        _world_context: Arc<WorldContext>,
-    ) -> Vec<UpdateData> {
-        vec![UpdateData {
-            update_type: UpdateType::Values,
-            packed_guid: self.guid().as_packed(),
-            blocks: self.gen_update_data(),
-        }]
-    }
-
-    fn has_updates(&self) -> bool {
-        self.values.has_dirty()
-    }
-
-    fn mark_up_to_date(&mut self) {
-        self.values.reset_dirty();
-    }
-
-    fn modify_health(&mut self, damage: i32) {
-        let current_health = self.values.get_i32(UnitFields::UnitFieldHealth.into());
-        let max_health = self.values.get_i32(UnitFields::UnitFieldMaxhealth.into());
-        let new_health = (current_health + damage).clamp(0, max_health) as u32;
-
-        self.values
-            .set_u32(UnitFields::UnitFieldHealth.into(), new_health);
-    }
-
-    fn combat_reach(&self) -> f32 {
-        self.values.get_f32(UnitFields::UnitFieldCombatReach.into())
-    }
-
-    fn position(&self) -> &WorldPosition {
-        todo!()
-    }
 }

@@ -1,16 +1,14 @@
 use std::{collections::HashMap, fmt::Display, sync::Arc};
 
 use atomic_counter::{AtomicCounter, RelaxedCounter};
-use log::{info, warn};
+use log::info;
 use parking_lot::RwLock;
 use shared::models::terrain_info::{TerrainBlock, MAP_WIDTH_IN_BLOCKS};
 use shipyard::Unique;
 
 use crate::{
     config::WorldConfig,
-    entities::{
-        object_guid::ObjectGuid, player::Player, position::WorldPosition, update::WorldEntity,
-    },
+    entities::{object_guid::ObjectGuid, position::WorldPosition},
     protocol::{self, server::ServerMessage},
     repositories::creature::CreatureRepository,
     session::world_session::WorldSession,
@@ -168,40 +166,6 @@ impl MapManager {
         guard.get(&map_key).cloned()
     }
 
-    pub fn add_session_to_map(
-        &self,
-        session: Arc<WorldSession>,
-        world_context: Arc<WorldContext>,
-        player: Arc<RwLock<Player>>,
-    ) {
-        let from_map: Option<MapKey>;
-        let player_position: WorldPosition;
-        let player_guid: ObjectGuid;
-        {
-            let player_guard = player.read();
-            from_map = player_guard.current_map();
-            player_position = player_guard.position().clone();
-            player_guid = player_guard.guid().clone();
-        }
-
-        if let Some(from_map_key) = from_map {
-            let origin_map = self.maps.read().get(&from_map_key).cloned();
-            if let Some(origin_map) = origin_map {
-                origin_map.remove_player(&player_guid);
-            }
-        }
-
-        // TODO: handle instance id here
-        let destination = player_position.map_key;
-        let destination_map = self.maps.read().get(&destination).cloned();
-        if let Some(destination_map) = destination_map {
-            destination_map.add_player(session.clone(), world_context.clone(), player.clone());
-            session.set_map(destination_map.clone());
-        } else {
-            warn!("map {} not found as destination in MapManager", destination);
-        }
-    }
-
     pub fn remove_player_from_map(&self, player_guid: &ObjectGuid, from_map: Option<MapKey>) {
         if let Some(from_map_key) = from_map {
             let origin_map = self.maps.read().get(&from_map_key).cloned();
@@ -223,10 +187,8 @@ impl MapManager {
         include_self: bool,
     ) {
         if let Some(current_map_key) = map_key {
-            let map: Option<Arc<Map>>;
-            {
-                map = self.maps.read().get(&current_map_key).cloned();
-            }
+            let map: Option<Arc<Map>> = self.maps.read().get(&current_map_key).cloned();
+
             if let Some(map) = map {
                 // TODO: Implement Map::broadcast_packet
                 for session in map.sessions_nearby_entity(

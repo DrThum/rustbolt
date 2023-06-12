@@ -1,52 +1,13 @@
-use async_trait::async_trait;
-
-use std::{sync::Arc, time::Duration};
-
 use binrw::binwrite;
 use enumflags2::{bitflags, BitFlags};
 use fixedbitset::FixedBitSet;
 
-use crate::{game::world_context::WorldContext, shared::constants::ObjectTypeId};
+use crate::shared::constants::ObjectTypeId;
 
-use super::{
-    object_guid::{ObjectGuid, PackedObjectGuid},
-    position::{Position, WorldPosition},
-};
-
-#[async_trait]
-pub trait WorldEntity {
-    fn guid(&self) -> &ObjectGuid;
-
-    fn name(&self) -> String;
-
-    // TODO: Move this to a new UnitEntity trait
-    fn combat_reach(&self) -> f32;
-
-    fn modify_health(&mut self, damage: i32);
-
-    fn position(&self) -> &WorldPosition;
-
-    fn tick(&mut self, diff: Duration, world_context: Arc<WorldContext>);
-
-    fn get_create_data(
-        &self,
-        recipient_guid: u64,
-        world_context: Arc<WorldContext>,
-    ) -> Vec<CreateData>;
-
-    fn has_updates(&self) -> bool;
-
-    fn mark_up_to_date(&mut self);
-
-    fn get_update_data(
-        &self,
-        recipient_guid: u64,
-        world_context: Arc<WorldContext>,
-    ) -> Vec<UpdateData>;
-}
+use super::{object_guid::PackedObjectGuid, position::Position};
 
 #[binwrite]
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct CreateData {
     #[bw(map = |ut: &UpdateType| *ut as u8)]
     pub update_type: UpdateType,
@@ -81,7 +42,7 @@ pub struct UpdateBlockBuilder {
 // * block_masks contains bits whose index indicates which fields are being updated
 // * data contains the data, one value for each bit set to 1 in the masks, in the same order
 #[binwrite]
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct UpdateBlock {
     pub num_masks: u8,
     pub block_masks: Vec<u32>,
@@ -147,7 +108,7 @@ struct UpdateBlockValue {
 }
 
 #[binwrite]
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct MovementUpdateData {
     pub movement_flags: u32,
     pub movement_flags2: u8, // Always 0 in 2.4.3
@@ -166,7 +127,7 @@ pub struct MovementUpdateData {
 }
 
 #[allow(dead_code)]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum UpdateType {
     Values = 0,
     Movement = 1,
@@ -179,7 +140,7 @@ pub enum UpdateType {
 #[allow(dead_code)]
 #[bitflags]
 #[repr(u8)]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum UpdateFlag {
     SelfUpdate = 0x01, // Self is a reserved keyword
     Transport = 0x02,

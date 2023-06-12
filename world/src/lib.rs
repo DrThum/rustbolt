@@ -48,7 +48,6 @@ pub mod game {
     pub mod map;
     pub mod map_manager;
     pub mod quad_tree;
-    pub mod world;
     pub mod world_context;
 }
 mod protocol {

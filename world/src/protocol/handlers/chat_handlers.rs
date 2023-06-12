@@ -1,9 +1,10 @@
 use std::sync::Arc;
 
 use log::error;
+use shipyard::{Get, View};
 
 use crate::{
-    entities::object_guid::ObjectGuid,
+    entities::{creature::Creature, object_guid::ObjectGuid, player::Player},
     game::world_context::WorldContext,
     protocol::{
         client::ClientMessage,
@@ -42,7 +43,7 @@ impl OpcodeHandler {
 
                 // Broadcast to nearby players
                 session.current_map().unwrap().broadcast_packet(
-                    &session.player_guid.unwrap(),
+                    &session.player_guid().unwrap(),
                     &smsg_message_chat,
                     Some(distance),
                     true,
@@ -69,7 +70,7 @@ impl OpcodeHandler {
                     | Emote::StateKneel
                     | Emote::OneshotNone => (),
                     _ => {
-                        let player_guid = session.player_guid.unwrap();
+                        let player_guid = session.player_guid().unwrap();
                         let packet = ServerMessage::new(SmsgEmote {
                             emote_id: dbc_record.text_id,
                             origin_guid: player_guid.raw(),
@@ -85,17 +86,29 @@ impl OpcodeHandler {
                 }
             }
 
-            let _target_guid =
-                ObjectGuid::from_raw(cmsg_text_emote.target_guid).expect("invalid guid received");
-            let target_name: String = "TODO_TARGET_NAME".to_owned();
-            // if let Some(entity_ref) = world_context
-            //     .map_manager
-            //     .lookup_entity(&target_guid, session.get_current_map())
-            // {
-            //     target_name = entity_ref.read().name();
-            // }
+            let mut target_name: String = "TODO_TARGET_NAME".to_owned();
 
-            let player_guid = session.player_guid.unwrap();
+            if let Some(map) = session.current_map() {
+                let target_guid = ObjectGuid::from_raw(cmsg_text_emote.target_guid)
+                    .expect("invalid guid received");
+
+                if let Some(target_entity_id) = map.lookup_entity_ecs(&target_guid) {
+                    let world = map.ecs_world();
+                    let world_guard = world.lock();
+
+                    let (v_player, v_creature) = world_guard
+                        .borrow::<(View<Player>, View<Creature>)>()
+                        .unwrap();
+
+                    if let Some(player) = v_player.get(target_entity_id).ok() {
+                        target_name = player.name.clone();
+                    } else if let Some(creature) = v_creature.get(target_entity_id).ok() {
+                        target_name = creature.name.clone();
+                    }
+                }
+            }
+
+            let player_guid = session.player_guid().unwrap();
             let packet = ServerMessage::new(SmsgTextEmote {
                 origin_guid: player_guid.raw(),
                 text_emote: cmsg_text_emote.text_emote,

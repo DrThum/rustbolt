@@ -90,20 +90,21 @@ impl OpcodeHandler {
         world_context: Arc<WorldContext>,
         data: Vec<u8>,
     ) {
-        let cmsg_player_login: CmsgPlayerLogin = ClientMessage::read_as(data).unwrap();
+        let _cmsg_player_login: CmsgPlayerLogin = ClientMessage::read_as(data).unwrap();
 
-        let account_id = session.account_id;
-        let conn = world_context.database.characters.get().unwrap();
+        let _account_id = session.account_id;
+        let _conn = world_context.database.characters.get().unwrap();
 
-        {
-            let mut player = session.player.write();
-            player.load(
-                &conn,
-                account_id,
-                cmsg_player_login.guid,
-                world_context.clone(),
-            );
-        }
+        // TODO-ECS
+        // {
+        //     let mut player = session.player.write();
+        //     player.load(
+        //         &conn,
+        //         account_id,
+        //         cmsg_player_login.guid,
+        //         world_context.clone(),
+        //     );
+        // }
 
         let msg_set_dungeon_difficulty = ServerMessage::new(MsgSetDungeonDifficulty {
             difficulty: 0, // FIXME
@@ -114,16 +115,17 @@ impl OpcodeHandler {
         session.send(&msg_set_dungeon_difficulty).unwrap();
 
         {
-            let player_position = session.player.read().position().clone();
-            let smsg_login_verify_world = ServerMessage::new(SmsgLoginVerifyWorld {
-                map: player_position.map_key.map_id,
-                position_x: player_position.x,
-                position_y: player_position.y,
-                position_z: player_position.z,
-                orientation: player_position.o,
-            });
-
-            session.send(&smsg_login_verify_world).unwrap();
+            // TODO-ECS
+            // let player_position = session.player.read().position().clone();
+            // let smsg_login_verify_world = ServerMessage::new(SmsgLoginVerifyWorld {
+            //     map: player_position.map_key.map_id,
+            //     position_x: player_position.x,
+            //     position_y: player_position.y,
+            //     position_z: player_position.z,
+            //     orientation: player_position.o,
+            // });
+            //
+            // session.send(&smsg_login_verify_world).unwrap();
         }
 
         let smsg_account_data_times =
@@ -201,11 +203,12 @@ impl OpcodeHandler {
         session.send(&smsg_login_settimespeed).unwrap();
 
         {
-            world_context.map_manager.add_session_to_map(
-                session.clone(),
-                world_context.clone(),
-                session.player.clone(),
-            );
+            // TODO-ECS
+            // world_context.map_manager.add_session_to_map(
+            //     session.clone(),
+            //     world_context.clone(),
+            //     session.player.clone(),
+            // );
 
             let mut session_state = session.state.write();
             *session_state = WorldSessionState::InWorld;
@@ -240,12 +243,12 @@ impl OpcodeHandler {
 
         session.send(&packet).unwrap();
 
-        {
-            let player_guid = session.player.read().guid().clone();
-            let current_map_key = session.player.read().current_map();
-            world_context
-                .map_manager
-                .remove_player_from_map(&player_guid, current_map_key);
+        if let Some(ref map) = session.current_map() {
+            let player_guid = &session
+                .player_guid
+                .expect("attempt to logout from a session with no player");
+
+            map.remove_player(player_guid);
         }
 
         // FIXME: Handle future cases when logout might not be instant
@@ -295,12 +298,13 @@ impl OpcodeHandler {
         data: Vec<u8>,
     ) {
         let cmsg_stand_state_change: CmsgStandStateChange = ClientMessage::read_as(data).unwrap();
-        {
-            session
-                .player
-                .write()
-                .set_stand_state(cmsg_stand_state_change.animstate);
-        }
+        // TODO-ECS
+        // {
+        //     session
+        //         .player
+        //         .write()
+        //         .set_stand_state(cmsg_stand_state_change.animstate);
+        // }
 
         let packet = ServerMessage::new(SmsgStandStateUpdate {
             animstate: cmsg_stand_state_change.animstate as u8,
@@ -310,14 +314,15 @@ impl OpcodeHandler {
     }
 
     pub(crate) fn handle_cmsg_set_sheathed(
-        session: Arc<WorldSession>,
+        _session: Arc<WorldSession>,
         _world_context: Arc<WorldContext>,
         data: Vec<u8>,
     ) {
-        let cmsg_set_sheathed: CmsgSetSheathed = ClientMessage::read_as(data).unwrap();
-        session
-            .player
-            .write()
-            .set_sheath_state(cmsg_set_sheathed.sheath_state);
+        let _cmsg_set_sheathed: CmsgSetSheathed = ClientMessage::read_as(data).unwrap();
+        // TODO-ECS
+        // session
+        //     .player
+        //     .write()
+        //     .set_sheath_state(cmsg_set_sheathed.sheath_state);
     }
 }

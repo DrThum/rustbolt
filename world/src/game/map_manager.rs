@@ -9,12 +9,9 @@ use shipyard::Unique;
 use crate::{
     config::WorldConfig,
     entities::{
-        object_guid::ObjectGuid,
-        player::Player,
-        position::{Position, WorldPosition},
-        update::{CreateData, WorldEntity},
+        object_guid::ObjectGuid, player::Player, position::WorldPosition, update::WorldEntity,
     },
-    protocol::{self, opcodes::Opcode, packets::MovementInfo, server::ServerMessage},
+    protocol::{self, server::ServerMessage},
     repositories::creature::CreatureRepository,
     session::world_session::WorldSession,
     DataStore,
@@ -199,7 +196,7 @@ impl MapManager {
         let destination_map = self.maps.read().get(&destination).cloned();
         if let Some(destination_map) = destination_map {
             destination_map.add_player(session.clone(), world_context.clone(), player.clone());
-            session.set_map(destination);
+            session.set_map(destination_map.clone());
         } else {
             warn!("map {} not found as destination in MapManager", destination);
         }
@@ -239,66 +236,6 @@ impl MapManager {
         } else {
             warn!("lookup on multiple maps is only allowed for players");
             None
-        }
-    }
-
-    pub fn broadcast_movement(
-        &self,
-        mover: Arc<RwLock<Player>>,
-        opcode: Opcode,
-        movement_info: &MovementInfo,
-    ) {
-        let player_guid: ObjectGuid;
-        let current_map_key: Option<MapKey>;
-
-        {
-            let player_guard = mover.read();
-            player_guid = player_guard.guid().clone();
-            current_map_key = player_guard.current_map();
-        }
-
-        if let Some(current_map_key) = current_map_key {
-            let map: Option<Arc<Map>> = self.maps.read().get(&current_map_key).cloned();
-            if let Some(map) = map {
-                for session in
-                    map.sessions_nearby_entity(&player_guid, map.visibility_distance(), true, false)
-                {
-                    session
-                        .send_movement(opcode, &player_guid, movement_info)
-                        .unwrap();
-                }
-            }
-        }
-    }
-
-    pub fn update_player_position(
-        &self,
-        world_context: Arc<WorldContext>,
-        session: Arc<WorldSession>,
-        position: &Position,
-    ) {
-        if let Some(current_map_key) = session.get_current_map() {
-            let map: Option<Arc<Map>>;
-            {
-                map = self.maps.read().get(&current_map_key).cloned();
-            }
-            if let Some(map) = map {
-                let update_data: Vec<CreateData>;
-                let player_guid: ObjectGuid;
-                {
-                    let player_guard = session.player.read();
-                    update_data = player_guard.get_create_data(0, world_context.clone());
-                    player_guid = player_guard.guid().clone();
-                }
-
-                map.update_player_position(
-                    &player_guid,
-                    session.clone(),
-                    position,
-                    update_data,
-                    world_context.clone(),
-                );
-            }
         }
     }
 

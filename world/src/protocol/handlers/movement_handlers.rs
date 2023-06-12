@@ -18,6 +18,7 @@ impl OpcodeHandler {
             data: Vec<u8>,
         ) {
             let movement_info: MovementInfo = ClientMessage::read_as(data).unwrap();
+            let player_guid = session.player_guid.unwrap();
 
             // TODO: Validate movement (unitBeingMoved guid)
             // TODO: Validate position
@@ -25,22 +26,20 @@ impl OpcodeHandler {
 
             // Register new position
             {
-                world_context.map_manager.update_player_position(
-                    world_context.clone(),
+                session.current_map().unwrap().update_player_position(
+                    &player_guid,
                     session.clone(),
                     &movement_info.position,
+                    Vec::new(), // TODO-ECS
+                    world_context.clone(),
                 );
-
-                let mut player = session.player.write();
-                player.set_position(&movement_info.position);
             }
 
             // Broadcast to nearby players
-            world_context.map_manager.broadcast_movement(
-                session.player.clone(),
-                opcode,
-                &movement_info,
-            );
+            session
+                .current_map()
+                .unwrap()
+                .broadcast_movement(&player_guid, opcode, &movement_info);
         }
 
         Box::new(move |session, ctx, data| handle_movement(opcode, session, ctx, data))

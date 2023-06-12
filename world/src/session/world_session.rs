@@ -4,6 +4,7 @@ use miniz_oxide::deflate::CompressionLevel;
 use parking_lot::RwLock;
 use r2d2::PooledConnection;
 use r2d2_sqlite::SqliteConnectionManager;
+use shipyard::EntityId;
 use std::{
     sync::{atomic::AtomicU32, Arc},
     time::Duration,
@@ -21,21 +22,18 @@ use tokio::{
 use wow_srp::tbc_header::HeaderCrypto;
 
 use crate::{
-    entities::{object_guid::ObjectGuid, player::Player},
-    game::{map_manager::MapKey, world_context::WorldContext},
+    entities::object_guid::ObjectGuid,
+    game::{map::Map, world_context::WorldContext},
     protocol::{
         client::ClientMessage,
         opcodes::Opcode,
         packets::{
-            FactionInit, MovementInfo, SmsgActionButtons, SmsgAttackStop, SmsgCreateObject,
-            SmsgDestroyObject, SmsgInitialSpells, SmsgInitializeFactions, SmsgMessageChat,
+            MovementInfo, SmsgAttackStop, SmsgCreateObject, SmsgDestroyObject, SmsgMessageChat,
             SmsgTimeSyncReq, SmsgUpdateObject,
         },
         server::{ServerMessage, ServerMessageHeader, ServerMessagePayload},
     },
-    shared::constants::{
-        ChatMessageType, Language, MAX_VISIBLE_REPUTATIONS, PLAYER_MAX_ACTION_BUTTONS,
-    },
+    shared::constants::{ChatMessageType, Language},
     WorldSocketError,
 };
 
@@ -52,7 +50,9 @@ pub struct WorldSession {
     session_to_socket_tx: Sender<(ServerMessageHeader, Vec<u8>)>,
     pub account_id: u32,
     pub state: RwLock<WorldSessionState>,
-    pub player: Arc<RwLock<Player>>,
+    current_map: RwLock<Option<Arc<Map>>>,
+    pub player_entity_id: Option<EntityId>,
+    pub player_guid: Option<ObjectGuid>,
     client_latency: AtomicU32,
     server_time_sync: parking_lot::Mutex<TimeSync>,
     time_sync_handle: parking_lot::Mutex<Option<JoinHandle<()>>>,
@@ -91,7 +91,9 @@ impl WorldSession {
             session_to_socket_tx,
             account_id,
             state: RwLock::new(WorldSessionState::OnCharactersList),
-            player: Arc::new(RwLock::new(Player::new())),
+            current_map: RwLock::new(None),
+            player_entity_id: None,
+            player_guid: None,
             client_latency: AtomicU32::new(0),
             server_time_sync: parking_lot::Mutex::new(TimeSync {
                 server_counter: 0,
@@ -127,17 +129,18 @@ impl WorldSession {
         self.socket.shutdown();
     }
 
-    pub fn cleanup_on_world_leave(&self, conn: &mut PooledConnection<SqliteConnectionManager>) {
+    pub fn cleanup_on_world_leave(&self, _conn: &mut PooledConnection<SqliteConnectionManager>) {
         if let Some(handle) = self.time_sync_handle.lock().take() {
             handle.abort();
         }
 
-        if self.is_in_world() {
+        if let Some(_map) = self.current_map.read().as_ref() {
             {
-                let mut player = self.player.write();
-                let transaction = conn.transaction().unwrap();
-                player.save(&transaction).unwrap();
-                transaction.commit().unwrap();
+                // let mut player = self.player.write();
+                // let transaction = conn.transaction().unwrap();
+                // player.save(&transaction).unwrap();
+                // transaction.commit().unwrap();
+                // TODO-ECS: Implement player save by getting data from ECS world on map
             }
 
             {
@@ -157,10 +160,10 @@ impl WorldSession {
             .store(latency, std::sync::atomic::Ordering::Relaxed);
     }
 
-    pub fn is_in_world(&self) -> bool {
-        // TODO: There might be more states here in the future (BeingTeleportedNear, BeingTeleportedFar?)
-        *self.state.read() == WorldSessionState::InWorld
-    }
+    // pub fn is_in_world(&self) -> bool {
+    //     // TODO: There might be more states here in the future (BeingTeleportedNear, BeingTeleportedFar?)
+    //     *self.state.read() == WorldSessionState::InWorld
+    // }
 
     pub fn handle_time_sync_resp(&self, client_counter: u32, client_ticks: u32, server_ticks: u32) {
         let mut time_sync = self.server_time_sync.lock();
@@ -298,64 +301,67 @@ impl WorldSession {
         *guard = Some(jh);
     }
 
-    pub fn get_current_map(&self) -> Option<MapKey> {
-        self.player.read().current_map()
+    pub fn current_map(&self) -> Option<Arc<Map>> {
+        self.current_map.read().as_ref().cloned()
     }
 
-    pub fn set_map(&self, key: MapKey) {
-        self.player.write().set_map(key);
+    pub fn set_map(&self, key: Arc<Map>) {
+        self.current_map.write().replace(key);
     }
 
     pub fn send_initial_spells(&self) {
-        let spells: Vec<u32> = self.player.read().spells().clone();
-        let packet = ServerMessage::new(SmsgInitialSpells::new(spells, Vec::new() /* TODO */));
-        self.send(&packet).unwrap();
+        // TODO-ECS
+        // let spells: Vec<u32> = self.player.read().spells().clone();
+        // let packet = ServerMessage::new(SmsgInitialSpells::new(spells, Vec::new() /* TODO */));
+        // self.send(&packet).unwrap();
     }
 
     pub fn send_initial_action_buttons(&self) {
-        let action_buttons = self.player.read().action_buttons().clone();
-
-        let mut buttons_packed: Vec<u32> = Vec::new();
-        for index in 0..PLAYER_MAX_ACTION_BUTTONS {
-            let packed = action_buttons
-                .get(&index)
-                .map_or(0, |button| button.packed());
-
-            buttons_packed.push(packed);
-        }
-
-        let packet = ServerMessage::new(SmsgActionButtons { buttons_packed });
-
-        self.send(&packet).unwrap();
+        // TODO-ECS
+        // let action_buttons = self.player.read().action_buttons().clone();
+        //
+        // let mut buttons_packed: Vec<u32> = Vec::new();
+        // for index in 0..PLAYER_MAX_ACTION_BUTTONS {
+        //     let packed = action_buttons
+        //         .get(&index)
+        //         .map_or(0, |button| button.packed());
+        //
+        //     buttons_packed.push(packed);
+        // }
+        //
+        // let packet = ServerMessage::new(SmsgActionButtons { buttons_packed });
+        //
+        // self.send(&packet).unwrap();
     }
 
     pub fn send_initial_reputations(&self) {
-        let faction_standings = self.player.read().faction_standings().clone();
-
-        let mut factions: Vec<FactionInit> = Vec::with_capacity(MAX_VISIBLE_REPUTATIONS);
-        for index in 0..MAX_VISIBLE_REPUTATIONS {
-            let faction_init =
-                if let Some(faction_standing) = faction_standings.get(&(index as u32)) {
-                    FactionInit {
-                        flags: faction_standing.flags as u8,
-                        standing: faction_standing.db_standing as u32,
-                    }
-                } else {
-                    FactionInit {
-                        flags: 0,
-                        standing: 0,
-                    }
-                };
-
-            factions.push(faction_init);
-        }
-
-        let packet = ServerMessage::new(SmsgInitializeFactions {
-            unk: 0x80,
-            factions,
-        });
-
-        self.send(&packet).unwrap();
+        // TODO-ECS
+        // let faction_standings = self.player.read().faction_standings().clone();
+        //
+        // let mut factions: Vec<FactionInit> = Vec::with_capacity(MAX_VISIBLE_REPUTATIONS);
+        // for index in 0..MAX_VISIBLE_REPUTATIONS {
+        //     let faction_init =
+        //         if let Some(faction_standing) = faction_standings.get(&(index as u32)) {
+        //             FactionInit {
+        //                 flags: faction_standing.flags as u8,
+        //                 standing: faction_standing.db_standing as u32,
+        //             }
+        //         } else {
+        //             FactionInit {
+        //                 flags: 0,
+        //                 standing: 0,
+        //             }
+        //         };
+        //
+        //     factions.push(faction_init);
+        // }
+        //
+        // let packet = ServerMessage::new(SmsgInitializeFactions {
+        //     unk: 0x80,
+        //     factions,
+        // });
+        //
+        // self.send(&packet).unwrap();
     }
 
     pub fn build_chat_packet(
@@ -368,7 +374,7 @@ impl WorldSession {
         SmsgMessageChat {
             message_type,
             language,
-            sender_guid: self.player.read().guid().raw(),
+            sender_guid: self.player_guid.unwrap().raw(),
             unk: 0,
             target_guid: target_guid.map_or(0, |g| g.raw()),
             message_len: message.len() as u32 + 1,
@@ -386,7 +392,7 @@ impl WorldSession {
     }
 
     pub fn is_guid_known(&self, guid: &ObjectGuid) -> bool {
-        if guid == self.player.read().guid() {
+        if *guid == self.player_guid.unwrap() {
             return true;
         }
 
@@ -417,7 +423,7 @@ impl WorldSession {
 
     pub fn send_attack_stop(&self, target_guid: Option<ObjectGuid>) {
         let packet = ServerMessage::new(SmsgAttackStop {
-            player_guid: self.player.read().guid().as_packed(),
+            player_guid: self.player_guid.unwrap().as_packed(),
             enemy_guid: target_guid.unwrap_or(ObjectGuid::zero()).as_packed(),
             unk: 0,
         });

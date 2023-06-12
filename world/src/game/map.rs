@@ -29,7 +29,12 @@ use crate::{
         },
         update_fields::UNIT_END,
     },
-    protocol::packets::SmsgCreateObject,
+    protocol::{
+        self,
+        opcodes::Opcode,
+        packets::{MovementInfo, SmsgCreateObject},
+        server::ServerMessage,
+    },
     repositories::creature::CreatureSpawnDbRecord,
     session::world_session::WorldSession,
     shared::constants::{HighGuidType, ObjectTypeId, PLAYER_DEFAULT_COMBAT_REACH},
@@ -594,6 +599,41 @@ impl Map {
 
     pub fn visibility_distance(&self) -> f32 {
         self.visibility_distance
+    }
+
+    pub fn broadcast_movement(
+        &self,
+        origin_guid: &ObjectGuid,
+        opcode: Opcode,
+        movement_info: &MovementInfo,
+    ) {
+        for session in
+            self.sessions_nearby_entity(origin_guid, self.visibility_distance(), true, false)
+        {
+            session
+                .send_movement(opcode, origin_guid, movement_info)
+                .unwrap();
+        }
+    }
+
+    pub fn broadcast_packet<
+        const OPCODE: u16,
+        Payload: protocol::server::ServerMessagePayload<OPCODE>,
+    >(
+        &self,
+        origin_guid: &ObjectGuid,
+        packet: &ServerMessage<OPCODE, Payload>,
+        range: Option<f32>,
+        include_self: bool,
+    ) {
+        for session in self.sessions_nearby_entity(
+            origin_guid,
+            range.unwrap_or(self.visibility_distance()),
+            true,
+            include_self,
+        ) {
+            session.send(packet).unwrap();
+        }
     }
 
     pub fn tick(&self, _diff: Duration) {

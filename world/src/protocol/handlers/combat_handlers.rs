@@ -1,9 +1,10 @@
 use std::sync::Arc;
 
-use log::warn;
-use shipyard::ViewMut;
+use shipyard::{View, ViewMut};
 
+use crate::ecs::components::guid::Guid;
 use crate::ecs::components::melee::Melee;
+use crate::ecs::components::unit::Unit;
 use crate::entities::object_guid::ObjectGuid;
 use crate::game::world_context::WorldContext;
 use crate::protocol::client::ClientMessage;
@@ -15,56 +16,25 @@ use crate::session::world_session::WorldSession;
 impl OpcodeHandler {
     pub(crate) fn handle_cmsg_attack_swing(
         session: Arc<WorldSession>,
-        world_context: Arc<WorldContext>,
+        _world_context: Arc<WorldContext>,
         data: Vec<u8>,
     ) {
         let cmsg: CmsgAttackSwing = ClientMessage::read_as(data).unwrap();
-        if let Some(target_guid) = ObjectGuid::from_raw(cmsg.guid) {
-            if let Some(map) = world_context
-                .map_manager
-                .get_map(session.get_current_map().unwrap())
-            {
-                if let Some(player_ecs_entity) = map.lookup_entity_ecs(session.player.read().guid())
-                {
+        if let Some(_target_guid) = ObjectGuid::from_raw(cmsg.guid) {
+            if let Some(ref map) = session.current_map() {
+                if let Some(player_ecs_entity) = session.player_entity_id {
                     let world = map.ecs_world();
                     world.lock().run(|mut vm_melee: ViewMut<Melee>| {
                         vm_melee[player_ecs_entity].is_attacking = true;
                     });
-                }
-            }
 
-            match world_context
-                .map_manager
-                .lookup_entity(&target_guid, session.get_current_map())
-            {
-                Some(entity) => {
-                    let entity_guard = entity.read().guid().is_unit();
-                    if !entity_guard {
-                        warn!("player attempted to attack non-unit entity {target_guid:?}");
-                        session.send_attack_stop(Some(target_guid));
-                        return;
-                    }
-
-                    session.player.write().set_attacking(true);
-
-                    // If melee
+                    let player_guid = session.player_guid.unwrap();
                     let packet = ServerMessage::new(SmsgAttackStart {
-                        attacker_guid: session.player.read().guid().raw(),
+                        attacker_guid: player_guid.raw(),
                         target_guid: cmsg.guid,
                     });
 
-                    let guid: &ObjectGuid = &session.player.read().guid().clone();
-                    world_context.map_manager.broadcast_packet(
-                        guid,
-                        session.get_current_map(),
-                        &packet,
-                        None,
-                        true,
-                    );
-                }
-                None => {
-                    warn!("player attempted to attack non-existing entity {target_guid:?}");
-                    session.send_attack_stop(Some(target_guid));
+                    map.broadcast_packet(&player_guid, &packet, None, true);
                 }
             }
         } else {
@@ -74,44 +44,32 @@ impl OpcodeHandler {
 
     pub(crate) fn handle_cmsg_attack_stop(
         session: Arc<WorldSession>,
-        world_context: Arc<WorldContext>,
+        _world_context: Arc<WorldContext>,
         _data: Vec<u8>,
     ) {
-        if let Some(map) = world_context
-            .map_manager
-            .get_map(session.get_current_map().unwrap())
-        {
-            if let Some(player_ecs_entity) = map.lookup_entity_ecs(session.player.read().guid()) {
+        if let Some(ref map) = session.current_map() {
+            let player_guid = session.player_guid.unwrap();
+            if let Some(player_ecs_entity) = map.lookup_entity_ecs(&player_guid) {
                 let world = map.ecs_world();
-                world.lock().run(|mut vm_melee: ViewMut<Melee>| {
-                    vm_melee[player_ecs_entity].is_attacking = false;
-                });
+                world.lock().run(
+                    |mut vm_melee: ViewMut<Melee>, v_unit: View<Unit>, v_guid: View<Guid>| {
+                        vm_melee[player_ecs_entity].is_attacking = false;
+                        let target_guid = {
+                            v_unit[player_ecs_entity]
+                                .target()
+                                .map(|target_entity_id| v_guid[target_entity_id].0)
+                        };
+
+                        let packet = ServerMessage::new(SmsgAttackStop {
+                            player_guid: player_guid.as_packed(),
+                            enemy_guid: target_guid.unwrap_or(ObjectGuid::zero()).as_packed(),
+                            unk: 0,
+                        });
+
+                        map.broadcast_packet(&player_guid, &packet, None, true);
+                    },
+                );
             }
         }
-
-        let packet = {
-            let player_guard = session.player.read();
-            ServerMessage::new(SmsgAttackStop {
-                player_guid: player_guard.guid().as_packed(),
-                enemy_guid: player_guard
-                    .selection()
-                    .unwrap_or(ObjectGuid::zero())
-                    .as_packed(),
-                unk: 0,
-            })
-        };
-
-        let guid: &ObjectGuid = &session.player.read().guid().clone();
-        world_context.map_manager.broadcast_packet(
-            guid,
-            session.get_current_map(),
-            &packet,
-            None,
-            true,
-        );
-
-        let mut player_guard = session.player.write();
-        player_guard.set_attacking(false);
-        player_guard.set_selection(0);
     }
 }

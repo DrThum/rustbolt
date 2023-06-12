@@ -30,17 +30,13 @@ impl OpcodeHandler {
 
     pub(crate) fn handle_cmsg_set_selection(
         session: Arc<WorldSession>,
-        world_context: Arc<WorldContext>,
+        _world_context: Arc<WorldContext>,
         data: Vec<u8>,
     ) {
         let cmsg: CmsgSetSelection = ClientMessage::read_as(data).unwrap();
-        session.player.write().set_selection(cmsg.guid);
 
-        if let Some(map) = world_context
-            .map_manager
-            .get_map(session.get_current_map().unwrap())
-        {
-            if let Some(player_ecs_entity) = map.lookup_entity_ecs(session.player.read().guid()) {
+        if let Some(map) = session.current_map() {
+            if let Some(player_ecs_entity) = map.lookup_entity_ecs(&session.player_guid.unwrap()) {
                 let target_ecs_entity =
                     map.lookup_entity_ecs(&ObjectGuid::from_raw(cmsg.guid).unwrap());
 

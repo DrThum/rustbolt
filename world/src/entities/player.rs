@@ -7,7 +7,6 @@ use std::{
 use async_trait::async_trait;
 use enumflags2::make_bitflags;
 use log::{error, warn};
-use parking_lot::RwLock;
 use r2d2::PooledConnection;
 use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::{named_params, Error, Transaction};
@@ -16,17 +15,13 @@ use crate::{
     datastore::{data_types::PlayerCreatePosition, DataStore},
     entities::player::player_data::FactionStanding,
     game::{map_manager::MapKey, world_context::WorldContext},
-    protocol::{
-        packets::{CmsgCharCreate, SmsgAttackSwingNotInRange, SmsgAttackerStateUpdate},
-        server::ServerMessage,
-    },
+    protocol::packets::CmsgCharCreate,
     repositories::{character::CharacterRepository, item::ItemRepository},
     shared::constants::{
         AbilityLearnType, CharacterClass, CharacterClassBit, CharacterRace, CharacterRaceBit,
         Gender, HighGuidType, InventorySlot, InventoryType, ItemClass, ItemSubclassConsumable,
-        MeleeAttackError, ObjectTypeId, ObjectTypeMask, PowerType, SheathState, SkillRangeType,
-        UnitFlags, UnitStandState, WeaponAttackType, ATTACK_DISPLAY_DELAY, BASE_MELEE_RANGE_OFFSET,
-        NUMBER_WEAPON_ATTACK_TYPES, PLAYER_DEFAULT_COMBAT_REACH,
+        ObjectTypeId, ObjectTypeMask, PowerType, SheathState, SkillRangeType, UnitFlags,
+        UnitStandState, PLAYER_DEFAULT_COMBAT_REACH,
     },
 };
 
@@ -58,10 +53,6 @@ pub struct Player {
     spells: Vec<u32>,
     action_buttons: HashMap<usize, ActionButton>,
     faction_standings: HashMap<u32, FactionStanding>,
-    selection_guid: Option<ObjectGuid>,
-    is_attacking: bool,
-    attack_timers: [Duration; NUMBER_WEAPON_ATTACK_TYPES], // MainHand, OffHand, Ranged
-    last_melee_error: Option<MeleeAttackError>,
 }
 
 impl Player {
@@ -76,14 +67,6 @@ impl Player {
             spells: Vec::new(),
             action_buttons: HashMap::new(),
             faction_standings: HashMap::new(),
-            selection_guid: None,
-            is_attacking: false,
-            attack_timers: [
-                Duration::from_millis(800), /* FIXME */
-                Duration::ZERO,
-                Duration::ZERO,
-            ],
-            last_melee_error: None,
         }
     }
 
@@ -555,10 +538,6 @@ impl Player {
         self.map_key
     }
 
-    pub fn set_map(&mut self, map_key: MapKey) {
-        self.map_key.replace(map_key);
-    }
-
     pub fn race(&self) -> CharacterRace {
         let race_id = self.values.get_u8(UnitFields::UnitFieldBytes0.into(), 0);
         CharacterRace::n(race_id)
@@ -582,12 +561,6 @@ impl Player {
         Gender::n(gender_id)
             .to_owned()
             .expect("Player gender uninitialized. Is the player in world?")
-    }
-
-    pub fn position(&self) -> &WorldPosition {
-        self.position
-            .as_ref()
-            .expect("Player position uninitialized. Is the player in world?")
     }
 
     pub fn visual_features(&self) -> PlayerVisualFeatures {
@@ -614,20 +587,6 @@ impl Player {
         PowerType::n(power_type_id)
             .to_owned()
             .expect("Player power type uninitialized. Is the player in world?")
-    }
-
-    pub fn set_position(&mut self, position: &Position) {
-        let mut current_pos: WorldPosition = self
-            .position
-            .take()
-            .expect("player has no world position in Player::set_position");
-
-        current_pos.x = position.x;
-        current_pos.y = position.y;
-        current_pos.z = position.z;
-        current_pos.o = position.o;
-
-        self.position = Some(current_pos);
     }
 
     pub fn set_stand_state(&mut self, animstate: u32) {
@@ -667,20 +626,6 @@ impl Player {
         &self.faction_standings
     }
 
-    pub fn set_selection(&mut self, raw_guid: u64) {
-        self.selection_guid = ObjectGuid::from_raw(raw_guid).filter(|&g| g != ObjectGuid::zero());
-        self.values
-            .set_u64(UnitFields::UnitFieldTarget.into(), raw_guid);
-    }
-
-    pub fn selection(&self) -> Option<ObjectGuid> {
-        self.selection_guid
-    }
-
-    pub fn set_attacking(&mut self, is_attacking: bool) {
-        self.is_attacking = is_attacking;
-    }
-
     fn gen_create_data(&self) -> UpdateBlock {
         let mut update_builder = UpdateBlockBuilder::new();
 
@@ -704,141 +649,6 @@ impl Player {
 
         update_builder.build()
     }
-
-    fn update_attack_timers(&mut self, diff: Duration) {
-        for timer in self.attack_timers.iter_mut() {
-            if *timer > diff {
-                *timer -= diff;
-            } else if *timer > Duration::ZERO {
-                *timer = Duration::ZERO;
-            }
-        }
-    }
-
-    fn set_attack_timer(&mut self, weap_type: WeaponAttackType, timer: Duration) {
-        self.attack_timers[weap_type as usize] = timer;
-    }
-
-    fn ensure_attack_timer(&mut self, weap_type: WeaponAttackType, timer: Duration) {
-        let weap_type = weap_type as usize;
-        if self.attack_timers[weap_type] < timer {
-            self.attack_timers[weap_type] = timer;
-        }
-    }
-
-    fn is_weapon_ready(&self, weap_type: WeaponAttackType) -> bool {
-        match weap_type {
-            WeaponAttackType::MainHand => self.attack_timers[weap_type as usize].is_zero(),
-            WeaponAttackType::OffHand => {
-                self.attack_timers[weap_type as usize].is_zero() && self.has_off_hand_weapon()
-            }
-            WeaponAttackType::Ranged => {
-                error!("is_weapon_ready for Ranged NIY");
-                false
-            }
-        }
-    }
-
-    // Can attack if player:
-    // - main hand is ready
-    // - has off hand and is ready
-    // - is attacking and has a target
-    // - is in melee range
-    // - is looking at the target (120° angle)
-    // - (later) is not currently casting a non-melee spell
-    fn attempt_melee_attack(
-        &mut self,
-        target: Arc<RwLock<dyn WorldEntity + Send + Sync>>,
-        world_context: Arc<WorldContext>,
-    ) {
-        if !self.is_attacking {
-            return;
-        }
-
-        if !self.is_weapon_ready(WeaponAttackType::MainHand)
-            && !self.is_weapon_ready(WeaponAttackType::OffHand)
-        {
-            return;
-        }
-
-        let melee_reach_for_target = self.melee_reach_for_target(target.read().combat_reach());
-        let distance = self.position().distance_to(target.read().position(), true);
-
-        if distance >= melee_reach_for_target {
-            // Retry a bit later
-            self.ensure_attack_timer(WeaponAttackType::MainHand, Duration::from_millis(100));
-            self.ensure_attack_timer(WeaponAttackType::OffHand, Duration::from_millis(100));
-
-            if self
-                .last_melee_error
-                .as_ref()
-                .filter(|&e| *e == MeleeAttackError::NotInRange)
-                .is_none()
-            {
-                let packet = ServerMessage::new(SmsgAttackSwingNotInRange {});
-
-                // TODO: Keep a reference to the Map in Player
-                let map = world_context
-                    .map_manager
-                    .get_map(self.map_key.unwrap())
-                    .unwrap();
-                let my_session = map.get_session(self.guid()).unwrap();
-                my_session.send(&packet).unwrap();
-            }
-
-            self.last_melee_error = Some(MeleeAttackError::NotInRange);
-
-            return;
-        }
-
-        self.last_melee_error = None;
-
-        if self.is_weapon_ready(WeaponAttackType::MainHand) {
-            target.write().modify_health(-5);
-
-            let packet = ServerMessage::new(SmsgAttackerStateUpdate {
-                hit_info: 2, // TODO enum HitInfo
-                attacker_guid: self.guid().as_packed(),
-                target_guid: target.read().guid().as_packed(),
-                actual_damage: 1,
-                sub_damage_count: 1,
-                sub_damage_school_mask: 1, // Physical
-                sub_damage: 1.0,
-                sub_damage_rounded: 1,
-                sub_damage_absorb: 0,
-                sub_damage_resist: 0,
-                target_state: 1, // TODO: Enum VictimState
-                unk1: 0,
-                spell_id: 0,
-                damage_blocked_amount: 0,
-            });
-
-            world_context.map_manager.broadcast_packet(
-                self.guid(),
-                self.map_key,
-                &packet,
-                None,
-                true,
-            );
-
-            self.set_attack_timer(WeaponAttackType::MainHand, Duration::from_millis(800));
-            // Offset off hand just a bit to avoid weird animation
-            self.ensure_attack_timer(WeaponAttackType::OffHand, ATTACK_DISPLAY_DELAY);
-        }
-    }
-
-    fn has_off_hand_weapon(&self) -> bool {
-        self.inventory
-            .get(&(InventorySlot::EquipmentOffhand as u32))
-            .is_some()
-    }
-
-    // Max distance from target to be able to hit it in melee
-    fn melee_reach_for_target(&self, target_combat_reach: f32) -> f32 {
-        self.values.get_f32(UnitFields::UnitFieldCombatReach.into())
-            + target_combat_reach
-            + BASE_MELEE_RANGE_OFFSET
-    }
 }
 
 pub struct PlayerVisualFeatures {
@@ -859,17 +669,8 @@ impl WorldEntity for Player {
         self.name.to_owned()
     }
 
-    fn tick(&mut self, diff: Duration, world_context: Arc<WorldContext>) {
-        self.update_attack_timers(diff);
-
-        let target_entity = match self.selection_guid {
-            Some(sel) => world_context.map_manager.lookup_entity(&sel, self.map_key),
-            _ => None,
-        };
-
-        if let Some(target_entity) = target_entity {
-            self.attempt_melee_attack(target_entity, world_context.clone());
-        }
+    fn tick(&mut self, _diff: Duration, _world_contextt: Arc<WorldContext>) {
+        todo!();
     }
 
     fn get_create_data(
@@ -968,6 +769,6 @@ impl WorldEntity for Player {
     }
 
     fn position(&self) -> &WorldPosition {
-        self.position()
+        todo!()
     }
 }

@@ -23,19 +23,18 @@ impl OpcodeHandler {
         if let Some(_target_guid) = ObjectGuid::from_raw(cmsg.guid) {
             if let Some(ref map) = session.current_map() {
                 if let Some(player_ecs_entity) = session.player_entity_id() {
-                    let world = map.ecs_world();
-                    world.lock().run(|mut vm_melee: ViewMut<Melee>| {
+                    map.world().run(|mut vm_melee: ViewMut<Melee>| {
                         vm_melee[player_ecs_entity].is_attacking = true;
                     });
-
-                    let player_guid = session.player_guid().unwrap();
-                    let packet = ServerMessage::new(SmsgAttackStart {
-                        attacker_guid: player_guid.raw(),
-                        target_guid: cmsg.guid,
-                    });
-
-                    map.broadcast_packet(&player_guid, &packet, None, true);
                 }
+
+                let player_guid = session.player_guid().unwrap();
+                let packet = ServerMessage::new(SmsgAttackStart {
+                    attacker_guid: player_guid.raw(),
+                    target_guid: cmsg.guid,
+                });
+
+                map.broadcast_packet(&player_guid, &packet, None, true);
             }
         } else {
             session.send_attack_stop(None);
@@ -50,25 +49,22 @@ impl OpcodeHandler {
         if let Some(ref map) = session.current_map() {
             let player_guid = session.player_guid().unwrap();
             if let Some(player_ecs_entity) = map.lookup_entity_ecs(&player_guid) {
-                let world = map.ecs_world();
-                world.lock().run(
+                let target_guid = map.world().run(
                     |mut vm_melee: ViewMut<Melee>, v_unit: View<Unit>, v_guid: View<Guid>| {
                         vm_melee[player_ecs_entity].is_attacking = false;
-                        let target_guid = {
-                            v_unit[player_ecs_entity]
-                                .target()
-                                .map(|target_entity_id| v_guid[target_entity_id].0)
-                        };
-
-                        let packet = ServerMessage::new(SmsgAttackStop {
-                            player_guid: player_guid.as_packed(),
-                            enemy_guid: target_guid.unwrap_or(ObjectGuid::zero()).as_packed(),
-                            unk: 0,
-                        });
-
-                        map.broadcast_packet(&player_guid, &packet, None, true);
+                        v_unit[player_ecs_entity]
+                            .target()
+                            .map(|target_entity_id| v_guid[target_entity_id].0)
                     },
                 );
+
+                let packet = ServerMessage::new(SmsgAttackStop {
+                    player_guid: player_guid.as_packed(),
+                    enemy_guid: target_guid.unwrap_or(ObjectGuid::zero()).as_packed(),
+                    unk: 0,
+                });
+
+                map.broadcast_packet(&player_guid, &packet, None, true);
             }
         }
     }

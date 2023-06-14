@@ -31,7 +31,7 @@ pub fn attempt_melee_attack(
                 .get(target_id)
                 .expect("target has no Guid component")
                 .0;
-            let target_health = (&mut v_health)
+            let mut target_health = (&mut v_health)
                 .get(target_id)
                 .expect("target has no Health component");
             let target_position = v_wpos
@@ -44,7 +44,7 @@ pub fn attempt_melee_attack(
                     .melee_reach
             };
 
-            let melee = (&mut v_melee).get(my_id).unwrap();
+            let mut melee = (&mut v_melee).get(my_id).unwrap();
 
             if !melee.is_attacking {
                 continue;

@@ -86,43 +86,41 @@ impl OpcodeHandler {
                 }
             }
 
-            let mut target_name: String = "TODO_TARGET_NAME".to_owned();
+            let target_guid =
+                ObjectGuid::from_raw(cmsg_text_emote.target_guid).expect("invalid guid received");
 
             if let Some(map) = session.current_map() {
-                let target_guid = ObjectGuid::from_raw(cmsg_text_emote.target_guid)
-                    .expect("invalid guid received");
-
                 if let Some(target_entity_id) = map.lookup_entity_ecs(&target_guid) {
-                    let world = map.ecs_world();
-                    let world_guard = world.lock();
+                    let target_name =
+                        map.world()
+                            .run(|v_player: View<Player>, v_creature: View<Creature>| {
+                                if let Some(player) = v_player.get(target_entity_id).ok() {
+                                    player.name.clone()
+                                } else if let Some(creature) = v_creature.get(target_entity_id).ok()
+                                {
+                                    creature.name.clone()
+                                } else {
+                                    "TODO_TARGET_NAME".to_owned()
+                                }
+                            });
 
-                    let (v_player, v_creature) = world_guard
-                        .borrow::<(View<Player>, View<Creature>)>()
-                        .unwrap();
+                    let player_guid = session.player_guid().unwrap();
+                    let packet = ServerMessage::new(SmsgTextEmote {
+                        origin_guid: player_guid.raw(),
+                        text_emote: cmsg_text_emote.text_emote,
+                        emote_number: cmsg_text_emote.emote_number,
+                        target_name_length: target_name.len() as u32,
+                        target_name: target_name.into(),
+                    });
 
-                    if let Some(player) = v_player.get(target_entity_id).ok() {
-                        target_name = player.name.clone();
-                    } else if let Some(creature) = v_creature.get(target_entity_id).ok() {
-                        target_name = creature.name.clone();
-                    }
+                    session.current_map().unwrap().broadcast_packet(
+                        &player_guid,
+                        &packet,
+                        Some(40.0),
+                        true,
+                    );
                 }
             }
-
-            let player_guid = session.player_guid().unwrap();
-            let packet = ServerMessage::new(SmsgTextEmote {
-                origin_guid: player_guid.raw(),
-                text_emote: cmsg_text_emote.text_emote,
-                emote_number: cmsg_text_emote.emote_number,
-                target_name_length: target_name.len() as u32,
-                target_name: target_name.into(),
-            });
-
-            session.current_map().unwrap().broadcast_packet(
-                &player_guid,
-                &packet,
-                Some(40.0),
-                true,
-            );
         }
     }
 }

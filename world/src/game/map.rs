@@ -6,7 +6,7 @@ use std::{
 };
 
 use log::{error, warn};
-use parking_lot::{Mutex, RwLock};
+use parking_lot::{Mutex, MutexGuard, RwLock};
 use shared::models::terrain_info::{TerrainBlock, BLOCK_WIDTH, MAP_WIDTH_IN_BLOCKS};
 use shipyard::{
     AllStoragesViewMut, EntitiesViewMut, EntityId, Get, IntoWorkload, UniqueViewMut, View, ViewMut,
@@ -48,7 +48,7 @@ pub const DEFAULT_VISIBILITY_DISTANCE: f32 = 90.0;
 
 pub struct Map {
     key: MapKey,
-    world: Arc<Mutex<World>>, // Maybe a Mutex is needed
+    world: Arc<Mutex<World>>,
     _world_context: Arc<WorldContext>,
     sessions: RwLock<HashMap<ObjectGuid, Arc<WorldSession>>>,
     ecs_entities: RwLock<HashMap<ObjectGuid, EntityId>>,
@@ -136,8 +136,8 @@ impl Map {
         map
     }
 
-    pub fn ecs_world(&self) -> Arc<Mutex<World>> {
-        self.world.clone()
+    pub fn world(&self) -> MutexGuard<World> {
+        self.world.lock()
     }
 
     pub fn lookup_entity_ecs(&self, guid: &ObjectGuid) -> Option<EntityId> {

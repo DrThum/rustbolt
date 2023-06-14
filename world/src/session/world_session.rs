@@ -138,24 +138,18 @@ impl WorldSession {
         }
 
         if let Some(map) = self.current_map() {
-            if let Some(entity_id) = map.lookup_entity_ecs(&self.player_guid.read().unwrap()) {
-                let world = map.ecs_world();
-                let world_guard = world.lock();
-
-                let (v_player, v_wpos) = world_guard
-                    .borrow::<(View<Player>, View<WorldPosition>)>()
-                    .unwrap();
-                let transaction = conn.transaction().unwrap();
-                v_player[entity_id]
-                    .save_position_to_db(&transaction, &v_wpos[entity_id])
-                    .unwrap();
-                transaction.commit().unwrap();
+            if let Some(entity_id) = self.player_entity_id() {
+                map.world()
+                    .run(|v_player: View<Player>, v_wpos: View<WorldPosition>| {
+                        let transaction = conn.transaction().unwrap();
+                        v_player[entity_id]
+                            .save_position_to_db(&transaction, &v_wpos[entity_id])
+                            .unwrap();
+                        transaction.commit().unwrap();
+                    });
             }
 
-            {
-                let mut guard = self.known_guids.write();
-                guard.clear();
-            }
+            self.known_guids.write().clear();
         }
     }
 
@@ -168,11 +162,6 @@ impl WorldSession {
         self.client_latency
             .store(latency, std::sync::atomic::Ordering::Relaxed);
     }
-
-    // pub fn is_in_world(&self) -> bool {
-    //     // TODO: There might be more states here in the future (BeingTeleportedNear, BeingTeleportedFar?)
-    //     *self.state.read() == WorldSessionState::InWorld
-    // }
 
     pub fn handle_time_sync_resp(&self, client_counter: u32, client_ticks: u32, server_ticks: u32) {
         let mut time_sync = self.server_time_sync.lock();
@@ -202,7 +191,6 @@ impl WorldSession {
         packet: &ServerMessage<OPCODE, Payload>,
     ) -> Result<(), SendError<(ServerMessageHeader, Vec<u8>)>> {
         let tx = self.session_to_socket_tx.clone();
-        // Handle::current().block_on(async move {
         let payload = packet.encode_payload().expect("failed to encode payload");
         let channel_payload = if OPCODE == Opcode::SmsgUpdateObject as u16 && payload.len() > 50 {
             // Change to SMSG_COMPRESSED_UPDATE_OBJECT and compress the payload

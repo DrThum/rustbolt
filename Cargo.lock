@@ -1535,9 +1535,8 @@ dependencies = [
 
 [[package]]
 name = "shipyard"
-version = "0.6.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3511ae730f2e1c3d62a9025e2f9b2acbf130968057f1b3caab6d74a54a5e0e56"
+version = "0.6.0"
+source = "git+https://github.com/leudz/shipyard#619a8a248f17c267639129f59a48d00ee9549fa8"
 dependencies = [
  "hashbrown",
  "lock_api",
@@ -1548,12 +1547,11 @@ dependencies = [
 [[package]]
 name = "shipyard_proc"
 version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3eb847f4b9582e468198b5cfb5731b65cc67fe5e535acc9cbf3c11703d15f08c"
+source = "git+https://github.com/leudz/shipyard#619a8a248f17c267639129f59a48d00ee9549fa8"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 1.0.109",
+ "syn 2.0.10",
 ]
 
 [[package]]

@@ -103,6 +103,7 @@ pub fn attempt_melee_attack(
                     damage_blocked_amount: 0,
                 });
 
+                // TODO: Replace all map_manager.0 with Unique<Map>
                 map_manager.0.broadcast_packet(
                     &guid.0,
                     Some(my_position.map_key),

@@ -12,6 +12,7 @@ mod item_handlers;
 mod misc_handlers;
 mod movement_handlers;
 mod query_handlers;
+mod spell_handlers;
 mod synchronization_handlers;
 
 impl OpcodeHandler {

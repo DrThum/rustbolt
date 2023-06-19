@@ -1,3 +1,5 @@
+use std::{sync::Arc, time::Duration};
+
 use enumflags2::BitFlags;
 
 use crate::{
@@ -10,6 +12,7 @@ use crate::{
         FACTION_NUMBER_BASE_REPUTATION_MASKS, MAX_SPELL_EFFECT_INDEX, MAX_SPELL_REAGENTS,
         MAX_SPELL_TOTEMS,
     },
+    DataStore,
 };
 
 use super::dbc::{DbcRecord, DbcStringBlock};
@@ -363,6 +366,7 @@ pub struct CreatureTemplate {
 }
 
 #[allow(dead_code)]
+#[derive(Debug)]
 pub struct SpellRecord {
     // id: u32,
     category: u32,
@@ -495,6 +499,19 @@ impl SpellRecord {
         );
 
         self.effect_base_points[effect_index] + (self.effect_base_dice[effect_index] as i32)
+    }
+
+    pub fn base_duration(&self, data_store: Arc<DataStore>) -> Option<Duration> {
+        data_store
+            .get_spell_duration_record(self.duration_index)
+            .map(|rec| rec.base)
+    }
+
+    // TODO: Improve this by loading a ref to the SpellCastTimeRecord directly
+    pub fn base_cast_time(&self, data_store: Arc<DataStore>) -> Option<Duration> {
+        data_store
+            .get_spell_cast_times(self.casting_time_index)
+            .map(|rec| rec.base)
     }
 }
 
@@ -691,6 +708,50 @@ impl DbcTypedRecord for SpellRecord {
                 totem_category: [record.fields[212].as_u32, record.fields[213].as_u32],
                 area_id: record.fields[214].as_u32,
                 school_mask: record.fields[215].as_u32,
+            };
+
+            (key, record)
+        }
+    }
+}
+
+#[allow(dead_code)]
+pub struct SpellDurationRecord {
+    pub base: Duration,
+    pub per_level: Duration,
+    pub max: Duration,
+}
+
+impl DbcTypedRecord for SpellDurationRecord {
+    fn from_record(record: &DbcRecord, _strings: &DbcStringBlock) -> (u32, Self) {
+        unsafe {
+            let key = record.fields[0].as_u32;
+            let record = SpellDurationRecord {
+                base: Duration::from_millis(record.fields[1].as_u32 as u64),
+                per_level: Duration::from_millis(record.fields[2].as_u32 as u64),
+                max: Duration::from_millis(record.fields[3].as_u32 as u64),
+            };
+
+            (key, record)
+        }
+    }
+}
+
+#[allow(dead_code)]
+pub struct SpellCastTimeRecord {
+    pub base: Duration,
+    pub per_level: Duration,
+    pub min: Duration,
+}
+
+impl DbcTypedRecord for SpellCastTimeRecord {
+    fn from_record(record: &DbcRecord, _strings: &DbcStringBlock) -> (u32, Self) {
+        unsafe {
+            let key = record.fields[0].as_u32;
+            let record = SpellCastTimeRecord {
+                base: Duration::from_millis(record.fields[1].as_u32 as u64),
+                per_level: Duration::from_millis(record.fields[2].as_u32 as u64),
+                min: Duration::from_millis(record.fields[3].as_u32 as u64),
             };
 
             (key, record)

@@ -25,7 +25,7 @@ use crate::{
 use self::data_types::{
     CharStartOutfitRecord, ChrClassesRecord, ChrRacesRecord, EmotesTextRecord, FactionRecord,
     ItemRecord, ItemTemplate, MapRecord, PlayerCreateActionButton, SkillLineAbilityRecord,
-    SkillLineRecord, SpellRecord,
+    SkillLineRecord, SpellCastTimeRecord, SpellDurationRecord, SpellRecord,
 };
 
 pub mod data_types;
@@ -44,6 +44,8 @@ pub struct DataStore {
     map: DbcStore<MapRecord>,
     emotes_text: DbcStore<EmotesTextRecord>,
     spell: DbcStore<SpellRecord>,
+    spell_duration: DbcStore<SpellDurationRecord>,
+    spell_cast_times: DbcStore<SpellCastTimeRecord>,
     skill_line: DbcStore<SkillLineRecord>,
     skill_line_ability: DbcStore<SkillLineAbilityRecord>,
     skill_line_ability_by_spell: DbcMultiStore<SkillLineAbilityRecord>,
@@ -79,6 +81,8 @@ impl DataStore {
         let map = parse_dbc!(config.common.data.directory, "Map");
         let emotes_text = parse_dbc!(config.common.data.directory, "EmotesText");
         let spell = parse_dbc!(config.common.data.directory, "Spell");
+        let spell_duration = parse_dbc!(config.common.data.directory, "SpellDuration");
+        let spell_cast_times = parse_dbc!(config.common.data.directory, "SpellCastTimes");
         let skill_line = parse_dbc!(config.common.data.directory, "SkillLine");
         let skill_line_ability: HashMap<u32, SkillLineAbilityRecord> =
             parse_dbc!(config.common.data.directory, "SkillLineAbility");
@@ -163,6 +167,8 @@ impl DataStore {
             map,
             emotes_text,
             spell,
+            spell_duration,
+            spell_cast_times,
             skill_line,
             skill_line_ability,
             skill_line_ability_by_spell,
@@ -213,6 +219,14 @@ impl DataStore {
         self.spell.get(&id)
     }
 
+    pub fn get_spell_duration_record(&self, id: u32) -> Option<&SpellDurationRecord> {
+        self.spell_duration.get(&id)
+    }
+
+    pub fn get_spell_cast_times(&self, id: u32) -> Option<&SpellCastTimeRecord> {
+        self.spell_cast_times.get(&id)
+    }
+
     pub fn get_skill_line_record(&self, id: u32) -> Option<&SkillLineRecord> {
         self.skill_line.get(&id)
     }
@@ -243,6 +257,7 @@ impl DataStore {
                 faction.base_reputation_standing(race, class),
                 faction.reputation_flags(race, class),
             ) {
+                // TODO: enum for the flags
                 (Some(_standing), Some(flags)) if flags & 0x01 != 0 => result.push((*id, flags)),
                 _ => (),
             }

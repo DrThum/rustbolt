@@ -15,9 +15,12 @@ use shipyard::{
 
 use crate::{
     ecs::{
-        components::{guid::Guid, health::Health, melee::Melee, movement::Movement, unit::Unit},
+        components::{
+            guid::Guid, health::Health, melee::Melee, movement::Movement, spell_cast::SpellCast,
+            unit::Unit,
+        },
         resources::DeltaTime,
-        systems::{melee, updates},
+        systems::{melee, spell, updates},
     },
     entities::{
         creature::Creature,
@@ -69,8 +72,14 @@ impl Map {
         world.add_unique(DeltaTime::default());
         world.add_unique(WrappedMapManager(world_context.map_manager.clone()));
 
-        let workload =
-            || (melee::attempt_melee_attack, updates::send_entity_update).into_workload();
+        let workload = || {
+            (
+                melee::attempt_melee_attack,
+                spell::update_spell,
+                updates::send_entity_update,
+            )
+                .into_workload()
+        };
         world.add_workload(workload);
 
         let world = Arc::new(Mutex::new(world));
@@ -176,7 +185,8 @@ impl Map {
              mut vm_wpos: ViewMut<WorldPosition>,
              mut vm_int_vals: ViewMut<WrappedInternalValues>,
              mut vm_player: ViewMut<Player>,
-             mut vm_movement: ViewMut<Movement>| {
+             mut vm_movement: ViewMut<Movement>,
+             mut vm_spell: ViewMut<SpellCast>| {
                 let player =
                     Player::load_from_db(session.account_id, char_data.guid, world_context.clone());
 
@@ -194,6 +204,7 @@ impl Map {
                         &mut vm_int_vals,
                         &mut vm_player,
                         &mut vm_movement,
+                        &mut vm_spell,
                     ),
                     (
                         Guid::new(player_guid.clone(), player.internal_values.clone()),
@@ -227,6 +238,7 @@ impl Map {
                             speed_flight_backward: 4.5,
                             speed_turn: 3.141594,
                         },
+                        SpellCast::new(),
                     ),
                 );
 
@@ -373,7 +385,8 @@ impl Map {
              mut vm_wpos: ViewMut<WorldPosition>,
              mut vm_int_vals: ViewMut<WrappedInternalValues>,
              mut vm_creature: ViewMut<Creature>,
-             mut vm_movement: ViewMut<Movement>| {
+             mut vm_movement: ViewMut<Movement>,
+             mut vm_spell: ViewMut<SpellCast>| {
                 let entity_id = entities.add_entity(
                     (
                         &mut vm_guid,
@@ -384,6 +397,7 @@ impl Map {
                         &mut vm_int_vals,
                         &mut vm_creature,
                         &mut vm_movement,
+                        &mut vm_spell,
                     ),
                     (
                         Guid::new(creature_guid.clone(), creature.internal_values.clone()),
@@ -410,6 +424,7 @@ impl Map {
                             speed_flight_backward: 4.5,
                             speed_turn: 3.141594,
                         },
+                        SpellCast::new(),
                     ),
                 );
 

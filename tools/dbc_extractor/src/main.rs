@@ -15,6 +15,8 @@ fn main() -> Result<(), std::io::Error> {
         "DBFilesClient\\Map.dbc",
         "DBFilesClient\\EmotesText.dbc",
         "DBFilesClient\\Spell.dbc",
+        "DBFilesClient\\SpellDuration.dbc",
+        "DBFilesClient\\SpellCastTimes.dbc",
         "DBFilesClient\\SkillLine.dbc",
         "DBFilesClient\\SkillLineAbility.dbc",
         "DBFilesClient\\Faction.dbc",

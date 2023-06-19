@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use crate::entities::object_guid::PackedObjectGuid;
 use crate::shared::constants::{ChatMessageType, Language};
 use crate::{
@@ -719,3 +721,51 @@ pub struct SmsgAttackerStateUpdate {
 #[binwrite]
 #[server_opcode]
 pub struct SmsgAttackSwingNotInRange {}
+
+#[binread]
+pub struct CmsgCastSpell {
+    pub spell_id: u32,
+    pub cast_count: u8,
+}
+
+#[binwrite]
+#[server_opcode]
+pub struct SmsgClearExtraAuraInfo {
+    pub caster_guid: PackedObjectGuid,
+    pub spell_id: u32,
+}
+
+#[binwrite]
+#[server_opcode]
+pub struct SmsgSpellStart {
+    pub caster_entity_guid: PackedObjectGuid, // Can be an item for example
+    pub caster_unit_guid: PackedObjectGuid,
+    pub spell_id: u32,
+    pub cast_id: u8,
+    pub cast_flags: u16, // TODO: BitFlags
+    #[bw(map = |dur: &Duration| dur.as_millis() as u32)]
+    pub cast_time: Duration,
+    // TODO: Target guid and hit status (optional)
+    // BEGIN target
+    pub target_flags: u32, // 0 for now
+                           // pub target_unit_guid: Option<u64>,
+                           // pub target_item_guid: Option<u64>,
+                           // pub source_position: Option<Position>,
+                           // pub dest_position: Option<Position>,
+                           // pub name: Option<String>,
+                           // END target
+                           // TODO: Ammo (optional)
+}
+
+#[binwrite]
+#[server_opcode]
+pub struct SmsgSpellGo {
+    pub caster_entity_guid: PackedObjectGuid, // Can be an item for example
+    pub caster_unit_guid: PackedObjectGuid,
+    pub spell_id: u32,
+    pub cast_flags: u16, // TODO: BitFlags
+    pub timestamp: u32,
+    pub target_count: u8,
+    // TODO: target data
+    // TODO: optional ammo if ranged spell
+}

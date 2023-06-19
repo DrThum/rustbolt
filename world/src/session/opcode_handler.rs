@@ -130,6 +130,7 @@ impl OpcodeHandler {
                     Opcode::CmsgAttackStop,
                     OpcodeHandler::handle_cmsg_attack_stop
                 ),
+                define_handler!(Opcode::CmsgCastSpell, OpcodeHandler::handle_cmsg_cast_spell),
             ]),
         }
     }

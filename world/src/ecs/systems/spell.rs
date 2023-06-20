@@ -4,18 +4,16 @@ use shipyard::{IntoIter, UniqueView, View, ViewMut};
 
 use crate::{
     ecs::components::{guid::Guid, spell_cast::SpellCast},
-    entities::position::WorldPosition,
-    game::map_manager::WrappedMapManager,
+    game::map::WrappedMap,
     protocol::{packets::SmsgSpellGo, server::ServerMessage},
 };
 
 pub fn update_spell(
     mut vm_spell: ViewMut<SpellCast>,
     v_guid: View<Guid>,
-    v_wpos: View<WorldPosition>,
-    map_manager: UniqueView<WrappedMapManager>,
+    map: UniqueView<WrappedMap>,
 ) {
-    for (mut spell, guid, pos) in (&mut vm_spell, &v_guid, &v_wpos).iter() {
+    for (mut spell, guid) in (&mut vm_spell, &v_guid).iter() {
         if let Some((current_ranged, cast_end)) = spell.current_ranged() {
             let now = Instant::now();
 
@@ -29,10 +27,7 @@ pub fn update_spell(
                     target_count: 0,
                 });
 
-                // TODO: Replace all map_manager.0 with Unique<Map>
-                map_manager
-                    .0
-                    .broadcast_packet(&guid.0, Some(pos.map_key), &packet, None, true);
+                map.0.broadcast_packet(&guid.0, &packet, None, true);
 
                 spell.clean();
             }

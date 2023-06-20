@@ -4,7 +4,6 @@ use atomic_counter::{AtomicCounter, RelaxedCounter};
 use log::info;
 use parking_lot::RwLock;
 use shared::models::terrain_info::{TerrainBlock, MAP_WIDTH_IN_BLOCKS};
-use shipyard::Unique;
 
 use crate::{
     config::WorldConfig,
@@ -220,9 +219,6 @@ impl MapManager {
         result
     }
 }
-
-#[derive(Unique)]
-pub struct WrappedMapManager(pub Arc<MapManager>);
 
 #[derive(Eq, Hash, PartialEq, Clone, Copy)]
 pub struct MapKey {

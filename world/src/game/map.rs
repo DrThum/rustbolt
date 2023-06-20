@@ -9,8 +9,8 @@ use log::{error, warn};
 use parking_lot::{Mutex, MutexGuard, RwLock};
 use shared::models::terrain_info::{TerrainBlock, BLOCK_WIDTH, MAP_WIDTH_IN_BLOCKS};
 use shipyard::{
-    AllStoragesViewMut, EntitiesViewMut, EntityId, Get, IntoWorkload, UniqueViewMut, View, ViewMut,
-    World,
+    AllStoragesViewMut, EntitiesViewMut, EntityId, Get, IntoWorkload, Unique, UniqueViewMut, View,
+    ViewMut, World,
 };
 
 use crate::{
@@ -42,7 +42,7 @@ use crate::{
 };
 
 use super::{
-    map_manager::{MapKey, TerrainBlockCoords, WrappedMapManager},
+    map_manager::{MapKey, TerrainBlockCoords},
     quad_tree::QuadTree,
     world_context::WorldContext,
 };
@@ -70,7 +70,6 @@ impl Map {
     ) -> Arc<Map> {
         let world = World::new();
         world.add_unique(DeltaTime::default());
-        world.add_unique(WrappedMapManager(world_context.map_manager.clone()));
 
         let workload = || {
             (
@@ -117,7 +116,8 @@ impl Map {
 
         let map = Arc::new(map);
 
-        let map_clone = map.clone();
+        map.world.lock().add_unique(WrappedMap(map.clone()));
+
         thread::spawn(move || {
             let mut time = Instant::now();
 
@@ -133,8 +133,6 @@ impl Map {
                     });
                     world_guard.run_workload(workload).unwrap();
                 }
-
-                map_clone.tick(elapsed_since_last_tick);
 
                 let tick_duration = Instant::now().duration_since(tick_start_time);
                 // TODO: 50 in config
@@ -711,40 +709,10 @@ impl Map {
         }
     }
 
-    pub fn tick(&self, _diff: Duration) {
-        // let entities = self.entities.read();
-        // for (_, entity) in &*entities {
-        //     let mut entity = entity.write();
-        //     entity.tick(diff, self.world_context.clone());
-        //
-        //     // Broadcast the changes to nearby players
-        //     if entity.has_updates() {
-        //         for session in self.sessions_nearby_entity(
-        //             entity.guid(),
-        //             self.visibility_distance(),
-        //             true,
-        //             false,
-        //         ) {
-        //             let update_data = entity.get_update_data(
-        //                 session.player.read().guid().raw(),
-        //                 self.world_context.clone(),
-        //             );
-        //
-        //             let smsg_update_object = SmsgUpdateObject {
-        //                 updates_count: update_data.len() as u32,
-        //                 has_transport: false,
-        //                 updates: update_data,
-        //             };
-        //
-        //             session.update_entity(smsg_update_object);
-        //         }
-        //
-        //         entity.mark_up_to_date();
-        //     }
-        // }
-    }
-
     pub fn get_session(&self, player_guid: &ObjectGuid) -> Option<Arc<WorldSession>> {
         self.sessions.read().get(player_guid).cloned()
     }
 }
+
+#[derive(Unique)]
+pub struct WrappedMap(pub Arc<Map>);

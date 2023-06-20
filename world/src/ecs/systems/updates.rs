@@ -7,12 +7,12 @@ use crate::{
         position::WorldPosition,
         update::{UpdateBlockBuilder, UpdateData, UpdateType},
     },
-    game::map_manager::WrappedMapManager,
+    game::map::WrappedMap,
     protocol::packets::SmsgUpdateObject,
 };
 
 pub fn send_entity_update(
-    map_manager: UniqueView<WrappedMapManager>,
+    map: UniqueView<WrappedMap>,
     v_guid: View<Guid>,
     v_int_vals: View<WrappedInternalValues>,
     v_wpos: View<WorldPosition>,
@@ -20,7 +20,12 @@ pub fn send_entity_update(
     for (guid, wrapped_int_vals, wpos) in (&v_guid, &v_int_vals, &v_wpos).iter() {
         let mut internal_values = wrapped_int_vals.0.write();
         if internal_values.has_dirty() {
-            for session in map_manager.0.nearby_sessions(wpos) {
+            for session in map.0.sessions_nearby_position(
+                &wpos.to_position(),
+                map.0.visibility_distance(),
+                true,
+                None,
+            ) {
                 let mut update_builder = UpdateBlockBuilder::new();
 
                 for index in internal_values.get_dirty_indexes() {

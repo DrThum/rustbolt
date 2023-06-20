@@ -8,7 +8,7 @@ use crate::{
         resources::DeltaTime,
     },
     entities::position::WorldPosition,
-    game::map_manager::WrappedMapManager,
+    game::map::WrappedMap,
     protocol::{
         packets::{SmsgAttackStop, SmsgAttackerStateUpdate},
         server::ServerMessage,
@@ -18,7 +18,7 @@ use crate::{
 
 pub fn attempt_melee_attack(
     _dt: UniqueView<DeltaTime>,
-    map_manager: UniqueView<WrappedMapManager>, // TODO: Inject Map as a resource instead
+    map: UniqueView<WrappedMap>,
     v_guid: View<Guid>,
     mut v_health: ViewMut<Health>,
     mut v_melee: ViewMut<Melee>,
@@ -59,13 +59,7 @@ pub fn attempt_melee_attack(
                     })
                 };
 
-                map_manager.0.broadcast_packet(
-                    &guid.0,
-                    Some(my_position.map_key),
-                    &packet,
-                    None,
-                    true,
-                );
+                map.0.broadcast_packet(&guid.0, &packet, None, true);
 
                 melee.is_attacking = false;
 
@@ -73,8 +67,7 @@ pub fn attempt_melee_attack(
             }
 
             if !melee.can_reach_target_in_melee(my_position, target_position, target_melee_reach) {
-                let map = map_manager.0.get_map(my_position.map_key).unwrap();
-                let my_session = map.get_session(&guid.0);
+                let my_session = map.0.get_session(&guid.0);
                 melee.set_error(MeleeAttackError::NotInRange, my_session);
 
                 melee.ensure_attack_time(WeaponAttackType::MainHand, Duration::from_millis(100));
@@ -104,13 +97,7 @@ pub fn attempt_melee_attack(
                 });
 
                 // TODO: Replace all map_manager.0 with Unique<Map>
-                map_manager.0.broadcast_packet(
-                    &guid.0,
-                    Some(my_position.map_key),
-                    &packet,
-                    None,
-                    true,
-                );
+                map.0.broadcast_packet(&guid.0, &packet, None, true);
 
                 melee.reset_attack_type(WeaponAttackType::MainHand);
                 melee.ensure_attack_time(WeaponAttackType::OffHand, ATTACK_DISPLAY_DELAY);

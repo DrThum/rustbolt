@@ -725,10 +725,10 @@ pub const MAX_CREATURE_TEMPLATE_MODELID: u32 = 4;
 
 pub const MAX_SPELL_TOTEMS: usize = 2;
 pub const MAX_SPELL_REAGENTS: usize = 8;
-pub const MAX_SPELL_EFFECT_INDEX: usize = 3;
+pub const MAX_SPELL_EFFECTS: usize = 3;
 
 #[allow(dead_code)]
-#[derive(N, PartialEq, Debug)]
+#[derive(N, PartialEq, Debug, Eq, Hash)]
 pub enum SpellEffect {
     None = 0,
     Instakill = 1,

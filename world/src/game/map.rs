@@ -14,6 +14,7 @@ use shipyard::{
 };
 
 use crate::{
+    datastore::WrappedDataStore,
     ecs::{
         components::{
             guid::Guid, health::Health, melee::Melee, movement::Movement, spell_cast::SpellCast,
@@ -44,7 +45,8 @@ use crate::{
 use super::{
     map_manager::{MapKey, TerrainBlockCoords},
     quad_tree::QuadTree,
-    world_context::WorldContext,
+    spell_effect_handler::WrappedSpellEffectHandler,
+    world_context::{WorldContext, WrappedWorldContext},
 };
 
 pub const DEFAULT_VISIBILITY_DISTANCE: f32 = 90.0;
@@ -52,7 +54,7 @@ pub const DEFAULT_VISIBILITY_DISTANCE: f32 = 90.0;
 pub struct Map {
     key: MapKey,
     world: Arc<Mutex<World>>,
-    _world_context: Arc<WorldContext>,
+    world_context: Arc<WorldContext>,
     sessions: RwLock<HashMap<ObjectGuid, Arc<WorldSession>>>,
     ecs_entities: RwLock<HashMap<ObjectGuid, EntityId>>,
     terrain: Arc<HashMap<TerrainBlockCoords, TerrainBlock>>,
@@ -70,6 +72,11 @@ impl Map {
     ) -> Arc<Map> {
         let world = World::new();
         world.add_unique(DeltaTime::default());
+        world.add_unique(WrappedDataStore(world_context.data_store.clone()));
+        world.add_unique(WrappedSpellEffectHandler(
+            world_context.spell_effect_handler.clone(),
+        ));
+        world.add_unique(WrappedWorldContext(world_context.clone()));
 
         let workload = || {
             (
@@ -86,7 +93,7 @@ impl Map {
         let map = Map {
             key,
             world: world.clone(),
-            _world_context: world_context,
+            world_context,
             sessions: RwLock::new(HashMap::new()),
             ecs_entities: RwLock::new(HashMap::new()),
             terrain,
@@ -111,7 +118,7 @@ impl Map {
             let creature = Creature::from_spawn(&spawn, data_store.clone())
                 .expect("unable to build InternalValues for creature from DB spawn");
 
-            map.add_creature(None, &guid, creature, &position);
+            map.add_creature(&guid, creature, &position);
         }
 
         let map = Arc::new(map);
@@ -151,12 +158,7 @@ impl Map {
         self.ecs_entities.read().get(guid).copied()
     }
 
-    pub fn add_player_on_login(
-        &self,
-        session: Arc<WorldSession>,
-        char_data: &CharacterRecord,
-        world_context: Arc<WorldContext>,
-    ) {
+    pub fn add_player_on_login(&self, session: Arc<WorldSession>, char_data: &CharacterRecord) {
         let player_guid = ObjectGuid::from_raw(char_data.guid).unwrap();
 
         {
@@ -185,8 +187,11 @@ impl Map {
              mut vm_player: ViewMut<Player>,
              mut vm_movement: ViewMut<Movement>,
              mut vm_spell: ViewMut<SpellCast>| {
-                let player =
-                    Player::load_from_db(session.account_id, char_data.guid, world_context.clone());
+                let player = Player::load_from_db(
+                    session.account_id,
+                    char_data.guid,
+                    self.world_context.clone(),
+                );
 
                 session.send_initial_spells(&player);
                 session.send_initial_action_buttons(&player);
@@ -247,7 +252,10 @@ impl Map {
                 session.set_player_entity_id(entity_id);
 
                 let movement = vm_movement.get(entity_id).ok().map(|m| {
-                    m.build_update(world_context.clone(), &char_data.position.to_position())
+                    m.build_update(
+                        self.world_context.clone(),
+                        &char_data.position.to_position(),
+                    )
                 });
 
                 let player = vm_player.get(entity_id).unwrap();
@@ -280,7 +288,7 @@ impl Map {
 
                             let movement = v_movement.get(new_player_entity_id).ok().map(|m| {
                                 m.build_update(
-                                    world_context.clone(),
+                                    self.world_context.clone(),
                                     &char_data.position.to_position(),
                                 )
                             });
@@ -310,7 +318,7 @@ impl Map {
 
                         let movement = v_movement.get(other_entity_id).ok().map(|m| {
                             m.build_update(
-                                world_context.clone(),
+                                self.world_context.clone(),
                                 &v_wpos[other_entity_id].to_position(),
                             )
                         });
@@ -369,7 +377,6 @@ impl Map {
 
     pub fn add_creature(
         &self,
-        world_context: Option<Arc<WorldContext>>, // None during startup
         creature_guid: &ObjectGuid,
         creature: Creature,
         wpos: &WorldPosition,
@@ -444,35 +451,34 @@ impl Map {
             tree.insert(wpos.to_position(), *creature_guid);
         }
 
-        if let Some(world_context) = world_context {
-            for session in self.sessions_nearby_position(
-                &wpos.to_position(),
-                self.visibility_distance(),
-                true,
-                None,
-            ) {
-                // Broadcast the new creature to nearby players
-                let smsg_create_object: SmsgCreateObject;
-                {
-                    let new_creature_entity_id = self.lookup_entity_ecs(creature_guid).unwrap();
-                    let world_guard = self.world.lock();
-                    let (v_movement, v_creature) = world_guard
-                        .borrow::<(View<Movement>, View<Creature>)>()
-                        .unwrap();
+        // TODO: Don't attempt this during startup, it's pointless
+        for session in self.sessions_nearby_position(
+            &wpos.to_position(),
+            self.visibility_distance(),
+            true,
+            None,
+        ) {
+            // Broadcast the new creature to nearby players
+            let smsg_create_object: SmsgCreateObject;
+            {
+                let new_creature_entity_id = self.lookup_entity_ecs(creature_guid).unwrap();
+                let world_guard = self.world.lock();
+                let (v_movement, v_creature) = world_guard
+                    .borrow::<(View<Movement>, View<Creature>)>()
+                    .unwrap();
 
-                    let movement = v_movement
-                        .get(new_creature_entity_id)
-                        .ok()
-                        .map(|m| m.build_update(world_context.clone(), &wpos.to_position()));
+                let movement = v_movement
+                    .get(new_creature_entity_id)
+                    .ok()
+                    .map(|m| m.build_update(self.world_context.clone(), &wpos.to_position()));
 
-                    smsg_create_object = v_creature
-                        .get(new_creature_entity_id)
-                        .unwrap()
-                        .build_create_object(movement);
-                }
-
-                session.create_entity(creature_guid, smsg_create_object);
+                smsg_create_object = v_creature
+                    .get(new_creature_entity_id)
+                    .unwrap()
+                    .build_create_object(movement);
             }
+
+            session.create_entity(creature_guid, smsg_create_object);
         }
     }
 

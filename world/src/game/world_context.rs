@@ -1,5 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
+use shipyard::Unique;
 use tokio::time::Instant;
 
 use crate::{
@@ -7,12 +8,13 @@ use crate::{
     DataStore, SessionHolder,
 };
 
-use super::map_manager::MapManager;
+use super::{map_manager::MapManager, spell_effect_handler::SpellEffectHandler};
 
 pub struct WorldContext {
     pub data_store: Arc<DataStore>,
     pub database: Arc<DatabaseContext>,
     pub opcode_handler: Arc<OpcodeHandler>,
+    pub spell_effect_handler: Arc<SpellEffectHandler>,
     pub config: Arc<WorldConfig>,
     pub start_time: Instant,
     pub session_holder: Arc<SessionHolder>,
@@ -25,3 +27,6 @@ impl WorldContext {
         self.start_time.elapsed()
     }
 }
+
+#[derive(Unique)]
+pub struct WrappedWorldContext(pub Arc<WorldContext>);

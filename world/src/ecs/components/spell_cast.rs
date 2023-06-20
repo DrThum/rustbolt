@@ -1,11 +1,16 @@
-use std::time::{Duration, Instant};
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 use log::error;
-use shipyard::Component;
+use shipyard::{Component, EntityId};
+
+use crate::game::spell::Spell;
 
 #[derive(Component)]
 pub struct SpellCast {
-    current_ranged: Option<u32>,
+    current_ranged: Option<Arc<Spell>>,
     ranged_cast_end: Option<Instant>,
     // current melee: Option<u32>,
 }
@@ -18,10 +23,10 @@ impl SpellCast {
         }
     }
 
-    pub fn current_ranged(&self) -> Option<(u32, Instant)> {
-        match (self.current_ranged, self.ranged_cast_end) {
+    pub fn current_ranged(&self) -> Option<(Arc<Spell>, Instant)> {
+        match (self.current_ranged.as_ref(), self.ranged_cast_end) {
             (None, None) => None,
-            (Some(curr), Some(end)) => Some((curr, end)),
+            (Some(curr), Some(end)) => Some((curr.clone(), end)),
             _ => {
                 error!("inconsistent state: current_ranged.is_some() != ranged_cast_end.is_some()");
                 None
@@ -29,8 +34,8 @@ impl SpellCast {
         }
     }
 
-    pub fn set_current_ranged(&mut self, spell_id: u32, duration: Duration) {
-        self.current_ranged = Some(spell_id);
+    pub fn set_current_ranged(&mut self, spell_id: u32, duration: Duration, target: EntityId) {
+        self.current_ranged = Some(Arc::new(Spell::new(spell_id, target)));
         self.ranged_cast_end = Some(Instant::now() + duration)
     }
 

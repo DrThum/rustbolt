@@ -6,7 +6,10 @@ use r2d2_sqlite::SqliteConnectionManager;
 use rustbolt_world::{
     config::WorldConfig,
     database_context::DatabaseContext,
-    game::{map_manager::MapManager, world_context::WorldContext},
+    game::{
+        map_manager::MapManager, spell_effect_handler::SpellEffectHandler,
+        world_context::WorldContext,
+    },
     session::opcode_handler::OpcodeHandler,
     DataStore, SessionHolder,
 };
@@ -72,6 +75,7 @@ fn main() {
         DataStore::load_data(config.clone(), &conn).expect("Error when loading static data"),
     );
     let opcode_handler = Arc::new(OpcodeHandler::new());
+    let spell_effect_handler = Arc::new(SpellEffectHandler::new());
 
     let database_context = Arc::new(DatabaseContext {
         auth: db_pool_auth.clone(),
@@ -88,6 +92,7 @@ fn main() {
         data_store: data_store.clone(),
         database: database_context,
         opcode_handler: opcode_handler.clone(),
+        spell_effect_handler,
         config: config.clone(),
         start_time,
         session_holder: session_holder.clone(),

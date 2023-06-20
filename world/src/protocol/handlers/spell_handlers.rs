@@ -1,9 +1,10 @@
 use std::sync::Arc;
 
 use log::error;
-use shipyard::ViewMut;
+use shipyard::{View, ViewMut};
 
 use crate::ecs::components::spell_cast::SpellCast;
+use crate::ecs::components::unit::Unit;
 use crate::game::world_context::WorldContext;
 use crate::protocol::client::ClientMessage;
 use crate::protocol::packets::{CmsgCastSpell, SmsgClearExtraAuraInfo, SmsgSpellStart};
@@ -39,9 +40,15 @@ impl OpcodeHandler {
 
         if let Some(map) = session.current_map() {
             if let Some(entity_id) = session.player_entity_id() {
-                map.world().run(|mut vm_spell: ViewMut<SpellCast>| {
-                    vm_spell[entity_id].set_current_ranged(cmsg.spell_id, spell_base_cast_time);
-                });
+                map.world()
+                    .run(|mut vm_spell: ViewMut<SpellCast>, v_unit: View<Unit>| {
+                        let target = v_unit[entity_id].target().unwrap_or(entity_id); // Target self by default
+                        vm_spell[entity_id].set_current_ranged(
+                            cmsg.spell_id,
+                            spell_base_cast_time,
+                            target,
+                        );
+                    });
             }
         }
 

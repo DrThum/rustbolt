@@ -41,7 +41,10 @@ impl Health {
     }
 
     // pub fn apply_healing(&mut self, healing: u32) {
-    //     self.current = self.current.saturating_add(healing);
+    //     let new_health = self.current().saturating_add(healing).min(self.max());
+    //     self.internal_values
+    //         .write()
+    //         .set_u32(UnitFields::UnitFieldHealth.into(), new_health);
     // }
 
     // pub fn current(&self) -> u32 {

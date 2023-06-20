@@ -1,6 +1,7 @@
 use indicatif::ProgressBar;
 use log::info;
 use multimap::MultiMap;
+use shipyard::Unique;
 use std::{
     collections::{hash_map::Values, HashMap},
     sync::Arc,
@@ -300,3 +301,6 @@ impl DataStore {
         self.creature_templates.get(&entry)
     }
 }
+
+#[derive(Unique)]
+pub struct WrappedDataStore(pub Arc<DataStore>);

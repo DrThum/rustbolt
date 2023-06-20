@@ -211,7 +211,7 @@ impl OpcodeHandler {
         {
             session.set_map(map.clone());
             session.set_player_guid(ObjectGuid::from_raw(character_data.guid).unwrap());
-            map.add_player_on_login(session.clone(), &character_data, world_context.clone());
+            map.add_player_on_login(session.clone(), &character_data);
         }
 
         // FIXME: hardcoded position

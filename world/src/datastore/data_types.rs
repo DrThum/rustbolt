@@ -9,7 +9,7 @@ use crate::{
     shared::constants::{
         AbilityLearnType, ActionButtonType, CharacterClassBit, CharacterRaceBit, InventoryType,
         MapType, SkillCategory, SkillRangeType, SkillType, SpellEffect,
-        FACTION_NUMBER_BASE_REPUTATION_MASKS, MAX_SPELL_EFFECT_INDEX, MAX_SPELL_REAGENTS,
+        FACTION_NUMBER_BASE_REPUTATION_MASKS, MAX_SPELL_EFFECTS, MAX_SPELL_REAGENTS,
         MAX_SPELL_TOTEMS,
     },
     DataStore,
@@ -366,7 +366,7 @@ pub struct CreatureTemplate {
 }
 
 #[allow(dead_code)]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SpellRecord {
     // id: u32,
     category: u32,
@@ -418,25 +418,25 @@ pub struct SpellRecord {
     equipped_item_class: i32, // ItemTemplate.class that caster must have in hand
     equipped_item_sub_class_mask: i32, // Same with ItemTemplate.subclass (mask)
     equipped_item_inventory_type_mask: i32, // Same with ItemTemplate.inventory_type (mask)
-    effect: [i32; MAX_SPELL_EFFECT_INDEX],
-    effect_die_sides: [i32; MAX_SPELL_EFFECT_INDEX], // Number of side of dices rolled for random value
-    effect_base_dice: [u32; MAX_SPELL_EFFECT_INDEX],
-    effect_dice_per_level: [f32; MAX_SPELL_EFFECT_INDEX],
-    effect_real_points_per_level: [f32; MAX_SPELL_EFFECT_INDEX],
-    effect_base_points: [i32; MAX_SPELL_EFFECT_INDEX],
-    effect_mechanic: [u32; MAX_SPELL_EFFECT_INDEX],
-    effect_implicit_target_a: [u32; MAX_SPELL_EFFECT_INDEX],
-    effect_implicit_target_b: [u32; MAX_SPELL_EFFECT_INDEX],
-    effect_radius_index: [u32; MAX_SPELL_EFFECT_INDEX], // SpellRadius.dbc
-    effect_apply_aura_name: [u32; MAX_SPELL_EFFECT_INDEX],
-    effect_amplitude: [u32; MAX_SPELL_EFFECT_INDEX],
-    effect_multiple_value: [f32; MAX_SPELL_EFFECT_INDEX],
-    effect_chain_target: [u32; MAX_SPELL_EFFECT_INDEX],
-    effect_item_type: [u32; MAX_SPELL_EFFECT_INDEX],
-    effect_misc_value: [i32; MAX_SPELL_EFFECT_INDEX],
-    effect_misc_value_b: [i32; MAX_SPELL_EFFECT_INDEX],
-    effect_trigger_spell: [u32; MAX_SPELL_EFFECT_INDEX],
-    effect_points_per_combo_point: [f32; MAX_SPELL_EFFECT_INDEX],
+    pub effect: [i32; MAX_SPELL_EFFECTS],
+    effect_die_sides: [i32; MAX_SPELL_EFFECTS], // Number of side of dices rolled for random value
+    effect_base_dice: [u32; MAX_SPELL_EFFECTS],
+    effect_dice_per_level: [f32; MAX_SPELL_EFFECTS],
+    effect_real_points_per_level: [f32; MAX_SPELL_EFFECTS],
+    effect_base_points: [i32; MAX_SPELL_EFFECTS],
+    effect_mechanic: [u32; MAX_SPELL_EFFECTS],
+    effect_implicit_target_a: [u32; MAX_SPELL_EFFECTS],
+    effect_implicit_target_b: [u32; MAX_SPELL_EFFECTS],
+    effect_radius_index: [u32; MAX_SPELL_EFFECTS], // SpellRadius.dbc
+    effect_apply_aura_name: [u32; MAX_SPELL_EFFECTS],
+    effect_amplitude: [u32; MAX_SPELL_EFFECTS],
+    effect_multiple_value: [f32; MAX_SPELL_EFFECTS],
+    effect_chain_target: [u32; MAX_SPELL_EFFECTS],
+    effect_item_type: [u32; MAX_SPELL_EFFECTS],
+    effect_misc_value: [i32; MAX_SPELL_EFFECTS],
+    effect_misc_value_b: [i32; MAX_SPELL_EFFECTS],
+    effect_trigger_spell: [u32; MAX_SPELL_EFFECTS],
+    effect_points_per_combo_point: [f32; MAX_SPELL_EFFECTS],
     spell_visual: u32, // SpellVisual.dbc
     // SpellVisual2: u32
     spell_icon_id: u32,
@@ -460,7 +460,7 @@ pub struct SpellRecord {
     damage_class: u32,
     prevention_type: u32,
     // StanceBarOrder: u32
-    damage_multiplier: [f32; MAX_SPELL_EFFECT_INDEX],
+    damage_multiplier: [f32; MAX_SPELL_EFFECTS],
     // MinFactionId: u32
     // MinReputation: u32
     // RequiredAuraVision: u32
@@ -471,7 +471,7 @@ pub struct SpellRecord {
 
 impl SpellRecord {
     pub fn learnable_skill(&self) -> Option<LearnableSkillFromSpell> {
-        for index in 0..MAX_SPELL_EFFECT_INDEX {
+        for index in 0..MAX_SPELL_EFFECTS {
             if SpellEffect::n(self.effect[index]) == Some(SpellEffect::Skill) {
                 let skill_id = self.effect_misc_value[index] as u32;
                 let step = self.calc_simple_value(index) as u32;
@@ -494,7 +494,7 @@ impl SpellRecord {
 
     pub fn calc_simple_value(&self, effect_index: usize) -> i32 {
         assert!(
-            effect_index < MAX_SPELL_EFFECT_INDEX,
+            effect_index < MAX_SPELL_EFFECTS,
             "effect_index must be [0; MAX_SPELL_EFFECT_INDEX["
         );
 

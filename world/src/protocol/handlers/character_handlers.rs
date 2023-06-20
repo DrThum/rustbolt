@@ -193,12 +193,12 @@ impl OpcodeHandler {
                 | minutes
         };
 
-        let smsg_login_settimespeed = ServerMessage::new(SmsgLoginSettimespeed {
+        let smsg_login_set_time_speed = ServerMessage::new(SmsgLoginSetTimeSpeed {
             timestamp,
             game_speed: 0.01666667,
         });
 
-        session.send(&smsg_login_settimespeed).unwrap();
+        session.send(&smsg_login_set_time_speed).unwrap();
 
         {
             let mut session_state = session.state.write();

@@ -69,7 +69,7 @@ pub enum Opcode {
     SmsgTransferPending = 0x03F,
     SmsgTransferAborted = 0x040,
     SmsgCharacterLoginFailed = 0x041,
-    SmsgLoginSettimespeed = 0x042,
+    SmsgLoginSetTimeSpeed = 0x042,
     SmsgGametimeUpdate = 0x043,
     CmsgGametimeSet = 0x044,
     SmsgGametimeSet = 0x045,

@@ -6,6 +6,7 @@ use opcode_derive::server_opcode;
 use crate::entities::object_guid::PackedObjectGuid;
 use crate::protocol::opcodes::Opcode;
 use crate::protocol::server::ServerMessagePayload;
+use crate::shared::constants::SpellFailReason;
 
 #[binread]
 pub struct CmsgCastSpell {
@@ -53,6 +54,24 @@ pub struct SmsgSpellGo {
     pub target_count: u8,
     // TODO: target data
     // TODO: optional ammo if ranged spell
+}
+
+#[binwrite]
+#[server_opcode]
+pub struct SmsgCastFailed {
+    pub spell_id: u32,
+    #[bw(map = |sfr: &SpellFailReason| (*sfr) as u8)]
+    pub result: SpellFailReason,
+    pub cast_count: u8,
+    // requires_spell_focus: u32 // if RequiresSpellFocus
+    // requires_area_id: u32 // if RequiresArea
+    // requires_totem: [u32; MAX_TOTEM] // if Totems
+    // requires_totem_category: [u32; MAX_TOTEM_CATEGORY // if TotemCategory
+    // { // if EquippedItemClass
+    //   item_class: u32,
+    //   item_sub_class_mask: u32,
+    //   item_inventory_type_mask: u32,
+    // }
 }
 
 #[binwrite]

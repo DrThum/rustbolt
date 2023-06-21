@@ -2,8 +2,9 @@ use enumflags2::BitFlags;
 use indicatif::ProgressBar;
 use r2d2::PooledConnection;
 use r2d2_sqlite::SqliteConnectionManager;
+use rusqlite::named_params;
 
-use crate::datastore::data_types::QuestTemplate;
+use crate::datastore::data_types::{QuestActorRole, QuestActorType, QuestRelation, QuestTemplate};
 
 pub struct QuestRepository;
 
@@ -164,6 +165,53 @@ impl QuestRepository {
                     offer_reward_emote_delay2: row.get("offer_reward_emote_delay2").unwrap(),
                     offer_reward_emote_delay3: row.get("offer_reward_emote_delay3").unwrap(),
                     offer_reward_emote_delay4: row.get("offer_reward_emote_delay4").unwrap(),
+                })
+            })
+            .unwrap();
+
+        result.filter_map(|res| res.ok()).into_iter().collect()
+    }
+
+    // Note: only load creature quest relations for now (GameObjects and AreaTriggers not
+    // implemented yet)
+    pub fn load_relations(conn: &PooledConnection<SqliteConnectionManager>) -> Vec<QuestRelation> {
+        let mut stmt = conn
+            .prepare_cached(
+                "SELECT COUNT(actor_entry) FROM quest_relations WHERE actor_type = :actor_type",
+            )
+            .unwrap();
+        let mut count = stmt
+            .query_map(
+                named_params! {":actor_type": QuestActorType::Creature as u8 },
+                |row| row.get::<usize, u64>(0),
+            )
+            .unwrap();
+
+        let count = count.next().unwrap().unwrap_or(0);
+        let bar = ProgressBar::new(count);
+
+        let mut stmt = conn
+            .prepare_cached("SELECT actor_type, actor_entry, quest_id, role FROM quest_relations")
+            .unwrap();
+
+        let result = stmt
+            .query_map([], |row| {
+                bar.inc(1);
+                if bar.position() == count {
+                    bar.finish();
+                }
+
+                Ok(QuestRelation {
+                    actor_type: row
+                        .get::<&str, u8>("actor_type")
+                        .map(|at| QuestActorType::n(at).unwrap())
+                        .unwrap(),
+                    actor_entry: row.get("actor_entry").unwrap(),
+                    quest_id: row.get("quest_id").unwrap(),
+                    role: row
+                        .get::<&str, u8>("role")
+                        .map(|at| QuestActorRole::n(at).unwrap())
+                        .unwrap(),
                 })
             })
             .unwrap();

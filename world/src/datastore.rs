@@ -25,7 +25,7 @@ use crate::{
 
 use self::data_types::{
     CharStartOutfitRecord, ChrClassesRecord, ChrRacesRecord, EmotesTextRecord, FactionRecord,
-    ItemRecord, ItemTemplate, MapRecord, PlayerCreateActionButton, QuestTemplate,
+    ItemRecord, ItemTemplate, MapRecord, PlayerCreateActionButton, QuestRelation, QuestTemplate,
     SkillLineAbilityRecord, SkillLineRecord, SpellCastTimeRecord, SpellDurationRecord, SpellRecord,
 };
 
@@ -57,6 +57,7 @@ pub struct DataStore {
     player_create_action_buttons: SqlMultiStore<PlayerCreateActionButton>,
     creature_templates: SqlStore<CreatureTemplate>,
     quest_templates: SqlStore<QuestTemplate>,
+    quest_relations_by_creature: SqlStore<QuestRelation>,
 }
 
 macro_rules! parse_dbc {
@@ -135,6 +136,16 @@ impl DataStore {
             quest_templates
         };
 
+        let quest_relations_by_creature = {
+            info!("Loading quest relations...");
+            let quest_relations = QuestRepository::load_relations(conn);
+            let quest_relations: SqlStore<QuestRelation> = quest_relations
+                .into_iter()
+                .map(|rel| (rel.actor_entry, rel))
+                .collect();
+            quest_relations
+        };
+
         info!("Loading player creation positions...");
         let player_create_positions = PlayerCreationRepository::load_positions(conn);
         let player_create_positions: SqlStore<PlayerCreatePosition> = player_create_positions
@@ -191,6 +202,7 @@ impl DataStore {
             player_create_action_buttons,
             creature_templates,
             quest_templates,
+            quest_relations_by_creature,
         })
     }
 

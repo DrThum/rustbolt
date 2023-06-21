@@ -1,6 +1,7 @@
 use std::{sync::Arc, time::Duration};
 
 use enumflags2::BitFlags;
+use enumn::N;
 
 use crate::{
     protocol::packets::{
@@ -1086,4 +1087,29 @@ pub struct QuestTemplate {
     pub offer_reward_emote_delay2: u32,
     pub offer_reward_emote_delay3: u32,
     pub offer_reward_emote_delay4: u32,
+}
+
+#[allow(dead_code)]
+#[repr(u8)]
+#[derive(N)]
+pub enum QuestActorType {
+    Creature = 0,
+    GameObject = 1,
+    AreaTrigger = 2,
+}
+
+#[allow(dead_code)]
+#[repr(u8)]
+#[derive(N)]
+pub enum QuestActorRole {
+    Start = 0,
+    End = 1,
+}
+
+#[allow(dead_code)]
+pub struct QuestRelation {
+    pub actor_type: QuestActorType,
+    pub actor_entry: u32,
+    pub quest_id: u32,
+    pub role: QuestActorRole,
 }

@@ -8,7 +8,7 @@ use crate::ecs::components::unit::Unit;
 use crate::game::world_context::WorldContext;
 use crate::protocol::client::ClientMessage;
 use crate::protocol::packets::{
-    CmsgCastSpell, SmsgCastFailed, SmsgClearExtraAuraInfo, SmsgSpellStart,
+    CmsgCancelCast, CmsgCastSpell, SmsgCastFailed, SmsgClearExtraAuraInfo, SmsgSpellStart,
 };
 use crate::protocol::server::ServerMessage;
 use crate::session::opcode_handler::OpcodeHandler;
@@ -77,6 +77,26 @@ impl OpcodeHandler {
                         session.send(&packet).unwrap();
                     });
             }
+        }
+    }
+
+    pub(crate) fn handle_cmsg_cancel_cast(
+        session: Arc<WorldSession>,
+        _world_context: Arc<WorldContext>,
+        data: Vec<u8>,
+    ) {
+        let cmsg: CmsgCancelCast = ClientMessage::read_as(data).unwrap();
+
+        if let Some(map) = session.current_map() {
+            if let Some(entity_id) = session.player_entity_id() {
+                map.world().run(|mut vm_spell: ViewMut<SpellCast>| {
+                    if let Some((curr, _)) = vm_spell[entity_id].current_ranged() {
+                        if curr.id() == cmsg.spell_id {
+                            vm_spell[entity_id].clean();
+                        }
+                    }
+                })
+            };
         }
     }
 }

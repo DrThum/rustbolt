@@ -74,6 +74,11 @@ pub struct SmsgCastFailed {
     // }
 }
 
+#[binread]
+pub struct CmsgCancelCast {
+    pub spell_id: u32,
+}
+
 #[binwrite]
 pub struct InitialSpell {
     pub spell_id: u16,

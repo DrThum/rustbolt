@@ -66,6 +66,7 @@ mod repositories {
     pub mod creature;
     pub mod item;
     pub mod player_creation;
+    pub mod quest;
 }
 pub mod session {
     pub mod opcode_handler;

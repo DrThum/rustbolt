@@ -1372,3 +1372,23 @@ pub enum SpellFailReason {
     TargetLockedToRaidInstance = 0xA7,
     Unknown = 0xA8,
 }
+
+#[allow(dead_code)]
+#[bitflags]
+#[repr(u32)]
+#[derive(Copy, Clone)]
+pub enum QuestFlag {
+    StayAlive = 0x00000001,     // Not used currently
+    PartyAccept = 0x00000002,   // Show confirmation box to party members upon accepting the quest
+    Exploration = 0x00000004,   // Not used currently
+    Sharable = 0x00000008,      // Can be shared: Player::CanShareQuest()
+    HasCondition = 0x00000010,  // Not used currently
+    HideRewardPoi = 0x00000020, // Not used currently: Unsure of content
+    Raid = 0x00000040,          // Can be completed while in raid group
+    Tbc = 0x00000080,           // Not used currently: Available if Tbc expansion enabled only
+    NoMoneyFromXp = 0x00000100, // Not used currently: Experience is not converted to gold at max level
+    HiddenRewards = 0x00000200, // Items and money rewarded only sent in SmsgQuestGiverOfferReward
+    Tracking = 0x00000400, // These quests are automatically rewarded on quest complete and they will never appear in quest log client side.
+    TbcRaces = 0x00000800, // Not used currently
+    Daily = 0x00001000,
+}

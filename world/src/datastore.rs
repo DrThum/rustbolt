@@ -18,15 +18,15 @@ use crate::{
     },
     repositories::{
         creature::CreatureRepository, item::ItemRepository,
-        player_creation::PlayerCreationRepository,
+        player_creation::PlayerCreationRepository, quest::QuestRepository,
     },
     shared::constants::{CharacterClassBit, CharacterRaceBit},
 };
 
 use self::data_types::{
     CharStartOutfitRecord, ChrClassesRecord, ChrRacesRecord, EmotesTextRecord, FactionRecord,
-    ItemRecord, ItemTemplate, MapRecord, PlayerCreateActionButton, SkillLineAbilityRecord,
-    SkillLineRecord, SpellCastTimeRecord, SpellDurationRecord, SpellRecord,
+    ItemRecord, ItemTemplate, MapRecord, PlayerCreateActionButton, QuestTemplate,
+    SkillLineAbilityRecord, SkillLineRecord, SpellCastTimeRecord, SpellDurationRecord, SpellRecord,
 };
 
 pub mod data_types;
@@ -56,6 +56,7 @@ pub struct DataStore {
     player_create_spells: SqlMultiStore<u32>,
     player_create_action_buttons: SqlMultiStore<PlayerCreateActionButton>,
     creature_templates: SqlStore<CreatureTemplate>,
+    quest_templates: SqlStore<QuestTemplate>,
 }
 
 macro_rules! parse_dbc {
@@ -124,6 +125,16 @@ impl DataStore {
             HashMap::new()
         };
 
+        let quest_templates = {
+            info!("Loading quest templates...");
+            let quest_templates = QuestRepository::load_templates(conn);
+            let quest_templates: SqlStore<QuestTemplate> = quest_templates
+                .into_iter()
+                .map(|template| (template.entry, template))
+                .collect();
+            quest_templates
+        };
+
         info!("Loading player creation positions...");
         let player_create_positions = PlayerCreationRepository::load_positions(conn);
         let player_create_positions: SqlStore<PlayerCreatePosition> = player_create_positions
@@ -179,6 +190,7 @@ impl DataStore {
             player_create_spells,
             player_create_action_buttons,
             creature_templates,
+            quest_templates,
         })
     }
 
@@ -299,6 +311,10 @@ impl DataStore {
 
     pub fn get_creature_template(&self, entry: u32) -> Option<&CreatureTemplate> {
         self.creature_templates.get(&entry)
+    }
+
+    pub fn get_quest_template(&self, entry: u32) -> Option<&QuestTemplate> {
+        self.quest_templates.get(&entry)
     }
 }
 

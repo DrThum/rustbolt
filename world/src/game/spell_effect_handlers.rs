@@ -32,4 +32,18 @@ impl SpellEffectHandler {
             vm_health[_spell.target()].apply_damage(damage as u32);
         });
     }
+
+    pub fn handle_effect_heal(
+        _world_context: Arc<WorldContext>,
+        _spell: Arc<Spell>,
+        _map: Arc<Map>,
+        _spell_record: Arc<SpellRecord>,
+        effect_index: usize,
+        all_storages: &AllStoragesViewMut,
+    ) {
+        all_storages.run(|mut vm_health: ViewMut<Health>| {
+            let damage = _spell_record.calc_simple_value(effect_index);
+            vm_health[_spell.target()].apply_healing(damage as u32);
+        });
+    }
 }

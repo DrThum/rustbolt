@@ -211,7 +211,7 @@ impl Map {
                     ),
                     (
                         Guid::new(player_guid.clone(), player.internal_values.clone()),
-                        Health::new(100, 100, player.internal_values.clone()),
+                        Health::new(50, 100, player.internal_values.clone()),
                         Melee::new(
                             player.internal_values.clone(),
                             5,

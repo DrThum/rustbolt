@@ -4,7 +4,7 @@ use shipyard::{Get, IntoIter, IntoWithId, UniqueView, View, ViewMut};
 
 use crate::{
     ecs::{
-        components::{guid::Guid, health::Health, melee::Melee, unit::Unit},
+        components::{guid::Guid, health::Health, melee::Melee, spell_cast::SpellCast, unit::Unit},
         resources::DeltaTime,
     },
     entities::position::WorldPosition,
@@ -24,6 +24,7 @@ pub fn attempt_melee_attack(
     mut v_melee: ViewMut<Melee>,
     v_unit: View<Unit>,
     v_wpos: View<WorldPosition>,
+    v_spell: View<SpellCast>,
 ) {
     for (my_id, (guid, unit, my_position)) in (&v_guid, &v_unit, &v_wpos).iter().with_id() {
         if let Some(target_id) = unit.target() {
@@ -45,8 +46,9 @@ pub fn attempt_melee_attack(
             };
 
             let mut melee = (&mut v_melee).get(my_id).unwrap();
+            let my_spell_cast = v_spell.get(my_id);
 
-            if !melee.is_attacking {
+            if !melee.is_attacking || my_spell_cast.is_ok_and(|sp| sp.current_ranged().is_some()) {
                 continue;
             }
 

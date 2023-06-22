@@ -6,6 +6,7 @@ mod entity_packets;
 mod item_packets;
 mod misc_packets;
 mod player_packets;
+mod quest_packets;
 mod spell_packets;
 mod zone_packets;
 
@@ -17,5 +18,6 @@ pub use self::entity_packets::*;
 pub use self::item_packets::*;
 pub use self::misc_packets::*;
 pub use self::player_packets::*;
+pub use self::quest_packets::*;
 pub use self::spell_packets::*;
 pub use self::zone_packets::*;

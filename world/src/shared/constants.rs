@@ -1383,7 +1383,7 @@ pub enum QuestFlag {
     Exploration = 0x00000004,   // Not used currently
     Sharable = 0x00000008,      // Can be shared: Player::CanShareQuest()
     HasCondition = 0x00000010,  // Not used currently
-    HideRewardPoi = 0x00000020, // Not used currently: Unsure of content
+    HideRewardPOI = 0x00000020, // Not used currently: Unsure of content
     Raid = 0x00000040,          // Can be completed while in raid group
     Tbc = 0x00000080,           // Not used currently: Available if Tbc expansion enabled only
     NoMoneyFromXp = 0x00000100, // Not used currently: Experience is not converted to gold at max level
@@ -1391,4 +1391,34 @@ pub enum QuestFlag {
     Tracking = 0x00000400, // These quests are automatically rewarded on quest complete and they will never appear in quest log client side.
     TbcRaces = 0x00000800, // Not used currently
     Daily = 0x00001000,
+}
+
+#[allow(dead_code)]
+#[repr(u8)]
+#[derive(Copy, Clone)]
+pub enum QuestGiverStatus {
+    None = 0,
+    Unavailable = 1, // Grey exclamation mark above head
+    Chat = 2, // Nothing above head but yellow exclamation mark on hover
+    Incomplete = 3, // Grey question mark above head
+    RewardRepeatable = 4, // Blue question mark above head
+    AvailableRepeatable = 5, // Blue exclamation mark above head
+    Available = 6, // Yellow exclamation mark above head
+    RewardHideOnMiniMap = 7, // No yellow dot on minimap
+    Reward = 8,  // Yellow dot on minimap
+}
+
+#[allow(dead_code)]
+pub enum PlayerQuestStatus {
+    InProgress = 0,
+    ObjectivesCompleted = 1,
+    TurnedIn = 2,
+    Failed = 3,
+}
+
+#[allow(dead_code)]
+pub enum QuestSlotState {
+    None = 0,
+    ReadyForTurnIn = 1,
+    Failed = 2,
 }

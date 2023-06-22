@@ -135,6 +135,10 @@ impl OpcodeHandler {
                     Opcode::CmsgCancelCast,
                     OpcodeHandler::handle_cmsg_cancel_cast
                 ),
+                define_handler!(
+                    Opcode::CmsgQuestGiverStatusQuery,
+                    OpcodeHandler::handle_cmsg_quest_giver_status_query
+                ),
             ]),
         }
     }

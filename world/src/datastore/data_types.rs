@@ -978,7 +978,7 @@ pub struct QuestTemplate {
     pub required_max_rep_faction: u32,
     pub required_max_rep_value: u32,
     pub suggested_players: u32,
-    pub time_limit: Option<u32>,
+    pub time_limit: Option<Duration>,
     pub flags: BitFlags<QuestFlag>,
     pub special_flags: u32,
     pub character_title: u32,
@@ -1089,9 +1089,37 @@ pub struct QuestTemplate {
     pub offer_reward_emote_delay4: u32,
 }
 
+impl QuestTemplate {
+    pub fn reward_choice_items(&self) -> Vec<(u32, u32)> {
+        vec![
+            (self.reward_choice_item_id1, self.reward_choice_item_count1),
+            (self.reward_choice_item_id2, self.reward_choice_item_count2),
+            (self.reward_choice_item_id3, self.reward_choice_item_count3),
+            (self.reward_choice_item_id4, self.reward_choice_item_count4),
+            (self.reward_choice_item_id5, self.reward_choice_item_count5),
+            (self.reward_choice_item_id6, self.reward_choice_item_count6),
+        ]
+        .into_iter()
+        .filter(|(id, _)| *id != 0)
+        .collect()
+    }
+
+    pub fn reward_items(&self) -> Vec<(u32, u32)> {
+        vec![
+            (self.reward_item_id1, self.reward_item_count1),
+            (self.reward_item_id2, self.reward_item_count2),
+            (self.reward_item_id3, self.reward_item_count3),
+            (self.reward_item_id4, self.reward_item_count4),
+        ]
+        .into_iter()
+        .filter(|(id, _)| *id != 0)
+        .collect()
+    }
+}
+
 #[allow(dead_code)]
 #[repr(u8)]
-#[derive(N)]
+#[derive(N, Clone, Copy)]
 pub enum QuestActorType {
     Creature = 0,
     GameObject = 1,
@@ -1100,13 +1128,14 @@ pub enum QuestActorType {
 
 #[allow(dead_code)]
 #[repr(u8)]
-#[derive(N)]
+#[derive(N, Clone, Copy, PartialEq)]
 pub enum QuestActorRole {
     Start = 0,
     End = 1,
 }
 
 #[allow(dead_code)]
+#[derive(Copy, Clone)]
 pub struct QuestRelation {
     pub actor_type: QuestActorType,
     pub actor_entry: u32,

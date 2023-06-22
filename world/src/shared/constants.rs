@@ -1135,8 +1135,10 @@ pub enum UnitFlags2 {
 }
 
 #[allow(dead_code)]
+#[bitflags]
+#[repr(u32)]
+#[derive(Copy, Clone)]
 pub enum NpcFlags {
-    None = 0x00000000,
     Gossip = 0x00000001,
     QuestGiver = 0x00000002,
     Unk1 = 0x00000004,
@@ -1398,17 +1400,19 @@ pub enum QuestFlag {
 #[derive(Copy, Clone)]
 pub enum QuestGiverStatus {
     None = 0,
-    Unavailable = 1, // Grey exclamation mark above head
-    Chat = 2, // Nothing above head but yellow exclamation mark on hover
-    Incomplete = 3, // Grey question mark above head
-    RewardRepeatable = 4, // Blue question mark above head
-    AvailableRepeatable = 5, // Blue exclamation mark above head
-    Available = 6, // Yellow exclamation mark above head
-    RewardHideOnMiniMap = 7, // No yellow dot on minimap
-    Reward = 8,  // Yellow dot on minimap
+    Unavailable = 1,         // Grey exclamation mark
+    Chat = 2,                // Nothing above head but yellow exclamation mark on hover
+    Incomplete = 3,          // Grey question mark
+    RewardRepeatable = 4,    // Blue question mark
+    AvailableRepeatable = 5, // Blue exclamation mark
+    Available = 6,           // Yellow exclamation mark
+    RewardHideOnMiniMap = 7, // Yellow question mark, no yellow dot on minimap
+    Reward = 8,              // Yellow question mark, yellow dot on minimap
 }
 
 #[allow(dead_code)]
+#[repr(u32)]
+#[derive(N, Copy, Clone, PartialEq, Debug)]
 pub enum PlayerQuestStatus {
     InProgress = 0,
     ObjectivesCompleted = 1,
@@ -1416,9 +1420,19 @@ pub enum PlayerQuestStatus {
     Failed = 3,
 }
 
+// Sent in update fields
 #[allow(dead_code)]
+#[bitflags]
+#[repr(u32)]
+#[derive(Clone, Copy)]
 pub enum QuestSlotState {
-    None = 0,
-    ReadyForTurnIn = 1,
+    Completed = 1,
     Failed = 2,
 }
+
+pub const NPC_TEXT_EMOTE_COUNT: usize = 3;
+pub const QUEST_EMOTE_COUNT: usize = 4;
+pub const MAX_QUEST_REWARDS_COUNT: usize = 4;
+pub const MAX_QUEST_CHOICE_REWARDS_COUNT: usize = 6;
+pub const MAX_QUEST_OBJECTIVES_COUNT: usize = 4;
+pub const MAX_QUESTS_IN_LOG: usize = 25;

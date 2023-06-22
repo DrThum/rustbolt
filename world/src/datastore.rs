@@ -57,7 +57,7 @@ pub struct DataStore {
     player_create_action_buttons: SqlMultiStore<PlayerCreateActionButton>,
     creature_templates: SqlStore<CreatureTemplate>,
     quest_templates: SqlStore<QuestTemplate>,
-    quest_relations_by_creature: SqlStore<QuestRelation>,
+    quest_relations_by_creature: SqlMultiStore<QuestRelation>,
 }
 
 macro_rules! parse_dbc {
@@ -139,11 +139,12 @@ impl DataStore {
         let quest_relations_by_creature = {
             info!("Loading quest relations...");
             let quest_relations = QuestRepository::load_relations(conn);
-            let quest_relations: SqlStore<QuestRelation> = quest_relations
-                .into_iter()
-                .map(|rel| (rel.actor_entry, rel))
-                .collect();
-            quest_relations
+            let mut multimap: MultiMap<u32, QuestRelation> = MultiMap::new();
+            for relation in quest_relations {
+                let key = relation.actor_entry;
+                multimap.insert(key, relation);
+            }
+            multimap
         };
 
         info!("Loading player creation positions...");
@@ -327,6 +328,10 @@ impl DataStore {
 
     pub fn get_quest_template(&self, entry: u32) -> Option<&QuestTemplate> {
         self.quest_templates.get(&entry)
+    }
+
+    pub fn get_quest_relations_for_creature(&self, entry: u32) -> Option<&Vec<QuestRelation>> {
+        self.quest_relations_by_creature.get_vec(&entry)
     }
 }
 

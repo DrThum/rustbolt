@@ -1,6 +1,7 @@
 use std::{
     collections::{HashMap, HashSet},
     sync::Arc,
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
 use enumflags2::make_bitflags;
@@ -12,7 +13,10 @@ use rusqlite::{named_params, Error, Transaction};
 use shipyard::Component;
 
 use crate::{
-    datastore::{data_types::PlayerCreatePosition, DataStore},
+    datastore::{
+        data_types::{PlayerCreatePosition, QuestTemplate},
+        DataStore,
+    },
     entities::player::player_data::FactionStanding,
     game::world_context::WorldContext,
     protocol::packets::{CmsgCharCreate, SmsgCreateObject},
@@ -20,15 +24,15 @@ use crate::{
     shared::constants::{
         AbilityLearnType, CharacterClass, CharacterClassBit, CharacterRace, CharacterRaceBit,
         Gender, HighGuidType, InventorySlot, InventoryType, ItemClass, ItemSubclassConsumable,
-        ObjectTypeId, ObjectTypeMask, PowerType, SkillRangeType, UnitFlags,
-        PLAYER_DEFAULT_COMBAT_REACH,
+        ObjectTypeId, ObjectTypeMask, PlayerQuestStatus, PowerType, SkillRangeType, UnitFlags,
+        MAX_QUESTS_IN_LOG, PLAYER_DEFAULT_COMBAT_REACH,
     },
 };
 
 use self::player_data::ActionButton;
 
 use super::{
-    internal_values::InternalValues,
+    internal_values::{InternalValues, QuestSlotOffset, QUEST_SLOT_OFFSETS_COUNT},
     item::Item,
     object_guid::ObjectGuid,
     position::WorldPosition,
@@ -49,6 +53,7 @@ pub struct Player {
     spells: Vec<u32>,
     action_buttons: HashMap<usize, ActionButton>,
     faction_standings: HashMap<u32, FactionStanding>,
+    quest_statuses: HashMap<u32, PlayerQuestStatus>,
 }
 
 impl Player {
@@ -455,6 +460,10 @@ impl Player {
                 })
                 .collect();
 
+        let quest_statuses = CharacterRepository::load_quest_statuses(&conn, guid.raw());
+
+        // TODO: Insert quests in internal values
+
         values.reset_dirty();
 
         Self {
@@ -465,9 +474,11 @@ impl Player {
             spells,
             action_buttons,
             faction_standings,
+            quest_statuses,
         }
     }
 
+    // TODO: Move these to CharacterRepository
     pub fn save_position_to_db(
         &self,
         transaction: &Transaction,
@@ -484,6 +495,20 @@ impl Player {
             ":o": position.o,
             ":guid": self.guid.counter(),
         })?;
+
+        Ok(())
+    }
+
+    pub fn save_quest_statuses_to_db(&self, transaction: &Transaction) -> Result<(), Error> {
+        let mut stmt = transaction
+            .prepare_cached("DELETE FROM character_quests WHERE character_guid = :guid")
+            .unwrap();
+        stmt.execute(named_params! { ":guid": self.guid.raw() })?;
+
+        let mut stmt = transaction.prepare_cached("INSERT INTO character_quests (character_guid, quest_id, status) VALUES (:guid, :quest_id, :status)").unwrap();
+        self.quest_statuses.iter().for_each(|(quest_id, status)| {
+            stmt.execute(named_params! { ":guid": self.guid.raw(), ":quest_id": quest_id, ":status": *status as u32 }).unwrap();
+        });
 
         Ok(())
     }
@@ -547,6 +572,71 @@ impl Player {
             updates_count: update_data.len() as u32,
             has_transport: false,
             updates: update_data,
+        }
+    }
+
+    pub fn can_start_quest(&self, quest_id: &u32) -> bool {
+        !self.quest_statuses.contains_key(&quest_id)
+    }
+
+    pub fn quest_status(&self, quest_id: &u32) -> Option<&PlayerQuestStatus> {
+        self.quest_statuses.get(quest_id)
+    }
+
+    pub fn can_turn_in_quest(&self, quest_id: &u32) -> bool {
+        self.quest_status(quest_id)
+            .is_some_and(|status| *status == PlayerQuestStatus::ObjectivesCompleted)
+    }
+
+    pub fn is_progressing_quest(&self, quest_id: &u32) -> bool {
+        self.quest_status(quest_id)
+            .is_some_and(|status| *status == PlayerQuestStatus::InProgress)
+    }
+
+    pub fn start_quest(&mut self, quest_template: &QuestTemplate) {
+        if !self.can_start_quest(&quest_template.entry) {
+            error!("attempt to start a quest that the player cannot start");
+            return;
+        }
+
+        {
+            let mut first_empty_slot: Option<usize> = None;
+            let mut values_guard = self.internal_values.write();
+            for i in 0..MAX_QUESTS_IN_LOG {
+                let quest_id_in_slots = values_guard.get_u32(
+                    UnitFields::PlayerQuestLog1_1 as usize + (i * QUEST_SLOT_OFFSETS_COUNT),
+                );
+                if quest_id_in_slots == 0 {
+                    first_empty_slot = Some(i);
+                    break;
+                }
+            }
+
+            if let Some(slot) = first_empty_slot {
+                let base_index =
+                    UnitFields::PlayerQuestLog1_1 as usize + (slot * QUEST_SLOT_OFFSETS_COUNT);
+
+                values_guard.set_u32(base_index, quest_template.entry);
+
+                if let Some(timer) = quest_template
+                    .time_limit
+                    .filter(|limit| *limit != Duration::ZERO)
+                {
+                    values_guard.set_u32(
+                        base_index + QuestSlotOffset::Timer as usize,
+                        (SystemTime::now() + timer)
+                            .duration_since(UNIX_EPOCH)
+                            .expect("time went backward")
+                            .as_millis() as u32,
+                    );
+                }
+
+                self.quest_statuses
+                    .insert(quest_template.entry, PlayerQuestStatus::InProgress);
+            } else {
+                error!("player quest log is full");
+                return;
+            }
         }
     }
 }

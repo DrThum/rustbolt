@@ -17,8 +17,8 @@ use crate::{
     datastore::WrappedDataStore,
     ecs::{
         components::{
-            guid::Guid, health::Health, melee::Melee, movement::Movement, spell_cast::SpellCast,
-            unit::Unit,
+            guid::Guid, health::Health, melee::Melee, movement::Movement, quest_actor::QuestActor,
+            spell_cast::SpellCast, unit::Unit,
         },
         resources::DeltaTime,
         systems::{melee, spell, updates},
@@ -38,7 +38,7 @@ use crate::{
     },
     repositories::{character::CharacterRecord, creature::CreatureSpawnDbRecord},
     session::world_session::WorldSession,
-    shared::constants::{HighGuidType, PLAYER_DEFAULT_COMBAT_REACH},
+    shared::constants::{HighGuidType, NpcFlags, PLAYER_DEFAULT_COMBAT_REACH},
     DataStore,
 };
 
@@ -391,7 +391,7 @@ impl Map {
              mut vm_int_vals: ViewMut<WrappedInternalValues>,
              mut vm_creature: ViewMut<Creature>,
              mut vm_movement: ViewMut<Movement>,
-             mut vm_spell: ViewMut<SpellCast>| {
+            (mut vm_spell, mut vm_quest_actor): (ViewMut<SpellCast>, ViewMut<QuestActor>)| {
                 let entity_id = entities.add_entity(
                     (
                         &mut vm_guid,
@@ -400,7 +400,6 @@ impl Map {
                         &mut vm_unit,
                         &mut vm_wpos,
                         &mut vm_int_vals,
-                        &mut vm_creature,
                         &mut vm_movement,
                         &mut vm_spell,
                     ),
@@ -415,7 +414,6 @@ impl Map {
                         Unit::new(creature.internal_values.clone()),
                         *wpos,
                         WrappedInternalValues(creature.internal_values.clone()),
-                        creature,
                         Movement {
                             flags: 0,
                             pitch: None,
@@ -432,6 +430,20 @@ impl Map {
                         SpellCast::new(),
                     ),
                 );
+
+                if creature.npc_flags.contains(NpcFlags::QuestGiver) {
+                    let quest_relations = self
+                        .world_context
+                        .data_store
+                        .get_quest_relations_for_creature(creature.entry);
+                    entities.add_component(
+                        entity_id,
+                        &mut vm_quest_actor,
+                        QuestActor::new(quest_relations),
+                    );
+                }
+
+                entities.add_component(entity_id, &mut vm_creature, creature);
 
                 self.ecs_entities
                     .write()

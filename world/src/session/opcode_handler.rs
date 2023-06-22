@@ -139,6 +139,30 @@ impl OpcodeHandler {
                     Opcode::CmsgQuestGiverStatusQuery,
                     OpcodeHandler::handle_cmsg_quest_giver_status_query
                 ),
+                define_handler!(
+                    Opcode::CmsgQuestGiverHello,
+                    OpcodeHandler::handle_cmsg_quest_giver_hello
+                ),
+                define_handler!(
+                    Opcode::CmsgNpcTextQuery,
+                    OpcodeHandler::handle_cmsg_npc_text_query
+                ),
+                define_handler!(
+                    Opcode::CmsgQuestGiverQueryQuest,
+                    OpcodeHandler::handle_cmsg_quest_giver_query_quest
+                ),
+                define_handler!(
+                    Opcode::CmsgQuestGiverAcceptQuest,
+                    OpcodeHandler::handle_cmsg_quest_giver_accept_quest
+                ),
+                define_handler!(
+                    Opcode::CmsgQuestGiverStatusMultipleQuery,
+                    OpcodeHandler::handle_cmsg_quest_giver_status_multiple_query
+                ),
+                define_handler!(
+                    Opcode::CmsgQuestQuery,
+                    OpcodeHandler::handle_cmsg_quest_query
+                ),
             ]),
         }
     }

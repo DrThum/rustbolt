@@ -145,6 +145,9 @@ impl WorldSession {
                         v_player[entity_id]
                             .save_position_to_db(&transaction, &v_wpos[entity_id])
                             .unwrap();
+                        v_player[entity_id]
+                            .save_quest_statuses_to_db(&transaction)
+                            .unwrap();
                         transaction.commit().unwrap();
                     });
             }
@@ -403,6 +406,10 @@ impl WorldSession {
         }
 
         self.known_guids.read().contains(guid)
+    }
+
+    pub fn known_guids(&self) -> Vec<ObjectGuid> {
+        self.known_guids.read().clone()
     }
 
     pub fn create_entity(&self, guid: &ObjectGuid, payload: SmsgCreateObject) {

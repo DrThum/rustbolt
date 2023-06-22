@@ -45,6 +45,7 @@ mod entities {
     pub mod internal_values;
 }
 pub mod game {
+    pub mod gossip;
     pub mod map;
     pub mod map_manager;
     pub mod quad_tree;

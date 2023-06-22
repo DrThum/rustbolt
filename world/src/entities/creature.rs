@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use enumflags2::make_bitflags;
+use enumflags2::{make_bitflags, BitFlags};
 use parking_lot::RwLock;
 use rand::{seq::SliceRandom, Rng};
 use shipyard::Component;
@@ -8,7 +8,7 @@ use shipyard::Component;
 use crate::{
     protocol::packets::SmsgCreateObject,
     repositories::creature::CreatureSpawnDbRecord,
-    shared::constants::{HighGuidType, ObjectTypeId, ObjectTypeMask},
+    shared::constants::{HighGuidType, NpcFlags, ObjectTypeId, ObjectTypeMask},
     DataStore,
 };
 
@@ -22,7 +22,9 @@ use super::{
 #[derive(Component)]
 pub struct Creature {
     guid: ObjectGuid,
+    pub entry: u32,
     pub name: String,
+    pub npc_flags: BitFlags<NpcFlags>,
     pub internal_values: Arc<RwLock<InternalValues>>,
 }
 
@@ -75,7 +77,9 @@ impl Creature {
 
                 Creature {
                     guid,
+                    entry: template.entry,
                     name: template.name.to_owned(),
+                    npc_flags: unsafe { BitFlags::from_bits_unchecked(template.npc_flags) },
                     internal_values: Arc::new(RwLock::new(values)),
                 }
             })

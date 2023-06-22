@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use enumflags2::BitFlags;
 use indicatif::ProgressBar;
 use r2d2::PooledConnection;
@@ -53,7 +55,10 @@ impl QuestRepository {
                     required_max_rep_faction: row.get("required_max_rep_faction").unwrap(),
                     required_max_rep_value: row.get("required_max_rep_value").unwrap(),
                     suggested_players: row.get("suggested_players").unwrap(),
-                    time_limit: row.get("time_limit").unwrap(),
+                    time_limit: row
+                        .get::<&str, Option<u64>>("time_limit")
+                        .map(|limit| limit.map(|l| Duration::from_millis(l)))
+                        .unwrap(),
                     flags: unsafe {
                         row.get::<&str, u32>("flags")
                             .map(|flags| BitFlags::from_bits_unchecked(flags))

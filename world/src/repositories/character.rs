@@ -18,7 +18,7 @@ use crate::{
     },
     game::map_manager::MapKey,
     protocol::packets::{CharEnumData, CharEnumEquip, CmsgCharCreate, CmsgCharDelete},
-    shared::constants::{ActionButtonType, InventorySlot, InventoryType},
+    shared::constants::{ActionButtonType, InventorySlot, InventoryType, PlayerQuestStatus},
 };
 
 pub struct CharacterRepository;
@@ -407,6 +407,26 @@ impl CharacterRepository {
             ":flags": flags,
         })
         .unwrap();
+    }
+
+    pub fn load_quest_statuses(
+        conn: &PooledConnection<SqliteConnectionManager>,
+        guid: u64,
+    ) -> HashMap<u32, PlayerQuestStatus> {
+        let mut stmt = conn.prepare_cached("SELECT quest_id, status FROM character_quests WHERE character_guid = :character_guid").unwrap();
+
+        let result = stmt
+            .query_map(named_params! { ":character_guid": guid }, |row| {
+                let quest_id: u32 = row.get("quest_id").unwrap();
+                let status: PlayerQuestStatus = row
+                    .get::<&str, u32>("status")
+                    .map(|st| PlayerQuestStatus::n(st).unwrap())
+                    .unwrap();
+                Ok((quest_id, status))
+            })
+            .unwrap();
+
+        result.filter_map(|res| res.ok()).collect()
     }
 }
 

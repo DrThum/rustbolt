@@ -166,3 +166,13 @@ pub union Value {
     pub as_f32: f32,
     pub as_i32: i32,
 }
+
+pub const QUEST_SLOT_OFFSETS_COUNT: usize = 4;
+
+#[allow(dead_code)]
+pub enum QuestSlotOffset {
+    Entry = 0,
+    State = 1,
+    Counters = 2,
+    Timer = 3,
+}

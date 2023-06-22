@@ -182,7 +182,7 @@ impl QuestRepository {
             .unwrap();
         let mut count = stmt
             .query_map(
-                named_params! {":actor_type": QuestActorType::Creature as u8 },
+                named_params! { ":actor_type": QuestActorType::Creature as u8 },
                 |row| row.get::<usize, u64>(0),
             )
             .unwrap();

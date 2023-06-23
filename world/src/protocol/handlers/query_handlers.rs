@@ -181,29 +181,31 @@ impl OpcodeHandler {
                     .unwrap_or(&"".to_owned())
                     .clone()
                     .into(),
-                required_entities_id: [
-                    transform_entity_id(quest_template.required_entity_id1),
-                    transform_entity_id(quest_template.required_entity_id2),
-                    transform_entity_id(quest_template.required_entity_id3),
-                    transform_entity_id(quest_template.required_entity_id4),
-                ],
-                required_entities_count: [
-                    quest_template.required_entity_count1,
-                    quest_template.required_entity_count2,
-                    quest_template.required_entity_count3,
-                    quest_template.required_entity_count4,
-                ],
-                required_items_id: [
-                    quest_template.required_item_id1,
-                    quest_template.required_item_id2,
-                    quest_template.required_item_id3,
-                    quest_template.required_item_id4,
-                ],
-                required_items_count: [
-                    quest_template.required_item_count1,
-                    quest_template.required_item_count2,
-                    quest_template.required_item_count3,
-                    quest_template.required_item_count4,
+                required_entities_and_items: [
+                    [
+                        transform_entity_id(quest_template.required_entity_id1),
+                        quest_template.required_entity_count1,
+                        quest_template.required_item_id1,
+                        quest_template.required_item_count1,
+                    ],
+                    [
+                        transform_entity_id(quest_template.required_entity_id2),
+                        quest_template.required_entity_count2,
+                        quest_template.required_item_id2,
+                        quest_template.required_item_count2,
+                    ],
+                    [
+                        transform_entity_id(quest_template.required_entity_id3),
+                        quest_template.required_entity_count3,
+                        quest_template.required_item_id3,
+                        quest_template.required_item_count3,
+                    ],
+                    [
+                        transform_entity_id(quest_template.required_entity_id4),
+                        quest_template.required_entity_count4,
+                        quest_template.required_item_id4,
+                        quest_template.required_item_count4,
+                    ],
                 ],
                 objective_texts: [
                     quest_template

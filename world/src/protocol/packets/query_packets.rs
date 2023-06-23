@@ -127,9 +127,7 @@ pub struct SmsgQuestQueryResponse {
     pub objectives: NullString,
     pub details: NullString,
     pub end_text: NullString,
-    pub required_entities_id: [u32; MAX_QUEST_OBJECTIVES_COUNT],
-    pub required_entities_count: [u32; MAX_QUEST_OBJECTIVES_COUNT],
-    pub required_items_id: [u32; MAX_QUEST_OBJECTIVES_COUNT],
-    pub required_items_count: [u32; MAX_QUEST_OBJECTIVES_COUNT],
+    pub required_entities_and_items:
+        [[u32; MAX_QUEST_OBJECTIVES_COUNT]; MAX_QUEST_OBJECTIVES_COUNT],
     pub objective_texts: [NullString; MAX_QUEST_OBJECTIVES_COUNT],
 }

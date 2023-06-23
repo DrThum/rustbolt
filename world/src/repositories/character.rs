@@ -11,14 +11,17 @@ use crate::{
     },
     entities::{
         player::{
-            player_data::{ActionButton, CharacterSkill},
+            player_data::{ActionButton, CharacterSkill, QuestLogContext},
             PlayerVisualFeatures,
         },
         position::WorldPosition,
     },
     game::map_manager::MapKey,
     protocol::packets::{CharEnumData, CharEnumEquip, CmsgCharCreate, CmsgCharDelete},
-    shared::constants::{ActionButtonType, InventorySlot, InventoryType, PlayerQuestStatus},
+    shared::constants::{
+        ActionButtonType, InventorySlot, InventoryType, PlayerQuestStatus,
+        MAX_QUEST_REQ_ENTITY_COUNT,
+    },
 };
 
 pub struct CharacterRepository;
@@ -412,8 +415,8 @@ impl CharacterRepository {
     pub fn load_quest_statuses(
         conn: &PooledConnection<SqliteConnectionManager>,
         guid: u64,
-    ) -> HashMap<u32, PlayerQuestStatus> {
-        let mut stmt = conn.prepare_cached("SELECT quest_id, status FROM character_quests WHERE character_guid = :character_guid").unwrap();
+    ) -> HashMap<u32, QuestLogContext> {
+        let mut stmt = conn.prepare_cached("SELECT quest_id, status, entity_count1, entity_count2, entity_count3, entity_count4 FROM character_quests WHERE character_guid = :character_guid").unwrap();
 
         let result = stmt
             .query_map(named_params! { ":character_guid": guid }, |row| {
@@ -422,7 +425,22 @@ impl CharacterRepository {
                     .get::<&str, u32>("status")
                     .map(|st| PlayerQuestStatus::n(st).unwrap())
                     .unwrap();
-                Ok((quest_id, status))
+
+                let entity_counts: [u32; MAX_QUEST_REQ_ENTITY_COUNT] = [
+                    row.get("entity_count1").unwrap(),
+                    row.get("entity_count2").unwrap(),
+                    row.get("entity_count3").unwrap(),
+                    row.get("entity_count4").unwrap(),
+                ];
+
+                Ok((
+                    quest_id,
+                    QuestLogContext {
+                        slot: usize::MAX,
+                        status,
+                        entity_counts,
+                    },
+                ))
             })
             .unwrap();
 

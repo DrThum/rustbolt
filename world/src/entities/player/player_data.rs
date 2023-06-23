@@ -1,4 +1,4 @@
-use crate::shared::constants::ActionButtonType;
+use crate::shared::constants::{ActionButtonType, PlayerQuestStatus, MAX_QUEST_REQ_ENTITY_COUNT};
 
 pub struct CharacterSkill {
     pub skill_id: u16,
@@ -33,4 +33,10 @@ impl FactionStanding {
     pub fn standing(&self) -> i32 {
         self.base_standing + self.db_standing
     }
+}
+
+pub struct QuestLogContext {
+    pub slot: usize,
+    pub status: PlayerQuestStatus,
+    pub entity_counts: [u32; MAX_QUEST_REQ_ENTITY_COUNT],
 }

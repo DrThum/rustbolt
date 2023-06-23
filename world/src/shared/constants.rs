@@ -1435,4 +1435,5 @@ pub const QUEST_EMOTE_COUNT: usize = 4;
 pub const MAX_QUEST_REWARDS_COUNT: usize = 4;
 pub const MAX_QUEST_CHOICE_REWARDS_COUNT: usize = 6;
 pub const MAX_QUEST_OBJECTIVES_COUNT: usize = 4;
+pub const MAX_QUEST_REQ_ENTITY_COUNT: usize = 4;
 pub const MAX_QUESTS_IN_LOG: usize = 25;

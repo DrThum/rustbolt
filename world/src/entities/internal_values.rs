@@ -56,7 +56,7 @@ impl InternalValues {
         unsafe { self.values[index].as_u32 }
     }
 
-    pub fn set_u8(&mut self, index: usize, offset: u8, value: u8) {
+    pub fn set_u8(&mut self, index: usize, offset: usize, value: u8) {
         assert!(index < self.size, "index is too high");
         assert!(offset < 4, "offset is too high");
 

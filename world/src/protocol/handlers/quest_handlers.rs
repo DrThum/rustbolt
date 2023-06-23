@@ -63,7 +63,7 @@ impl OpcodeHandler {
 
                     let mut gossip_menu = GossipMenu::new(0, 1); // FIXME
                     for quest_id in quest_actor.quests_started() {
-                        match player.quest_status(quest_id) {
+                        match player.quest_status(quest_id).map(|ctx| ctx.status) {
                             None if player.can_start_quest(quest_id) => {
                                 gossip_menu.add_quest(*quest_id, QuestGiverStatus::Available)
                             }
@@ -72,7 +72,7 @@ impl OpcodeHandler {
                     }
 
                     for quest_id in quest_actor.quests_ended() {
-                        match player.quest_status(quest_id) {
+                        match player.quest_status(quest_id).map(|ctx| ctx.status) {
                             Some(PlayerQuestStatus::InProgress) => {
                                 gossip_menu.add_quest(*quest_id, QuestGiverStatus::Incomplete);
                             }

@@ -25,11 +25,11 @@ use crate::{
         AbilityLearnType, CharacterClass, CharacterClassBit, CharacterRace, CharacterRaceBit,
         Gender, HighGuidType, InventorySlot, InventoryType, ItemClass, ItemSubclassConsumable,
         ObjectTypeId, ObjectTypeMask, PlayerQuestStatus, PowerType, QuestSlotState, SkillRangeType,
-        UnitFlags, MAX_QUESTS_IN_LOG, PLAYER_DEFAULT_COMBAT_REACH,
+        UnitFlags, MAX_QUESTS_IN_LOG, MAX_QUEST_REQ_ENTITY_COUNT, PLAYER_DEFAULT_COMBAT_REACH,
     },
 };
 
-use self::player_data::ActionButton;
+use self::player_data::{ActionButton, QuestLogContext};
 
 use super::{
     internal_values::{InternalValues, QuestSlotOffset, QUEST_SLOT_OFFSETS_COUNT},
@@ -53,7 +53,7 @@ pub struct Player {
     spells: Vec<u32>,
     action_buttons: HashMap<usize, ActionButton>,
     faction_standings: HashMap<u32, FactionStanding>,
-    quest_statuses: HashMap<u32, PlayerQuestStatus>,
+    quest_statuses: HashMap<u32, QuestLogContext>,
 }
 
 impl Player {
@@ -461,7 +461,7 @@ impl Player {
                 .collect();
 
         let quest_statuses = CharacterRepository::load_quest_statuses(&conn, guid.raw());
-        for (slot, (quest_id, status)) in quest_statuses.iter().enumerate() {
+        for (slot, (quest_id, context)) in quest_statuses.iter().enumerate() {
             let quest_template = world_context
                 .data_store
                 .get_quest_template(*quest_id)
@@ -471,7 +471,7 @@ impl Player {
 
             values.set_u32(base_index, quest_template.entry);
 
-            match status {
+            match context.status {
                 PlayerQuestStatus::ObjectivesCompleted => values.set_u32(
                     base_index + QuestSlotOffset::State as usize,
                     QuestSlotState::Completed as u32,
@@ -483,6 +483,7 @@ impl Player {
                 _ => (),
             }
 
+            // TODO: Restore this from the database
             if let Some(timer) = quest_template
                 .time_limit
                 .filter(|limit| *limit != Duration::ZERO)
@@ -496,7 +497,14 @@ impl Player {
                 );
             }
 
-        // TODO: Insert quests in internal values
+            for index in 0..MAX_QUEST_REQ_ENTITY_COUNT {
+                values.set_u8(
+                    base_index + QuestSlotOffset::Counters as usize,
+                    index,
+                    context.entity_counts[index] as u8,
+                );
+            }
+        }
 
         values.reset_dirty();
 
@@ -539,9 +547,20 @@ impl Player {
             .unwrap();
         stmt.execute(named_params! { ":guid": self.guid.raw() })?;
 
-        let mut stmt = transaction.prepare_cached("INSERT INTO character_quests (character_guid, quest_id, status) VALUES (:guid, :quest_id, :status)").unwrap();
-        self.quest_statuses.iter().for_each(|(quest_id, status)| {
-            stmt.execute(named_params! { ":guid": self.guid.raw(), ":quest_id": quest_id, ":status": *status as u32 }).unwrap();
+        // TODO: Save the current timer here
+
+        let mut stmt = transaction.prepare_cached("INSERT INTO character_quests (character_guid, quest_id, status, entity_count1, entity_count2, entity_count3, entity_count4) VALUES (:guid, :quest_id, :status, :entity_count1, :entity_count2, :entity_count3, :entity_count4)").unwrap();
+        self.quest_statuses.iter().for_each(|(quest_id, context)| {
+            stmt.execute(named_params! {
+                ":guid": self.guid.raw(),
+                ":quest_id": quest_id,
+                ":status": context.status as u32,
+                ":entity_count1": context.entity_counts[0],
+                ":entity_count2": context.entity_counts[1],
+                ":entity_count3": context.entity_counts[2],
+                ":entity_count4": context.entity_counts[3],
+            })
+            .unwrap();
         });
 
         Ok(())
@@ -613,18 +632,18 @@ impl Player {
         !self.quest_statuses.contains_key(&quest_id)
     }
 
-    pub fn quest_status(&self, quest_id: &u32) -> Option<&PlayerQuestStatus> {
+    pub fn quest_status(&self, quest_id: &u32) -> Option<&QuestLogContext> {
         self.quest_statuses.get(quest_id)
     }
 
     pub fn can_turn_in_quest(&self, quest_id: &u32) -> bool {
         self.quest_status(quest_id)
-            .is_some_and(|status| *status == PlayerQuestStatus::ObjectivesCompleted)
+            .is_some_and(|ctx| ctx.status == PlayerQuestStatus::ObjectivesCompleted)
     }
 
     pub fn is_progressing_quest(&self, quest_id: &u32) -> bool {
         self.quest_status(quest_id)
-            .is_some_and(|status| *status == PlayerQuestStatus::InProgress)
+            .is_some_and(|ctx| ctx.status == PlayerQuestStatus::InProgress)
     }
 
     pub fn start_quest(&mut self, quest_template: &QuestTemplate) {
@@ -665,8 +684,14 @@ impl Player {
                     );
                 }
 
-                self.quest_statuses
-                    .insert(quest_template.entry, PlayerQuestStatus::InProgress);
+                self.quest_statuses.insert(
+                    quest_template.entry,
+                    QuestLogContext {
+                        slot,
+                        status: PlayerQuestStatus::InProgress,
+                        entity_counts: [0, 0, 0, 0],
+                    },
+                );
             } else {
                 error!("player quest log is full");
                 return;

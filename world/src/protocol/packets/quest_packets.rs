@@ -84,3 +84,8 @@ pub struct CmsgQuestGiverAcceptQuest {
     pub guid: u64,
     pub quest_id: u32,
 }
+
+#[binread]
+pub struct CmsgQuestLogRemoveQuest {
+    pub slot: u8,
+}

@@ -163,6 +163,10 @@ impl OpcodeHandler {
                     Opcode::CmsgQuestQuery,
                     OpcodeHandler::handle_cmsg_quest_query
                 ),
+                define_handler!(
+                    Opcode::CmsgQuestLogRemoveQuest,
+                    OpcodeHandler::handle_cmsg_quest_log_remove_quest
+                ),
             ]),
         }
     }

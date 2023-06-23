@@ -460,8 +460,17 @@ impl Player {
                 })
                 .collect();
 
-        let quest_statuses = CharacterRepository::load_quest_statuses(&conn, guid.raw());
-        for (slot, (quest_id, context)) in quest_statuses.iter().enumerate() {
+        let mut quest_statuses = CharacterRepository::load_quest_statuses(&conn, guid.raw());
+        for (slot, (quest_id, context)) in quest_statuses.iter_mut().enumerate() {
+            if slot >= MAX_QUESTS_IN_LOG {
+                error!(
+                    "player {} {:?} has more than the maximum number of quests allowed",
+                    character.name, guid
+                );
+            }
+
+            context.slot = slot;
+
             let quest_template = world_context
                 .data_store
                 .get_quest_template(*quest_id)
@@ -696,6 +705,18 @@ impl Player {
                 error!("player quest log is full");
                 return;
             }
+        }
+    }
+
+    pub fn remove_quest(&mut self, slot_to_remove: usize) {
+        self.quest_statuses
+            .retain(|_, context| context.slot != slot_to_remove);
+
+        let mut values_guard = self.internal_values.write();
+        let base_index =
+            UnitFields::PlayerQuestLog1_1 as usize + (slot_to_remove * QUEST_SLOT_OFFSETS_COUNT);
+        for index in 0..QUEST_SLOT_OFFSETS_COUNT {
+            values_guard.set_u32(base_index + index, 0);
         }
     }
 }

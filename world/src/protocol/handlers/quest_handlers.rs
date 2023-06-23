@@ -233,4 +233,17 @@ impl OpcodeHandler {
 
         session.send(&packet).unwrap();
     }
+
+    pub(crate) fn handle_cmsg_quest_log_remove_quest(
+        session: Arc<WorldSession>,
+        _world_context: Arc<WorldContext>,
+        data: Vec<u8>,
+    ) {
+        let cmsg: CmsgQuestLogRemoveQuest = ClientMessage::read_as(data).unwrap();
+
+        let map = session.current_map().unwrap();
+        map.world().run(|mut vm_player: ViewMut<Player>| {
+            vm_player[session.player_entity_id().unwrap()].remove_quest(cmsg.slot as usize);
+        });
+    }
 }

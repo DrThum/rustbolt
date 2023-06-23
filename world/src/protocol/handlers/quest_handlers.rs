@@ -18,7 +18,7 @@ use crate::shared::constants::{PlayerQuestStatus, QuestGiverStatus};
 impl OpcodeHandler {
     pub(crate) fn handle_cmsg_quest_giver_status_query(
         session: Arc<WorldSession>,
-        _world_context: Arc<WorldContext>,
+        world_context: Arc<WorldContext>,
         data: Vec<u8>,
     ) {
         let cmsg: CmsgQuestGiverStatusQuery = ClientMessage::read_as(data).unwrap();
@@ -31,6 +31,7 @@ impl OpcodeHandler {
                     if let Ok(quest_actor) = v_quest_actor.get(guid_entity_id) {
                         let status = quest_actor.quest_status_for_player(
                             v_player.get(session.player_entity_id().unwrap()).unwrap(),
+                            world_context.clone(),
                         );
 
                         let packet = ServerMessage::new(SmsgQuestGiverStatus {
@@ -63,8 +64,12 @@ impl OpcodeHandler {
 
                     let mut gossip_menu = GossipMenu::new(0, 1); // FIXME
                     for quest_id in quest_actor.quests_started() {
+                        let quest_template = world_context
+                            .data_store
+                            .get_quest_template(*quest_id)
+                            .unwrap();
                         match player.quest_status(quest_id).map(|ctx| ctx.status) {
-                            None if player.can_start_quest(quest_id) => {
+                            None if player.can_start_quest(quest_template) => {
                                 gossip_menu.add_quest(*quest_id, QuestGiverStatus::Available)
                             }
                             status => warn!("unhandled case (quests started - {:?})", status),
@@ -203,7 +208,7 @@ impl OpcodeHandler {
 
     pub(crate) fn handle_cmsg_quest_giver_status_multiple_query(
         session: Arc<WorldSession>,
-        _world_context: Arc<WorldContext>,
+        world_context: Arc<WorldContext>,
         _data: Vec<u8>,
     ) {
         let map = session.current_map().unwrap();
@@ -216,6 +221,7 @@ impl OpcodeHandler {
                     if let Ok(quest_actor) = v_quest_actor.get(guid_entity_id) {
                         let status = quest_actor.quest_status_for_player(
                             v_player.get(session.player_entity_id().unwrap()).unwrap(),
+                            world_context.clone(),
                         );
 
                         statuses.push(QuestGiverStatusMultipleEntry {

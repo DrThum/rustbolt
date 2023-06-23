@@ -1437,3 +1437,19 @@ pub const MAX_QUEST_CHOICE_REWARDS_COUNT: usize = 6;
 pub const MAX_QUEST_OBJECTIVES_COUNT: usize = 4;
 pub const MAX_QUEST_REQ_ENTITY_COUNT: usize = 4;
 pub const MAX_QUESTS_IN_LOG: usize = 25;
+
+#[allow(dead_code)]
+pub enum QuestStartError {
+    FailedRequirement = 0,     // this is default case
+    TooLowLevel = 1,           // You are not high enough level for that quest.
+    WrongRace = 6,             // That quest is not available to your race.
+    AlreadyDone = 7,           // You have completed that quest.
+    OnlyOneTimed = 12,         // You can only be on one timed quest at a time.
+    AlreadyOn = 13,            // You are already on that quest.
+    Expansion = 16,            // This quest requires an expansion enabled account.
+    AlreadyOn2 = 18,           // You are already on that quest.
+    MissingItems = 21,         // You don't have the required items with you. Check storage.
+    NotEnoughMoney = 23,       // You don't have enough money for that quest.
+    DailyQuestsRemaining = 26, // You have already completed 10 daily quests today.
+    Tired = 27,                // You cannot complete quests once you have reached tired time.
+}

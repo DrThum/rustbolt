@@ -1,8 +1,11 @@
+use std::sync::Arc;
+
 use shipyard::Component;
 
 use crate::{
     datastore::data_types::{QuestActorRole, QuestRelation},
     entities::player::Player,
+    game::world_context::WorldContext,
     shared::constants::QuestGiverStatus,
 };
 
@@ -48,7 +51,11 @@ impl QuestActor {
         &self.ends
     }
 
-    pub fn quest_status_for_player(&self, player: &Player) -> QuestGiverStatus {
+    pub fn quest_status_for_player(
+        &self,
+        player: &Player,
+        world_context: Arc<WorldContext>,
+    ) -> QuestGiverStatus {
         for quest_id in self.ends.iter() {
             if player.can_turn_in_quest(&quest_id) {
                 return QuestGiverStatus::Reward;
@@ -58,7 +65,11 @@ impl QuestActor {
         }
 
         for quest_id in self.starts.iter() {
-            if player.can_start_quest(&quest_id) {
+            let quest_template = world_context
+                .data_store
+                .get_quest_template(*quest_id)
+                .unwrap();
+            if player.can_start_quest(quest_template) {
                 return QuestGiverStatus::Available;
             }
             // TODO: if player level is within 5 levels of quest level, return Unavailable (or

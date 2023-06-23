@@ -24,8 +24,9 @@ use crate::{
     shared::constants::{
         AbilityLearnType, CharacterClass, CharacterClassBit, CharacterRace, CharacterRaceBit,
         Gender, HighGuidType, InventorySlot, InventoryType, ItemClass, ItemSubclassConsumable,
-        ObjectTypeId, ObjectTypeMask, PlayerQuestStatus, PowerType, QuestSlotState, SkillRangeType,
-        UnitFlags, MAX_QUESTS_IN_LOG, MAX_QUEST_REQ_ENTITY_COUNT, PLAYER_DEFAULT_COMBAT_REACH,
+        ObjectTypeId, ObjectTypeMask, PlayerQuestStatus, PowerType, QuestSlotState,
+        QuestStartError, SkillRangeType, UnitFlags, MAX_QUESTS_IN_LOG, MAX_QUEST_REQ_ENTITY_COUNT,
+        PLAYER_DEFAULT_COMBAT_REACH,
     },
 };
 
@@ -637,8 +638,42 @@ impl Player {
         }
     }
 
-    pub fn can_start_quest(&self, quest_id: &u32) -> bool {
-        !self.quest_statuses.contains_key(&quest_id)
+    pub fn can_start_quest(&self, quest_template: &QuestTemplate) -> bool {
+        self.check_quest_requirements(quest_template).is_none()
+    }
+
+    /**
+     * Checks to perform:
+     *
+     * - player does not have the quest (OK)
+     * - satisfy exclusive_group requirements (TODO)
+     * - player class is in required_classes mask (TODO)
+     * - player race is in required_races mask (TODO)
+     * - player level >= quest_template.min_level (TODO)
+     * - player skill level >= quest_template required skill (TODO)
+     * - player reputation >= quest_template required reputation (TODO)
+     * - player has done the previous quests (see qInfo.prevQuests in MaNGOS) (TODO)
+     * - player can only have one timed quest at the same time (TODO)
+     * - player is not doing/has not done the next quest in chain (TODO)
+     * - player has done the previous quest in chain (see qInfo.prevChainQuests in MaNGOS) (TODO)
+     * - player still has daily quests allowance if quest is daily (TODO)
+     * - game event must be active if quest is related to one (TODO)
+     */
+    fn check_quest_requirements(&self, quest_template: &QuestTemplate) -> Option<QuestStartError> {
+        if self.quest_statuses.contains_key(&quest_template.entry) {
+            return Some(QuestStartError::AlreadyOn);
+        }
+
+        if self
+            .internal_values
+            .read()
+            .get_u32(UnitFields::UnitFieldLevel.into())
+            < quest_template.min_level
+        {
+            return Some(QuestStartError::TooLowLevel);
+        }
+
+        None
     }
 
     pub fn quest_status(&self, quest_id: &u32) -> Option<&QuestLogContext> {
@@ -656,7 +691,7 @@ impl Player {
     }
 
     pub fn start_quest(&mut self, quest_template: &QuestTemplate) {
-        if !self.can_start_quest(&quest_template.entry) {
+        if !self.can_start_quest(&quest_template) {
             error!("attempt to start a quest that the player cannot start");
             return;
         }

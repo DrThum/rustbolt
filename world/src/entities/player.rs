@@ -24,8 +24,8 @@ use crate::{
     shared::constants::{
         AbilityLearnType, CharacterClass, CharacterClassBit, CharacterRace, CharacterRaceBit,
         Gender, HighGuidType, InventorySlot, InventoryType, ItemClass, ItemSubclassConsumable,
-        ObjectTypeId, ObjectTypeMask, PlayerQuestStatus, PowerType, SkillRangeType, UnitFlags,
-        MAX_QUESTS_IN_LOG, PLAYER_DEFAULT_COMBAT_REACH,
+        ObjectTypeId, ObjectTypeMask, PlayerQuestStatus, PowerType, QuestSlotState, SkillRangeType,
+        UnitFlags, MAX_QUESTS_IN_LOG, PLAYER_DEFAULT_COMBAT_REACH,
     },
 };
 
@@ -461,6 +461,40 @@ impl Player {
                 .collect();
 
         let quest_statuses = CharacterRepository::load_quest_statuses(&conn, guid.raw());
+        for (slot, (quest_id, status)) in quest_statuses.iter().enumerate() {
+            let quest_template = world_context
+                .data_store
+                .get_quest_template(*quest_id)
+                .unwrap();
+            let base_index =
+                UnitFields::PlayerQuestLog1_1 as usize + (slot * QUEST_SLOT_OFFSETS_COUNT);
+
+            values.set_u32(base_index, quest_template.entry);
+
+            match status {
+                PlayerQuestStatus::ObjectivesCompleted => values.set_u32(
+                    base_index + QuestSlotOffset::State as usize,
+                    QuestSlotState::Completed as u32,
+                ),
+                PlayerQuestStatus::Failed => values.set_u32(
+                    base_index + QuestSlotOffset::State as usize,
+                    QuestSlotState::Failed as u32,
+                ),
+                _ => (),
+            }
+
+            if let Some(timer) = quest_template
+                .time_limit
+                .filter(|limit| *limit != Duration::ZERO)
+            {
+                values.set_u32(
+                    base_index + QuestSlotOffset::Timer as usize,
+                    (SystemTime::now() + timer)
+                        .duration_since(UNIX_EPOCH)
+                        .expect("time went backward")
+                        .as_millis() as u32,
+                );
+            }
 
         // TODO: Insert quests in internal values
 

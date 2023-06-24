@@ -76,9 +76,9 @@ impl WorldSession {
         let encryption = Arc::new(Mutex::new(encryption));
 
         let (session_to_socket_tx, session_to_socket_rx) =
-            mpsc::channel::<(ServerMessageHeader, Vec<u8>)>(150);
+            mpsc::channel::<(ServerMessageHeader, Vec<u8>)>(1500);
 
-        let (socket_to_session_tx, mut socket_to_session_rx) = mpsc::channel::<ClientMessage>(150);
+        let (socket_to_session_tx, mut socket_to_session_rx) = mpsc::channel::<ClientMessage>(1500);
 
         let socket = WorldSocket::new(
             write_half,

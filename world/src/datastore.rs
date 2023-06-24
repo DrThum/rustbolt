@@ -13,12 +13,12 @@ use r2d2_sqlite::SqliteConnectionManager;
 use crate::{
     config::WorldConfig,
     datastore::{
-        data_types::{CreatureTemplate, PlayerCreatePosition},
+        data_types::{CreatureTemplate, NpcTextDbRecord, PlayerCreatePosition},
         dbc::Dbc,
     },
     repositories::{
         creature::CreatureRepository, item::ItemRepository,
-        player_creation::PlayerCreationRepository, quest::QuestRepository,
+        player_creation::PlayerCreationRepository, quest::QuestRepository, text::TextRepository,
     },
     shared::constants::{CharacterClassBit, CharacterRaceBit},
 };
@@ -58,6 +58,7 @@ pub struct DataStore {
     creature_templates: SqlStore<CreatureTemplate>,
     quest_templates: SqlStore<QuestTemplate>,
     quest_relations_by_creature: SqlMultiStore<QuestRelation>,
+    npc_texts: SqlStore<NpcTextDbRecord>,
 }
 
 macro_rules! parse_dbc {
@@ -183,6 +184,14 @@ impl DataStore {
             multimap
         };
 
+        let npc_texts = {
+            info!("Loading npc texts...");
+            let npc_texts = TextRepository::load_npc_text(conn);
+            let npc_texts: SqlStore<NpcTextDbRecord> =
+                npc_texts.into_iter().map(|text| (text.id, text)).collect();
+            npc_texts
+        };
+
         Ok(DataStore {
             chr_races,
             chr_classes,
@@ -204,6 +213,7 @@ impl DataStore {
             creature_templates,
             quest_templates,
             quest_relations_by_creature,
+            npc_texts,
         })
     }
 
@@ -332,6 +342,10 @@ impl DataStore {
 
     pub fn get_quest_relations_for_creature(&self, entry: u32) -> Option<&Vec<QuestRelation>> {
         self.quest_relations_by_creature.get_vec(&entry)
+    }
+
+    pub fn get_npc_text(&self, id: u32) -> Option<&NpcTextDbRecord> {
+        self.npc_texts.get(&id)
     }
 }
 

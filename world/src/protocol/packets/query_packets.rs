@@ -2,10 +2,10 @@ use binrw::{binread, binwrite, NullString};
 use opcode_derive::server_opcode;
 
 use crate::{
+    datastore::data_types::NpcTextEmote,
     protocol::{opcodes::Opcode, server::ServerMessagePayload},
     shared::constants::{
         MAX_QUEST_CHOICE_REWARDS_COUNT, MAX_QUEST_OBJECTIVES_COUNT, MAX_QUEST_REWARDS_COUNT,
-        NPC_TEXT_EMOTE_COUNT,
     },
 };
 
@@ -75,17 +75,16 @@ pub struct CmsgNpcTextQuery {
 #[server_opcode]
 pub struct SmsgNpcTextUpdate {
     pub text_id: u32,
+    pub texts: Vec<NpcTextUpdate>,
+}
+
+#[binwrite]
+pub struct NpcTextUpdate {
     pub probability: f32,
     pub text0: NullString,
     pub text1: NullString,
     pub language: u32,
-    pub emotes: [NpcTextUpdateEmote; NPC_TEXT_EMOTE_COUNT],
-}
-
-#[binwrite]
-pub struct NpcTextUpdateEmote {
-    pub delay: u32,
-    pub emote_id: u32,
+    pub emotes: Vec<NpcTextEmote>,
 }
 
 #[binread]

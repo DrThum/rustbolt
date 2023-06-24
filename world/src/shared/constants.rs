@@ -1444,7 +1444,9 @@ pub enum QuestSlotState {
     Failed = 2,
 }
 
+pub const NPC_TEXT_TEXT_COUNT: usize = 8;
 pub const NPC_TEXT_EMOTE_COUNT: usize = 3;
+
 pub const QUEST_EMOTE_COUNT: usize = 4;
 pub const MAX_QUEST_REWARDS_COUNT: usize = 4;
 pub const MAX_QUEST_CHOICE_REWARDS_COUNT: usize = 6;

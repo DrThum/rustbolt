@@ -1,5 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
+use binrw::binwrite;
 use enumflags2::BitFlags;
 use enumn::N;
 
@@ -12,7 +13,8 @@ use crate::{
         MapType, QuestFlag, SkillCategory, SkillRangeType, SkillType, SpellEffect,
         FACTION_NUMBER_BASE_REPUTATION_MASKS, MAX_QUEST_CHOICE_REWARDS_COUNT,
         MAX_QUEST_OBJECTIVES_COUNT, MAX_QUEST_REWARDS_COUNT, MAX_QUEST_REWARDS_REPUT_COUNT,
-        MAX_SPELL_EFFECTS, MAX_SPELL_REAGENTS, MAX_SPELL_TOTEMS,
+        MAX_SPELL_EFFECTS, MAX_SPELL_REAGENTS, MAX_SPELL_TOTEMS, NPC_TEXT_EMOTE_COUNT,
+        NPC_TEXT_TEXT_COUNT,
     },
     DataStore,
 };
@@ -1088,4 +1090,27 @@ pub struct QuestRelation {
     pub actor_entry: u32,
     pub quest_id: u32,
     pub role: QuestActorRole,
+}
+
+#[allow(dead_code)]
+pub struct NpcTextDbRecord {
+    pub id: u32,
+    pub texts: [NpcText; NPC_TEXT_TEXT_COUNT],
+}
+
+#[allow(dead_code)]
+pub struct NpcText {
+    pub text_male: Option<String>,
+    pub text_female: Option<String>,
+    pub language: u32,
+    pub probability: f32,
+    pub emotes: [NpcTextEmote; NPC_TEXT_EMOTE_COUNT],
+}
+
+#[allow(dead_code)]
+#[binwrite]
+#[derive(Clone)]
+pub struct NpcTextEmote {
+    pub delay: u32,
+    pub emote: u32,
 }

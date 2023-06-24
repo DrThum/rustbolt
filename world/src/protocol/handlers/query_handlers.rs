@@ -4,17 +4,19 @@ use binrw::NullString;
 use log::error;
 
 use crate::{
+    datastore::data_types::NpcTextEmote,
     game::world_context::WorldContext,
     protocol::{
         client::ClientMessage,
         packets::{
-            CmsgCreatureQuery, CmsgNpcTextQuery, CmsgQuestQuery, NpcTextUpdateEmote,
+            CmsgCreatureQuery, CmsgNpcTextQuery, CmsgQuestQuery, NpcTextUpdate,
             SmsgCreatureQueryResponse, SmsgCreatureQueryResponseUnknownTemplate, SmsgNpcTextUpdate,
             SmsgQuestQueryResponse,
         },
         server::ServerMessage,
     },
     session::{opcode_handler::OpcodeHandler, world_session::WorldSession},
+    shared::constants::{Language, NPC_TEXT_TEXT_COUNT},
 };
 
 impl OpcodeHandler {
@@ -59,32 +61,58 @@ impl OpcodeHandler {
     // TODO: Hardcoded impl
     pub(crate) fn handle_cmsg_npc_text_query(
         session: Arc<WorldSession>,
-        _world_context: Arc<WorldContext>,
+        world_context: Arc<WorldContext>,
         data: Vec<u8>,
     ) {
         let cmsg: CmsgNpcTextQuery = ClientMessage::read_as(data).unwrap();
 
-        let packet = ServerMessage::new(SmsgNpcTextUpdate {
-            text_id: cmsg.text_id,
-            probability: 0.0,
-            text0: "TODO TEXT 0".into(),
-            text1: "TODO TEXT 1".into(),
-            language: 0,
-            emotes: [
-                NpcTextUpdateEmote {
-                    delay: 0,
-                    emote_id: 0,
-                },
-                NpcTextUpdateEmote {
-                    delay: 0,
-                    emote_id: 0,
-                },
-                NpcTextUpdateEmote {
-                    delay: 0,
-                    emote_id: 0,
-                },
-            ],
-        });
+        let packet = if let Some(npc_text) = world_context.data_store.get_npc_text(cmsg.text_id) {
+            let texts: Vec<NpcTextUpdate> = npc_text
+                .texts
+                .iter()
+                .map(|t| NpcTextUpdate {
+                    probability: t.probability,
+                    text0: t
+                        .text_male
+                        .clone()
+                        .or(t.text_female.clone())
+                        .unwrap_or("".to_owned())
+                        .into(),
+                    text1: t
+                        .text_female
+                        .clone()
+                        .or(t.text_male.clone())
+                        .unwrap_or("".to_owned())
+                        .into(),
+                    language: t.language,
+                    emotes: t.emotes.to_vec(),
+                })
+                .collect();
+
+            ServerMessage::new(SmsgNpcTextUpdate {
+                text_id: npc_text.id,
+                texts,
+            })
+        } else {
+            let texts: Vec<NpcTextUpdate> = (0..NPC_TEXT_TEXT_COUNT)
+                .map(|_| NpcTextUpdate {
+                    probability: 0.0,
+                    text0: "Greetings $N".into(),
+                    text1: "Greetings $N".into(),
+                    language: Language::Universal as u32,
+                    emotes: vec![
+                        NpcTextEmote { delay: 0, emote: 0 },
+                        NpcTextEmote { delay: 0, emote: 0 },
+                        NpcTextEmote { delay: 0, emote: 0 },
+                    ],
+                })
+                .collect();
+
+            ServerMessage::new(SmsgNpcTextUpdate {
+                text_id: cmsg.text_id,
+                texts,
+            })
+        };
 
         session.send(&packet).unwrap();
     }

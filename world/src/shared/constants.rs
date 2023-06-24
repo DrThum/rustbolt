@@ -89,6 +89,13 @@ impl From<CharacterRace> for CharacterRaceBit {
     }
 }
 
+impl From<u8> for CharacterRaceBit {
+    fn from(value: u8) -> Self {
+        let race = CharacterRace::n(value).expect("no matching character race");
+        CharacterRaceBit::from(race)
+    }
+}
+
 #[allow(dead_code)]
 #[derive(Clone, Copy, N)]
 pub enum CharacterClass {
@@ -123,7 +130,7 @@ pub enum CharacterClassBit {
 impl From<CharacterClass> for CharacterClassBit {
     fn from(value: CharacterClass) -> Self {
         match value {
-            CharacterClass::None => panic!("CharacterClas::None has no corresponding mask"),
+            CharacterClass::None => panic!("CharacterClass::None has no corresponding mask"),
             CharacterClass::Warrior => CharacterClassBit::Warrior,
             CharacterClass::Paladin => CharacterClassBit::Paladin,
             CharacterClass::Hunter => CharacterClassBit::Hunter,
@@ -134,6 +141,13 @@ impl From<CharacterClass> for CharacterClassBit {
             CharacterClass::Warlock => CharacterClassBit::Warlock,
             CharacterClass::Druid => CharacterClassBit::Druid,
         }
+    }
+}
+
+impl From<u8> for CharacterClassBit {
+    fn from(value: u8) -> Self {
+        let class = CharacterClass::n(value).expect("no matching character class");
+        CharacterClassBit::from(class)
     }
 }
 

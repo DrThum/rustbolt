@@ -647,9 +647,9 @@ impl Player {
      *
      * - player does not have the quest (OK)
      * - satisfy exclusive_group requirements (TODO)
-     * - player class is in required_classes mask (TODO)
-     * - player race is in required_races mask (TODO)
-     * - player level >= quest_template.min_level (TODO)
+     * - player class is in required_classes mask (OK)
+     * - player race is in required_races mask (OK)
+     * - player level >= quest_template.min_level (OK)
      * - player skill level >= quest_template required skill (TODO)
      * - player reputation >= quest_template required reputation (TODO)
      * - player has done the previous quests (see qInfo.prevQuests in MaNGOS) (TODO)
@@ -664,13 +664,28 @@ impl Player {
             return Some(QuestStartError::AlreadyOn);
         }
 
-        if self
-            .internal_values
-            .read()
-            .get_u32(UnitFields::UnitFieldLevel.into())
-            < quest_template.min_level
         {
-            return Some(QuestStartError::TooLowLevel);
+            let values = self.internal_values.read();
+
+            if values.get_u32(UnitFields::UnitFieldLevel.into()) < quest_template.min_level {
+                return Some(QuestStartError::TooLowLevel);
+            }
+
+            let race_id = values.get_u8(UnitFields::UnitFieldBytes0.into(), 0);
+            if !quest_template
+                .required_races
+                .contains(CharacterRaceBit::from(race_id))
+            {
+                return Some(QuestStartError::FailedRequirement);
+            }
+
+            let class_id = values.get_u8(UnitFields::UnitFieldBytes0.into(), 1);
+            if !quest_template
+                .required_classes
+                .contains(CharacterClassBit::from(class_id))
+            {
+                return Some(QuestStartError::FailedRequirement);
+            }
         }
 
         None

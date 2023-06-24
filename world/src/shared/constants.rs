@@ -1453,6 +1453,7 @@ pub const MAX_QUEST_OBJECTIVES_COUNT: usize = 4;
 pub const MAX_QUESTS_IN_LOG: usize = 25;
 
 #[allow(dead_code)]
+#[derive(Debug)]
 pub enum QuestStartError {
     FailedRequirement = 0,     // this is default case
     TooLowLevel = 1,           // You are not high enough level for that quest.

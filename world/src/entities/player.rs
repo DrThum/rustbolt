@@ -672,17 +672,19 @@ impl Player {
             }
 
             let race_id = values.get_u8(UnitFields::UnitFieldBytes0.into(), 0);
-            if !quest_template
-                .required_races
-                .contains(CharacterRaceBit::from(race_id))
+            if !quest_template.required_races.is_empty()
+                && !quest_template
+                    .required_races
+                    .contains(CharacterRaceBit::from(race_id))
             {
-                return Some(QuestStartError::FailedRequirement);
+                return Some(QuestStartError::WrongRace);
             }
 
             let class_id = values.get_u8(UnitFields::UnitFieldBytes0.into(), 1);
-            if !quest_template
-                .required_classes
-                .contains(CharacterClassBit::from(class_id))
+            if !quest_template.required_classes.is_empty()
+                && !quest_template
+                    .required_classes
+                    .contains(CharacterClassBit::from(class_id))
             {
                 return Some(QuestStartError::FailedRequirement);
             }
@@ -711,6 +713,8 @@ impl Player {
             return;
         }
 
+        #[allow(unused_assignments)]
+        let mut quest_added = false;
         {
             let mut first_empty_slot: Option<usize> = None;
             let mut values_guard = self.internal_values.write();
@@ -751,10 +755,16 @@ impl Player {
                         entity_counts: [0, 0, 0, 0],
                     },
                 );
+
+                quest_added = true;
             } else {
                 error!("player quest log is full");
                 return;
             }
+        }
+
+        if quest_added {
+            self.try_complete_quest(quest_template);
         }
     }
 
@@ -767,6 +777,37 @@ impl Player {
             UnitFields::PlayerQuestLog1_1 as usize + (slot_to_remove * QUEST_SLOT_OFFSETS_COUNT);
         for index in 0..QUEST_SLOT_OFFSETS_COUNT {
             values_guard.set_u32(base_index + index, 0);
+        }
+    }
+
+    pub fn try_complete_quest(&mut self, quest_template: &QuestTemplate) {
+        let quest_id = quest_template.entry;
+        if let Some(context) = self.quest_statuses.get_mut(&quest_id) {
+            if context.status != PlayerQuestStatus::InProgress {
+                return;
+            }
+
+            for index in 0..MAX_QUEST_OBJECTIVES_COUNT {
+                let current_entity_count = context.entity_counts[index];
+                let objective_entity_count = quest_template.required_entity_counts[index];
+
+                if current_entity_count < objective_entity_count {
+                    return;
+                }
+
+                // TODO: Check items too
+            }
+
+            // TODO: Check exploration etc
+
+            context.status = PlayerQuestStatus::ObjectivesCompleted;
+            let mut values_guard = self.internal_values.write();
+            let base_index =
+                UnitFields::PlayerQuestLog1_1 as usize + (context.slot * QUEST_SLOT_OFFSETS_COUNT);
+            values_guard.set_u32(
+                base_index + QuestSlotOffset::State as usize,
+                QuestSlotState::Completed as u32,
+            )
         }
     }
 }

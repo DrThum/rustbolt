@@ -20,7 +20,7 @@ use crate::{
     protocol::packets::{CharEnumData, CharEnumEquip, CmsgCharCreate, CmsgCharDelete},
     shared::constants::{
         ActionButtonType, InventorySlot, InventoryType, PlayerQuestStatus,
-        MAX_QUEST_REQ_ENTITY_COUNT,
+        MAX_QUEST_OBJECTIVES_COUNT,
     },
 };
 
@@ -426,7 +426,7 @@ impl CharacterRepository {
                     .map(|st| PlayerQuestStatus::n(st).unwrap())
                     .unwrap();
 
-                let entity_counts: [u32; MAX_QUEST_REQ_ENTITY_COUNT] = [
+                let entity_counts: [u32; MAX_QUEST_OBJECTIVES_COUNT] = [
                     row.get("entity_count1").unwrap(),
                     row.get("entity_count2").unwrap(),
                     row.get("entity_count3").unwrap(),

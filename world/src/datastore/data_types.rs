@@ -10,8 +10,9 @@ use crate::{
     shared::constants::{
         AbilityLearnType, ActionButtonType, CharacterClassBit, CharacterRaceBit, InventoryType,
         MapType, QuestFlag, SkillCategory, SkillRangeType, SkillType, SpellEffect,
-        FACTION_NUMBER_BASE_REPUTATION_MASKS, MAX_SPELL_EFFECTS, MAX_SPELL_REAGENTS,
-        MAX_SPELL_TOTEMS,
+        FACTION_NUMBER_BASE_REPUTATION_MASKS, MAX_QUEST_CHOICE_REWARDS_COUNT,
+        MAX_QUEST_OBJECTIVES_COUNT, MAX_QUEST_REWARDS_COUNT, MAX_QUEST_REWARDS_REPUT_COUNT,
+        MAX_SPELL_EFFECTS, MAX_SPELL_REAGENTS, MAX_SPELL_TOTEMS,
     },
     DataStore,
 };
@@ -999,64 +1000,20 @@ pub struct QuestTemplate {
     pub objective_text2: Option<String>,
     pub objective_text3: Option<String>,
     pub objective_text4: Option<String>,
-    pub required_item_id1: u32,
-    pub required_item_id2: u32,
-    pub required_item_id3: u32,
-    pub required_item_id4: u32,
-    pub required_item_count1: u32,
-    pub required_item_count2: u32,
-    pub required_item_count3: u32,
-    pub required_item_count4: u32,
-    pub required_source_item_id1: u32, // Item required to make the req item
-    pub required_source_item_id2: u32,
-    pub required_source_item_id3: u32,
-    pub required_source_item_id4: u32,
-    pub required_source_item_count1: u32,
-    pub required_source_item_count2: u32,
-    pub required_source_item_count3: u32,
-    pub required_source_item_count4: u32,
-    pub required_entity_id1: i32, // Creature or GameObject
-    pub required_entity_id2: i32, // >0 = creature_template
-    pub required_entity_id3: i32, // <0 = gameobject_template
-    pub required_entity_id4: i32,
-    pub required_entity_count1: u32,
-    pub required_entity_count2: u32,
-    pub required_entity_count3: u32,
-    pub required_entity_count4: u32,
-    pub required_spell_cast1: u32,
-    pub required_spell_cast2: u32,
-    pub required_spell_cast3: u32,
-    pub required_spell_cast4: u32,
-    pub reward_choice_item_id1: u32,
-    pub reward_choice_item_id2: u32,
-    pub reward_choice_item_id3: u32,
-    pub reward_choice_item_id4: u32,
-    pub reward_choice_item_id5: u32,
-    pub reward_choice_item_id6: u32,
-    pub reward_choice_item_count1: u32,
-    pub reward_choice_item_count2: u32,
-    pub reward_choice_item_count3: u32,
-    pub reward_choice_item_count4: u32,
-    pub reward_choice_item_count5: u32,
-    pub reward_choice_item_count6: u32,
-    pub reward_item_id1: u32,
-    pub reward_item_id2: u32,
-    pub reward_item_id3: u32,
-    pub reward_item_id4: u32,
-    pub reward_item_count1: u32,
-    pub reward_item_count2: u32,
-    pub reward_item_count3: u32,
-    pub reward_item_count4: u32,
-    pub reward_rep_faction1: u32,
-    pub reward_rep_faction2: u32,
-    pub reward_rep_faction3: u32,
-    pub reward_rep_faction4: u32,
-    pub reward_rep_faction5: u32,
-    pub reward_rep_value1: i32,
-    pub reward_rep_value2: i32,
-    pub reward_rep_value3: i32,
-    pub reward_rep_value4: i32,
-    pub reward_rep_value5: i32,
+    pub required_item_ids: [u32; MAX_QUEST_OBJECTIVES_COUNT],
+    pub required_item_counts: [u32; MAX_QUEST_OBJECTIVES_COUNT],
+    pub required_source_item_ids: [u32; MAX_QUEST_OBJECTIVES_COUNT], // Item required to make the req item
+    pub required_source_item_counts: [u32; MAX_QUEST_OBJECTIVES_COUNT],
+    // Creature or GameObject >0 = creature_template <0 = gameobject_template
+    pub required_entity_ids: [i32; MAX_QUEST_OBJECTIVES_COUNT],
+    pub required_entity_counts: [u32; MAX_QUEST_OBJECTIVES_COUNT],
+    pub required_spell_casts: [u32; MAX_QUEST_OBJECTIVES_COUNT],
+    pub reward_choice_item_ids: [u32; MAX_QUEST_CHOICE_REWARDS_COUNT],
+    pub reward_choice_item_counts: [u32; MAX_QUEST_CHOICE_REWARDS_COUNT],
+    pub reward_item_ids: [u32; MAX_QUEST_REWARDS_COUNT],
+    pub reward_item_counts: [u32; MAX_QUEST_REWARDS_COUNT],
+    pub reward_rep_factions: [u32; MAX_QUEST_REWARDS_REPUT_COUNT],
+    pub reward_rep_values: [i32; MAX_QUEST_REWARDS_REPUT_COUNT],
     pub reward_honorable_kills: u32,
     // >0: rewarded money - <0 money required to start the quest
     pub required_or_reward_money: i32,
@@ -1091,29 +1048,19 @@ pub struct QuestTemplate {
 
 impl QuestTemplate {
     pub fn reward_choice_items(&self) -> Vec<(u32, u32)> {
-        vec![
-            (self.reward_choice_item_id1, self.reward_choice_item_count1),
-            (self.reward_choice_item_id2, self.reward_choice_item_count2),
-            (self.reward_choice_item_id3, self.reward_choice_item_count3),
-            (self.reward_choice_item_id4, self.reward_choice_item_count4),
-            (self.reward_choice_item_id5, self.reward_choice_item_count5),
-            (self.reward_choice_item_id6, self.reward_choice_item_count6),
-        ]
-        .into_iter()
-        .filter(|(id, _)| *id != 0)
-        .collect()
+        self.reward_choice_item_ids
+            .iter()
+            .zip(self.reward_choice_item_counts.iter())
+            .map(|(id, count)| (id.clone(), count.clone()))
+            .collect()
     }
 
     pub fn reward_items(&self) -> Vec<(u32, u32)> {
-        vec![
-            (self.reward_item_id1, self.reward_item_count1),
-            (self.reward_item_id2, self.reward_item_count2),
-            (self.reward_item_id3, self.reward_item_count3),
-            (self.reward_item_id4, self.reward_item_count4),
-        ]
-        .into_iter()
-        .filter(|(id, _)| *id != 0)
-        .collect()
+        self.reward_item_ids
+            .iter()
+            .zip(self.reward_item_counts.iter())
+            .map(|(id, count)| (id.clone(), count.clone()))
+            .collect()
     }
 }
 

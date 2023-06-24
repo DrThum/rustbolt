@@ -25,7 +25,7 @@ use crate::{
         AbilityLearnType, CharacterClass, CharacterClassBit, CharacterRace, CharacterRaceBit,
         Gender, HighGuidType, InventorySlot, InventoryType, ItemClass, ItemSubclassConsumable,
         ObjectTypeId, ObjectTypeMask, PlayerQuestStatus, PowerType, QuestSlotState,
-        QuestStartError, SkillRangeType, UnitFlags, MAX_QUESTS_IN_LOG, MAX_QUEST_REQ_ENTITY_COUNT,
+        QuestStartError, SkillRangeType, UnitFlags, MAX_QUESTS_IN_LOG, MAX_QUEST_OBJECTIVES_COUNT,
         PLAYER_DEFAULT_COMBAT_REACH,
     },
 };
@@ -507,7 +507,7 @@ impl Player {
                 );
             }
 
-            for index in 0..MAX_QUEST_REQ_ENTITY_COUNT {
+            for index in 0..MAX_QUEST_OBJECTIVES_COUNT {
                 values.set_u8(
                     base_index + QuestSlotOffset::Counters as usize,
                     index,

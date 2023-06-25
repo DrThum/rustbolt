@@ -17,16 +17,17 @@ use crate::{
         dbc::Dbc,
     },
     repositories::{
-        creature::CreatureRepository, item::ItemRepository,
-        player_creation::PlayerCreationRepository, quest::QuestRepository, text::TextRepository,
+        creature::CreatureRepository, gossip::GossipRepository, item::ItemRepository,
+        player_creation::PlayerCreationRepository, quest::QuestRepository,
     },
     shared::constants::{CharacterClassBit, CharacterRaceBit},
 };
 
 use self::data_types::{
     CharStartOutfitRecord, ChrClassesRecord, ChrRacesRecord, EmotesTextRecord, FactionRecord,
-    ItemRecord, ItemTemplate, MapRecord, PlayerCreateActionButton, QuestRelation, QuestTemplate,
-    SkillLineAbilityRecord, SkillLineRecord, SpellCastTimeRecord, SpellDurationRecord, SpellRecord,
+    GossipMenuDbRecord, ItemRecord, ItemTemplate, MapRecord, PlayerCreateActionButton,
+    QuestRelation, QuestTemplate, SkillLineAbilityRecord, SkillLineRecord, SpellCastTimeRecord,
+    SpellDurationRecord, SpellRecord,
 };
 
 pub mod data_types;
@@ -59,6 +60,7 @@ pub struct DataStore {
     quest_templates: SqlStore<QuestTemplate>,
     quest_relations_by_creature: SqlMultiStore<QuestRelation>,
     npc_texts: SqlStore<NpcTextDbRecord>,
+    gossip_menus: SqlMultiStore<GossipMenuDbRecord>,
 }
 
 macro_rules! parse_dbc {
@@ -186,10 +188,22 @@ impl DataStore {
 
         let npc_texts = {
             info!("Loading npc texts...");
-            let npc_texts = TextRepository::load_npc_text(conn);
+            let npc_texts = GossipRepository::load_npc_text(conn);
             let npc_texts: SqlStore<NpcTextDbRecord> =
                 npc_texts.into_iter().map(|text| (text.id, text)).collect();
             npc_texts
+        };
+
+        let gossip_menus = {
+            info!("Loading gossip menus...");
+            let gossip_menus = GossipRepository::load_gossip_menus(conn);
+            let mut multimap: MultiMap<u32, GossipMenuDbRecord> = MultiMap::new();
+
+            for menu in gossip_menus {
+                multimap.insert(menu.id, menu);
+            }
+
+            multimap
         };
 
         Ok(DataStore {
@@ -214,6 +228,7 @@ impl DataStore {
             quest_templates,
             quest_relations_by_creature,
             npc_texts,
+            gossip_menus,
         })
     }
 
@@ -346,6 +361,10 @@ impl DataStore {
 
     pub fn get_npc_text(&self, id: u32) -> Option<&NpcTextDbRecord> {
         self.npc_texts.get(&id)
+    }
+
+    pub fn get_gossip_menu(&self, id: u32) -> Option<&GossipMenuDbRecord> {
+        self.gossip_menus.get(&id) // TODO: Select the best menu depending on conditions
     }
 }
 

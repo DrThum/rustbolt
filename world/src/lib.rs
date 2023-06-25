@@ -65,10 +65,10 @@ mod repositories {
     pub mod account;
     pub mod character;
     pub mod creature;
+    pub mod gossip;
     pub mod item;
     pub mod player_creation;
     pub mod quest;
-    pub mod text;
 }
 pub mod session {
     pub mod opcode_handler;

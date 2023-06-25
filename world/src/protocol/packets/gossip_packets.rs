@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use binrw::{binwrite, NullString};
+use binrw::{binread, binwrite, NullString};
 use opcode_derive::server_opcode;
 
 use crate::entities::object_guid::ObjectGuid;
@@ -90,4 +90,9 @@ struct SmsgGossipMessageMenuQuestItem {
     pub icon: u32,
     pub quest_level: i32,
     pub title: NullString,
+}
+
+#[binread]
+pub struct CmsgGossipHello {
+    pub guid: u64,
 }

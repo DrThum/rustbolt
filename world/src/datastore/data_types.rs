@@ -367,6 +367,7 @@ pub struct CreatureTemplate {
     pub npc_flags: u32,
     pub unit_flags: u32,
     pub dynamic_flags: u32,
+    pub gossip_menu_id: Option<u32>,
 }
 
 #[allow(dead_code)]
@@ -1113,4 +1114,23 @@ pub struct NpcText {
 pub struct NpcTextEmote {
     pub delay: u32,
     pub emote: u32,
+}
+
+pub struct GossipMenuDbRecord {
+    pub id: u32,
+    pub text_id: u32,
+    pub options: Vec<GossipMenuOption>,
+}
+
+pub struct GossipMenuOption {
+    pub id: u32,
+    pub icon: u32,
+    pub text: Option<String>,
+    pub option_id: u32,
+    pub npc_option_npcflag: u32,
+    pub action_menu_id: i32,
+    pub action_poi_id: u32,
+    pub box_coded: bool,
+    pub box_money: u32,
+    pub box_text: Option<String>,
 }

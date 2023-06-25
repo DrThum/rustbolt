@@ -1,16 +1,18 @@
 use indicatif::ProgressBar;
 use r2d2::PooledConnection;
 use r2d2_sqlite::SqliteConnectionManager;
-use rusqlite::Row;
+use rusqlite::{named_params, Row};
 
 use crate::{
-    datastore::data_types::{NpcText, NpcTextDbRecord, NpcTextEmote},
+    datastore::data_types::{
+        GossipMenuDbRecord, GossipMenuOption, NpcText, NpcTextDbRecord, NpcTextEmote,
+    },
     shared::constants::NPC_TEXT_TEXT_COUNT,
 };
 
-pub struct TextRepository;
+pub struct GossipRepository;
 
-impl TextRepository {
+impl GossipRepository {
     pub fn load_npc_text(conn: &PooledConnection<SqliteConnectionManager>) -> Vec<NpcTextDbRecord> {
         let mut stmt = conn
             .prepare_cached("SELECT COUNT(id) FROM npc_texts")
@@ -41,8 +43,14 @@ impl TextRepository {
             ];
 
             NpcText {
-                text_male: row.get(format!("text{index}_male").as_str()).unwrap(),
-                text_female: row.get(format!("text{index}_female").as_str()).unwrap(),
+                text_male: row
+                    .get::<&str, Option<String>>(format!("text{index}_male").as_str())
+                    .unwrap()
+                    .filter(|t| !t.is_empty()),
+                text_female: row
+                    .get::<&str, Option<String>>(format!("text{index}_female").as_str())
+                    .unwrap()
+                    .filter(|t| !t.is_empty()),
                 language: row.get(format!("text{index}_language").as_str()).unwrap(),
                 probability: row
                     .get(format!("text{index}_probability").as_str())
@@ -72,6 +80,75 @@ impl TextRepository {
                 Ok(NpcTextDbRecord {
                     id: row.get("id").unwrap(),
                     texts,
+                })
+            })
+            .unwrap();
+
+        result
+            .filter(|res| res.is_ok())
+            .map(|res| res.unwrap())
+            .into_iter()
+            .collect()
+    }
+
+    pub fn load_gossip_menus(
+        conn: &PooledConnection<SqliteConnectionManager>,
+    ) -> Vec<GossipMenuDbRecord> {
+        let mut stmt = conn
+            .prepare_cached("SELECT COUNT(id) FROM gossip_menus")
+            .unwrap();
+
+        let mut count = stmt.query_map([], |row| row.get::<usize, u64>(0)).unwrap();
+
+        let count = count.next().unwrap().unwrap_or(0);
+        let bar = ProgressBar::new(count);
+
+        fn fetch_options(
+            conn: &PooledConnection<SqliteConnectionManager>,
+            menu_id: u32,
+        ) -> Vec<GossipMenuOption> {
+            let mut stmt = conn.prepare_cached("SELECT menu_id, id, option_icon, option_text, option_id, npc_option_npcflag, action_menu_id, action_poi_id, box_coded, box_money, box_text FROM gossip_menu_options WHERE menu_id = :menu_id").unwrap();
+
+            let result = stmt
+                .query_map(named_params! { ":menu_id": menu_id }, |row| {
+                    Ok(GossipMenuOption {
+                        id: row.get("id").unwrap(),
+                        icon: row.get("option_icon").unwrap(),
+                        text: row.get("option_text").unwrap(),
+                        option_id: row.get("option_id").unwrap(),
+                        npc_option_npcflag: row.get("npc_option_npcflag").unwrap(),
+                        action_menu_id: row.get("action_menu_id").unwrap(),
+                        action_poi_id: row.get("action_poi_id").unwrap(),
+                        box_coded: row.get::<&str, u32>("box_coded").map(|c| c == 1).unwrap(),
+                        box_money: row.get("box_money").unwrap(),
+                        box_text: row.get("box_text").unwrap(),
+                    })
+                })
+                .unwrap();
+
+            result
+                .filter(|res| res.is_ok())
+                .map(|res| res.unwrap())
+                .into_iter()
+                .collect()
+        }
+
+        let mut stmt = conn
+            .prepare_cached("SELECT id, text_id FROM gossip_menus")
+            .unwrap();
+
+        let result = stmt
+            .query_map([], |row| {
+                bar.inc(1);
+                if bar.position() == count {
+                    bar.finish();
+                }
+
+                let id: u32 = row.get("id").unwrap();
+                Ok(GossipMenuDbRecord {
+                    id,
+                    text_id: row.get("text_id").unwrap(),
+                    options: fetch_options(conn, id),
                 })
             })
             .unwrap();

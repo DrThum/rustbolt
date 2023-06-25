@@ -8,6 +8,7 @@ mod account_handlers;
 mod character_handlers;
 mod chat_handlers;
 mod combat_handlers;
+mod gossip_handlers;
 mod item_handlers;
 mod misc_handlers;
 mod movement_handlers;

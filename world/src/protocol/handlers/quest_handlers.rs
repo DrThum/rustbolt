@@ -1,19 +1,17 @@
 use std::sync::Arc;
 
-use log::{error, warn};
+use log::error;
 use shipyard::{Get, View, ViewMut};
 
 use crate::ecs::components::quest_actor::QuestActor;
 use crate::entities::object_guid::ObjectGuid;
 use crate::entities::player::Player;
-use crate::game::gossip::GossipMenu;
 use crate::game::world_context::WorldContext;
 use crate::protocol::client::ClientMessage;
 use crate::protocol::packets::*;
 use crate::protocol::server::ServerMessage;
 use crate::session::opcode_handler::OpcodeHandler;
 use crate::session::world_session::WorldSession;
-use crate::shared::constants::{PlayerQuestStatus, QuestGiverStatus};
 
 impl OpcodeHandler {
     pub(crate) fn handle_cmsg_quest_giver_status_query(
@@ -52,51 +50,7 @@ impl OpcodeHandler {
     ) {
         let cmsg: CmsgQuestGiverHello = ClientMessage::read_as(data).unwrap();
 
-        if let Some(target_guid) = ObjectGuid::from_raw(cmsg.guid) {
-            let map = session.current_map().unwrap();
-            map.world()
-                .run(|v_player: View<Player>, v_quest_actor: View<QuestActor>| {
-                    let my_entity_id = session.player_entity_id().unwrap();
-                    let player = &v_player[my_entity_id];
-
-                    let quest_giver_entity_id = map.lookup_entity_ecs(&target_guid).unwrap();
-                    let quest_actor = &v_quest_actor[quest_giver_entity_id];
-
-                    let mut gossip_menu = GossipMenu::new(0, 1); // FIXME
-                    for quest_id in quest_actor.quests_started() {
-                        let quest_template = world_context
-                            .data_store
-                            .get_quest_template(*quest_id)
-                            .unwrap();
-                        match player.quest_status(quest_id).map(|ctx| ctx.status) {
-                            None if player.can_start_quest(quest_template) => {
-                                gossip_menu.add_quest(*quest_id, QuestGiverStatus::Available)
-                            }
-                            status => warn!("unhandled case (quests started - {:?})", status),
-                        }
-                    }
-
-                    for quest_id in quest_actor.quests_ended() {
-                        match player.quest_status(quest_id).map(|ctx| ctx.status) {
-                            Some(PlayerQuestStatus::InProgress) => {
-                                gossip_menu.add_quest(*quest_id, QuestGiverStatus::Incomplete);
-                            }
-                            Some(PlayerQuestStatus::ObjectivesCompleted) => {
-                                gossip_menu.add_quest(*quest_id, QuestGiverStatus::Reward);
-                            }
-                            status => warn!("unhandled case (quests ended - {:?})", status),
-                        }
-                    }
-
-                    let packet = ServerMessage::new(SmsgGossipMessage::from_gossip_menu(
-                        &target_guid,
-                        &gossip_menu,
-                        world_context.data_store.clone(),
-                    ));
-
-                    session.send(&packet).unwrap();
-                });
-        }
+        OpcodeHandler::send_initial_gossip_menu(cmsg.guid, session.clone(), world_context.clone());
     }
 
     pub(crate) fn handle_cmsg_quest_giver_query_quest(

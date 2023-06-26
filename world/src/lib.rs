@@ -254,8 +254,10 @@ impl WorldSocketState<ServerSentAuthChallenge> {
         session.send(&packet).unwrap();
 
         if let Some(previous_session) = session_holder.insert_session(session) {
-            previous_session
-                .shutdown(&mut self.state.world_context.database.characters.get().unwrap());
+            previous_session.shutdown(
+                &mut self.state.world_context.database.characters.get().unwrap(),
+                self.state.world_context.clone(),
+            );
         }
 
         if let Some(session) = session_holder.get_session_for_account(account_id) {
@@ -333,6 +335,9 @@ pub async fn process(
 
     loop {
         let session = state.state.session.clone();
-        WorldSession::process_incoming_packet(session).await?;
+        match WorldSession::process_incoming_packet(session).await {
+            Err(WorldSocketError::ClientDisconnected) => break Ok(()),
+            _ => (),
+        }
     }
 }

@@ -127,12 +127,21 @@ impl WorldSession {
         session
     }
 
-    pub fn shutdown(&self, conn: &mut PooledConnection<SqliteConnectionManager>) {
-        self.cleanup_on_world_leave(conn);
+    pub fn shutdown(
+        &self,
+        conn: &mut PooledConnection<SqliteConnectionManager>,
+        world_context: Arc<WorldContext>,
+    ) {
+        self.cleanup_on_world_leave(conn, world_context);
         self.socket.shutdown();
     }
 
-    pub fn cleanup_on_world_leave(&self, conn: &mut PooledConnection<SqliteConnectionManager>) {
+    fn cleanup_on_world_leave(
+        &self,
+        conn: &mut PooledConnection<SqliteConnectionManager>,
+        world_context: Arc<WorldContext>,
+    ) {
+        println!("cleanup on world leave");
         if let Some(handle) = self.time_sync_handle.lock().take() {
             handle.abort();
         }
@@ -152,7 +161,14 @@ impl WorldSession {
                     });
             }
 
+            map.remove_player(&self.player_guid.read().unwrap());
+
             self.known_guids.write().clear();
+            self.current_map.write().take();
+            self.player_entity_id.write().take();
+            self.player_guid.write().take();
+
+            world_context.session_holder.remove_session(self.account_id);
         }
     }
 

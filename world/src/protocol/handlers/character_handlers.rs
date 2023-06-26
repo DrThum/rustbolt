@@ -244,7 +244,10 @@ impl OpcodeHandler {
         session.send(&packet).unwrap();
 
         // FIXME: Handle future cases when logout might not be instant
-        session.cleanup_on_world_leave(&mut world_context.database.characters.get().unwrap());
+        session.shutdown(
+            &mut world_context.database.characters.get().unwrap(),
+            world_context.clone(),
+        );
 
         if let Some(ref map) = session.current_map() {
             let player_guid = &session

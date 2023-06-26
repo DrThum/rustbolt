@@ -20,6 +20,10 @@ impl SessionHolder {
         self.sessions.write().insert(account_id, session)
     }
 
+    pub fn remove_session(&self, account_id: u32) {
+        self.sessions.write().remove(&account_id);
+    }
+
     pub fn get_session_for_account(&self, account_id: u32) -> Option<Arc<WorldSession>> {
         self.sessions.read().get(&account_id).cloned()
     }

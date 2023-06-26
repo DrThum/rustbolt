@@ -470,7 +470,7 @@ impl Player {
                 );
             }
 
-            context.slot = slot;
+            context.slot = Some(slot);
 
             let quest_template = world_context
                 .data_store
@@ -750,7 +750,7 @@ impl Player {
                 self.quest_statuses.insert(
                     quest_template.entry,
                     QuestLogContext {
-                        slot,
+                        slot: Some(slot),
                         status: PlayerQuestStatus::InProgress,
                         entity_counts: [0, 0, 0, 0],
                     },
@@ -769,8 +769,10 @@ impl Player {
     }
 
     pub fn remove_quest(&mut self, slot_to_remove: usize) {
-        self.quest_statuses
-            .retain(|_, context| context.slot != slot_to_remove);
+        self.quest_statuses.retain(|_, context| match context.slot {
+            None => true,
+            Some(slot) => slot != slot_to_remove,
+        });
 
         let mut values_guard = self.internal_values.write();
         let base_index =
@@ -783,7 +785,7 @@ impl Player {
     pub fn try_complete_quest(&mut self, quest_template: &QuestTemplate) {
         let quest_id = quest_template.entry;
         if let Some(context) = self.quest_statuses.get_mut(&quest_id) {
-            if context.status != PlayerQuestStatus::InProgress {
+            if context.status != PlayerQuestStatus::InProgress || context.slot.is_none() {
                 return;
             }
 
@@ -802,12 +804,37 @@ impl Player {
 
             context.status = PlayerQuestStatus::ObjectivesCompleted;
             let mut values_guard = self.internal_values.write();
-            let base_index =
-                UnitFields::PlayerQuestLog1_1 as usize + (context.slot * QUEST_SLOT_OFFSETS_COUNT);
+            let base_index = UnitFields::PlayerQuestLog1_1 as usize
+                + (context.slot.unwrap() * QUEST_SLOT_OFFSETS_COUNT);
             values_guard.set_u32(
                 base_index + QuestSlotOffset::State as usize,
                 QuestSlotState::Completed as u32,
             )
+        }
+    }
+
+    pub fn reward_quest(&mut self, quest_id: u32) {
+        warn!("TODO: Implement Player::reward_quest");
+
+        if let Some(context) = self.quest_statuses.get_mut(&quest_id) {
+            if context.status != PlayerQuestStatus::ObjectivesCompleted {
+                error!(
+                    "attempt to reward a quest with an unexpected status {:?}",
+                    context.status
+                );
+                return;
+            }
+
+            context.status = PlayerQuestStatus::TurnedIn;
+            context.slot = None;
+
+            let mut values_guard = self.internal_values.write();
+            let base_index = UnitFields::PlayerQuestLog1_1 as usize
+                + (context.slot.unwrap() * QUEST_SLOT_OFFSETS_COUNT);
+
+            for index in 0..QUEST_SLOT_OFFSETS_COUNT {
+                values_guard.set_u32(base_index + index, 0);
+            }
         }
     }
 }

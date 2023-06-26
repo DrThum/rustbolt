@@ -37,7 +37,7 @@ impl FactionStanding {
 
 #[derive(Debug)]
 pub struct QuestLogContext {
-    pub slot: usize,
+    pub slot: Option<usize>,
     pub status: PlayerQuestStatus,
     pub entity_counts: [u32; MAX_QUEST_OBJECTIVES_COUNT],
 }

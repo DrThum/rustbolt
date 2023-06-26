@@ -321,3 +321,10 @@ pub struct QuestGiverOfferRewardItem {
     pub count: u32,
     pub display_id: u32,
 }
+
+#[binread]
+pub struct CmsgQuestGiverChooseReward {
+    pub quest_giver_guid: u64,
+    pub quest_id: u32,
+    pub chosen_reward_index: u32,
+}

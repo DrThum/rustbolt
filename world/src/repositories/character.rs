@@ -436,7 +436,7 @@ impl CharacterRepository {
                 Ok((
                     quest_id,
                     QuestLogContext {
-                        slot: usize::MAX,
+                        slot: None,
                         status,
                         entity_counts,
                     },

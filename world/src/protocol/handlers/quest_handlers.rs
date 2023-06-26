@@ -259,4 +259,23 @@ impl OpcodeHandler {
             });
         }
     }
+
+    pub(crate) fn handle_cmsg_quest_giver_choose_reward(
+        session: Arc<WorldSession>,
+        _world_context: Arc<WorldContext>,
+        data: Vec<u8>,
+    ) {
+        let cmsg: CmsgQuestGiverChooseReward = ClientMessage::read_as(data).unwrap();
+
+        let map = session.current_map().unwrap();
+        map.world().run(|mut vm_player: ViewMut<Player>| {
+            let player = &mut vm_player[session.player_entity_id().unwrap()];
+
+            if player.can_turn_in_quest(&cmsg.quest_id) {
+                player.reward_quest(cmsg.quest_id);
+            } else {
+                warn!("unexpected player quest status in CMSG_QUESTGIVER_CHOOSE_REWARD");
+            }
+        });
+    }
 }

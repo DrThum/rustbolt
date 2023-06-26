@@ -3,6 +3,7 @@ use std::sync::Arc;
 use log::{error, warn};
 use shipyard::{Get, View, ViewMut};
 
+use crate::datastore::data_types::QuestTemplate;
 use crate::ecs::components::quest_actor::QuestActor;
 use crate::entities::object_guid::ObjectGuid;
 use crate::entities::player::Player;
@@ -62,80 +63,7 @@ impl OpcodeHandler {
         let cmsg: CmsgQuestGiverQueryQuest = ClientMessage::read_as(data).unwrap();
 
         if let Some(quest_template) = world_context.data_store.get_quest_template(cmsg.quest_id) {
-            let reward_choice_items = quest_template.reward_choice_items();
-            let reward_items = quest_template.reward_items();
-
-            let packet = ServerMessage::new(SmsgQuestGiverQuestDetails {
-                guid: cmsg.guid, // TODO: Validate this
-                quest_id: cmsg.quest_id,
-                title: quest_template
-                    .title
-                    .as_ref()
-                    .unwrap_or(&"".to_owned())
-                    .clone()
-                    .into(),
-                details: quest_template
-                    .details
-                    .as_ref()
-                    .unwrap_or(&"".to_owned())
-                    .clone()
-                    .into(),
-                objectives: quest_template
-                    .objectives
-                    .as_ref()
-                    .unwrap_or(&"".to_owned())
-                    .clone()
-                    .into(),
-                auto_accept: false,
-                suggested_players: quest_template.suggested_players,
-                reward_choice_items_count: reward_choice_items.len() as u32,
-                reward_choice_items: reward_choice_items
-                    .iter()
-                    .map(|(id, count)| {
-                        QuestDetailsItemRewards {
-                            item_id: *id,
-                            item_count: *count,
-                            item_display_id: 0, // TODO: actual display id
-                        }
-                    })
-                    .collect(),
-                reward_items_count: reward_items.len() as u32,
-                reward_items: reward_items
-                    .iter()
-                    .map(|(id, count)| {
-                        QuestDetailsItemRewards {
-                            item_id: *id,
-                            item_count: *count,
-                            item_display_id: 0, // TODO: actual display id
-                        }
-                    })
-                    .collect(),
-                required_or_reward_money: quest_template.required_or_reward_money,
-                honor_reward: quest_template.reward_honorable_kills * 10, // FIXME: depends on level
-                reward_spell: quest_template.reward_spell,
-                reward_spell_cast: quest_template.reward_spell_cast,
-                reward_title_bit_index: 0, // TODO: bit_index from CharTitlesStore.dbc
-                emotes: [
-                    QuestDetailsEmote {
-                        emote: quest_template.details_emote1,
-                        delay: quest_template.details_emote_delay1,
-                    },
-                    QuestDetailsEmote {
-                        emote: quest_template.details_emote2,
-                        delay: quest_template.details_emote_delay2,
-                    },
-                    QuestDetailsEmote {
-                        emote: quest_template.details_emote3,
-                        delay: quest_template.details_emote_delay3,
-                    },
-                    QuestDetailsEmote {
-                        emote: quest_template.details_emote4,
-                        delay: quest_template.details_emote_delay4,
-                    },
-                ],
-            });
-
-            session.send(&packet).unwrap();
+            Self::send_quest_details(cmsg.guid, quest_template, session.clone());
         } else {
             error!(
                 "received CMSG_QUESTGIVER_QUERY_QUEST for unknown quest {}",
@@ -262,20 +190,140 @@ impl OpcodeHandler {
 
     pub(crate) fn handle_cmsg_quest_giver_choose_reward(
         session: Arc<WorldSession>,
-        _world_context: Arc<WorldContext>,
+        world_context: Arc<WorldContext>,
         data: Vec<u8>,
     ) {
         let cmsg: CmsgQuestGiverChooseReward = ClientMessage::read_as(data).unwrap();
 
         let map = session.current_map().unwrap();
-        map.world().run(|mut vm_player: ViewMut<Player>| {
-            let player = &mut vm_player[session.player_entity_id().unwrap()];
+        map.world().run(
+            |mut vm_player: ViewMut<Player>, v_quest_actor: View<QuestActor>| {
+                let player = &mut vm_player[session.player_entity_id().unwrap()];
 
-            if player.can_turn_in_quest(&cmsg.quest_id) {
-                player.reward_quest(cmsg.quest_id);
-            } else {
-                warn!("unexpected player quest status in CMSG_QUESTGIVER_CHOOSE_REWARD");
-            }
+                if player.can_turn_in_quest(&cmsg.quest_id) {
+                    player.reward_quest(cmsg.quest_id);
+
+                    let quest_template = world_context
+                        .data_store
+                        .get_quest_template(cmsg.quest_id)
+                        .unwrap();
+                    let packet = ServerMessage::new(SmsgQuestGiverQuestComplete {
+                        quest_id: cmsg.quest_id,
+                        unk: 0x03,
+                        xp: 20, // TODO: implement XP calculation
+                        required_or_reward_money: quest_template.required_or_reward_money,
+                        honorable_kills: 10 * quest_template.reward_honorable_kills,
+                        reward_items_count: 0, // TODO: depends on what the player chose as a reward
+                        reward_items: Vec::new(),
+                    });
+
+                    session.send(&packet).unwrap();
+
+                    let quest_giver_entity_id = map
+                        .lookup_entity_ecs(&ObjectGuid::from_raw(cmsg.quest_giver_guid).unwrap())
+                        .unwrap();
+                    let next_quest_id = quest_template.next_quest_in_chain;
+                    let next_quest = world_context
+                        .data_store
+                        .get_quest_template(next_quest_id)
+                        .unwrap();
+
+                    if next_quest_id != 0
+                        && v_quest_actor[quest_giver_entity_id].starts_quest(next_quest_id)
+                        && player.can_start_quest(&next_quest)
+                    {
+                        Self::send_quest_details(
+                            cmsg.quest_giver_guid,
+                            next_quest,
+                            session.clone(),
+                        );
+                    }
+                } else {
+                    warn!("unexpected player quest status in CMSG_QUESTGIVER_CHOOSE_REWARD");
+                }
+            },
+        );
+    }
+
+    fn send_quest_details(
+        quest_giver_guid: u64,
+        quest_template: &QuestTemplate,
+        session: Arc<WorldSession>,
+    ) {
+        let reward_choice_items = quest_template.reward_choice_items();
+        let reward_items = quest_template.reward_items();
+
+        // TODO: Refactor this and the other place it is used
+        let packet = ServerMessage::new(SmsgQuestGiverQuestDetails {
+            guid: quest_giver_guid, // TODO: Validate this
+            quest_id: quest_template.entry,
+            title: quest_template
+                .title
+                .as_ref()
+                .unwrap_or(&"".to_owned())
+                .clone()
+                .into(),
+            details: quest_template
+                .details
+                .as_ref()
+                .unwrap_or(&"".to_owned())
+                .clone()
+                .into(),
+            objectives: quest_template
+                .objectives
+                .as_ref()
+                .unwrap_or(&"".to_owned())
+                .clone()
+                .into(),
+            auto_accept: false,
+            suggested_players: quest_template.suggested_players,
+            reward_choice_items_count: reward_choice_items.len() as u32,
+            reward_choice_items: reward_choice_items
+                .iter()
+                .map(|(id, count)| {
+                    QuestDetailsItemRewards {
+                        item_id: *id,
+                        item_count: *count,
+                        item_display_id: 0, // TODO: actual display id
+                    }
+                })
+                .collect(),
+            reward_items_count: reward_items.len() as u32,
+            reward_items: reward_items
+                .iter()
+                .map(|(id, count)| {
+                    QuestDetailsItemRewards {
+                        item_id: *id,
+                        item_count: *count,
+                        item_display_id: 0, // TODO: actual display id
+                    }
+                })
+                .collect(),
+            required_or_reward_money: quest_template.required_or_reward_money,
+            honor_reward: quest_template.reward_honorable_kills * 10, // FIXME: depends on level
+            reward_spell: quest_template.reward_spell,
+            reward_spell_cast: quest_template.reward_spell_cast,
+            reward_title_bit_index: 0, // TODO: bit_index from CharTitlesStore.dbc
+            emotes: [
+                QuestDetailsEmote {
+                    emote: quest_template.details_emote1,
+                    delay: quest_template.details_emote_delay1,
+                },
+                QuestDetailsEmote {
+                    emote: quest_template.details_emote2,
+                    delay: quest_template.details_emote_delay2,
+                },
+                QuestDetailsEmote {
+                    emote: quest_template.details_emote3,
+                    delay: quest_template.details_emote_delay3,
+                },
+                QuestDetailsEmote {
+                    emote: quest_template.details_emote4,
+                    delay: quest_template.details_emote_delay4,
+                },
+            ],
         });
+
+        session.send(&packet).unwrap();
     }
 }

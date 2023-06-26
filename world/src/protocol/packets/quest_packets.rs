@@ -328,3 +328,21 @@ pub struct CmsgQuestGiverChooseReward {
     pub quest_id: u32,
     pub chosen_reward_index: u32,
 }
+
+#[binwrite]
+#[server_opcode]
+pub struct SmsgQuestGiverQuestComplete {
+    pub quest_id: u32,
+    pub unk: u32, // 0x03
+    pub xp: u32,
+    pub required_or_reward_money: i32,
+    pub honorable_kills: u32, // Multiplied by 10
+    pub reward_items_count: u32,
+    pub reward_items: Vec<QuestCompleteRewardItem>,
+}
+
+#[binwrite]
+pub struct QuestCompleteRewardItem {
+    pub id: u32,
+    pub count: u32,
+}

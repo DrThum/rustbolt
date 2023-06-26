@@ -47,6 +47,10 @@ impl QuestActor {
         &self.starts
     }
 
+    pub fn starts_quest(&self, quest_id: u32) -> bool {
+        self.starts.contains(&quest_id)
+    }
+
     pub fn quests_ended(&self) -> &Vec<u32> {
         &self.ends
     }

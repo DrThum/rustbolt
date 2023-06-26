@@ -463,6 +463,10 @@ impl Player {
 
         let mut quest_statuses = CharacterRepository::load_quest_statuses(&conn, guid.raw());
         for (slot, (quest_id, context)) in quest_statuses.iter_mut().enumerate() {
+            if context.status == PlayerQuestStatus::TurnedIn {
+                continue;
+            }
+
             if slot >= MAX_QUESTS_IN_LOG {
                 error!(
                     "player {} {:?} has more than the maximum number of quests allowed",
@@ -826,7 +830,6 @@ impl Player {
             }
 
             context.status = PlayerQuestStatus::TurnedIn;
-            context.slot = None;
 
             let mut values_guard = self.internal_values.write();
             let base_index = UnitFields::PlayerQuestLog1_1 as usize
@@ -835,6 +838,8 @@ impl Player {
             for index in 0..QUEST_SLOT_OFFSETS_COUNT {
                 values_guard.set_u32(base_index + index, 0);
             }
+
+            context.slot = None;
         }
     }
 }

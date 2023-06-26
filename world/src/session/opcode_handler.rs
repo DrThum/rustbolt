@@ -178,6 +178,10 @@ impl OpcodeHandler {
                     Opcode::CmsgGossipHello,
                     OpcodeHandler::handle_cmsg_gossip_hello
                 ),
+                define_handler!(
+                    Opcode::CmsgQuestGiverCompleteQuest,
+                    OpcodeHandler::handle_cmsg_quest_giver_complete_quest
+                ),
             ]),
         }
     }

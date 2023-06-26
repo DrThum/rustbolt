@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use log::error;
+use log::{error, warn};
 use shipyard::{Get, View, ViewMut};
 
 use crate::ecs::components::quest_actor::QuestActor;
@@ -12,6 +12,7 @@ use crate::protocol::packets::*;
 use crate::protocol::server::ServerMessage;
 use crate::session::opcode_handler::OpcodeHandler;
 use crate::session::world_session::WorldSession;
+use crate::shared::constants::PlayerQuestStatus;
 
 impl OpcodeHandler {
     pub(crate) fn handle_cmsg_quest_giver_status_query(
@@ -205,5 +206,57 @@ impl OpcodeHandler {
         map.world().run(|mut vm_player: ViewMut<Player>| {
             vm_player[session.player_entity_id().unwrap()].remove_quest(cmsg.slot as usize);
         });
+    }
+
+    pub(crate) fn handle_cmsg_quest_giver_complete_quest(
+        session: Arc<WorldSession>,
+        world_context: Arc<WorldContext>,
+        data: Vec<u8>,
+    ) {
+        let cmsg: CmsgQuestGiverCompleteQuest = ClientMessage::read_as(data).unwrap();
+
+        let map = session.current_map().unwrap();
+        let player_entity_id = session.player_entity_id().unwrap();
+
+        if let Some(quest_template) = world_context.data_store.get_quest_template(cmsg.quest_id) {
+            map.world().run(|v_player: View<Player>| {
+                use PlayerQuestStatus::*;
+
+                let status = v_player[player_entity_id]
+                    .quest_status(&cmsg.quest_id)
+                    .map(|ctx| ctx.status);
+
+                match status {
+                    Some(InProgress) | Some(ObjectivesCompleted) => {
+                        if quest_template.request_items_text.is_some() {
+                            let packet =
+                                ServerMessage::new(SmsgQuestGiverRequestItems::from_template(
+                                    cmsg.guid,
+                                    &status.unwrap(),
+                                    false,
+                                    quest_template,
+                                    world_context.data_store.clone(),
+                                ));
+                            session.send(&packet).unwrap();
+                        } else {
+                            let packet =
+                                ServerMessage::new(SmsgQuestGiverOfferReward::from_template(
+                                    cmsg.guid,
+                                    false,
+                                    quest_template,
+                                    world_context.data_store.clone(),
+                                ));
+                            session.send(&packet).unwrap();
+                        }
+                    }
+                    Some(status) => warn!(
+                        "CMSG_QUESTGIVER_COMPLETE_QUEST called with unexpected status {status:?}"
+                    ),
+                    None => warn!(
+                        "CMSG_QUESTGIVER_COMPLETE_QUEST called but player does not have the quest"
+                    ),
+                }
+            });
+        }
     }
 }

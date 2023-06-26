@@ -188,14 +188,18 @@ impl QuestRepository {
                     details_emote_delay4: row.get("details_emote_delay4").unwrap(),
                     incomplete_emote: row.get("incomplete_emote").unwrap(),
                     complete_emote: row.get("complete_emote").unwrap(),
-                    offer_reward_emote1: row.get("offer_reward_emote1").unwrap(),
-                    offer_reward_emote2: row.get("offer_reward_emote2").unwrap(),
-                    offer_reward_emote3: row.get("offer_reward_emote3").unwrap(),
-                    offer_reward_emote4: row.get("offer_reward_emote4").unwrap(),
-                    offer_reward_emote_delay1: row.get("offer_reward_emote_delay1").unwrap(),
-                    offer_reward_emote_delay2: row.get("offer_reward_emote_delay2").unwrap(),
-                    offer_reward_emote_delay3: row.get("offer_reward_emote_delay3").unwrap(),
-                    offer_reward_emote_delay4: row.get("offer_reward_emote_delay4").unwrap(),
+                    offer_reward_emotes: [
+                        row.get("offer_reward_emote1").unwrap(),
+                        row.get("offer_reward_emote2").unwrap(),
+                        row.get("offer_reward_emote3").unwrap(),
+                        row.get("offer_reward_emote4").unwrap(),
+                    ],
+                    offer_reward_emote_delays: [
+                        row.get("offer_reward_emote_delay1").unwrap(),
+                        row.get("offer_reward_emote_delay2").unwrap(),
+                        row.get("offer_reward_emote_delay3").unwrap(),
+                        row.get("offer_reward_emote_delay4").unwrap(),
+                    ],
                 })
             })
             .unwrap();

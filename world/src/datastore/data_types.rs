@@ -1039,14 +1039,8 @@ pub struct QuestTemplate {
     pub details_emote_delay4: u32,
     pub incomplete_emote: u32,
     pub complete_emote: u32,
-    pub offer_reward_emote1: u32,
-    pub offer_reward_emote2: u32,
-    pub offer_reward_emote3: u32,
-    pub offer_reward_emote4: u32,
-    pub offer_reward_emote_delay1: u32,
-    pub offer_reward_emote_delay2: u32,
-    pub offer_reward_emote_delay3: u32,
-    pub offer_reward_emote_delay4: u32,
+    pub offer_reward_emotes: [u32; MAX_QUEST_OBJECTIVES_COUNT],
+    pub offer_reward_emote_delays: [u32; MAX_QUEST_OBJECTIVES_COUNT],
 }
 
 impl QuestTemplate {

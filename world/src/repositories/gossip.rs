@@ -26,13 +26,12 @@ impl GossipRepository {
 
         fn transform_text(row: &Row, index: usize) -> NpcText {
             fn transform_emote(row: &Row, text_index: usize, emote_index: usize) -> NpcTextEmote {
+                let base_index = NpcTextsColumnIndex::Text0Emote0Delay as usize
+                    + (text_index * 10)
+                    + (emote_index * 2);
                 NpcTextEmote {
-                    delay: row
-                        .get(format!("text{text_index}_emote{emote_index}_delay").as_str())
-                        .unwrap_or_default(),
-                    emote: row
-                        .get(format!("text{text_index}_emote{emote_index}").as_str())
-                        .unwrap_or_default(),
+                    delay: row.get(base_index).unwrap_or_default(),
+                    emote: row.get(base_index + 1).unwrap_or_default(),
                 }
             }
 
@@ -42,19 +41,18 @@ impl GossipRepository {
                 transform_emote(row, index, 2),
             ];
 
+            let base_index = NpcTextsColumnIndex::Text0Male as usize + (index * 10);
             NpcText {
                 text_male: row
-                    .get::<&str, Option<String>>(format!("text{index}_male").as_str())
+                    .get::<usize, Option<String>>(base_index)
                     .unwrap()
                     .filter(|t| !t.is_empty()),
                 text_female: row
-                    .get::<&str, Option<String>>(format!("text{index}_female").as_str())
+                    .get::<usize, Option<String>>(base_index + 1)
                     .unwrap()
                     .filter(|t| !t.is_empty()),
-                language: row.get(format!("text{index}_language").as_str()).unwrap(),
-                probability: row
-                    .get(format!("text{index}_probability").as_str())
-                    .unwrap(),
+                language: row.get(base_index + 2).unwrap(),
+                probability: row.get(base_index + 3).unwrap(),
                 emotes,
             }
         }
@@ -78,7 +76,7 @@ impl GossipRepository {
                 }
 
                 Ok(NpcTextDbRecord {
-                    id: row.get("id").unwrap(),
+                    id: row.get(NpcTextsColumnIndex::Id as usize).unwrap(),
                     texts,
                 })
             })
@@ -159,4 +157,89 @@ impl GossipRepository {
             .into_iter()
             .collect()
     }
+}
+
+#[allow(dead_code)]
+enum NpcTextsColumnIndex {
+    Id,
+    Text0Male,
+    Text0Female,
+    Text0Language,
+    Text0Probability,
+    Text0Emote0Delay,
+    Text0Emote0,
+    Text0Emote1Delay,
+    Text0Emote1,
+    Text0Emote2Delay,
+    Text0Emote2,
+    Text1Male,
+    Text1Female,
+    Text1Language,
+    Text1Probability,
+    Text1Emote0Delay,
+    Text1Emote0,
+    Text1Emote1Delay,
+    Text1Emote1,
+    Text1Emote2Delay,
+    Text1Emote2,
+    Text2Male,
+    Text2Female,
+    Text2Language,
+    Text2Probability,
+    Text2Emote0Delay,
+    Text2Emote0,
+    Text2Emote1Delay,
+    Text2Emote1,
+    Text2Emote2Delay,
+    Text2Emote2,
+    Text3Male,
+    Text3Female,
+    Text3Language,
+    Text3Probability,
+    Text3Emote0Delay,
+    Text3Emote0,
+    Text3Emote1Delay,
+    Text3Emote1,
+    Text3Emote2Delay,
+    Text3Emote2,
+    Text4Male,
+    Text4Female,
+    Text4Language,
+    Text4Probability,
+    Text4Emote0Delay,
+    Text4Emote0,
+    Text4Emote1Delay,
+    Text4Emote1,
+    Text4Emote2Delay,
+    Text4Emote2,
+    Text5Male,
+    Text5Female,
+    Text5Language,
+    Text5Probability,
+    Text5Emote0Delay,
+    Text5Emote0,
+    Text5Emote1Delay,
+    Text5Emote1,
+    Text5Emote2Delay,
+    Text5Emote2,
+    Text6Male,
+    Text6Female,
+    Text6Language,
+    Text6Probability,
+    Text6Emote0Delay,
+    Text6Emote0,
+    Text6Emote1Delay,
+    Text6Emote1,
+    Text6Emote2Delay,
+    Text6Emote2,
+    Text7Male,
+    Text7Female,
+    Text7Language,
+    Text7Probability,
+    Text7Emote0Delay,
+    Text7Emote0,
+    Text7Emote1Delay,
+    Text7Emote1,
+    Text7Emote2Delay,
+    Text7Emote2,
 }

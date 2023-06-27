@@ -55,6 +55,5 @@ pub struct PlayerSection {
 #[derive(Debug, Deserialize)]
 pub struct DevSection {
     pub load_terrain: bool,
-    pub load_item_templates: bool,
     pub load_creature_templates: bool,
 }

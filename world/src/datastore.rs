@@ -103,7 +103,7 @@ impl DataStore {
         let faction = parse_dbc!(config.common.data.directory, "Faction");
 
         // SQL stores
-        let item_templates = if config.world.dev.load_item_templates {
+        let item_templates = {
             info!("Loading item templates...");
             let item_templates = ItemRepository::load_templates(conn);
             let item_templates: SqlStore<ItemTemplate> = item_templates
@@ -111,9 +111,6 @@ impl DataStore {
                 .map(|template| (template.entry, template))
                 .collect();
             item_templates
-        } else {
-            info!("Item templates loading disabled in configuration");
-            HashMap::new()
         };
 
         let creature_templates = if config.world.dev.load_creature_templates {

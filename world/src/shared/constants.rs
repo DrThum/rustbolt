@@ -294,10 +294,10 @@ pub enum ObjectTypeMask {
     Corpse = 0x0080,
 }
 
-pub const MAX_ITEM_TEMPLATE_STATS: u32 = 10;
-pub const MAX_ITEM_TEMPLATE_DAMAGES: u32 = 5;
-pub const MAX_ITEM_TEMPLATE_SPELLS: u32 = 5;
-pub const MAX_ITEM_TEMPLATE_SOCKETS: u32 = 3;
+pub const MAX_ITEM_TEMPLATE_STATS: usize = 10;
+pub const MAX_ITEM_TEMPLATE_DAMAGES: usize = 5;
+pub const MAX_ITEM_TEMPLATE_SPELLS: usize = 5;
+pub const MAX_ITEM_TEMPLATE_SOCKETS: usize = 3;
 
 #[allow(dead_code)]
 #[derive(N)]

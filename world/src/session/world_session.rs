@@ -141,7 +141,6 @@ impl WorldSession {
         conn: &mut PooledConnection<SqliteConnectionManager>,
         world_context: Arc<WorldContext>,
     ) {
-        println!("cleanup on world leave");
         if let Some(handle) = self.time_sync_handle.lock().take() {
             handle.abort();
         }

@@ -17,5 +17,4 @@ maxlevel = 70
 
 [world.dev]
 load_terrain = true
-load_item_templates = true
 load_creature_templates = true

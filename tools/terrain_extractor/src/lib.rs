@@ -102,7 +102,9 @@ pub async fn list_adts_to_extract(
                             output_dir, name, coords.row, coords.col
                         );
 
-                        adts_to_extract.push((adt_file_name, terrain_file_path));
+                        if name == "Azeroth" && coords.row == 32 && coords.col == 32 {
+                            adts_to_extract.push((adt_file_name, terrain_file_path));
+                        }
                     }
                 }
             }
@@ -133,7 +135,8 @@ pub async fn extract_adts(
 
     let mut join_handles: Vec<JoinHandle<_>> = Vec::new();
     let groups: Vec<Vec<(String, String)>> = adts_to_extract
-        .chunks(tiles_per_thread)
+        // .chunks(tiles_per_thread)
+        .chunks(1)
         .map(|c| c.to_owned())
         .collect();
     for group in groups {

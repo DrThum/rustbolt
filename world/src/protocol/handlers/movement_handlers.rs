@@ -34,6 +34,11 @@ impl OpcodeHandler {
                 );
             }
 
+            if opcode == Opcode::MsgMoveJump {
+                let map = session.current_map().unwrap();
+                map.get_terrain_height(movement_info.position.x, movement_info.position.y);
+            }
+
             // Broadcast to nearby players
             session
                 .current_map()

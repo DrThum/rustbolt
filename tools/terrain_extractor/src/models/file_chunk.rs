@@ -5,11 +5,13 @@ use downcast_rs::{impl_downcast, Downcast};
 
 pub mod adt;
 pub mod wdt;
+pub mod wmo;
 
 #[derive(PartialEq)]
 pub enum FileType {
     WDT,
     ADT,
+    WMO,
 }
 
 #[binread]
@@ -42,6 +44,7 @@ impl FileChunk {
             [b'F', b'D', b'D', b'M'] => Box::new(adt::MDDF::parse(&self.data).unwrap()),
             [b'F', b'D', b'O', b'M'] => Box::new(adt::MODF::parse(&self.data).unwrap()),
             [b'K', b'N', b'C', b'M'] => Box::new(adt::MCNK::parse(&self.data).unwrap()),
+            [b'D', b'H', b'O', b'M'] => Box::new(wmo::MOHD::parse(&self.data).unwrap()),
             _ => {
                 panic!(
                     "Unsupported chunk {:?} of size {}",
@@ -92,4 +95,31 @@ impl TypedFileChunk for MVER {
     fn content_as_string(&self) -> String {
         format!("version {}", self.version)
     }
+}
+
+#[allow(dead_code)]
+#[binread]
+#[derive(Debug)]
+pub struct ColorData {
+    red: u8,
+    green: u8,
+    blue: u8,
+    alpha: u8,
+}
+
+#[allow(dead_code)]
+#[binread]
+#[derive(Debug)]
+pub struct Vector3 {
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+}
+
+#[allow(dead_code)]
+#[binread]
+#[derive(Debug)]
+pub struct BoundingBox {
+    pub min: Vector3,
+    pub max: Vector3,
 }

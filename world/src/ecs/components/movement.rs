@@ -29,11 +29,11 @@ impl Movement {
         position: &Position,
     ) -> MovementUpdateData {
         MovementUpdateData {
-            movement_flags: self.flags, // 0x02000000, // TEMP: Flying
+            movement_flags: 0x02000000, // self.flags, // 0x02000000, // TEMP: Flying
             movement_flags2: 0,         // Always 0 in 2.4.3
             timestamp: world_context.game_time().as_millis() as u32, // Will overflow every 49.7 days
             position: *position,
-            pitch: self.pitch,
+            pitch: Some(0.0), // self.pitch,
             fall_time: self.fall_time,
             speed_walk: self.speed_walk,
             speed_run: self.speed_run,

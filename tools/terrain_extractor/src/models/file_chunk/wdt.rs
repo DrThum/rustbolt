@@ -37,6 +37,7 @@ impl WDT {
             .read_le()
             .expect("failed to read chunk from WDT file");
         if let Ok(main_chunk) = chunk.as_typed(FileType::WDT).downcast::<MAIN>() {
+            // TODO: For non-terrain-based maps, there is one MWMO and one MODF chunk here
             // let chunk: FileChunk = reader.read_le().expect("failed to read chunk from WDT file");
             // if let Err(_) = chunk.as_typed().downcast::<MWMO>() {
             //     error!("expected MWMO chunk, got {}", chunk.magic_str());

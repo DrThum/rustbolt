@@ -1,3 +1,5 @@
+extern crate nalgebra_glm as glm;
+
 use std::{
     fs::{self, File},
     io::{Cursor, Read, Seek, SeekFrom, Write},
@@ -10,9 +12,8 @@ use binrw::BinWriterExt;
 use bytemuck::cast_slice;
 use futures::future::join_all;
 use indicatif::{ProgressBar, ProgressStyle};
-use log::warn;
-use models::file_chunk::{adt::ADT, wdt::WDT};
-use shared::models::terrain_info::TerrainBlock;
+use log::{error, warn};
+use models::file_chunk::{adt::ADT, wdt::WDT, wmo::WMO};
 use tokio::task::JoinHandle;
 use tools_shared::mpq_manager::MPQManager;
 
@@ -152,7 +153,8 @@ pub async fn extract_adts(
                     .unwrap()
                     .unwrap();
 
-                if let Some(terrain_block) = adt_data.and_then(|data| read_adt(&data)) {
+                if let Some(adt) = adt_data.and_then(|data| read_adt(&data)) {
+                    let terrain_block = adt.terrain_block();
                     let mut file = fs::OpenOptions::new()
                         .create(true)
                         .write(true)
@@ -162,8 +164,24 @@ pub async fn extract_adts(
                     writer.write_le(&terrain_block).unwrap();
 
                     file.write_all(writer.get_ref()).unwrap();
+
+                    for &wmo_to_extract in adt.list_wmos_to_extract().iter() {
+                        let root_wmo_data = manager
+                            .get_file_data(wmo_to_extract.clone())
+                            .await
+                            .await
+                            .unwrap()
+                            .unwrap();
+
+                        // println!("for wmo {}", wmo_to_extract);
+                        if let Some(_wmo) = read_root_wmo(&root_wmo_data.unwrap()) {
+                            // DO SOMETHING
+                        } else {
+                            error!("failed to read wmo data at {}", wmo_to_extract);
+                        }
+                    }
                 } else {
-                    warn!("failed to extract terrain info");
+                    warn!("failed to read ADT data");
                 }
 
                 prog_bar.lock().unwrap().inc(1);
@@ -188,9 +206,17 @@ pub fn read_wdt(raw: &Vec<u8>) -> Option<WDT> {
     }
 }
 
-pub fn read_adt(raw: &Vec<u8>) -> Option<TerrainBlock> {
+pub fn read_adt(raw: &Vec<u8>) -> Option<ADT> {
     if !raw.is_empty() {
-        ADT::parse(raw).map(|adt| adt.to_terrain_block())
+        ADT::parse(raw)
+    } else {
+        None
+    }
+}
+
+pub fn read_root_wmo(raw: &Vec<u8>) -> Option<WMO> {
+    if !raw.is_empty() {
+        WMO::parse_root(raw)
     } else {
         None
     }

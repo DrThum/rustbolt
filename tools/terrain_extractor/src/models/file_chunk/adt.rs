@@ -1,14 +1,20 @@
+use std::collections::HashMap;
+
 use binrw::{binread, io::Cursor, BinReaderExt};
+use bytemuck::cast_slice;
 use enumflags2::{bitflags, BitFlags};
 use log::error;
 use shared::models::terrain_info::{
-    LiquidFlags, LiquidTypeEntry, TerrainBlock, TerrainChunk, TerrainLiquidInfo,
+    LiquidFlags, LiquidTypeEntry, TerrainBlock, TerrainChunk, TerrainLiquidInfo, MAP_MAX_COORD,
 };
 
-use super::{FileChunk, FileType, TypedFileChunk, MVER};
+use super::{BoundingBox, FileChunk, FileType, TypedFileChunk, Vector3, MVER};
 
 pub struct ADT {
     mcnk_chunks: Vec<MCNK>,
+    mwid_chunk: MWID,
+    mwmo_chunk: MWMO,
+    modf_chunk: MODF, // WMO placements
 }
 
 // An ADT has 16x16 = 256 map chunks
@@ -46,9 +52,10 @@ impl ADT {
         let chunk: FileChunk = reader
             .read_le()
             .expect("failed to read chunk from ADT file");
-        if let Err(_) = chunk.as_typed(FileType::ADT).downcast::<MMDX>() {
-            error!("expected MMDX chunk, got {}", chunk.magic_str());
-        }
+        let _mmdx = chunk
+            .as_typed(FileType::ADT)
+            .downcast::<MMDX>()
+            .unwrap_or_else(|_| panic!("expected MMDX chunk, got {}", chunk.magic_str()));
 
         let chunk: FileChunk = reader
             .read_le()
@@ -60,16 +67,18 @@ impl ADT {
         let chunk: FileChunk = reader
             .read_le()
             .expect("failed to read chunk from ADT file");
-        if let Err(_) = chunk.as_typed(FileType::ADT).downcast::<MWMO>() {
-            error!("expected MWMO chunk, got {}", chunk.magic_str());
-        }
+        let mwmo = chunk
+            .as_typed(FileType::ADT)
+            .downcast::<MWMO>()
+            .unwrap_or_else(|_| panic!("expected MWMO chunk, got {}", chunk.magic_str()));
 
         let chunk: FileChunk = reader
             .read_le()
             .expect("failed to read chunk from ADT file");
-        if let Err(_) = chunk.as_typed(FileType::ADT).downcast::<MWID>() {
-            error!("expected MWID chunk, got {}", chunk.magic_str());
-        }
+        let mwid = chunk
+            .as_typed(FileType::ADT)
+            .downcast::<MWID>()
+            .unwrap_or_else(|_| panic!("expected MWID chunk, got {}", chunk.magic_str()));
 
         let chunk: FileChunk = reader
             .read_le()
@@ -81,9 +90,10 @@ impl ADT {
         let chunk: FileChunk = reader
             .read_le()
             .expect("failed to read chunk from ADT file");
-        if let Err(_) = chunk.as_typed(FileType::ADT).downcast::<MODF>() {
-            error!("expected MODF chunk, got {}", chunk.magic_str());
-        }
+        let modf = chunk
+            .as_typed(FileType::ADT)
+            .downcast::<MODF>()
+            .unwrap_or_else(|_| panic!("expected MODF chunk, got {}", chunk.magic_str()));
 
         let mut mcnk_chunks: Vec<MCNK> = Vec::new();
         for _i in 0..256 {
@@ -103,10 +113,15 @@ impl ADT {
             mcnk_chunks.len()
         );
 
-        Some(ADT { mcnk_chunks })
+        Some(ADT {
+            mcnk_chunks,
+            mwid_chunk: *mwid,
+            mwmo_chunk: *mwmo,
+            modf_chunk: *modf,
+        })
     }
 
-    pub(crate) fn to_terrain_block(&self) -> TerrainBlock {
+    pub(crate) fn terrain_block(&self) -> TerrainBlock {
         let terrain_chunks: Vec<TerrainChunk> = self
             .mcnk_chunks
             .iter()
@@ -130,6 +145,26 @@ impl ADT {
 
         TerrainBlock::new(terrain_chunks)
     }
+
+    pub(crate) fn list_wmos_to_extract(&self) -> Vec<&String> {
+        self.modf_chunk
+            .wmo_placements
+            .iter()
+            .map(|wmo_placement| {
+                let mwmo_offset =
+                    self.mwid_chunk.offsets[wmo_placement.mwid_index as usize] as usize;
+                self.mwmo_chunk.filenames.get(&mwmo_offset).unwrap()
+            })
+            .collect()
+    }
+    // TODO WMO:
+    // For each record in self.modf_chunk.wmo_placements
+    // - Open the root wmo file (follow the path through MODF -> MWID -> MWMO)
+    // - Read MOHD to get data (among other things, the number of groups)
+    //     https://wowdev.wiki/WMO#MOHD_chunk
+    // - For each wmo group
+    //   - Read relevant data (to be defined)
+    // - Build a mesh for the whole map? just for a chunk? how to handle cross-chunk situations?
 }
 
 #[binread]
@@ -228,15 +263,20 @@ impl TypedFileChunk for MTEX {
 }
 
 #[allow(dead_code)]
+#[derive(Debug)]
 pub struct MMDX {
-    filenames: Vec<u8>, // No need to parse this one
+    filenames: Vec<String>,
 }
 
 impl MMDX {
     pub fn parse(raw: &Vec<u8>) -> Result<MMDX, binrw::Error> {
-        Ok(MMDX {
-            filenames: raw.clone(),
-        })
+        let filenames: Vec<String> = raw
+            .split(|&c| c == 0)
+            .map(|ints| String::from_utf8(ints.to_vec()).unwrap())
+            .filter(|str| !str.is_empty())
+            .collect();
+
+        Ok(MMDX { filenames })
     }
 }
 
@@ -252,7 +292,7 @@ impl TypedFileChunk for MMDX {
 
 #[allow(dead_code)]
 pub struct MMID {
-    offsets: Vec<u8>, // No need to parse this one
+    offsets: Vec<u8>,
 }
 
 impl MMID {
@@ -274,15 +314,32 @@ impl TypedFileChunk for MMID {
 }
 
 #[allow(dead_code)]
+#[derive(Debug)]
 pub struct MWMO {
-    filenames: Vec<u8>, // No need to parse this one
+    // The key is the offset of the string from the start of the chunk
+    pub filenames: HashMap<usize, String>,
 }
 
 impl MWMO {
     pub fn parse(raw: &Vec<u8>) -> Result<MWMO, binrw::Error> {
-        Ok(MWMO {
-            filenames: raw.clone(),
-        })
+        let mut filenames: HashMap<usize, String> = HashMap::new();
+        let mut buffer: Vec<u8> = Vec::new();
+        let mut current_start_index = 0;
+
+        raw.iter().enumerate().for_each(|(index, c)| {
+            if *c == 0 {
+                let as_string = String::from_utf8(buffer.to_vec()).unwrap();
+                if !as_string.is_empty() {
+                    filenames.insert(current_start_index, as_string);
+                }
+                buffer.clear();
+                current_start_index = index + 1;
+            } else {
+                buffer.push(*c);
+            }
+        });
+
+        Ok(MWMO { filenames })
     }
 }
 
@@ -297,14 +354,15 @@ impl TypedFileChunk for MWMO {
 }
 
 #[allow(dead_code)]
+#[derive(Debug)]
 pub struct MWID {
-    offsets: Vec<u8>, // No need to parse this one
+    pub offsets: Vec<u32>,
 }
 
 impl MWID {
     pub fn parse(raw: &Vec<u8>) -> Result<MWID, binrw::Error> {
         Ok(MWID {
-            offsets: raw.clone(),
+            offsets: cast_slice(&raw).to_vec(),
         })
     }
 }
@@ -341,13 +399,86 @@ impl TypedFileChunk for MDDF {
 }
 
 #[allow(dead_code)]
+#[derive(Debug)]
 pub struct MODF {
-    data: Vec<u8>,
+    wmo_placements: Vec<WmoPlacement>,
+}
+
+#[allow(dead_code)]
+#[binread]
+#[derive(Debug)]
+pub struct WmoPlacement {
+    mwid_index: u32,
+    _uuid: u32,
+    position: Vector3,
+    rotation: Vector3,
+    bounding_box: BoundingBox,
+    flags: u16,
+    doodad_mods_index: u16, // MODS chunk in WMO file
+    _name_set: u16,
+    _padding: u16,
 }
 
 impl MODF {
     pub fn parse(raw: &Vec<u8>) -> Result<MODF, binrw::Error> {
-        Ok(MODF { data: raw.clone() })
+        let mut reader = Cursor::new(raw);
+        let mut wmo_placements: Vec<WmoPlacement> = Vec::new();
+        while let Ok(mut placement) = reader.read_le::<WmoPlacement>() {
+            // println!("{:?}", placement.bounding_box.min);
+            // 1. Translate the position onto the World referential
+            let converted_position = Vector3 {
+                x: MAP_MAX_COORD - placement.bounding_box.min.x,
+                y: placement.bounding_box.min.y,
+                z: MAP_MAX_COORD - placement.bounding_box.min.z,
+            };
+            // println!("\t-> {converted_position:?}");
+
+            // 3. Apply rotations
+            // let converted_position = glm::rotate_x_vec4(
+            //     &glm::make_vec4(&[
+            //         converted_position.x,
+            //         converted_position.y,
+            //         converted_position.z,
+            //         1.0,
+            //     ]),
+            //     f32::to_radians(placement.rotation.x),
+            // );
+            // let converted_position = glm::rotate_y_vec4(
+            //     &glm::make_vec4(&[
+            //         converted_position.x,
+            //         converted_position.y,
+            //         converted_position.z,
+            //         1.0,
+            //     ]),
+            //     f32::to_radians(placement.rotation.y),
+            // );
+            // let converted_position = glm::rotate_z_vec4(
+            //     &glm::make_vec4(&[
+            //         converted_position.x,
+            //         converted_position.y,
+            //         converted_position.z,
+            //         1.0,
+            //     ]),
+            //     f32::to_radians(placement.rotation.z),
+            // );
+            // println!("\t-> {converted_position:?}");
+
+            // 2. Swap axes:
+            // - World X is WMO Z
+            // - World Y is WMO X
+            // - World Z is WMO Y
+            let converted_position = Vector3 {
+                x: converted_position.z,
+                y: converted_position.x,
+                z: converted_position.y,
+            };
+            // println!("\t\t-> {converted_position:?}");
+
+            placement.position = converted_position;
+            wmo_placements.push(placement);
+        }
+
+        Ok(MODF { wmo_placements })
     }
 }
 
@@ -410,12 +541,13 @@ pub struct MCNKHeader {
     offset_mccv: u32,
 }
 
-#[binread]
 #[allow(dead_code)]
 pub struct MCNK {
     header: MCNKHeader,
     height_map: [f32; 145], // Height relative to position_y in MCNKHeader
     liquid_info: Option<MCLQ>,
+    m2_refs: Vec<u32>,
+    wmo_refs: Vec<u32>,
 }
 
 impl MCNK {
@@ -423,7 +555,7 @@ impl MCNK {
         let mut reader = Cursor::new(raw);
         let header: MCNKHeader = reader.read_le()?;
 
-        // Seek to the MCVT chunk
+        // Seek to the MCVT sub-chunk
         // Technically we have to do - 8 because the offset is from the
         // beginning of the chunk and our raw vector starts after 'magic'
         // and 'size' (see FileChunk), then + 8 to skip the sub-chunk header
@@ -439,10 +571,26 @@ impl MCNK {
             Some(mclq)
         };
 
+        // Seek to the MCRF sub-chunk
+        // Same logic applies for +8/-8 than the MCVT sub-chunk a few lines above
+        reader.set_position((header.offset_mcrf - 8 + 8) as u64);
+        let mut doodad_refs: Vec<u32> = Vec::new();
+        for _ in 0..header.nb_doodad_refs {
+            let doodad_index: u32 = reader.read_le()?;
+            doodad_refs.push(doodad_index);
+        }
+        let mut map_object_refs: Vec<u32> = Vec::new();
+        for _ in 0..header.nb_map_object_refs {
+            let object_index: u32 = reader.read_le()?;
+            map_object_refs.push(object_index);
+        }
+
         Ok(MCNK {
             header,
             height_map,
             liquid_info,
+            m2_refs: doodad_refs,
+            wmo_refs: map_object_refs,
         })
     }
 }

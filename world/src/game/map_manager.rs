@@ -57,7 +57,7 @@ impl MapManager {
         info!("Instantiating continents...");
         for map in data_store
             .get_all_map_records()
-            .filter(|m| !m.is_instanceable())
+            .filter(|m| m.is_continent())
         {
             let mut map_terrains: HashMap<TerrainBlockCoords, TerrainBlock> = HashMap::new();
 

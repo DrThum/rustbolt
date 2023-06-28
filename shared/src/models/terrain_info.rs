@@ -82,7 +82,7 @@ pub type HeightMap = [f32; 145];
  *             |        |
  *           142--------144
  *
- * If there is a hole, then height is INVALID_HEIGHT, otherwise use the height map
+ * If there is a hole, then height is None, otherwise use the height map
  */
 
 #[binrw]
@@ -139,7 +139,7 @@ impl TerrainBlock {
         }
     }
 
-    pub fn get_height(&self, position_x: f32, position_y: f32) -> f32 {
+    pub fn get_height(&self, position_x: f32, position_y: f32) -> Option<f32> {
         let chunk_row =
             ((512.0 - (position_x / CHUNK_WIDTH)) % BLOCK_WIDTH_IN_CHUNKS as f32).floor() as usize;
         let chunk_col =
@@ -147,16 +147,18 @@ impl TerrainBlock {
 
         let chunk = self.get_chunk(chunk_row, chunk_col);
 
-        // TODO: handle terrain holes
-
         let subchunk_width = CHUNK_WIDTH / 8.0;
-        let chunk_offset_x = ((MAP_MAX_COORD - position_x) % CHUNK_WIDTH) / subchunk_width;
-        let chunk_offset_y = ((MAP_MAX_COORD - position_y) % CHUNK_WIDTH) / subchunk_width;
+        let x_offset_in_chunk = ((MAP_MAX_COORD - position_x) % CHUNK_WIDTH) / subchunk_width;
+        let y_offset_in_chunk = ((MAP_MAX_COORD - position_y) % CHUNK_WIDTH) / subchunk_width;
 
-        let row_start_index = chunk_offset_x.floor() as usize; // Outer vertex
+        if chunk.has_hole_at(x_offset_in_chunk, y_offset_in_chunk) {
+            return None;
+        }
+
+        let row_start_index = x_offset_in_chunk.floor() as usize; // Outer vertex
         let row_end_index = row_start_index + 1;
 
-        let col_start_index = chunk_offset_y.floor() as usize; // Outer vertex
+        let col_start_index = y_offset_in_chunk.floor() as usize; // Outer vertex
         let col_end_index = col_start_index + 1;
 
         // +--------------> Y offset
@@ -178,12 +180,12 @@ impl TerrainBlock {
         let bottom_left = chunk.height_map[row_end_index * 17 + col_start_index];
         let bottom_right = chunk.height_map[row_end_index * 17 + col_end_index];
 
-        let normalized_chunk_offset_x = chunk_offset_x / CHUNK_WIDTH;
-        let normalized_chunk_offset_y = chunk_offset_y / CHUNK_WIDTH;
+        let normalized_chunk_offset_x = x_offset_in_chunk / CHUNK_WIDTH;
+        let normalized_chunk_offset_y = y_offset_in_chunk / CHUNK_WIDTH;
 
         let height;
-        if chunk_offset_x + chunk_offset_y < 1.0 {
-            if chunk_offset_x < chunk_offset_y {
+        if x_offset_in_chunk + y_offset_in_chunk < 1.0 {
+            if x_offset_in_chunk < y_offset_in_chunk {
                 // Triangle 1
                 height = top_left
                     + (top_right - top_left) * normalized_chunk_offset_y
@@ -195,7 +197,7 @@ impl TerrainBlock {
                     + (center - top_left) * (2.0 * normalized_chunk_offset_y);
             }
         } else {
-            if chunk_offset_x < chunk_offset_y {
+            if x_offset_in_chunk < y_offset_in_chunk {
                 // Triangle 3
                 height = top_right
                     + (bottom_right - top_right) * normalized_chunk_offset_x
@@ -208,7 +210,7 @@ impl TerrainBlock {
             }
         }
 
-        height + chunk.base_height
+        Some(height + chunk.base_height)
     }
 
     fn get_chunk(&self, row: usize, col: usize) -> &TerrainChunk {
@@ -262,6 +264,19 @@ impl TerrainChunk {
             has_liquid: liquid_info.is_some(),
             liquid_info,
         }
+    }
+
+    pub fn has_hole_at(&self, x_offset_in_chunk: f32, y_offset_in_chunk: f32) -> bool {
+        // Find which square contains the coordinates
+        let hole_width = CHUNK_WIDTH / 4.0;
+        let row = (x_offset_in_chunk / hole_width).floor() as usize;
+        let col = (y_offset_in_chunk / hole_width).floor() as usize;
+
+        // Calculate the bit index in self.holes
+        let bit_index = col * 4 + row;
+
+        // Return whether that bit is set
+        self.holes.contains(bit_index)
     }
 }
 

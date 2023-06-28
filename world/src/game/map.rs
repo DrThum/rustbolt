@@ -679,13 +679,10 @@ impl Map {
             row: block_row,
             col: block_col,
         };
-        if let Some(terrain_block) = self.terrain.get(&terrain_block_coords) {
-            return Some(terrain_block.get_height(position_x, position_y));
-            // TODO: terrain_block.map(_.get_height) instead
-        }
 
-        let position_z = 0.0;
-        Some(position_z)
+        self.terrain
+            .get(&terrain_block_coords)
+            .and_then(|block| block.get_height(position_x, position_y))
     }
 
     pub fn visibility_distance(&self) -> f32 {

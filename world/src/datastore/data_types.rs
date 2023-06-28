@@ -319,6 +319,13 @@ impl MapRecord {
             _ => true,
         }
     }
+
+    pub fn is_continent(&self) -> bool {
+        match self.id {
+            0 | 1 | 530 => true,
+            _ => false,
+        }
+    }
 }
 
 pub struct EmotesTextRecord {

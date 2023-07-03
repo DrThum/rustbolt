@@ -1,0 +1,11 @@
+[package]
+name = "cartographer"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.71"
+bevy = "0.10.1"
+binrw = "0.11.1"
+smooth-bevy-cameras = "0.8.0"
+shared = { path = "../../shared" }

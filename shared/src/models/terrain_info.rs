@@ -87,12 +87,13 @@ pub type HeightMap = [f32; 145];
 
 #[binrw]
 #[allow(dead_code)]
+#[derive(Debug)]
 // 64 * 64 = 4096 blocks per map
 pub struct TerrainBlock {
     magic: [u8; 4],
     version: u32,
     #[br(count = 256)]
-    chunks: Vec<TerrainChunk>,
+    pub chunks: Vec<TerrainChunk>,
 }
 
 impl TerrainBlock {
@@ -224,12 +225,13 @@ impl TerrainBlock {
 
 #[binrw]
 #[allow(dead_code)]
+#[derive(Debug)]
 // 16 * 16 = 256 chunks per block
 pub struct TerrainChunk {
     row: u32, // index_x in MCNK
     col: u32, // index_y in MCNK
     area_id: u32,
-    base_height: f32,
+    pub base_height: f32,
     #[bw(map = |bs: &FixedBitSet| bs.as_slice()[0])]
     #[br(map = |bits: u32| FixedBitSet::with_capacity_and_blocks(16, vec![bits]))]
     holes: FixedBitSet, // See explanation on top of this file
@@ -282,6 +284,7 @@ impl TerrainChunk {
 
 #[binrw]
 #[allow(dead_code)]
+#[derive(Debug)]
 pub struct TerrainLiquidInfo {
     entry: LiquidTypeEntry,
     #[br(map = |raw: u8| unsafe { BitFlags::from_bits_unchecked(raw) })]
@@ -312,7 +315,7 @@ impl TerrainLiquidInfo {
 #[binrw]
 #[br(repr = u8)]
 #[bw(repr = u8)]
-#[derive(Clone, Copy, N)]
+#[derive(Clone, Copy, N, Debug)]
 pub enum LiquidTypeEntry {
     NoWater = 0,
     Water = 1,
@@ -324,7 +327,7 @@ pub enum LiquidTypeEntry {
 #[allow(dead_code)]
 #[bitflags]
 #[repr(u8)]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum LiquidFlags {
     Water = 0x01,
     Ocean = 0x02,

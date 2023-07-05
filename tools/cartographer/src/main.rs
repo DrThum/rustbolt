@@ -1,4 +1,7 @@
-use bevy::prelude::*;
+use bevy::{
+    diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
+    prelude::*,
+};
 use cartographer::{
     models::terrain::{TerrainBlockLoader, WrappedTerrainBlock},
     resources::terrain_handle::TerrainHandle,
@@ -16,6 +19,8 @@ fn main() {
         }))
         .add_plugin(LookTransformPlugin)
         .add_plugin(OrbitCameraPlugin::default())
+        .add_plugin(LogDiagnosticsPlugin::default())
+        .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_asset::<WrappedTerrainBlock>()
         .init_asset_loader::<TerrainBlockLoader>()
         .init_resource::<TerrainHandle>()

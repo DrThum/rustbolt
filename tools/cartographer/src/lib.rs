@@ -2,7 +2,7 @@ use bevy::{
     prelude::*,
     render::{mesh::Indices, render_resource::PrimitiveTopology},
 };
-use models::terrain::WrappedTerrainBlock;
+use models::terrain::{self, WrappedTerrainBlock};
 use resources::terrain_handle::TerrainHandle;
 use shared::models::terrain_info::{BLOCK_WIDTH, CHUNK_WIDTH, MAP_WIDTH_IN_BLOCKS};
 use smooth_bevy_cameras::controllers::orbit::{OrbitCameraBundle, OrbitCameraController};
@@ -80,42 +80,36 @@ pub fn display_terrain(
                 let mut indices: Vec<u32> = Vec::new();
 
                 for (chunk_index, chunk) in terrain.chunks.iter().enumerate() {
-                    let hm = &chunk.height_map;
+                    let hm = terrain::interpolate_height_map(&chunk.height_map.to_vec());
                     let base_height = chunk.base_height;
                     let chunk_z_offset = block_z_offset + (chunk_index / 16) as f32 * CHUNK_WIDTH;
                     let chunk_x_offset = block_x_offset + (chunk_index % 16) as f32 * CHUNK_WIDTH;
 
-                    for row in 0..8 {
-                        let z_offset = chunk_z_offset + row as f32 * CHUNK_WIDTH / 8.0;
+                    for row in 0..16 {
+                        let z_offset = chunk_z_offset + row as f32 * CHUNK_WIDTH / 16.0;
 
-                        for col in 0..8 {
-                            let x_offset = chunk_x_offset + col as f32 * CHUNK_WIDTH / 8.0;
+                        for col in 0..16 {
+                            let x_offset = chunk_x_offset + col as f32 * CHUNK_WIDTH / 16.0;
                             let base_hm_index = row * 17 + col;
 
                             let top_left = [x_offset, base_height + hm[base_hm_index], z_offset]
                                 .map(|v| v * SCALE_FACTOR);
                             let top_right = [
-                                x_offset + CHUNK_WIDTH / 8.0,
+                                x_offset + CHUNK_WIDTH / 16.0,
                                 base_height + hm[base_hm_index + 1],
                                 z_offset,
-                            ]
-                            .map(|v| v * SCALE_FACTOR);
-                            let center = [
-                                x_offset + CHUNK_WIDTH / 16.0,
-                                base_height + hm[base_hm_index + 9],
-                                (z_offset + CHUNK_WIDTH / 16.0),
                             ]
                             .map(|v| v * SCALE_FACTOR);
                             let bottom_left = [
                                 x_offset,
                                 base_height + hm[base_hm_index + 17],
-                                (z_offset + CHUNK_WIDTH / 8.0),
+                                (z_offset + CHUNK_WIDTH / 16.0),
                             ]
                             .map(|v| v * SCALE_FACTOR);
                             let bottom_right = [
-                                x_offset + CHUNK_WIDTH / 8.0,
+                                x_offset + CHUNK_WIDTH / 16.0,
                                 base_height + hm[base_hm_index + 18],
-                                (z_offset + CHUNK_WIDTH / 8.0),
+                                (z_offset + CHUNK_WIDTH / 16.0),
                             ]
                             .map(|v| v * SCALE_FACTOR);
 
@@ -123,7 +117,6 @@ pub fn display_terrain(
 
                             points.push(top_left);
                             points.push(top_right);
-                            points.push(center);
                             points.push(bottom_left);
                             points.push(bottom_right);
 
@@ -131,15 +124,12 @@ pub fn display_terrain(
                             //  We push the 5 relevant points to the `points` Vec then we build the
                             //  triangles from these 5 points, via the `set_incices` method.
                             //
-                            // - Triangle 1 is top left, top right, center so 0 1 2
-                            // - Triangle 2 is center, top right, bottom right so 2 1 4
-                            // - Triangle 3 is center, bottom right, bottom left so 2 4 3
-                            // - Triangle 4 is top left, center, bottom left so 0 2 3
+                            // - Triangle 1 is top left, top right, bottom_right so 0 1 3
+                            // - Triangle 2 is top left, bottom right, bottom left so 0 3 2
                             //
                             // Note: we have to draw them inverted to have the visible face up.
                             indices.extend_from_slice(
-                                &[2, 1, 0, 4, 1, 2, 3, 4, 2, 3, 2, 0]
-                                    .map(|v| v + indices_index_base),
+                                &[3, 1, 0, 2, 3, 0].map(|v| v + indices_index_base),
                             );
                         }
                     }

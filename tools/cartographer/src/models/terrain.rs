@@ -37,3 +37,39 @@ impl AssetLoader for TerrainBlockLoader {
         &["terrain"]
     }
 }
+
+pub fn interpolate_height_map(height_map: &Vec<f32>) -> Vec<f32> {
+    assert!(height_map.len() == 145);
+    let mut interpolated_nested: Vec<Vec<f32>> = Vec::new();
+
+    for (idx, &height) in height_map.iter().enumerate() {
+        if (idx + 17 - 8) % 17 == 0 {
+            // End of outer verticex row (8, 25, 42, ...): nothing to interpolate
+            interpolated_nested.push(vec![height]);
+        } else if idx % 17 < 8 {
+            // Outer vertices row (0-7, 17-24, ...): interpolate the mean between the current point and the next one
+            let mean = (height + height_map[idx + 1]) / 2.0;
+            interpolated_nested.push(vec![height, mean]);
+        } else {
+            // Inner vertices (9-16, 26-33, ...)
+            if idx % 17 == 9 {
+                // First inner vertex of the row, interpolate before and after
+                interpolated_nested.push(vec![
+                    (height_map[idx - 9] + height_map[idx + 8]) / 2.0,
+                    height,
+                    (height_map[idx - 8] + height_map[idx + 9]) / 2.0,
+                ]);
+            } else {
+                // Other vertices, only interpolate after
+                interpolated_nested.push(vec![
+                    height,
+                    (height_map[idx - 8] + height_map[idx + 9]) / 2.0,
+                ]);
+            }
+        }
+    }
+
+    let flattened: Vec<f32> = interpolated_nested.into_iter().flatten().collect();
+    assert!(flattened.len() == 17 * 17);
+    flattened
+}

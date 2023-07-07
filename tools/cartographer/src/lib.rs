@@ -2,9 +2,11 @@ use bevy::{
     prelude::*,
     render::{mesh::Indices, render_resource::PrimitiveTopology},
 };
-use models::terrain::{self, WrappedTerrainBlock};
+use models::terrain::{self, Rtin, Tile, WrappedTerrainBlock};
 use resources::terrain_handle::TerrainHandle;
-use shared::models::terrain_info::{BLOCK_WIDTH, CHUNK_WIDTH, MAP_WIDTH_IN_BLOCKS};
+use shared::models::terrain_info::{
+    BLOCK_WIDTH, BLOCK_WIDTH_IN_CHUNKS, CHUNK_WIDTH, MAP_WIDTH_IN_BLOCKS,
+};
 use smooth_bevy_cameras::controllers::orbit::{OrbitCameraBundle, OrbitCameraController};
 
 pub mod models {
@@ -21,8 +23,8 @@ pub fn setup(
     server: Res<AssetServer>,
     mut terrain_handles: ResMut<TerrainHandle>,
 ) {
-    for row in 30..34 {
-        for col in 30..34 {
+    for row in 0..64 {
+        for col in 0..64 {
             let handle: Handle<WrappedTerrainBlock> =
                 server.load(format!("data/terrain/Azeroth_{row}_{col}.terrain"));
             terrain_handles.0.insert(handle, (row, col));
@@ -47,17 +49,23 @@ pub fn setup(
         .insert(OrbitCameraBundle::new(
             OrbitCameraController {
                 mouse_rotate_sensitivity: Vec2::splat(0.5),
-                mouse_translate_sensitivity: Vec2::splat(0.4),
+                mouse_translate_sensitivity: Vec2::splat(0.7),
                 ..default()
             },
-            Vec3::new(0.0, 5.0, 5.0),
-            Vec3::new(0., 0., 0.),
+            Vec3::new(0.0, 1.2, 5.),
+            Vec3::new(0., 1., 0.),
             Vec3::Y,
         ));
 }
 
 pub const SCALE_FACTOR: f32 = 0.01;
+pub const HEIGHT_MAP_WIDTH: usize = 17;
+pub const GRID_WIDTH: usize = 257;
+pub const RTIN_SCALE_FACTOR: f32 = 2.0835;
 
+// X axis is growing from left to right
+// Y axis is growing towards the sky
+// Z axis is growing from far away towards the camera
 pub fn display_terrain(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -76,64 +84,56 @@ pub fn display_terrain(
                 let block_z_offset =
                     BLOCK_WIDTH * (block_row - (MAP_WIDTH_IN_BLOCKS as i32 / 2)) as f32;
 
-                let mut points: Vec<[f32; 3]> = Vec::new();
-                let mut indices: Vec<u32> = Vec::new();
+                // Each block is 16 chunks wide and each chunk has a height map of width 17.
+                // But there is an overlap between the last row/column on a chunk and the first
+                // row/column of the next chunk (except for the last one). So the total width
+                // (and height) is 15 * 16 + 17 = 257.
+                let mut points: Vec<[f32; 3]> = vec![[0.0, 0.0, 0.0]; GRID_WIDTH * GRID_WIDTH];
 
                 for (chunk_index, chunk) in terrain.chunks.iter().enumerate() {
-                    let hm = terrain::interpolate_height_map(&chunk.height_map.to_vec());
+                    // Offsets in the world to be added to the coordinates
+                    let chunk_x_offset =
+                        block_x_offset + (chunk_index % BLOCK_WIDTH_IN_CHUNKS) as f32 * CHUNK_WIDTH;
+                    let chunk_z_offset =
+                        block_z_offset + (chunk_index / BLOCK_WIDTH_IN_CHUNKS) as f32 * CHUNK_WIDTH;
+
+                    // Starting position in the `points` vector
+                    let chunk_first_row = chunk_index / 16 * 16; // This makes sense thanks to the
+                                                                 // integer division
+                    let chunk_first_col = chunk_index % 16 * 16;
+
+                    let interpolated_height_map =
+                        terrain::interpolate_height_map(&chunk.height_map.to_vec());
                     let base_height = chunk.base_height;
-                    let chunk_z_offset = block_z_offset + (chunk_index / 16) as f32 * CHUNK_WIDTH;
-                    let chunk_x_offset = block_x_offset + (chunk_index % 16) as f32 * CHUNK_WIDTH;
+                    interpolated_height_map
+                        .into_iter()
+                        .enumerate()
+                        .for_each(|(index, height)| {
+                            let position_x = chunk_x_offset
+                                + (index % HEIGHT_MAP_WIDTH) as f32 * CHUNK_WIDTH / 16.0;
+                            let position_z = chunk_z_offset
+                                + (index / HEIGHT_MAP_WIDTH) as f32 * CHUNK_WIDTH / 16.0;
 
-                    for row in 0..16 {
-                        let z_offset = chunk_z_offset + row as f32 * CHUNK_WIDTH / 16.0;
+                            // Where to store this point in the `points` vector
+                            let point_row_offset = index / HEIGHT_MAP_WIDTH;
+                            let point_col_offset = index % HEIGHT_MAP_WIDTH;
+                            let position_in_points_vec = (chunk_first_row + point_row_offset)
+                                * GRID_WIDTH
+                                + (chunk_first_col + point_col_offset);
 
-                        for col in 0..16 {
-                            let x_offset = chunk_x_offset + col as f32 * CHUNK_WIDTH / 16.0;
-                            let base_hm_index = row * 17 + col;
-
-                            let top_left = [x_offset, base_height + hm[base_hm_index], z_offset]
-                                .map(|v| v * SCALE_FACTOR);
-                            let top_right = [
-                                x_offset + CHUNK_WIDTH / 16.0,
-                                base_height + hm[base_hm_index + 1],
-                                z_offset,
-                            ]
-                            .map(|v| v * SCALE_FACTOR);
-                            let bottom_left = [
-                                x_offset,
-                                base_height + hm[base_hm_index + 17],
-                                (z_offset + CHUNK_WIDTH / 16.0),
-                            ]
-                            .map(|v| v * SCALE_FACTOR);
-                            let bottom_right = [
-                                x_offset + CHUNK_WIDTH / 16.0,
-                                base_height + hm[base_hm_index + 18],
-                                (z_offset + CHUNK_WIDTH / 16.0),
-                            ]
-                            .map(|v| v * SCALE_FACTOR);
-
-                            let indices_index_base: u32 = points.len() as u32;
-
-                            points.push(top_left);
-                            points.push(top_right);
-                            points.push(bottom_left);
-                            points.push(bottom_right);
-
-                            // Indices:
-                            //  We push the 5 relevant points to the `points` Vec then we build the
-                            //  triangles from these 5 points, via the `set_incices` method.
-                            //
-                            // - Triangle 1 is top left, top right, bottom_right so 0 1 3
-                            // - Triangle 2 is top left, bottom right, bottom left so 0 3 2
-                            //
-                            // Note: we have to draw them inverted to have the visible face up.
-                            indices.extend_from_slice(
-                                &[3, 1, 0, 2, 3, 0].map(|v| v + indices_index_base),
-                            );
-                        }
-                    }
+                            points[position_in_points_vec] =
+                                [position_x, height + base_height, position_z];
+                        });
                 }
+
+                let rtin = Rtin::new(257);
+                let tile = Tile::new(&points, &rtin);
+                let (points, indices) = tile.get_mesh(
+                    10.0,
+                    block_x_offset / RTIN_SCALE_FACTOR,
+                    block_z_offset / RTIN_SCALE_FACTOR,
+                    SCALE_FACTOR,
+                );
 
                 let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
                 let points_number = points.len();

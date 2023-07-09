@@ -1,6 +1,7 @@
 use binrw::{binread, io::Cursor, BinReaderExt};
+use shared::models::terrain_info::BoundingBox;
 
-use super::{BoundingBox, ColorData, FileChunk, FileType, TypedFileChunk, MVER};
+use super::{ColorData, FileChunk, FileType, TypedFileChunk, MVER};
 
 pub struct WMO {}
 

@@ -23,8 +23,8 @@ pub fn setup(
     server: Res<AssetServer>,
     mut terrain_handles: ResMut<TerrainHandle>,
 ) {
-    for row in 0..64 {
-        for col in 0..64 {
+    for row in 32..33 {
+        for col in 32..33 {
             let handle: Handle<WrappedTerrainBlock> =
                 server.load(format!("data/terrain/Azeroth_{row}_{col}.terrain"));
             terrain_handles.0.insert(handle, (row, col));
@@ -129,7 +129,7 @@ pub fn display_terrain(
                 let rtin = Rtin::new(257);
                 let tile = Tile::new(&points, &rtin);
                 let (points, indices) = tile.get_mesh(
-                    10.0,
+                    0.0,
                     block_x_offset / RTIN_SCALE_FACTOR,
                     block_z_offset / RTIN_SCALE_FACTOR,
                     SCALE_FACTOR,
@@ -149,6 +149,53 @@ pub fn display_terrain(
                     material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
                     ..default()
                 });
+
+                // Show WMOs bounding box and position (converted to bevy's axes)
+                for wmo_placement in terrain.wmo_placements.iter() {
+                    let min = Vec3 {
+                        x: -wmo_placement.bounding_box.min.y / RTIN_SCALE_FACTOR,
+                        y: wmo_placement.bounding_box.min.z,
+                        z: -wmo_placement.bounding_box.min.x / RTIN_SCALE_FACTOR,
+                    } * SCALE_FACTOR;
+                    let max = Vec3 {
+                        x: -wmo_placement.bounding_box.max.y / RTIN_SCALE_FACTOR,
+                        y: wmo_placement.bounding_box.max.z,
+                        z: -wmo_placement.bounding_box.max.x / RTIN_SCALE_FACTOR,
+                    } * SCALE_FACTOR;
+
+                    // commands.spawn(PbrBundle {
+                    //     mesh: meshes.add(shape::Box::from_corners(min, max).into()),
+                    //     material: materials.add(Color::RED.with_a(0.6).into()),
+                    //     ..default()
+                    // });
+
+                    commands.spawn(PbrBundle {
+                        mesh: meshes.add(shape::UVSphere::default().into()),
+                        material: materials.add(Color::RED.with_a(0.8).into()),
+                        transform: Transform::from_translation(min).with_scale(Vec3::splat(0.02)),
+                        ..default()
+                    });
+                    commands.spawn(PbrBundle {
+                        mesh: meshes.add(shape::UVSphere::default().into()),
+                        material: materials.add(Color::RED.with_a(0.8).into()),
+                        transform: Transform::from_translation(max).with_scale(Vec3::splat(0.02)),
+                        ..default()
+                    });
+
+                    let position = Vec3 {
+                        x: -wmo_placement.position.y / RTIN_SCALE_FACTOR,
+                        y: wmo_placement.position.z,
+                        z: -wmo_placement.position.x / RTIN_SCALE_FACTOR,
+                    } * SCALE_FACTOR;
+
+                    commands.spawn(PbrBundle {
+                        mesh: meshes.add(shape::UVSphere::default().into()),
+                        material: materials.add(Color::YELLOW.with_a(0.8).into()),
+                        transform: Transform::from_translation(position)
+                            .with_scale(Vec3::splat(0.05)),
+                        ..default()
+                    });
+                }
             }
             _ => (),
         }

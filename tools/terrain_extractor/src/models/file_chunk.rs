@@ -106,20 +106,3 @@ pub struct ColorData {
     blue: u8,
     alpha: u8,
 }
-
-#[allow(dead_code)]
-#[binread]
-#[derive(Debug)]
-pub struct Vector3 {
-    pub x: f32,
-    pub y: f32,
-    pub z: f32,
-}
-
-#[allow(dead_code)]
-#[binread]
-#[derive(Debug)]
-pub struct BoundingBox {
-    pub min: Vector3,
-    pub max: Vector3,
-}

@@ -173,7 +173,7 @@ pub async fn extract_adts(
                             .unwrap()
                             .unwrap();
 
-                        // println!("for wmo {}", wmo_to_extract);
+                        println!("for wmo {}", wmo_to_extract);
                         if let Some(_wmo) = read_root_wmo(&root_wmo_data.unwrap()) {
                             // DO SOMETHING
                         } else {

@@ -6,7 +6,7 @@ use enumn::N;
 use fixedbitset::FixedBitSet;
 
 pub const TERRAIN_BLOCK_MAGIC: [u8; 4] = [b'T', b'E', b'R', b'R'];
-pub const TERRAIN_BLOCK_VERSION: u32 = 1;
+pub const TERRAIN_BLOCK_VERSION: u32 = 2;
 
 pub const MAP_WIDTH_IN_BLOCKS: usize = 64;
 pub const BLOCK_WIDTH_IN_CHUNKS: usize = 16;
@@ -89,21 +89,27 @@ pub type HeightMap = [f32; 145];
 #[allow(dead_code)]
 #[derive(Debug)]
 // 64 * 64 = 4096 blocks per map
+// Remember to increment TERRAIN_BLOCK_VERSION when changing this struct!
 pub struct TerrainBlock {
     magic: [u8; 4],
     version: u32,
     #[br(count = 256)]
     pub chunks: Vec<TerrainChunk>,
+    pub num_wmo_placements: u32,
+    #[br(count = num_wmo_placements)]
+    pub wmo_placements: Vec<WmoPlacement>,
 }
 
 impl TerrainBlock {
-    pub fn new(chunks: Vec<TerrainChunk>) -> Self {
+    pub fn new(chunks: Vec<TerrainChunk>, wmo_placements: Vec<WmoPlacement>) -> Self {
         assert!(chunks.len() == 256, "TerrainInfo expects 256 TerrainChunks");
 
         Self {
             magic: TERRAIN_BLOCK_MAGIC,
             version: TERRAIN_BLOCK_VERSION,
             chunks,
+            num_wmo_placements: wmo_placements.len() as u32,
+            wmo_placements,
         }
     }
 
@@ -280,6 +286,30 @@ impl TerrainChunk {
         // Return whether that bit is set
         self.holes.contains(bit_index)
     }
+}
+
+#[derive(Debug)]
+#[binrw]
+pub struct WmoPlacement {
+    pub position: Vector3,
+    pub bounding_box: BoundingBox,
+}
+
+#[binrw]
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy)]
+pub struct Vector3 {
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+}
+
+#[binrw]
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy)]
+pub struct BoundingBox {
+    pub min: Vector3,
+    pub max: Vector3,
 }
 
 #[binrw]

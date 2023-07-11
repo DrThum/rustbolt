@@ -8,26 +8,8 @@ pub struct WMO {}
 impl WMO {
     pub fn parse_root(raw: &Vec<u8>) -> Option<Self> {
         let mut reader = Cursor::new(raw);
-        let chunk: FileChunk = reader
-            .read_le()
-            .expect("failed to read chunk from WMO file");
-        let _mver = chunk
-            .as_typed(FileType::WMO)
-            .downcast::<MVER>()
-            .unwrap_or_else(|_| {
-                panic!("expected MVER chunk, got {}", chunk.magic_str());
-            });
-
-        let chunk: FileChunk = reader
-            .read_le()
-            .expect("failed to read chunk from WMO file");
-        let _mohd = chunk
-            .as_typed(FileType::WMO)
-            .downcast::<MOHD>()
-            .unwrap_or_else(|_| {
-                panic!("expected MOHD chunk, got {}", chunk.magic_str());
-            });
-        // println!("{:?}", mohd);
+        let _mver: Box<MVER> = FileChunk::read_as(FileType::WMO, &mut reader);
+        let _mohd: Box<MOHD> = FileChunk::read_as(FileType::WMO, &mut reader);
 
         None
     }

@@ -22,90 +22,21 @@ pub struct ADT {
 impl ADT {
     pub fn parse(raw: &Vec<u8>) -> Option<ADT> {
         let mut reader = Cursor::new(raw);
-        let chunk: FileChunk = reader
-            .read_le()
-            .expect("failed to read chunk from ADT file");
-        if let Err(_) = chunk.as_typed(FileType::ADT).downcast::<MVER>() {
-            error!("expected MVER chunk, got {}", chunk.magic_str());
-        }
-
-        let chunk: FileChunk = reader
-            .read_le()
-            .expect("failed to read chunk from ADT file");
-        if let Err(_) = chunk.as_typed(FileType::ADT).downcast::<MHDR>() {
-            error!("expected MHDR chunk, got {}", chunk.magic_str());
-        }
-
-        let chunk: FileChunk = reader
-            .read_le()
-            .expect("failed to read chunk from ADT file");
-        if let Err(_) = chunk.as_typed(FileType::ADT).downcast::<MCIN>() {
-            error!("expected MCIN chunk, got {}", chunk.magic_str());
-        }
-
-        let chunk: FileChunk = reader
-            .read_le()
-            .expect("failed to read chunk from ADT file");
-        if let Err(_) = chunk.as_typed(FileType::ADT).downcast::<MTEX>() {
-            error!("expected MTEX chunk, got {}", chunk.magic_str());
-        }
-
-        let chunk: FileChunk = reader
-            .read_le()
-            .expect("failed to read chunk from ADT file");
-        let _mmdx = chunk
-            .as_typed(FileType::ADT)
-            .downcast::<MMDX>()
-            .unwrap_or_else(|_| panic!("expected MMDX chunk, got {}", chunk.magic_str()));
-
-        let chunk: FileChunk = reader
-            .read_le()
-            .expect("failed to read chunk from ADT file");
-        if let Err(_) = chunk.as_typed(FileType::ADT).downcast::<MMID>() {
-            error!("expected MMID chunk, got {}", chunk.magic_str());
-        }
-
-        let chunk: FileChunk = reader
-            .read_le()
-            .expect("failed to read chunk from ADT file");
-        let mwmo = chunk
-            .as_typed(FileType::ADT)
-            .downcast::<MWMO>()
-            .unwrap_or_else(|_| panic!("expected MWMO chunk, got {}", chunk.magic_str()));
-
-        let chunk: FileChunk = reader
-            .read_le()
-            .expect("failed to read chunk from ADT file");
-        let mwid = chunk
-            .as_typed(FileType::ADT)
-            .downcast::<MWID>()
-            .unwrap_or_else(|_| panic!("expected MWID chunk, got {}", chunk.magic_str()));
-
-        let chunk: FileChunk = reader
-            .read_le()
-            .expect("failed to read chunk from ADT file");
-        if let Err(_) = chunk.as_typed(FileType::ADT).downcast::<MDDF>() {
-            error!("expected MDDF chunk, got {}", chunk.magic_str());
-        }
-
-        let chunk: FileChunk = reader
-            .read_le()
-            .expect("failed to read chunk from ADT file");
-        let modf = chunk
-            .as_typed(FileType::ADT)
-            .downcast::<MODF>()
-            .unwrap_or_else(|_| panic!("expected MODF chunk, got {}", chunk.magic_str()));
+        let _mver: Box<MVER> = FileChunk::read_as(FileType::ADT, &mut reader);
+        let _mhdr: Box<MHDR> = FileChunk::read_as(FileType::ADT, &mut reader);
+        let _mcin: Box<MCIN> = FileChunk::read_as(FileType::ADT, &mut reader);
+        let _mtex: Box<MTEX> = FileChunk::read_as(FileType::ADT, &mut reader);
+        let _mmdx: Box<MMDX> = FileChunk::read_as(FileType::ADT, &mut reader);
+        let _mmid: Box<MMID> = FileChunk::read_as(FileType::ADT, &mut reader);
+        let mwmo: Box<MWMO> = FileChunk::read_as(FileType::ADT, &mut reader);
+        let mwid: Box<MWID> = FileChunk::read_as(FileType::ADT, &mut reader);
+        let _mddf: Box<MDDF> = FileChunk::read_as(FileType::ADT, &mut reader);
+        let modf: Box<MODF> = FileChunk::read_as(FileType::ADT, &mut reader);
 
         let mut mcnk_chunks: Vec<MCNK> = Vec::new();
         for _i in 0..256 {
-            let chunk: FileChunk = reader
-                .read_le()
-                .expect("failed to read chunk from ADT file");
-            if let Ok(mcnk) = chunk.as_typed(FileType::ADT).downcast::<MCNK>() {
-                mcnk_chunks.push(*mcnk);
-            } else {
-                error!("expected MCNK chunk, got {}", chunk.magic_str());
-            }
+            let mcnk = FileChunk::read_as(FileType::ADT, &mut reader);
+            mcnk_chunks.push(*mcnk);
         }
 
         assert!(
@@ -150,7 +81,7 @@ impl ADT {
             .iter()
             .map(|record| WmoPlacement {
                 position: record.position,
-                bounding_box: record.bounding_box,
+                // bounding_box: record.bounding_box,
             })
             .collect();
         println!("writing {wmo_placements:?}");

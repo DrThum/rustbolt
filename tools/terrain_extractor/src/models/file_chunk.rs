@@ -7,7 +7,7 @@ pub mod adt;
 pub mod wdt;
 pub mod wmo;
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 pub enum FileType {
     WDT,
     ADT,
@@ -59,6 +59,22 @@ impl FileChunk {
         let mut magic = self.magic.to_vec();
         magic.reverse();
         String::from_utf8(magic).unwrap()
+    }
+
+    pub fn read_as<T: TypedFileChunk>(
+        file_type: FileType,
+        reader: &mut Cursor<&Vec<u8>>,
+    ) -> Box<T> {
+        let chunk: FileChunk = reader
+            .read_le()
+            .expect(&format!("failed to read chunk from {:?} file", file_type));
+
+        chunk
+            .as_typed(file_type)
+            .downcast::<T>()
+            .unwrap_or_else(|_| {
+                panic!("got unexpected chunk {}", chunk.magic_str());
+            })
     }
 }
 

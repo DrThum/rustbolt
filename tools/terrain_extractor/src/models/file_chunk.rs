@@ -86,7 +86,9 @@ impl FileChunk {
 
 pub trait TypedFileChunk: Downcast {
     fn name(&self) -> &str;
-    fn content_as_string(&self) -> String;
+    fn content_as_string(&self) -> String {
+        "".to_string()
+    }
 }
 impl_downcast!(TypedFileChunk);
 
@@ -117,14 +119,4 @@ impl TypedFileChunk for MVER {
     fn content_as_string(&self) -> String {
         format!("version {}", self.version)
     }
-}
-
-#[allow(dead_code)]
-#[binread]
-#[derive(Debug)]
-pub struct ColorData {
-    red: u8,
-    green: u8,
-    blue: u8,
-    alpha: u8,
 }

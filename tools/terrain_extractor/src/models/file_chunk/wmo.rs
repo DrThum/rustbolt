@@ -2,7 +2,7 @@ use binrw::{binread, io::Cursor, BinReaderExt};
 use enumflags2::{bitflags, BitFlags};
 use shared::models::terrain_info::{BoundingBox, Vector3};
 
-use super::{ColorData, FileChunk, FileType, TypedFileChunk, MVER};
+use super::{FileChunk, FileType, TypedFileChunk, MVER};
 
 pub struct WMO {}
 
@@ -90,6 +90,16 @@ impl TypedFileChunk for MOHD {
     }
 }
 
+#[allow(dead_code)]
+#[binread]
+#[derive(Debug)]
+pub struct ColorData {
+    red: u8,
+    green: u8,
+    blue: u8,
+    alpha: u8,
+}
+
 #[binread]
 #[allow(dead_code)]
 #[derive(Debug)]
@@ -117,10 +127,6 @@ pub struct MOGP {
 impl TypedFileChunk for MOGP {
     fn name(&self) -> &str {
         "MOGP"
-    }
-
-    fn content_as_string(&self) -> String {
-        "".to_string()
     }
 }
 
@@ -159,10 +165,6 @@ impl TypedFileChunk for MOPY {
     fn name(&self) -> &str {
         "MOPY"
     }
-
-    fn content_as_string(&self) -> String {
-        todo!()
-    }
 }
 
 pub struct MOVI {
@@ -195,10 +197,6 @@ impl TypedFileChunk for MOVI {
     fn name(&self) -> &str {
         "MOVI"
     }
-
-    fn content_as_string(&self) -> String {
-        todo!()
-    }
 }
 
 pub struct MOVT {
@@ -223,10 +221,6 @@ impl TypedFileChunk for MOVT {
     fn name(&self) -> &str {
         "MOVT"
     }
-
-    fn content_as_string(&self) -> String {
-        todo!()
-    }
 }
 
 pub struct MONR {
@@ -249,10 +243,6 @@ impl TypedFileChunk for MONR {
     fn name(&self) -> &str {
         "MONR"
     }
-
-    fn content_as_string(&self) -> String {
-        todo!()
-    }
 }
 
 pub struct MOTV {
@@ -268,10 +258,6 @@ impl MOTV {
 impl TypedFileChunk for MOTV {
     fn name(&self) -> &str {
         "MOTV"
-    }
-
-    fn content_as_string(&self) -> String {
-        todo!()
     }
 }
 
@@ -299,10 +285,6 @@ impl TypedFileChunk for MOBA {
     fn name(&self) -> &str {
         "MOBA"
     }
-
-    fn content_as_string(&self) -> String {
-        todo!()
-    }
 }
 
 pub struct MOBN {
@@ -319,10 +301,6 @@ impl TypedFileChunk for MOBN {
     fn name(&self) -> &str {
         "MOBN"
     }
-
-    fn content_as_string(&self) -> String {
-        todo!()
-    }
 }
 
 pub struct MOBR {
@@ -338,10 +316,6 @@ impl MOBR {
 impl TypedFileChunk for MOBR {
     fn name(&self) -> &str {
         "MOBR"
-    }
-
-    fn content_as_string(&self) -> String {
-        todo!()
     }
 }
 
@@ -395,9 +369,5 @@ impl MLIQ {
 impl TypedFileChunk for MLIQ {
     fn name(&self) -> &str {
         "MLIQ"
-    }
-
-    fn content_as_string(&self) -> String {
-        todo!()
     }
 }

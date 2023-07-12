@@ -3,7 +3,6 @@ use std::collections::HashMap;
 use binrw::{binread, io::Cursor, BinReaderExt};
 use bytemuck::cast_slice;
 use enumflags2::{bitflags, BitFlags};
-use log::error;
 use shared::models::terrain_info::{
     BoundingBox, LiquidFlags, LiquidTypeEntry, TerrainBlock, TerrainChunk, TerrainLiquidInfo,
     Vector3, WmoPlacement, MAP_MAX_COORD,
@@ -175,10 +174,6 @@ impl TypedFileChunk for MCIN {
     fn name(&self) -> &str {
         "MCIN"
     }
-
-    fn content_as_string(&self) -> String {
-        "".to_owned()
-    }
 }
 
 #[allow(dead_code)]
@@ -197,10 +192,6 @@ impl MTEX {
 impl TypedFileChunk for MTEX {
     fn name(&self) -> &str {
         "MTEX"
-    }
-
-    fn content_as_string(&self) -> String {
-        "".to_owned()
     }
 }
 
@@ -226,10 +217,6 @@ impl TypedFileChunk for MMDX {
     fn name(&self) -> &str {
         "MMDX"
     }
-
-    fn content_as_string(&self) -> String {
-        "".to_owned()
-    }
 }
 
 #[allow(dead_code)]
@@ -248,10 +235,6 @@ impl MMID {
 impl TypedFileChunk for MMID {
     fn name(&self) -> &str {
         "MMID"
-    }
-
-    fn content_as_string(&self) -> String {
-        "".to_owned()
     }
 }
 
@@ -289,10 +272,6 @@ impl TypedFileChunk for MWMO {
     fn name(&self) -> &str {
         "MWMO"
     }
-
-    fn content_as_string(&self) -> String {
-        "".to_owned()
-    }
 }
 
 #[allow(dead_code)]
@@ -313,10 +292,6 @@ impl TypedFileChunk for MWID {
     fn name(&self) -> &str {
         "MWID"
     }
-
-    fn content_as_string(&self) -> String {
-        "".to_owned()
-    }
 }
 
 #[allow(dead_code)]
@@ -333,10 +308,6 @@ impl MDDF {
 impl TypedFileChunk for MDDF {
     fn name(&self) -> &str {
         "MDDF"
-    }
-
-    fn content_as_string(&self) -> String {
-        "".to_owned()
     }
 }
 
@@ -471,10 +442,6 @@ impl TypedFileChunk for MODF {
     fn name(&self) -> &str {
         "MODF"
     }
-
-    fn content_as_string(&self) -> String {
-        "".to_owned()
-    }
 }
 
 #[allow(dead_code)]
@@ -583,10 +550,6 @@ impl MCNK {
 impl TypedFileChunk for MCNK {
     fn name(&self) -> &str {
         "MCNK"
-    }
-
-    fn content_as_string(&self) -> String {
-        "".to_owned()
     }
 }
 

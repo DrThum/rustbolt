@@ -25,40 +25,36 @@ pub struct FileChunk {
 
 impl FileChunk {
     pub fn as_typed(&self, file_type: FileType) -> Box<dyn TypedFileChunk> {
-        match self.magic {
-            [b'R', b'E', b'V', b'M'] => Box::new(MVER::parse(&self.data).unwrap()),
-            [b'D', b'H', b'P', b'M'] => Box::new(wdt::MPHD::parse(&self.data).unwrap()),
-            [b'N', b'I', b'A', b'M'] => Box::new(wdt::MAIN::parse(&self.data).unwrap()),
-            [b'O', b'M', b'W', b'M'] if file_type == FileType::WDT => {
-                Box::new(wdt::MWMO::parse(&self.data).unwrap())
-            }
-            [b'O', b'M', b'W', b'M'] if file_type == FileType::ADT => {
-                Box::new(adt::MWMO::parse(&self.data).unwrap())
-            }
-            [b'R', b'D', b'H', b'M'] => Box::new(adt::MHDR::parse(&self.data).unwrap()),
-            [b'N', b'I', b'C', b'M'] => Box::new(adt::MCIN::parse(&self.data).unwrap()),
-            [b'X', b'E', b'T', b'M'] => Box::new(adt::MTEX::parse(&self.data).unwrap()),
-            [b'X', b'D', b'M', b'M'] => Box::new(adt::MMDX::parse(&self.data).unwrap()),
-            [b'D', b'I', b'M', b'M'] => Box::new(adt::MMID::parse(&self.data).unwrap()),
-            [b'D', b'I', b'W', b'M'] => Box::new(adt::MWID::parse(&self.data).unwrap()),
-            [b'F', b'D', b'D', b'M'] => Box::new(adt::MDDF::parse(&self.data).unwrap()),
-            [b'F', b'D', b'O', b'M'] => Box::new(adt::MODF::parse(&self.data).unwrap()),
-            [b'K', b'N', b'C', b'M'] => Box::new(adt::MCNK::parse(&self.data).unwrap()),
-            [b'D', b'H', b'O', b'M'] => Box::new(wmo::MOHD::parse(&self.data).unwrap()),
-            [b'P', b'G', b'O', b'M'] => Box::new(wmo::MOGP::parse(&self.data).unwrap()),
-            [b'Y', b'P', b'O', b'M'] => Box::new(wmo::MOPY::parse(&self.data).unwrap()),
-            [b'I', b'V', b'O', b'M'] => Box::new(wmo::MOVI::parse(&self.data).unwrap()),
-            [b'T', b'V', b'O', b'M'] => Box::new(wmo::MOVT::parse(&self.data).unwrap()),
-            [b'R', b'N', b'O', b'M'] => Box::new(wmo::MONR::parse(&self.data).unwrap()),
-            [b'V', b'T', b'O', b'M'] => Box::new(wmo::MOTV::parse(&self.data).unwrap()),
-            [b'A', b'B', b'O', b'M'] => Box::new(wmo::MOBA::parse(&self.data).unwrap()),
-            [b'N', b'B', b'O', b'M'] => Box::new(wmo::MOBN::parse(&self.data).unwrap()),
-            [b'R', b'B', b'O', b'M'] => Box::new(wmo::MOBR::parse(&self.data).unwrap()),
-            [b'Q', b'I', b'L', b'M'] => Box::new(wmo::MLIQ::parse(&self.data).unwrap()),
+        match self.magic_str().as_str() {
+            "MVER" => Box::new(MVER::parse(&self.data).unwrap()),
+            "MPHD" => Box::new(wdt::MPHD::parse(&self.data).unwrap()),
+            "MAIN" => Box::new(wdt::MAIN::parse(&self.data).unwrap()),
+            "MWMO" if file_type == FileType::WDT => Box::new(wdt::MWMO::parse(&self.data).unwrap()),
+            "MWMO" if file_type == FileType::ADT => Box::new(adt::MWMO::parse(&self.data).unwrap()),
+            "MHDR" => Box::new(adt::MHDR::parse(&self.data).unwrap()),
+            "MCIN" => Box::new(adt::MCIN::parse(&self.data).unwrap()),
+            "MTEX" => Box::new(adt::MTEX::parse(&self.data).unwrap()),
+            "MMDX" => Box::new(adt::MMDX::parse(&self.data).unwrap()),
+            "MMID" => Box::new(adt::MMID::parse(&self.data).unwrap()),
+            "MWID" => Box::new(adt::MWID::parse(&self.data).unwrap()),
+            "MDDF" => Box::new(adt::MDDF::parse(&self.data).unwrap()),
+            "MODF" => Box::new(adt::MODF::parse(&self.data).unwrap()),
+            "MCNK" => Box::new(adt::MCNK::parse(&self.data).unwrap()),
+            "MOHD" => Box::new(wmo::MOHD::parse(&self.data).unwrap()),
+            "MOGP" => Box::new(wmo::MOGP::parse(&self.data).unwrap()),
+            "MOPY" => Box::new(wmo::MOPY::parse(&self.data).unwrap()),
+            "MOVI" => Box::new(wmo::MOVI::parse(&self.data).unwrap()),
+            "MOVT" => Box::new(wmo::MOVT::parse(&self.data).unwrap()),
+            "MONR" => Box::new(wmo::MONR::parse(&self.data).unwrap()),
+            "MOTV" => Box::new(wmo::MOTV::parse(&self.data).unwrap()),
+            "MOBA" => Box::new(wmo::MOBA::parse(&self.data).unwrap()),
+            "MOBN" => Box::new(wmo::MOBN::parse(&self.data).unwrap()),
+            "MOBR" => Box::new(wmo::MOBR::parse(&self.data).unwrap()),
+            "MLIQ" => Box::new(wmo::MLIQ::parse(&self.data).unwrap()),
             _ => {
                 panic!(
                     "Unsupported chunk {:?} of size {}",
-                    String::from_utf8(self.magic.to_vec()).unwrap(),
+                    self.magic_str(),
                     self.size
                 );
             }

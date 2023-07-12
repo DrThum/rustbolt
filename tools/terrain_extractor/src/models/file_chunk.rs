@@ -45,6 +45,16 @@ impl FileChunk {
             [b'F', b'D', b'O', b'M'] => Box::new(adt::MODF::parse(&self.data).unwrap()),
             [b'K', b'N', b'C', b'M'] => Box::new(adt::MCNK::parse(&self.data).unwrap()),
             [b'D', b'H', b'O', b'M'] => Box::new(wmo::MOHD::parse(&self.data).unwrap()),
+            [b'P', b'G', b'O', b'M'] => Box::new(wmo::MOGP::parse(&self.data).unwrap()),
+            [b'Y', b'P', b'O', b'M'] => Box::new(wmo::MOPY::parse(&self.data).unwrap()),
+            [b'I', b'V', b'O', b'M'] => Box::new(wmo::MOVI::parse(&self.data).unwrap()),
+            [b'T', b'V', b'O', b'M'] => Box::new(wmo::MOVT::parse(&self.data).unwrap()),
+            [b'R', b'N', b'O', b'M'] => Box::new(wmo::MONR::parse(&self.data).unwrap()),
+            [b'V', b'T', b'O', b'M'] => Box::new(wmo::MOTV::parse(&self.data).unwrap()),
+            [b'A', b'B', b'O', b'M'] => Box::new(wmo::MOBA::parse(&self.data).unwrap()),
+            [b'N', b'B', b'O', b'M'] => Box::new(wmo::MOBN::parse(&self.data).unwrap()),
+            [b'R', b'B', b'O', b'M'] => Box::new(wmo::MOBR::parse(&self.data).unwrap()),
+            [b'Q', b'I', b'L', b'M'] => Box::new(wmo::MLIQ::parse(&self.data).unwrap()),
             _ => {
                 panic!(
                     "Unsupported chunk {:?} of size {}",

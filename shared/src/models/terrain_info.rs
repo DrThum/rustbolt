@@ -292,7 +292,7 @@ impl TerrainChunk {
 #[binrw]
 pub struct WmoPlacement {
     pub position: Vector3,
-    // pub bounding_box: BoundingBox,
+    pub bounding_box: BoundingBox,
     // pub rotation: Vector3,
 }
 

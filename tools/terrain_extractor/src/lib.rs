@@ -166,15 +166,7 @@ pub async fn extract_adts(
                     file.write_all(writer.get_ref()).unwrap();
 
                     for &wmo_to_extract in adt.list_wmos_to_extract().iter() {
-                        let root_wmo_data = manager
-                            .get_file_data(wmo_to_extract.clone())
-                            .await
-                            .await
-                            .unwrap()
-                            .unwrap();
-
-                        println!("for wmo {}", wmo_to_extract);
-                        if let Some(_wmo) = read_root_wmo(&root_wmo_data.unwrap()) {
+                        if let Some(_wmo) = read_wmo(&manager, &wmo_to_extract).await {
                             // DO SOMETHING
                         } else {
                             error!("failed to read wmo data at {}", wmo_to_extract);
@@ -214,10 +206,30 @@ pub fn read_adt(raw: &Vec<u8>) -> Option<ADT> {
     }
 }
 
-pub fn read_root_wmo(raw: &Vec<u8>) -> Option<WMO> {
-    if !raw.is_empty() {
-        WMO::parse_root(raw)
-    } else {
-        None
+pub async fn read_wmo(manager: &MPQManager, root_wmo_path: &String) -> Option<WMO> {
+    let root_wmo_data = manager
+        .get_file_data(root_wmo_path.clone())
+        .await
+        .await
+        .unwrap()
+        .unwrap()
+        .unwrap();
+    let root = WMO::parse_root(&root_wmo_data).unwrap();
+
+    for group_index in 0..root.group_count {
+        let group_path = root_wmo_path
+            .clone()
+            .replace(".wmo", &format!("_{group_index:03}.wmo"));
+        let wmo_group_data = manager
+            .get_file_data(group_path)
+            .await
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+
+        WMO::parse_group(wmo_group_data);
     }
+
+    Some(WMO {})
 }

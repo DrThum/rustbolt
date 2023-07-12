@@ -81,7 +81,7 @@ impl ADT {
             .iter()
             .map(|record| WmoPlacement {
                 position: record.position,
-                // bounding_box: record.bounding_box,
+                bounding_box: record.bounding_box,
             })
             .collect();
         println!("writing {wmo_placements:?}");

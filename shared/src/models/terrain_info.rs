@@ -95,21 +95,21 @@ pub struct TerrainBlock {
     version: u32,
     #[br(count = 256)]
     pub chunks: Vec<TerrainChunk>,
-    pub num_wmo_placements: u32,
-    #[br(count = num_wmo_placements)]
-    pub wmo_placements: Vec<WmoPlacement>,
+    // pub num_wmo_placements: u32,
+    // #[br(count = num_wmo_placements)]
+    // pub wmo_placements: Vec<WmoPlacement>,
 }
 
 impl TerrainBlock {
-    pub fn new(chunks: Vec<TerrainChunk>, wmo_placements: Vec<WmoPlacement>) -> Self {
+    pub fn new(chunks: Vec<TerrainChunk>) -> Self {
         assert!(chunks.len() == 256, "TerrainInfo expects 256 TerrainChunks");
 
         Self {
             magic: TERRAIN_BLOCK_MAGIC,
             version: TERRAIN_BLOCK_VERSION,
             chunks,
-            num_wmo_placements: wmo_placements.len() as u32,
-            wmo_placements,
+            // num_wmo_placements: wmo_placements.len() as u32,
+            // wmo_placements,
         }
     }
 
@@ -289,11 +289,11 @@ impl TerrainChunk {
 }
 
 #[derive(Debug)]
-#[binrw]
 pub struct WmoPlacement {
+    pub wmo_root_path: String,
     pub position: Vector3,
     pub bounding_box: BoundingBox,
-    // pub rotation: Vector3,
+    pub rotation: Vector3,
 }
 
 #[binrw]
@@ -303,6 +303,12 @@ pub struct Vector3 {
     pub x: f32,
     pub y: f32,
     pub z: f32,
+}
+
+impl Vector3 {
+    pub fn as_array(&self) -> [f32; 3] {
+        [self.x, self.y, self.z]
+    }
 }
 
 #[binrw]

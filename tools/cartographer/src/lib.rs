@@ -5,7 +5,7 @@ use bevy::{
 use models::terrain::{self, Rtin, Tile, WrappedTerrainBlock};
 use resources::terrain_handle::TerrainHandle;
 use shared::models::terrain_info::{
-    BLOCK_WIDTH, BLOCK_WIDTH_IN_CHUNKS, CHUNK_WIDTH, MAP_WIDTH_IN_BLOCKS,
+    Vector3, BLOCK_WIDTH, BLOCK_WIDTH_IN_CHUNKS, CHUNK_WIDTH, MAP_WIDTH_IN_BLOCKS,
 };
 use smooth_bevy_cameras::controllers::orbit::{OrbitCameraBundle, OrbitCameraController};
 
@@ -23,8 +23,8 @@ pub fn setup(
     server: Res<AssetServer>,
     mut terrain_handles: ResMut<TerrainHandle>,
 ) {
-    for row in 32..33 {
-        for col in 32..33 {
+    for row in 31..33 {
+        for col in 31..33 {
             let handle: Handle<WrappedTerrainBlock> =
                 server.load(format!("data/terrain/Azeroth_{row}_{col}.terrain"));
             terrain_handles.0.insert(handle, (row, col));
@@ -77,7 +77,8 @@ pub fn display_terrain(
     for ev in ev_asset.iter() {
         match ev {
             AssetEvent::Created { handle } => {
-                let terrain = &terrains.get(handle).unwrap().0;
+                let asset = &terrains.get(handle).unwrap();
+                let terrain = &asset.terrain;
                 let (block_row, block_col) = terrain_handles.0.get(handle).unwrap();
                 let block_x_offset =
                     BLOCK_WIDTH * (block_col - (MAP_WIDTH_IN_BLOCKS as i32 / 2)) as f32;
@@ -129,16 +130,14 @@ pub fn display_terrain(
                 let rtin = Rtin::new(257);
                 let tile = Tile::new(&points, &rtin);
                 let (points, indices) = tile.get_mesh(
-                    0.0,
+                    -1.0,
                     block_x_offset / RTIN_SCALE_FACTOR,
                     block_z_offset / RTIN_SCALE_FACTOR,
                     SCALE_FACTOR,
                 );
 
                 let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
-                let points_number = points.len();
                 mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, points);
-                mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, vec![[0., 1., 0.]; points_number]);
                 mesh.set_indices(Some(Indices::U32(indices)));
 
                 mesh.duplicate_vertices();
@@ -150,51 +149,52 @@ pub fn display_terrain(
                     ..default()
                 });
 
-                // Show WMOs bounding box and position (converted to bevy's axes)
-                for wmo_placement in terrain.wmo_placements.iter() {
-                    let min = Vec3 {
-                        x: -wmo_placement.bounding_box.min.y / RTIN_SCALE_FACTOR,
-                        y: wmo_placement.bounding_box.min.z,
-                        z: -wmo_placement.bounding_box.min.x / RTIN_SCALE_FACTOR,
-                    } * SCALE_FACTOR;
-                    let max = Vec3 {
-                        x: -wmo_placement.bounding_box.max.y / RTIN_SCALE_FACTOR,
-                        y: wmo_placement.bounding_box.max.z,
-                        z: -wmo_placement.bounding_box.max.x / RTIN_SCALE_FACTOR,
-                    } * SCALE_FACTOR;
-
-                    // commands.spawn(PbrBundle {
-                    //     mesh: meshes.add(shape::Box::from_corners(min, max).into()),
-                    //     material: materials.add(Color::RED.with_a(0.6).into()),
-                    //     ..default()
-                    // });
-
-                    commands.spawn(PbrBundle {
-                        mesh: meshes.add(shape::UVSphere::default().into()),
-                        material: materials.add(Color::RED.with_a(0.8).into()),
-                        transform: Transform::from_translation(min).with_scale(Vec3::splat(0.02)),
-                        ..default()
-                    });
-                    commands.spawn(PbrBundle {
-                        mesh: meshes.add(shape::UVSphere::default().into()),
-                        material: materials.add(Color::RED.with_a(0.8).into()),
-                        transform: Transform::from_translation(max).with_scale(Vec3::splat(0.02)),
-                        ..default()
-                    });
-
+                // Spawn WMOs converted to Bevy axis
+                for wmo_mesh in asset.wmo_meshes.iter() {
                     let position = Vec3 {
-                        x: -wmo_placement.position.y / RTIN_SCALE_FACTOR,
-                        y: wmo_placement.position.z,
-                        z: -wmo_placement.position.x / RTIN_SCALE_FACTOR,
+                        x: -wmo_mesh.position.y / RTIN_SCALE_FACTOR,
+                        y: wmo_mesh.position.z,
+                        z: -wmo_mesh.position.x / RTIN_SCALE_FACTOR,
                     } * SCALE_FACTOR;
 
                     commands.spawn(PbrBundle {
                         mesh: meshes.add(shape::UVSphere::default().into()),
-                        material: materials.add(Color::YELLOW.with_a(0.8).into()),
+                        material: materials.add(Color::YELLOW.with_a(0.5).into()),
                         transform: Transform::from_translation(position)
-                            .with_scale(Vec3::splat(0.05)),
+                            .with_scale(Vec3::splat(0.01)),
                         ..default()
                     });
+
+                    for group in wmo_mesh.groups.iter() {
+                        let mut actual_mesh = Mesh::new(PrimitiveTopology::TriangleList);
+                        actual_mesh.insert_attribute(
+                            Mesh::ATTRIBUTE_POSITION,
+                            group
+                                .vertices
+                                .iter()
+                                .map(|v| {
+                                    Vector3 {
+                                        x: -v.y / RTIN_SCALE_FACTOR * SCALE_FACTOR + position.x,
+                                        y: v.z / RTIN_SCALE_FACTOR * SCALE_FACTOR + position.y,
+                                        z: -v.x / RTIN_SCALE_FACTOR * SCALE_FACTOR + position.z,
+                                    }
+                                    .as_array()
+                                })
+                                .collect::<Vec<[f32; 3]>>(),
+                        );
+                        actual_mesh.set_indices(Some(Indices::U16(
+                            group.indices.clone().into_iter().flatten().collect(),
+                        )));
+
+                        actual_mesh.duplicate_vertices();
+                        actual_mesh.compute_flat_normals();
+
+                        commands.spawn(PbrBundle {
+                            mesh: meshes.add(actual_mesh),
+                            material: materials.add(Color::RED.with_a(1.0).into()),
+                            ..default()
+                        });
+                    }
                 }
             }
             _ => (),

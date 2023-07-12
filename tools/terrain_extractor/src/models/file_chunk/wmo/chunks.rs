@@ -121,7 +121,7 @@ impl TypedFileChunk for MOPY {
 }
 
 pub struct MOVI {
-    _indices: Vec<TriangleIndices>,
+    pub indices: Vec<TriangleIndices>,
 }
 
 pub struct TriangleIndices {
@@ -130,19 +130,25 @@ pub struct TriangleIndices {
     _index2: u16,
 }
 
+impl TriangleIndices {
+    pub fn as_array(&self) -> [u16; 3] {
+        [self._index0, self._index1, self._index2]
+    }
+}
+
 impl MOVI {
     pub fn parse(raw: &Vec<u8>) -> Result<MOVI, binrw::Error> {
         let mut reader = Cursor::new(raw);
         let mut indices = Vec::new();
         while let Ok(triangle_indices) = reader.read_le::<[u16; 3]>() {
             indices.push(TriangleIndices {
-                _index0: triangle_indices[2],
+                _index0: triangle_indices[0],
                 _index1: triangle_indices[1],
-                _index2: triangle_indices[0],
+                _index2: triangle_indices[2],
             });
         }
 
-        Ok(MOVI { _indices: indices })
+        Ok(MOVI { indices })
     }
 }
 
@@ -153,7 +159,7 @@ impl TypedFileChunk for MOVI {
 }
 
 pub struct MOVT {
-    _vertices: Vec<Vector3>,
+    pub vertices: Vec<Vector3>,
 }
 
 impl MOVT {
@@ -164,9 +170,7 @@ impl MOVT {
             vertices.push(triangle_vertices);
         }
 
-        Ok(MOVT {
-            _vertices: vertices,
-        })
+        Ok(MOVT { vertices })
     }
 }
 
@@ -322,5 +326,53 @@ impl MLIQ {
 impl TypedFileChunk for MLIQ {
     fn name(&self) -> &str {
         "MLIQ"
+    }
+}
+
+pub struct MODR {
+    _raw: Vec<u8>,
+}
+
+impl MODR {
+    pub fn parse(raw: &Vec<u8>) -> Result<MODR, binrw::Error> {
+        Ok(MODR { _raw: raw.clone() })
+    }
+}
+
+impl TypedFileChunk for MODR {
+    fn name(&self) -> &str {
+        "MODR"
+    }
+}
+
+pub struct MOCV {
+    _raw: Vec<u8>,
+}
+
+impl MOCV {
+    pub fn parse(raw: &Vec<u8>) -> Result<MOCV, binrw::Error> {
+        Ok(MOCV { _raw: raw.clone() })
+    }
+}
+
+impl TypedFileChunk for MOCV {
+    fn name(&self) -> &str {
+        "MOCV"
+    }
+}
+
+pub struct MOLR {
+    _raw: Vec<u8>,
+}
+
+impl MOLR {
+    pub fn parse(raw: &Vec<u8>) -> Result<MOLR, binrw::Error> {
+        Ok(MOLR { _raw: raw.clone() })
+    }
+}
+
+impl TypedFileChunk for MOLR {
+    fn name(&self) -> &str {
+        "MOLR"
     }
 }

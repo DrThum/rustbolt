@@ -103,7 +103,12 @@ pub async fn list_adts_to_extract(
                             output_dir, name, coords.row, coords.col
                         );
 
-                        if name == "Azeroth" && coords.row == 32 && coords.col == 32 {
+                        if name == "Azeroth"
+                            && coords.row >= 31
+                            && coords.row <= 32
+                            && coords.col >= 31
+                            && coords.col <= 32
+                        {
                             adts_to_extract.push((adt_file_name, terrain_file_path));
                         }
                     }
@@ -133,11 +138,11 @@ pub async fn extract_adts(
     let parallelism = available_parallelism().unwrap().get();
     let tiles_per_thread =
         ((adts_to_extract.len() as f32 / parallelism as f32).ceil() / 2.0) as usize;
+    let tiles_per_thread = tiles_per_thread.max(1);
 
     let mut join_handles: Vec<JoinHandle<_>> = Vec::new();
     let groups: Vec<Vec<(String, String)>> = adts_to_extract
-        // .chunks(tiles_per_thread)
-        .chunks(1)
+        .chunks(tiles_per_thread)
         .map(|c| c.to_owned())
         .collect();
     for group in groups {
@@ -156,22 +161,31 @@ pub async fn extract_adts(
                 if let Some(adt) = adt_data.and_then(|data| read_adt(&data)) {
                     let terrain_block = adt.terrain_block();
                     let mut file = fs::OpenOptions::new()
-                        .create(true)
                         .write(true)
+                        .create(true)
+                        .truncate(true)
                         .open(terrain_file_path)
                         .unwrap();
                     let mut writer = Cursor::new(Vec::new());
                     writer.write_le(&terrain_block).unwrap();
 
-                    file.write_all(writer.get_ref()).unwrap();
-
-                    for &wmo_to_extract in adt.list_wmos_to_extract().iter() {
-                        if let Some(_wmo) = read_wmo(&manager, &wmo_to_extract).await {
-                            // DO SOMETHING
+                    let wmos_to_extract = adt.wmos_to_extract();
+                    println!("writing {} wmos", wmos_to_extract.len());
+                    writer.write_le(&(wmos_to_extract.len() as u32)).unwrap();
+                    for wmo_to_extract in wmos_to_extract.iter() {
+                        if let Some(wmo) = read_wmo(&manager, &wmo_to_extract.wmo_root_path).await {
+                            let mesh = wmo.export_mesh(wmo_to_extract);
+                            println!("writing mesh with {} groups", mesh.group_count);
+                            writer.write_le(&mesh).unwrap();
                         } else {
-                            error!("failed to read wmo data at {}", wmo_to_extract);
+                            error!(
+                                "failed to read wmo data at {}",
+                                wmo_to_extract.wmo_root_path
+                            );
                         }
                     }
+
+                    file.write_all(writer.get_ref()).unwrap();
                 } else {
                     warn!("failed to read ADT data");
                 }
@@ -206,18 +220,19 @@ pub fn read_adt(raw: &Vec<u8>) -> Option<ADT> {
     }
 }
 
-pub async fn read_wmo(manager: &MPQManager, root_wmo_path: &String) -> Option<WMO> {
-    let root_wmo_data = manager
-        .get_file_data(root_wmo_path.clone())
+pub async fn read_wmo(manager: &MPQManager, wmo_root_path: &String) -> Option<WMO> {
+    let wmo_root_data = manager
+        .get_file_data(wmo_root_path.clone())
         .await
         .await
         .unwrap()
         .unwrap()
         .unwrap();
-    let root = WMO::parse_root(&root_wmo_data).unwrap();
+    let root = WMO::parse_root(&wmo_root_data).unwrap();
 
+    let mut groups = Vec::new();
     for group_index in 0..root.group_count {
-        let group_path = root_wmo_path
+        let group_path = wmo_root_path
             .clone()
             .replace(".wmo", &format!("_{group_index:03}.wmo"));
         let wmo_group_data = manager
@@ -228,8 +243,9 @@ pub async fn read_wmo(manager: &MPQManager, root_wmo_path: &String) -> Option<WM
             .unwrap()
             .unwrap();
 
-        WMO::parse_group(wmo_group_data);
+        let group = WMO::parse_group(wmo_group_data).unwrap();
+        groups.push(group);
     }
 
-    Some(WMO {})
+    Some(WMO { groups })
 }

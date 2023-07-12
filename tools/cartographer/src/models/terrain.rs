@@ -4,11 +4,16 @@ use bevy::{
     utils::BoxedFuture,
 };
 use binrw::{binread, io::Cursor, BinReaderExt};
-use shared::models::terrain_info::TerrainBlock;
+use shared::models::{terrain_info::TerrainBlock, wmo::WmoMesh};
 
 #[derive(Debug)]
 #[binread]
-pub struct WrappedTerrainBlock(pub TerrainBlock);
+pub struct WrappedTerrainBlock {
+    pub terrain: TerrainBlock,
+    _wmo_count: u32,
+    #[br(count = _wmo_count)]
+    pub wmo_meshes: Vec<WmoMesh>,
+}
 
 impl_type_uuid!(WrappedTerrainBlock, "269b2e4a5af644e0833bd65e29f5342d");
 
@@ -24,7 +29,7 @@ impl AssetLoader for TerrainBlockLoader {
         Box::pin(async move {
             if bytes.len() > 0 {
                 let mut reader = Cursor::new(bytes);
-                let terrain_block: WrappedTerrainBlock = reader.read_le().unwrap();
+                let terrain_block: WrappedTerrainBlock = reader.read_le()?;
                 load_context.set_default_asset(LoadedAsset::new(terrain_block));
                 Ok(())
             } else {

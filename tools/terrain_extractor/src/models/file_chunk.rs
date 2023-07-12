@@ -51,8 +51,11 @@ impl FileChunk {
             "MONR" => Box::new(wmo::MONR::parse(&self.data).unwrap()),
             "MOTV" => Box::new(wmo::MOTV::parse(&self.data).unwrap()),
             "MOBA" => Box::new(wmo::MOBA::parse(&self.data).unwrap()),
+            "MOLR" => Box::new(wmo::MOLR::parse(&self.data).unwrap()),
+            "MODR" => Box::new(wmo::MODR::parse(&self.data).unwrap()),
             "MOBN" => Box::new(wmo::MOBN::parse(&self.data).unwrap()),
             "MOBR" => Box::new(wmo::MOBR::parse(&self.data).unwrap()),
+            "MOCV" => Box::new(wmo::MOCV::parse(&self.data).unwrap()),
             "MLIQ" => Box::new(wmo::MLIQ::parse(&self.data).unwrap()),
             _ => {
                 panic!(

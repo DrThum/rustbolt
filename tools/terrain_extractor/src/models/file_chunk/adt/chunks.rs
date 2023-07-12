@@ -4,8 +4,7 @@ use binrw::{binread, io::Cursor, BinReaderExt};
 use bytemuck::cast_slice;
 use enumflags2::{bitflags, BitFlags};
 use shared::models::terrain_info::{
-    BoundingBox, LiquidFlags, LiquidTypeEntry, TerrainLiquidInfo, Vector3, WmoPlacement,
-    MAP_MAX_COORD,
+    BoundingBox, LiquidFlags, LiquidTypeEntry, TerrainLiquidInfo, Vector3, MAP_MAX_COORD,
 };
 
 use super::TypedFileChunk;
@@ -262,9 +261,9 @@ impl MODF {
                 z: placement.position.y,
             };
 
-            if count == 5 {
-                wmo_placements.push(placement);
-            }
+            // if count == 5 {
+            wmo_placements.push(placement);
+            // }
 
             count += 1;
         }
@@ -272,29 +271,29 @@ impl MODF {
         Ok(MODF { wmo_placements })
     }
 
-    fn convert_placement_to_world_referential(mut placement: &mut WmoPlacement) {
-        fn translate(mut vec: &mut Vector3) {
-            vec.x = MAP_MAX_COORD - vec.x;
-            vec.z = MAP_MAX_COORD - vec.z;
-        }
-
-        fn rotate(mut vec: &mut Vector3, rotation: &Vector3, rotation_center: &Vector3) {
-            let converted = glm::vec3(vec.x - rotation_center.x, vec.y, vec.z - rotation_center.z);
-            let converted = glm::rotate_y_vec3(&converted, f32::to_radians(rotation.y)); // Might be +180°
-            let converted = glm::vec3(
-                converted.x + rotation_center.x,
-                converted.y,
-                converted.z + rotation_center.z,
-            );
-            let converted = glm::rotate_z_vec3(&converted, f32::to_radians(rotation.x));
-            let converted = glm::rotate_x_vec3(&converted, f32::to_radians(rotation.z));
-            vec.x = converted.x;
-            vec.y = converted.y;
-            vec.z = converted.z;
-        }
-
-        translate(&mut placement.position);
-    }
+    // fn convert_placement_to_world_referential(placement: &mut WmoPlacement) {
+    //     fn translate(mut vec: &mut Vector3) {
+    //         vec.x = MAP_MAX_COORD - vec.x;
+    //         vec.z = MAP_MAX_COORD - vec.z;
+    //     }
+    //
+    //     fn rotate(mut vec: &mut Vector3, rotation: &Vector3, rotation_center: &Vector3) {
+    //         let converted = glm::vec3(vec.x - rotation_center.x, vec.y, vec.z - rotation_center.z);
+    //         let converted = glm::rotate_y_vec3(&converted, f32::to_radians(rotation.y)); // Might be +180°
+    //         let converted = glm::vec3(
+    //             converted.x + rotation_center.x,
+    //             converted.y,
+    //             converted.z + rotation_center.z,
+    //         );
+    //         let converted = glm::rotate_z_vec3(&converted, f32::to_radians(rotation.x));
+    //         let converted = glm::rotate_x_vec3(&converted, f32::to_radians(rotation.z));
+    //         vec.x = converted.x;
+    //         vec.y = converted.y;
+    //         vec.z = converted.z;
+    //     }
+    //
+    //     translate(&mut placement.position);
+    // }
 
     fn convert_vec3(
         source: Vector3,

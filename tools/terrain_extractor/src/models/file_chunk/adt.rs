@@ -71,27 +71,33 @@ impl ADT {
             })
             .collect();
 
-        let wmo_placements: Vec<WmoPlacement> = self
-            .modf_chunk
-            .wmo_placements
-            .iter()
-            .map(|record| WmoPlacement {
-                position: record.position,
-                bounding_box: record.bounding_box,
-            })
-            .collect();
-        println!("writing {wmo_placements:?}");
-        TerrainBlock::new(terrain_chunks, wmo_placements)
+        // let wmo_placements: Vec<WmoPlacement> = self
+        //     .modf_chunk
+        //     .wmo_placements
+        //     .iter()
+        //     .map(|record| WmoPlacement {
+        //         position: record.position,
+        //         bounding_box: record.bounding_box,
+        //     })
+        //     .collect();
+
+        TerrainBlock::new(terrain_chunks)
     }
 
-    pub(crate) fn list_wmos_to_extract(&self) -> Vec<&String> {
+    pub(crate) fn wmos_to_extract(&self) -> Vec<WmoPlacement> {
         self.modf_chunk
             .wmo_placements
             .iter()
-            .map(|wmo_placement| {
-                let mwmo_offset =
-                    self.mwid_chunk.offsets[wmo_placement.mwid_index as usize] as usize;
-                self.mwmo_chunk.filenames.get(&mwmo_offset).unwrap()
+            .map(|modf_rec| {
+                let mwmo_offset = self.mwid_chunk.offsets[modf_rec.mwid_index as usize] as usize;
+                let wmo_root_path = self.mwmo_chunk.filenames.get(&mwmo_offset).unwrap().clone();
+
+                WmoPlacement {
+                    wmo_root_path,
+                    position: modf_rec.position,
+                    bounding_box: modf_rec.bounding_box,
+                    rotation: modf_rec.rotation,
+                }
             })
             .collect()
     }

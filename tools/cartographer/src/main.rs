@@ -1,7 +1,4 @@
-use bevy::{
-    diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
-    prelude::*,
-};
+use bevy::prelude::*;
 use cartographer::{
     models::terrain::{TerrainBlockLoader, WrappedTerrainBlock},
     resources::terrain_handle::TerrainHandle,

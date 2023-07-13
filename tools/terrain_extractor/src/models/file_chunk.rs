@@ -3,7 +3,10 @@ use std::fmt;
 use binrw::{binread, io::Cursor, BinReaderExt};
 use downcast_rs::{impl_downcast, Downcast};
 
+use self::chunks::MVER;
+
 pub mod adt;
+pub mod chunks;
 pub mod wdt;
 pub mod wmo;
 
@@ -95,28 +98,5 @@ impl_downcast!(TypedFileChunk);
 impl fmt::Debug for dyn TypedFileChunk {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{} Chunk\n\t{}", self.name(), self.content_as_string())
-    }
-}
-
-pub struct MVER {
-    version: u32,
-}
-
-impl MVER {
-    pub fn parse(raw: &Vec<u8>) -> Result<MVER, binrw::Error> {
-        let mut reader = Cursor::new(raw);
-        let version: u32 = reader.read_le()?;
-
-        Ok(MVER { version })
-    }
-}
-
-impl TypedFileChunk for MVER {
-    fn name(&self) -> &str {
-        "MVER"
-    }
-
-    fn content_as_string(&self) -> String {
-        format!("version {}", self.version)
     }
 }

@@ -83,22 +83,22 @@ pub fn interpolate_height_map(height_map: &Vec<f32>) -> Vec<f32> {
 // https://github.com/mapbox/martini/blob/main/index.js
 pub struct Rtin {
     pub grid_size: usize,
-    pub tile_size: usize,
+    pub tile_size: f32,
     pub num_triangles: usize,
     pub num_parent_triangles: usize,
     pub coords: Vec<usize>,
 }
 
 impl Rtin {
-    pub fn new(grid_size: usize) -> Self {
+    pub fn new(grid_width: usize, tile_size: f32) -> Self {
         assert!(
-            Self::is_power_of_two(grid_size - 1),
+            Self::is_power_of_two(grid_width - 1),
             "grid width must be 2^k+1"
         );
 
-        let tile_size = grid_size - 1;
-        let num_triangles = tile_size * tile_size * 2 - 2;
-        let num_parent_triangles = num_triangles - (tile_size * tile_size);
+        let tile_count_width = grid_width - 1;
+        let num_triangles = tile_count_width * tile_count_width * 2 - 2;
+        let num_parent_triangles = num_triangles - (tile_count_width * tile_count_width);
 
         // Mapping from triangle coordinates to its index in an implicit binary tree
         let mut coords: Vec<usize> = vec![0; num_triangles * 4];
@@ -113,14 +113,14 @@ impl Rtin {
 
             if id % 2 != 0 {
                 // Bottom-left triangle
-                bx = tile_size;
-                by = tile_size;
-                cx = tile_size;
+                bx = tile_count_width;
+                by = tile_count_width;
+                cx = tile_count_width;
             } else {
                 // Top-right triangle
-                ax = tile_size;
-                ay = tile_size;
-                cy = tile_size;
+                ax = tile_count_width;
+                ay = tile_count_width;
+                cy = tile_count_width;
             }
 
             id = id / 2;
@@ -155,7 +155,7 @@ impl Rtin {
         }
 
         Self {
-            grid_size,
+            grid_size: grid_width,
             tile_size,
             num_triangles,
             num_parent_triangles,
@@ -356,6 +356,7 @@ impl<'a> Tile<'a> {
             terrain: &Vec<[f32; 3]>,
             offset_x: f32,
             offset_z: f32,
+            tile_size: f32,
             scale_factor: f32,
         ) {
             let mx = f32::floor((ax + bx) / 2.0);
@@ -382,6 +383,7 @@ impl<'a> Tile<'a> {
                     terrain,
                     offset_x,
                     offset_z,
+                    tile_size,
                     scale_factor,
                 );
                 process_triangle(
@@ -401,6 +403,7 @@ impl<'a> Tile<'a> {
                     terrain,
                     offset_x,
                     offset_z,
+                    tile_size,
                     scale_factor,
                 );
             } else {
@@ -409,17 +412,17 @@ impl<'a> Tile<'a> {
                 let b = indices[by as usize * size + bx as usize] - 1;
                 let c = indices[cy as usize * size + cx as usize] - 1;
 
-                vertices[a][0] = (ax + offset_x) * scale_factor;
+                vertices[a][0] = (ax * tile_size + offset_x) * scale_factor;
                 vertices[a][1] = terrain[ay as usize * size + ax as usize][1] * scale_factor;
-                vertices[a][2] = (ay + offset_z) * scale_factor;
+                vertices[a][2] = (ay * tile_size + offset_z) * scale_factor;
 
-                vertices[b][0] = (bx + offset_x) * scale_factor;
+                vertices[b][0] = (bx * tile_size + offset_x) * scale_factor;
                 vertices[b][1] = terrain[by as usize * size + bx as usize][1] * scale_factor;
-                vertices[b][2] = (by + offset_z) * scale_factor;
+                vertices[b][2] = (by * tile_size + offset_z) * scale_factor;
 
-                vertices[c][0] = (cx + offset_x) * scale_factor;
+                vertices[c][0] = (cx * tile_size + offset_x) * scale_factor;
                 vertices[c][1] = terrain[cy as usize * size + cx as usize][1] * scale_factor;
-                vertices[c][2] = (cy + offset_z) * scale_factor;
+                vertices[c][2] = (cy * tile_size + offset_z) * scale_factor;
 
                 triangles[*tri_index] = a as u32;
                 *tri_index += 1;
@@ -449,6 +452,7 @@ impl<'a> Tile<'a> {
             &self.terrain,
             offset_x,
             offset_z,
+            self.rtin.tile_size,
             scale_factor,
         );
 
@@ -469,6 +473,7 @@ impl<'a> Tile<'a> {
             &self.terrain,
             offset_x,
             offset_z,
+            self.rtin.tile_size,
             scale_factor,
         );
 

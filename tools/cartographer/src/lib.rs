@@ -61,7 +61,6 @@ pub fn setup(
 pub const SCALE_FACTOR: f32 = 0.01;
 pub const HEIGHT_MAP_WIDTH: usize = 17;
 pub const GRID_WIDTH: usize = 257;
-pub const RTIN_SCALE_FACTOR: f32 = 2.0835;
 
 // X axis is growing from left to right
 // Y axis is growing towards the sky
@@ -127,14 +126,10 @@ pub fn display_terrain(
                         });
                 }
 
-                let rtin = Rtin::new(257);
+                let rtin = Rtin::new(257, CHUNK_WIDTH / 16.);
                 let tile = Tile::new(&points, &rtin);
-                let (points, indices) = tile.get_mesh(
-                    -1.0,
-                    block_x_offset / RTIN_SCALE_FACTOR,
-                    block_z_offset / RTIN_SCALE_FACTOR,
-                    SCALE_FACTOR,
-                );
+                let (points, indices) =
+                    tile.get_mesh(-1.0, block_x_offset, block_z_offset, SCALE_FACTOR);
 
                 let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
                 mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, points);
@@ -145,16 +140,16 @@ pub fn display_terrain(
 
                 commands.spawn(PbrBundle {
                     mesh: meshes.add(mesh),
-                    material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
+                    material: materials.add(Color::rgb(0.3, 0.5, 0.3).with_a(0.5).into()),
                     ..default()
                 });
 
                 // Spawn WMOs converted to Bevy axis
                 for wmo_mesh in asset.wmo_meshes.iter() {
                     let position = Vec3 {
-                        x: -wmo_mesh.position.y / RTIN_SCALE_FACTOR,
+                        x: -wmo_mesh.position.y,
                         y: wmo_mesh.position.z,
-                        z: -wmo_mesh.position.x / RTIN_SCALE_FACTOR,
+                        z: -wmo_mesh.position.x,
                     } * SCALE_FACTOR;
 
                     commands.spawn(PbrBundle {
@@ -174,9 +169,9 @@ pub fn display_terrain(
                                 .iter()
                                 .map(|v| {
                                     Vector3 {
-                                        x: -v.y / RTIN_SCALE_FACTOR * SCALE_FACTOR + position.x,
-                                        y: v.z / RTIN_SCALE_FACTOR * SCALE_FACTOR + position.y,
-                                        z: -v.x / RTIN_SCALE_FACTOR * SCALE_FACTOR + position.z,
+                                        x: -v.y * SCALE_FACTOR + position.x,
+                                        y: v.z * SCALE_FACTOR + position.y,
+                                        z: -v.x * SCALE_FACTOR + position.z,
                                     }
                                     .as_array()
                                 })

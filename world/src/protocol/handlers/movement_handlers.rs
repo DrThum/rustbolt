@@ -34,7 +34,10 @@ impl OpcodeHandler {
                 );
             }
 
-            if opcode == Opcode::MsgMoveJump {
+            if opcode == Opcode::MsgMoveJump
+                || opcode == Opcode::MsgMoveSetWalkMode
+                || opcode == Opcode::MsgMoveSetRunMode
+            {
                 let map = session.current_map().unwrap();
                 let height =
                     map.get_terrain_height(movement_info.position.x, movement_info.position.y);

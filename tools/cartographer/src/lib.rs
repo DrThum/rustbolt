@@ -110,9 +110,9 @@ pub fn display_terrain(
                         .enumerate()
                         .for_each(|(index, height)| {
                             let x_offset_in_chunk =
-                                (index % HEIGHT_MAP_WIDTH) as f32 * CHUNK_WIDTH / 16.0;
-                            let z_offset_in_chunk =
                                 (index / HEIGHT_MAP_WIDTH) as f32 * CHUNK_WIDTH / 16.0;
+                            let z_offset_in_chunk =
+                                (index % HEIGHT_MAP_WIDTH) as f32 * CHUNK_WIDTH / 16.0;
 
                             let position_x = chunk_x_offset + x_offset_in_chunk;
                             let position_z = chunk_z_offset + z_offset_in_chunk;

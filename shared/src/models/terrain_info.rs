@@ -155,12 +155,15 @@ impl TerrainBlock {
         let chunk = self.get_chunk(chunk_row, chunk_col);
 
         let subchunk_width = CHUNK_WIDTH / 8.0;
-        let x_offset_in_chunk = ((MAP_MAX_COORD - position_x) % CHUNK_WIDTH) / subchunk_width;
-        let y_offset_in_chunk = ((MAP_MAX_COORD - position_y) % CHUNK_WIDTH) / subchunk_width;
+        let x_offset_in_chunk = (MAP_MAX_COORD - position_x) % CHUNK_WIDTH;
+        let y_offset_in_chunk = (MAP_MAX_COORD - position_y) % CHUNK_WIDTH;
 
         if chunk.has_hole_at(x_offset_in_chunk, y_offset_in_chunk) {
             return None;
         }
+
+        let x_offset_in_chunk = x_offset_in_chunk / subchunk_width;
+        let y_offset_in_chunk = y_offset_in_chunk / subchunk_width;
 
         let row_start_index = x_offset_in_chunk.floor() as usize; // Outer vertex
         let row_end_index = row_start_index + 1;
@@ -281,7 +284,7 @@ impl TerrainChunk {
         let col = (y_offset_in_chunk / hole_width).floor() as usize;
 
         // Calculate the bit index in self.holes
-        let bit_index = col * 4 + row;
+        let bit_index = row * 4 + col;
 
         // Return whether that bit is set
         self.holes.contains(bit_index)

@@ -109,10 +109,13 @@ pub fn display_terrain(
                         .into_iter()
                         .enumerate()
                         .for_each(|(index, height)| {
-                            let position_x = chunk_x_offset
-                                + (index % HEIGHT_MAP_WIDTH) as f32 * CHUNK_WIDTH / 16.0;
-                            let position_z = chunk_z_offset
-                                + (index / HEIGHT_MAP_WIDTH) as f32 * CHUNK_WIDTH / 16.0;
+                            let x_offset_in_chunk =
+                                (index % HEIGHT_MAP_WIDTH) as f32 * CHUNK_WIDTH / 16.0;
+                            let z_offset_in_chunk =
+                                (index / HEIGHT_MAP_WIDTH) as f32 * CHUNK_WIDTH / 16.0;
+
+                            let position_x = chunk_x_offset + x_offset_in_chunk;
+                            let position_z = chunk_z_offset + z_offset_in_chunk;
 
                             // Where to store this point in the `points` vector
                             let point_row_offset = index / HEIGHT_MAP_WIDTH;
@@ -121,8 +124,12 @@ pub fn display_terrain(
                                 * GRID_WIDTH
                                 + (chunk_first_col + point_col_offset);
 
-                            points[position_in_points_vec] =
-                                [position_x, height + base_height, position_z];
+                            if chunk.has_hole_at(x_offset_in_chunk, z_offset_in_chunk) {
+                                points[position_in_points_vec] = [position_x, -1000.0, position_z];
+                            } else {
+                                points[position_in_points_vec] =
+                                    [position_x, height + base_height, position_z];
+                            }
                         });
                 }
 
@@ -140,7 +147,7 @@ pub fn display_terrain(
 
                 commands.spawn(PbrBundle {
                     mesh: meshes.add(mesh),
-                    material: materials.add(Color::rgb(0.3, 0.5, 0.3).with_a(0.5).into()),
+                    material: materials.add(Color::rgb(0.3, 0.5, 0.3).with_a(1.0).into()),
                     ..default()
                 });
 

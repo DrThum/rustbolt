@@ -170,12 +170,10 @@ pub async fn extract_adts(
                     writer.write_le(&terrain_block).unwrap();
 
                     let wmos_to_extract = adt.wmos_to_extract();
-                    println!("writing {} wmos", wmos_to_extract.len());
                     writer.write_le(&(wmos_to_extract.len() as u32)).unwrap();
                     for wmo_to_extract in wmos_to_extract.iter() {
                         if let Some(wmo) = read_wmo(&manager, &wmo_to_extract.wmo_root_path).await {
                             let mesh = wmo.export_mesh(wmo_to_extract);
-                            println!("writing mesh with {} groups", mesh.group_count);
                             writer.write_le(&mesh).unwrap();
                         } else {
                             error!(

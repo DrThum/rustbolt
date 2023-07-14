@@ -109,6 +109,7 @@ impl MPQFile {
         let sector_offsets: Vec<u32> = cast_slice(&buffer[..max_multiple_of_4_in_buffer]).to_vec();
 
         let mut final_buffer: Vec<u8> = Vec::new();
+        let mut remaining_bytes = entry.uncompressed_file_size as usize; // How much data we still have to extract
 
         // Read sectors offsets one by one until we have gathered the expected amount of bytes
         let mut sector_index = 0;
@@ -128,14 +129,18 @@ impl MPQFile {
             let compression_flags = sector_buffer[0];
             trace!("compression_flags: {:#X}", compression_flags);
 
-            let mut decompressed_sector = if compression_flags == 0x2 {
-                // FIXME?
-                sector_buffer.drain(0..1);
-                decompress(sector_buffer, compression_flags)
-            } else {
-                sector_buffer
-            };
+            let mut decompressed_sector =
+                // The last sector of a compressed file might be uncompressed if its compressed
+                // size would end up bigger than the uncompressed data. When it happens, the
+                // sector will contain exactly the amount of remaining bytes in the file.
+                if compression_flags != 0 && remaining_bytes > sector_buffer.len() {
+                    sector_buffer.drain(0..1);
+                    decompress(sector_buffer, compression_flags)
+                } else {
+                    sector_buffer
+                };
 
+            remaining_bytes -= decompressed_sector.len();
             final_buffer.append(&mut decompressed_sector);
 
             sector_index += 1;

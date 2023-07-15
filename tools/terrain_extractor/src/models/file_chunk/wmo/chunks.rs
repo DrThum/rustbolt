@@ -218,9 +218,18 @@ impl TypedFileChunk for MOTV {
     }
 }
 
-#[binread]
 pub struct MOBA {
-    _culling_bbox: BoundingBox,
+    _records: Vec<MOBARecord>,
+}
+
+#[binread]
+pub struct MOBARecord {
+    _bottom_x: i16,
+    _bottom_y: i16,
+    _bottom_z: i16,
+    _top_x: i16,
+    _top_y: i16,
+    _top_z: i16,
     _start_index: u16,        // Offset into MOVI
     _index_count: u16,        // Number of MOVI indices used
     _vertex_start_index: u16, // Offset into MOVT
@@ -232,9 +241,12 @@ pub struct MOBA {
 impl MOBA {
     pub fn parse(raw: &Vec<u8>) -> Result<MOBA, binrw::Error> {
         let mut reader = Cursor::new(raw);
-        let moba = reader.read_le()?;
+        let mut records: Vec<MOBARecord> = Vec::new();
+        while let Ok(moba_record) = reader.read_le() {
+            records.push(moba_record);
+        }
 
-        Ok(moba)
+        Ok(MOBA { _records: records })
     }
 }
 

@@ -1,4 +1,5 @@
 use binrw::io::Cursor;
+use log::error;
 use shared::models::{
     terrain_info::{Vector3, WmoPlacement},
     wmo::{WmoGroupMesh, WmoMesh},

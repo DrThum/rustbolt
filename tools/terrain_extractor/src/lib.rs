@@ -103,14 +103,7 @@ pub async fn list_adts_to_extract(
                             output_dir, name, coords.row, coords.col
                         );
 
-                        if name == "Azeroth"
-                            && coords.row >= 31
-                            && coords.row <= 32
-                            && coords.col >= 31
-                            && coords.col <= 32
-                        {
-                            adts_to_extract.push((adt_file_name, terrain_file_path));
-                        }
+                        adts_to_extract.push((adt_file_name, terrain_file_path));
                     }
                 }
             }

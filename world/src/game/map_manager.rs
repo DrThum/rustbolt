@@ -3,7 +3,7 @@ use std::{collections::HashMap, fmt::Display, sync::Arc};
 use atomic_counter::{AtomicCounter, RelaxedCounter};
 use log::info;
 use parking_lot::RwLock;
-use shared::models::terrain_info::{TerrainBlock, MAP_WIDTH_IN_BLOCKS};
+use shared::models::terrain_info::{Terrain, TerrainBlock, MAP_WIDTH_IN_BLOCKS};
 
 use crate::{
     config::WorldConfig,
@@ -32,7 +32,7 @@ pub struct MapManager {
     maps: RwLock<HashMap<MapKey, Arc<Map>>>,
     data_store: Arc<DataStore>,
     next_instance_id: RelaxedCounter,
-    terrains: RwLock<HashMap<u32, Arc<HashMap<TerrainBlockCoords, TerrainBlock>>>>,
+    terrains: RwLock<HashMap<u32, Arc<HashMap<TerrainBlockCoords, Terrain>>>>,
 }
 
 impl MapManager {
@@ -59,7 +59,7 @@ impl MapManager {
             .get_all_map_records()
             .filter(|m| m.is_continent())
         {
-            let mut map_terrains: HashMap<TerrainBlockCoords, TerrainBlock> = HashMap::new();
+            let mut map_terrains: HashMap<TerrainBlockCoords, Terrain> = HashMap::new();
 
             if config.world.dev.load_terrain {
                 // Load terrain for this map
@@ -115,9 +115,9 @@ impl MapManager {
                 } else {
                     // Load terrain for this map, or get it from the cache
                     let mut terrain_guard = self.terrains.write();
-                    let map_terrain: &mut Arc<HashMap<TerrainBlockCoords, TerrainBlock>> =
+                    let map_terrain: &mut Arc<HashMap<TerrainBlockCoords, Terrain>> =
                         terrain_guard.entry(map_id).or_insert_with(|| {
-                            let mut map_terrains: HashMap<TerrainBlockCoords, TerrainBlock> =
+                            let mut map_terrains: HashMap<TerrainBlockCoords, Terrain> =
                                 HashMap::new();
 
                             for row in 0..MAP_WIDTH_IN_BLOCKS {
@@ -129,9 +129,9 @@ impl MapManager {
                                         col,
                                     );
 
-                                    if let Some(terrain_block) = maybe_terrain {
+                                    if let Some(terrain) = maybe_terrain {
                                         let key = TerrainBlockCoords { row, col };
-                                        map_terrains.insert(key, terrain_block);
+                                        map_terrains.insert(key, terrain);
                                     }
                                 }
                             }

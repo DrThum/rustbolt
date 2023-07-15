@@ -226,7 +226,7 @@ pub struct ModfRecord {
     _uuid: u32,
     pub position: Vector3,
     pub rotation: Vector3,
-    pub bounding_box: BoundingBox,
+    bounding_box: BoundingBox,
     flags: u16,
     doodad_mods_index: u16, // MODS chunk in WMO file
     _name_set: u16,
@@ -237,23 +237,12 @@ impl MODF {
     pub fn parse(raw: &Vec<u8>) -> Result<MODF, binrw::Error> {
         let mut reader = Cursor::new(raw);
         let mut wmo_placements: Vec<ModfRecord> = Vec::new();
-        let mut count = 0;
         while let Ok(mut placement) = reader.read_le::<ModfRecord>() {
             placement.position = Vector3 {
                 x: MAP_MAX_COORD - placement.position.x,
                 y: placement.position.y,
                 z: MAP_MAX_COORD - placement.position.z,
             };
-            placement.bounding_box.min = Self::convert_vec3(
-                placement.bounding_box.min,
-                Some(placement.rotation),
-                Some(placement.position),
-            );
-            placement.bounding_box.max = Self::convert_vec3(
-                placement.bounding_box.max,
-                Some(placement.rotation),
-                Some(placement.position),
-            );
 
             placement.position = Vector3 {
                 x: placement.position.z,
@@ -261,81 +250,10 @@ impl MODF {
                 z: placement.position.y,
             };
 
-            // if count == 5 {
             wmo_placements.push(placement);
-            // }
-
-            count += 1;
         }
 
         Ok(MODF { wmo_placements })
-    }
-
-    // fn convert_placement_to_world_referential(placement: &mut WmoPlacement) {
-    //     fn translate(mut vec: &mut Vector3) {
-    //         vec.x = MAP_MAX_COORD - vec.x;
-    //         vec.z = MAP_MAX_COORD - vec.z;
-    //     }
-    //
-    //     fn rotate(mut vec: &mut Vector3, rotation: &Vector3, rotation_center: &Vector3) {
-    //         let converted = glm::vec3(vec.x - rotation_center.x, vec.y, vec.z - rotation_center.z);
-    //         let converted = glm::rotate_y_vec3(&converted, f32::to_radians(rotation.y)); // Might be +180°
-    //         let converted = glm::vec3(
-    //             converted.x + rotation_center.x,
-    //             converted.y,
-    //             converted.z + rotation_center.z,
-    //         );
-    //         let converted = glm::rotate_z_vec3(&converted, f32::to_radians(rotation.x));
-    //         let converted = glm::rotate_x_vec3(&converted, f32::to_radians(rotation.z));
-    //         vec.x = converted.x;
-    //         vec.y = converted.y;
-    //         vec.z = converted.z;
-    //     }
-    //
-    //     translate(&mut placement.position);
-    // }
-
-    fn convert_vec3(
-        source: Vector3,
-        rotation: Option<Vector3>,
-        rotation_center: Option<Vector3>,
-    ) -> Vector3 {
-        // 1. Translate the position onto the World referential
-        let converted = Vector3 {
-            x: MAP_MAX_COORD - source.x,
-            y: source.y,
-            z: MAP_MAX_COORD - source.z,
-        };
-
-        // 2. Apply rotations
-        let converted = rotation
-            .zip(rotation_center)
-            .map(|(rot, center)| {
-                let converted =
-                    glm::vec3(converted.x - center.x, converted.y, converted.z - center.z);
-                // let converted = glm::rotate_y_vec3(&converted, f32::to_radians(rot.y - 90.));
-                let converted = glm::rotate_y_vec3(&converted, f32::to_radians(45.));
-                // let converted = glm::rotate_z_vec3(&converted, f32::to_radians(-rot.x));
-                // let converted = glm::rotate_x_vec3(&converted, f32::to_radians(rot.z));
-                Vector3 {
-                    x: converted.x + center.x,
-                    y: converted.y,
-                    z: converted.z + center.z,
-                }
-            })
-            .unwrap_or(converted);
-
-        // 3. Swap axes:
-        // - World X is WMO Z
-        // - World Y is WMO X
-        // - World Z is WMO Y
-        let converted = Vector3 {
-            x: converted.z,
-            y: converted.x,
-            z: converted.y,
-        };
-
-        converted
     }
 }
 

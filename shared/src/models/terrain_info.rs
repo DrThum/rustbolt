@@ -4,6 +4,9 @@ use binrw::{binrw, io::Cursor, BinReaderExt};
 use enumflags2::{bitflags, BitFlags};
 use enumn::N;
 use fixedbitset::FixedBitSet;
+use parry3d::{math::Point, shape::TriMesh};
+
+use crate::models::wmo::WmoMesh;
 
 pub const TERRAIN_BLOCK_MAGIC: [u8; 4] = [b'T', b'E', b'R', b'R'];
 pub const TERRAIN_BLOCK_VERSION: u32 = 2;
@@ -95,9 +98,6 @@ pub struct TerrainBlock {
     version: u32,
     #[br(count = 256)]
     pub chunks: Vec<TerrainChunk>,
-    // pub num_wmo_placements: u32,
-    // #[br(count = num_wmo_placements)]
-    // pub wmo_placements: Vec<WmoPlacement>,
 }
 
 impl TerrainBlock {
@@ -118,7 +118,7 @@ impl TerrainBlock {
         map_name: &String,
         row: usize,
         col: usize,
-    ) -> Option<TerrainBlock> {
+    ) -> Option<Terrain> {
         let filename = format!("{}/terrain/{}_{}_{}.terrain", data_dir, map_name, row, col);
         if let Ok(mut f) = fs::File::open(&filename) {
             let metadata = fs::metadata(&filename).expect("unable to read terrain file metadata");
@@ -140,7 +140,46 @@ impl TerrainBlock {
                 filename
             );
 
-            Some(terrain_block)
+            let wmo_count: u32 = reader.read_le().unwrap();
+            let mut vertices: Vec<Point<f32>> = Vec::new();
+            let mut indices: Vec<[u32; 3]> = Vec::new();
+            for _ in 0..wmo_count {
+                let mesh: WmoMesh = reader.read_le().unwrap();
+
+                for group in mesh.groups.iter() {
+                    let base_index = vertices.len() as u32;
+                    let mut this_group_vertices: Vec<Point<f32>> = group
+                        .vertices
+                        .iter()
+                        .map(|vertex| {
+                            Point::new(
+                                vertex.x + mesh.position.x,
+                                vertex.y + mesh.position.y,
+                                vertex.z + mesh.position.z,
+                            )
+                        })
+                        .collect();
+                    vertices.append(&mut this_group_vertices);
+
+                    let mut this_group_indices: Vec<[u32; 3]> = group
+                        .indices
+                        .iter()
+                        .map(|t| t.map(|i| base_index + i as u32))
+                        .collect();
+                    indices.append(&mut this_group_indices);
+                }
+            }
+
+            let collision_mesh = if wmo_count > 0 {
+                Some(TriMesh::new(vertices, indices))
+            } else {
+                None
+            };
+
+            Some(Terrain {
+                ground: terrain_block,
+                collision_mesh,
+            })
         } else {
             None
         }
@@ -295,7 +334,6 @@ impl TerrainChunk {
 pub struct WmoPlacement {
     pub wmo_root_path: String,
     pub position: Vector3,
-    pub bounding_box: BoundingBox,
     pub rotation: Vector3,
 }
 
@@ -374,4 +412,9 @@ pub enum LiquidFlags {
     Magma = 0x04,
     Slime = 0x08,
     DarkWater = 0x10,
+}
+
+pub struct Terrain {
+    pub ground: TerrainBlock,
+    pub collision_mesh: Option<TriMesh>,
 }

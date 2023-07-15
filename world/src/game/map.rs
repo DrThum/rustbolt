@@ -7,7 +7,11 @@ use std::{
 
 use log::{error, warn};
 use parking_lot::{Mutex, MutexGuard, RwLock};
-use shared::models::terrain_info::{TerrainBlock, BLOCK_WIDTH, MAP_WIDTH_IN_BLOCKS};
+use parry3d::{
+    math::{Isometry, Point},
+    query::{Ray, RayCast},
+};
+use shared::models::terrain_info::{Terrain, BLOCK_WIDTH, MAP_WIDTH_IN_BLOCKS};
 use shipyard::{
     AllStoragesViewMut, EntitiesViewMut, EntityId, Get, IntoWorkload, Unique, UniqueViewMut, View,
     ViewMut, World,
@@ -50,6 +54,10 @@ use super::{
 };
 
 pub const DEFAULT_VISIBILITY_DISTANCE: f32 = 90.0;
+// Add a safety margin when calculating ground height to account for rounding when generating
+// terrain data and ensure that our ray (when we are within a WMO) starts from high enough to
+// actually hit the floor.
+pub const HEIGHT_MEASUREMENT_TOLERANCE: f32 = 1.;
 
 pub struct Map {
     key: MapKey,
@@ -57,7 +65,7 @@ pub struct Map {
     world_context: Arc<WorldContext>,
     sessions: RwLock<HashMap<ObjectGuid, Arc<WorldSession>>>,
     ecs_entities: RwLock<HashMap<ObjectGuid, EntityId>>,
-    terrain: Arc<HashMap<TerrainBlockCoords, TerrainBlock>>,
+    terrain: Arc<HashMap<TerrainBlockCoords, Terrain>>,
     entities_tree: RwLock<QuadTree>,
     visibility_distance: f32,
 }
@@ -66,7 +74,7 @@ impl Map {
     pub fn new(
         key: MapKey,
         world_context: Arc<WorldContext>,
-        terrain: Arc<HashMap<TerrainBlockCoords, TerrainBlock>>,
+        terrain: Arc<HashMap<TerrainBlockCoords, Terrain>>,
         spawns: Vec<CreatureSpawnDbRecord>,
         data_store: Arc<DataStore>,
     ) -> Arc<Map> {
@@ -671,7 +679,12 @@ impl Map {
             .collect()
     }
 
-    pub fn get_terrain_height(&self, position_x: f32, position_y: f32) -> Option<f32> {
+    pub fn get_ground_or_floor_height(
+        &self,
+        position_x: f32,
+        position_y: f32,
+        position_z: f32,
+    ) -> Option<f32> {
         let offset: f32 = MAP_WIDTH_IN_BLOCKS as f32 / 2.0;
         let block_row = (offset - (position_x / BLOCK_WIDTH)).floor() as usize;
         let block_col = (offset - (position_y / BLOCK_WIDTH)).floor() as usize;
@@ -680,9 +693,39 @@ impl Map {
             col: block_col,
         };
 
-        self.terrain
-            .get(&terrain_block_coords)
-            .and_then(|block| block.get_height(position_x, position_y))
+        self.terrain.get(&terrain_block_coords).and_then(|terrain| {
+            // Check if we are within a WMO first
+            let ray = Ray::new(
+                Point::new(
+                    position_x,
+                    position_y,
+                    position_z + HEIGHT_MEASUREMENT_TOLERANCE,
+                ),
+                -parry3d::na::Vector3::z(),
+            );
+            let time_of_impact = terrain
+                .collision_mesh
+                .as_ref()
+                .and_then(|mesh| mesh.cast_ray(&Isometry::identity(), &ray, std::f32::MAX, false));
+
+            let intersection_point = time_of_impact.map(|toi| ray.origin + ray.dir * toi);
+            let wmo_height = intersection_point
+                .map(|ip| ip[2])
+                .filter(|&h| h <= (position_z + HEIGHT_MEASUREMENT_TOLERANCE));
+
+            // Fallback on the ground
+            let ground_height = terrain
+                .ground
+                .get_height(position_x, position_y)
+                .filter(|&h| h <= (position_z + HEIGHT_MEASUREMENT_TOLERANCE));
+
+            match (wmo_height, ground_height) {
+                (None, None) => None,
+                (None, Some(_)) => ground_height,
+                (Some(_), None) => wmo_height,
+                (Some(wmo), Some(ground)) => Some(wmo.max(ground)),
+            }
+        })
     }
 
     pub fn visibility_distance(&self) -> f32 {

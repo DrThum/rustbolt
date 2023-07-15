@@ -71,16 +71,6 @@ impl ADT {
             })
             .collect();
 
-        // let wmo_placements: Vec<WmoPlacement> = self
-        //     .modf_chunk
-        //     .wmo_placements
-        //     .iter()
-        //     .map(|record| WmoPlacement {
-        //         position: record.position,
-        //         bounding_box: record.bounding_box,
-        //     })
-        //     .collect();
-
         TerrainBlock::new(terrain_chunks)
     }
 
@@ -95,18 +85,9 @@ impl ADT {
                 WmoPlacement {
                     wmo_root_path,
                     position: modf_rec.position,
-                    bounding_box: modf_rec.bounding_box,
                     rotation: modf_rec.rotation,
                 }
             })
             .collect()
     }
-    // TODO WMO:
-    // For each record in self.modf_chunk.wmo_placements
-    // - Open the root wmo file (follow the path through MODF -> MWID -> MWMO)
-    // - Read MOHD to get data (among other things, the number of groups)
-    //     https://wowdev.wiki/WMO#MOHD_chunk
-    // - For each wmo group
-    //   - Read relevant data (to be defined)
-    // - Build a mesh for the whole map? just for a chunk? how to handle cross-chunk situations?
 }

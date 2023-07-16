@@ -4,8 +4,8 @@ use shipyard::Unique;
 use tokio::time::Instant;
 
 use crate::{
-    config::WorldConfig, database_context::DatabaseContext, session::opcode_handler::OpcodeHandler,
-    DataStore, SessionHolder,
+    chat_commands::ChatCommands, config::WorldConfig, database_context::DatabaseContext,
+    session::opcode_handler::OpcodeHandler, DataStore, SessionHolder,
 };
 
 use super::{map_manager::MapManager, spell_effect_handler::SpellEffectHandler};
@@ -19,6 +19,7 @@ pub struct WorldContext {
     pub start_time: Instant,
     pub session_holder: Arc<SessionHolder>,
     pub map_manager: Arc<MapManager>,
+    pub chat_commands: ChatCommands,
 }
 
 impl WorldContext {

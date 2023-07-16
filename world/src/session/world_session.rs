@@ -395,16 +395,13 @@ impl WorldSession {
         target_guid: Option<&ObjectGuid>,
         message: NullString,
     ) -> SmsgMessageChat {
-        SmsgMessageChat {
+        SmsgMessageChat::build(
             message_type,
             language,
-            sender_guid: self.player_guid.read().unwrap().raw(),
-            unk: 0,
-            target_guid: target_guid.map_or(0, |g| g.raw()),
-            message_len: message.len() as u32 + 1,
+            self.player_guid.read().as_ref(),
+            target_guid,
             message,
-            chat_tag: 0, // TODO: Implement chat tags (GM, AFK, DND)
-        }
+        )
     }
 
     fn add_known_guid(&self, guid: &ObjectGuid) {

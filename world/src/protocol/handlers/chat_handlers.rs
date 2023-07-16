@@ -4,6 +4,7 @@ use log::error;
 use shipyard::{Get, View};
 
 use crate::{
+    chat_commands::ChatCommandResult,
     entities::{creature::Creature, object_guid::ObjectGuid, player::Player},
     game::world_context::WorldContext,
     protocol::{
@@ -18,13 +19,26 @@ use crate::{
 impl OpcodeHandler {
     pub(crate) fn handle_cmsg_message_chat(
         session: Arc<WorldSession>,
-        _world_context: Arc<WorldContext>,
+        world_context: Arc<WorldContext>,
         data: Vec<u8>,
     ) {
         let cmsg_message_chat: CmsgMessageChat = ClientMessage::read_as(data).unwrap();
 
         // TODO: Check that the language exists
         // TODO: Check that the player has the associated skill
+
+        if cmsg_message_chat.msg.to_string().starts_with(".") {
+            let mut command = cmsg_message_chat.msg.to_string();
+            command.drain(0..1);
+            let result = world_context.chat_commands.try_process(
+                &command,
+                world_context.clone(),
+                session.clone(),
+            );
+            if result != ChatCommandResult::Unhandled {
+                return;
+            }
+        }
 
         match cmsg_message_chat.chat_type {
             ChatMessageType::Say | ChatMessageType::Yell | ChatMessageType::Emote => {

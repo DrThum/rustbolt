@@ -24,6 +24,7 @@ use tokio::sync::mpsc::error::SendError;
 use wow_srp::normalized_string::NormalizedString;
 use wow_srp::tbc_header::ProofSeed;
 
+pub mod chat_commands;
 pub mod config;
 pub mod database_context;
 mod datastore;

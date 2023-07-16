@@ -4,6 +4,7 @@ use env_logger::Env;
 use log::info;
 use r2d2_sqlite::SqliteConnectionManager;
 use rustbolt_world::{
+    chat_commands::ChatCommands,
     config::WorldConfig,
     database_context::DatabaseContext,
     game::{
@@ -97,6 +98,7 @@ fn main() {
         start_time,
         session_holder: session_holder.clone(),
         map_manager: map_manager.clone(),
+        chat_commands: ChatCommands::build(),
     });
 
     map_manager.clone().instantiate_continents(

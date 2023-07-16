@@ -1,6 +1,7 @@
 use binrw::{binread, binwrite, NullString};
 use opcode_derive::server_opcode;
 
+use crate::entities::object_guid::ObjectGuid;
 use crate::protocol::opcodes::Opcode;
 use crate::protocol::server::ServerMessagePayload;
 use crate::shared::constants::{ChatMessageType, Language};
@@ -32,6 +33,27 @@ pub struct SmsgMessageChat {
     pub message_len: u32,
     pub message: NullString,
     pub chat_tag: u8, // 0 for now
+}
+
+impl SmsgMessageChat {
+    pub fn build(
+        message_type: ChatMessageType,
+        language: Language,
+        sender_guid: Option<&ObjectGuid>,
+        target_guid: Option<&ObjectGuid>,
+        message: NullString,
+    ) -> Self {
+        Self {
+            message_type,
+            language,
+            sender_guid: sender_guid.map_or(0, |g| g.raw()),
+            unk: 0,
+            target_guid: target_guid.map_or(0, |g| g.raw()),
+            message_len: message.len() as u32 + 1,
+            message,
+            chat_tag: 0, // TODO: Implement chat tags (GM, AFK, DND)
+        }
+    }
 }
 
 #[binread]

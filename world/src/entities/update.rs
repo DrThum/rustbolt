@@ -2,7 +2,7 @@ use binrw::binwrite;
 use enumflags2::{bitflags, BitFlags};
 use fixedbitset::FixedBitSet;
 
-use crate::shared::constants::ObjectTypeId;
+use crate::shared::constants::{MovementFlag, ObjectTypeId};
 
 use super::{object_guid::PackedObjectGuid, position::Position};
 
@@ -110,7 +110,8 @@ struct UpdateBlockValue {
 #[binwrite]
 #[derive(Clone, Debug)]
 pub struct MovementUpdateData {
-    pub movement_flags: u32,
+    #[bw(map = |bf: &BitFlags<MovementFlag>| bf.bits())]
+    pub movement_flags: BitFlags<MovementFlag>,
     pub movement_flags2: u8, // Always 0 in 2.4.3
     pub timestamp: u32,
     pub position: Position,

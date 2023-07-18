@@ -5,6 +5,7 @@ use std::{
     time::{Duration, Instant},
 };
 
+use enumflags2::BitFlag;
 use log::{error, warn};
 use parking_lot::{Mutex, MutexGuard, RwLock};
 use parry3d::{
@@ -42,7 +43,7 @@ use crate::{
     },
     repositories::{character::CharacterRecord, creature::CreatureSpawnDbRecord},
     session::world_session::WorldSession,
-    shared::constants::{HighGuidType, NpcFlags, PLAYER_DEFAULT_COMBAT_REACH},
+    shared::constants::{HighGuidType, MovementFlag, NpcFlags, PLAYER_DEFAULT_COMBAT_REACH},
     DataStore,
 };
 
@@ -237,7 +238,7 @@ impl Map {
                         WrappedInternalValues(player.internal_values.clone()),
                         player,
                         Movement {
-                            flags: 0,
+                            flags: MovementFlag::empty(),
                             pitch: None,
                             fall_time: 0,
                             speed_walk: 2.5,
@@ -423,7 +424,7 @@ impl Map {
                         *wpos,
                         WrappedInternalValues(creature.internal_values.clone()),
                         Movement {
-                            flags: 0,
+                            flags: MovementFlag::empty(),
                             pitch: None,
                             fall_time: 0,
                             speed_walk: 2.5,

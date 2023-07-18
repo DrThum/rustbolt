@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use enumflags2::BitFlags;
 use shipyard::Component;
 
 use crate::{
@@ -10,11 +11,12 @@ use crate::{
         server::ServerMessage,
     },
     session::world_session::WorldSession,
+    shared::constants::MovementFlag,
 };
 
 #[derive(Component)]
 pub struct Movement {
-    pub flags: u32, // TODO: enum MovementFlag
+    pub flags: BitFlags<MovementFlag>,
     pub pitch: Option<f32>,
     pub fall_time: u32,
     pub speed_walk: f32,
@@ -57,14 +59,16 @@ impl Movement {
     // players around
     pub fn set_flying(&mut self, flying: bool, session: Arc<WorldSession>) {
         if flying {
-            self.flags &= 0x03000000; // CanFly & PlayerFlying
+            self.flags
+                .insert(MovementFlag::CanFly | MovementFlag::PlayerFlying);
             self.pitch = Some(0.);
 
             let packet =
                 ServerMessage::new(SmsgMoveSetCanFly::build(&session.player_guid().unwrap()));
             session.send(&packet).unwrap();
         } else {
-            self.flags ^= 0x03000000;
+            self.flags
+                .remove(MovementFlag::CanFly | MovementFlag::PlayerFlying);
             self.pitch = None;
 
             let packet =

@@ -26,49 +26,32 @@ fn handle_gps(ctx: CommandContext) -> ChatCommandResult {
             .action(ArgAction::SetTrue),
     );
 
-    match command.try_get_matches_from(ctx.input) {
-        Ok(matches) => {
-            if let Some(ref map) = ctx.session.current_map() {
-                if let Some(player_ecs_entity) = ctx.session.player_entity_id() {
-                    map.world().run(|v_wpos: View<WorldPosition>| {
-                        let wpos = v_wpos[player_ecs_entity];
-                        let output = format!(
-                            "Player position: {}, {}, {}, {}",
-                            wpos.x, wpos.y, wpos.z, wpos.o,
-                        );
+    ChatCommands::process(command, &ctx, &|matches| {
+        if let Some(ref map) = ctx.session.current_map() {
+            if let Some(player_ecs_entity) = ctx.session.player_entity_id() {
+                map.world().run(|v_wpos: View<WorldPosition>| {
+                    let wpos = v_wpos[player_ecs_entity];
+                    let output = format!(
+                        "Player position: {}, {}, {}, {}",
+                        wpos.x, wpos.y, wpos.z, wpos.o,
+                    );
 
-                        let packet = ServerMessage::new(SmsgMessageChat::build(
-                            ChatMessageType::System,
-                            Language::Universal,
-                            None,
-                            None,
-                            NullString::from(output.clone()),
-                        ));
-                        ctx.session.send(&packet).unwrap();
+                    let packet = ServerMessage::new(SmsgMessageChat::build(
+                        ChatMessageType::System,
+                        Language::Universal,
+                        None,
+                        None,
+                        NullString::from(output.clone()),
+                    ));
+                    ctx.session.send(&packet).unwrap();
 
-                        if matches.get_flag("dump") {
-                            info!("GPS command output:\n {output}");
-                        }
-                    });
-                }
+                    if matches.get_flag("dump") {
+                        info!("GPS command output:\n {output}");
+                    }
+                });
             }
-
-            return ChatCommandResult::HandledOk;
         }
-        Err(err) => {
-            let error_message = err.render().ansi().to_string();
-            let error_message = ChatCommands::replace_ansi_escape_sequences(error_message);
 
-            let packet = ServerMessage::new(SmsgMessageChat::build(
-                ChatMessageType::System,
-                Language::Universal,
-                None,
-                None,
-                NullString::from(error_message),
-            ));
-            ctx.session.send(&packet).unwrap();
-
-            return ChatCommandResult::HandledWithError;
-        }
-    }
+        ChatCommandResult::HandledOk
+    })
 }

@@ -455,6 +455,18 @@ impl WorldSession {
 
         self.send(&packet).unwrap();
     }
+
+    pub fn send_system_message(&self, message: &str) {
+        let packet = ServerMessage::new(SmsgMessageChat::build(
+            ChatMessageType::System,
+            Language::Universal,
+            None,
+            None,
+            NullString::from(message),
+        ));
+
+        self.send(&packet).unwrap();
+    }
 }
 
 impl PartialEq for WorldSession {

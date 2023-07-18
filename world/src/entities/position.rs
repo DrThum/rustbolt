@@ -1,4 +1,5 @@
 use binrw::binrw;
+use shared::models::terrain_info::Vector3;
 use shipyard::Component;
 
 use crate::game::map_manager::MapKey;
@@ -29,6 +30,14 @@ impl WorldPosition {
             y: self.y,
             z: self.z,
             o: self.o,
+        }
+    }
+
+    pub fn vec3(&self) -> Vector3 {
+        Vector3 {
+            x: self.x,
+            y: self.y,
+            z: self.z,
         }
     }
 

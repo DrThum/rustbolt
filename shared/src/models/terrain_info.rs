@@ -347,8 +347,45 @@ pub struct Vector3 {
 }
 
 impl Vector3 {
+    pub fn new(x: f32, y: f32, z: f32) -> Self {
+        Self { x, y, z }
+    }
+
     pub fn as_array(&self) -> [f32; 3] {
         [self.x, self.y, self.z]
+    }
+
+    pub fn add(&self, other: &Vector3) -> Self {
+        Self {
+            x: self.x + other.x,
+            y: self.y + other.y,
+            z: self.z + other.z,
+        }
+    }
+
+    pub fn sub(&self, other: &Vector3) -> Self {
+        Self {
+            x: self.x - other.x,
+            y: self.y - other.y,
+            z: self.z - other.z,
+        }
+    }
+
+    pub fn div(&self, factor: f32) -> Self {
+        Self {
+            x: self.x / factor,
+            y: self.y / factor,
+            z: self.z / factor,
+        }
+    }
+
+    // Blizz magic
+    pub fn pack(&self) -> u32 {
+        let mut packed: u32 = 0;
+        packed |= ((self.x / 0.25) as i32 & 0x7FF) as u32;
+        packed |= (((self.y / 0.25) as i32 & 0x7FF) << 11) as u32;
+        packed |= (((self.z / 0.25) as i32 & 0x3FF) << 22) as u32;
+        packed
     }
 }
 

@@ -1,4 +1,3 @@
-use binrw::NullString;
 use clap::{ArgMatches, Command};
 use lazy_static::lazy_static;
 use log::warn;
@@ -6,11 +5,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use regex::Regex;
 
-use crate::{
-    protocol::{packets::SmsgMessageChat, server::ServerMessage},
-    session::world_session::WorldSession,
-    shared::constants::{ChatMessageType, Language},
-};
+use crate::session::world_session::WorldSession;
 
 mod debug;
 mod movement;
@@ -81,15 +76,7 @@ impl ChatCommands {
             Err(err) => {
                 let error_message = err.render().ansi().to_string();
                 let error_message = ChatCommands::replace_ansi_escape_sequences(error_message);
-
-                let packet = ServerMessage::new(SmsgMessageChat::build(
-                    ChatMessageType::System,
-                    Language::Universal,
-                    None,
-                    None,
-                    NullString::from(error_message),
-                ));
-                ctx.session.send(&packet).unwrap();
+                ctx.session.send_system_message(error_message.as_str());
 
                 ChatCommandResult::HandledWithError
             }

@@ -52,7 +52,7 @@ impl Unit {
             self.stand_state = stand_state_enum;
         } else {
             warn!(
-                "attempted to set an invalid stand state ({}) on player",
+                "attempted to set an invalid stand state ({}) on unit",
                 stand_state
             );
         }

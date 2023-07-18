@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use clap::{builder::BoolishValueParser, Arg, ArgMatches, Command};
+use clap::{builder::BoolishValueParser, Arg, Command};
 use shipyard::ViewMut;
 
 use crate::ecs::components::movement::Movement;

@@ -7,7 +7,6 @@ use std::{collections::HashMap, sync::Arc};
 use regex::Regex;
 
 use crate::{
-    game::world_context::WorldContext,
     protocol::{packets::SmsgMessageChat, server::ServerMessage},
     session::world_session::WorldSession,
     shared::constants::{ChatMessageType, Language},
@@ -33,23 +32,14 @@ impl ChatCommands {
         Self { commands }
     }
 
-    pub fn try_process(
-        &self,
-        input: &str,
-        world_context: Arc<WorldContext>,
-        session: Arc<WorldSession>,
-    ) -> ChatCommandResult {
+    pub fn try_process(&self, input: &str, session: Arc<WorldSession>) -> ChatCommandResult {
         let input = shell_words::split(input).unwrap();
         if input.is_empty() {
             return ChatCommandResult::Unhandled;
         }
 
         if let Some(handler) = self.commands.get(input[0].as_str()) {
-            return handler(CommandContext {
-                input,
-                world_context,
-                session,
-            });
+            return handler(CommandContext { input, session });
         }
 
         ChatCommandResult::Unhandled
@@ -116,7 +106,6 @@ pub enum ChatCommandResult {
 
 struct CommandContext {
     pub input: Vec<String>,
-    pub world_context: Arc<WorldContext>,
     pub session: Arc<WorldSession>,
 }
 

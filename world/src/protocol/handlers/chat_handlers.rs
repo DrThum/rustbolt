@@ -30,11 +30,9 @@ impl OpcodeHandler {
         if cmsg_message_chat.msg.to_string().starts_with(".") {
             let mut command = cmsg_message_chat.msg.to_string();
             command.drain(0..1);
-            let result = world_context.chat_commands.try_process(
-                &command,
-                world_context.clone(),
-                session.clone(),
-            );
+            let result = world_context
+                .chat_commands
+                .try_process(&command, session.clone());
             if result != ChatCommandResult::Unhandled {
                 return;
             }

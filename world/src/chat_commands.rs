@@ -6,6 +6,7 @@ use regex::Regex;
 
 use crate::{game::world_context::WorldContext, session::world_session::WorldSession};
 
+mod debug;
 mod movement;
 
 pub struct ChatCommands {
@@ -19,6 +20,7 @@ lazy_static! {
 impl ChatCommands {
     pub fn build() -> Self {
         let mut commands = HashMap::new();
+        commands.extend(debug::commands());
         commands.extend(movement::commands());
 
         Self { commands }
@@ -52,11 +54,12 @@ impl ChatCommands {
             let (s, [c]) = capture.extract();
 
             let color_code = match c.parse::<u32>() {
-                Ok(0) => "|r",
-                Ok(1) => "", // Bold
-                Ok(4) => "", // Underline
-                Ok(31) => "|cffff0000",
-                Ok(32) => "|cff66ff00",
+                Ok(0) => "|r",          // Reset
+                Ok(1) => "",            // Bold
+                Ok(4) => "",            // Underline
+                Ok(31) => "|cffff0000", // Red
+                Ok(32) => "|cff66ff00", // Green
+                Ok(33) => "|cffffff00", // Yellow
                 Ok(code) => {
                     warn!("unsupported ANSI escape code {code}");
                     ""

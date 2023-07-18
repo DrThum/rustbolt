@@ -35,7 +35,7 @@ fn handle_fly(ctx: CommandContext) -> ChatCommandResult {
                     });
                 }
             }
-            ChatCommandResult::HandledOk
+            return ChatCommandResult::HandledOk;
         }
         Err(err) => {
             let error_message = err.render().ansi().to_string();

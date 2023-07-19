@@ -1,3 +1,5 @@
+extern crate nalgebra_glm as glm;
+
 use crate::protocol::client::ClientMessage;
 use crate::protocol::server::ServerMessage;
 use crate::repositories::account::AccountRepository;
@@ -49,6 +51,7 @@ pub mod game {
     pub mod gossip;
     pub mod map;
     pub mod map_manager;
+    pub mod movement_spline;
     pub mod quad_tree;
     pub mod spell;
     pub mod spell_effect_handler;

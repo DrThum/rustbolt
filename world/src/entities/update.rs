@@ -1,8 +1,12 @@
 use binrw::binwrite;
 use enumflags2::{bitflags, BitFlags};
 use fixedbitset::FixedBitSet;
+use shared::models::terrain_info::Vector3;
 
-use crate::shared::constants::{MovementFlag, ObjectTypeId};
+use crate::{
+    game::movement_spline::MovementSpline,
+    shared::constants::{MovementFlag, ObjectTypeId},
+};
 
 use super::{object_guid::PackedObjectGuid, position::Position};
 
@@ -125,6 +129,49 @@ pub struct MovementUpdateData {
     pub speed_flight: f32,
     pub speed_flight_backward: f32,
     pub speed_turn: f32,
+    #[bw(if(movement_flags.contains(MovementFlag::SplineEnabled)))]
+    pub current_movement: Option<CurrentMovementData>,
+}
+
+#[binwrite]
+#[derive(Debug, Clone)]
+pub struct CurrentMovementData {
+    spline_flags: u32,
+    ends_facing_angle: Option<f32>,
+    ends_facing_target: Option<u64>,
+    ends_facing_point: Option<Vector3>,
+    elapsed_time: u32,
+    total_time: u32,
+    spline_id: u32,
+    point_count: u32,
+    path: Vec<Vector3>,
+    destination: Vector3, // Vector3::ZERO if path is cyclic
+}
+
+impl CurrentMovementData {
+    pub fn build(movement_flags: BitFlags<MovementFlag>, spline: &MovementSpline) -> Option<Self> {
+        let spline_enabled = movement_flags.contains(MovementFlag::SplineEnabled);
+
+        if spline_enabled {
+            let path = spline.path().clone();
+            let destination = *path.last().unwrap_or(&Vector3::ZERO);
+
+            Some(Self {
+                spline_flags: spline.spline_flags().bits(),
+                ends_facing_angle: None,  // TODO
+                ends_facing_target: None, // TODO
+                ends_facing_point: None,  // TODO
+                elapsed_time: spline.elapsed_time().as_millis() as u32,
+                total_time: spline.total_time().as_millis() as u32,
+                spline_id: spline.id(),
+                point_count: path.len() as u32,
+                path,
+                destination,
+            })
+        } else {
+            None
+        }
+    }
 }
 
 #[allow(dead_code)]

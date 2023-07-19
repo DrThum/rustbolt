@@ -32,7 +32,6 @@ impl ChatCommands {
         if input.is_empty() {
             return ChatCommandResult::Unhandled;
         }
-
         if let Some(handler) = self.commands.get(input[0].as_str()) {
             return handler(CommandContext { input, session });
         }

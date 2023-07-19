@@ -13,6 +13,12 @@ pub struct Position {
     pub o: f32,
 }
 
+impl Position {
+    pub fn is_same_spot(&self, other: &Position) -> bool {
+        self.x == other.x && self.y == other.y && self.z == other.z
+    }
+}
+
 #[derive(Copy, Clone, Component)]
 pub struct WorldPosition {
     pub map_key: MapKey,

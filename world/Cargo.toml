@@ -24,6 +24,7 @@ lazy_static = "1.4.0"
 log = "0.4.17"
 miniz_oxide = "0.7.1"
 multimap = "0.9.0"
+nalgebra-glm = "0.18.0"
 opcode_derive = { path = "./opcode_derive" }
 parking_lot = "0.12.1"
 parry3d = "0.13.5"
@@ -37,5 +38,6 @@ serde = "1.0.158"
 shared = { path = "../shared" }
 shell-words = "1.1.0"
 shipyard = { git = "https://github.com/leudz/shipyard" }
+splines = "4.2.0"
 tokio = { version = "1", features = ["full"] }
 wow_srp = { version = "0.5.3", features = ["tbc-header"] }

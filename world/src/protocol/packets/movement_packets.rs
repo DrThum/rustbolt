@@ -74,7 +74,7 @@ impl SmsgMonsterMove {
         monster_guid: &ObjectGuid,
         current_position: Vector3,
         path: Vec<Vector3>,
-        tick_count: u32,
+        spline_id: u32,
         move_type: u8,
         spline_flags: BitFlags<SplineFlag>,
         duration: u32,
@@ -107,7 +107,7 @@ impl SmsgMonsterMove {
 
             let mut points: Vec<u32> = Vec::new();
             for point in path {
-                let offset = packed_against.sub(&point);
+                let offset = packed_against - point;
                 points.push(offset.pack())
             }
             linear_path = Some(MonsterMoveLinearPath {
@@ -119,7 +119,7 @@ impl SmsgMonsterMove {
         Self {
             guid: monster_guid.as_packed(),
             current_position,
-            tick_count,
+            tick_count: spline_id,
             move_type,
             spline_flags,
             duration,

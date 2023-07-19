@@ -1,11 +1,18 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
-use enumflags2::BitFlags;
+use enumflags2::{BitFlag, BitFlags};
+use shared::models::terrain_info::Vector3;
 use shipyard::Component;
 
 use crate::{
-    entities::{position::Position, update::MovementUpdateData},
-    game::world_context::WorldContext,
+    entities::{
+        position::Position,
+        update::{CurrentMovementData, MovementUpdateData},
+    },
+    game::{
+        movement_spline::{MovementSpline, MovementSplineState},
+        world_context::WorldContext,
+    },
     protocol::{
         packets::{SmsgMoveSetCanFly, SmsgMoveUnsetCanFly},
         server::ServerMessage,
@@ -27,9 +34,27 @@ pub struct Movement {
     pub speed_flight: f32,
     pub speed_flight_backward: f32,
     pub speed_turn: f32,
+    spline: MovementSpline,
 }
 
 impl Movement {
+    pub fn new() -> Self {
+        Self {
+            flags: MovementFlag::empty(),
+            pitch: None,
+            fall_time: 0,
+            speed_walk: 2.5,
+            speed_run: 7.0,
+            speed_run_backward: 4.5,
+            speed_swim: 4.722222,
+            speed_swim_backward: 2.5,
+            speed_flight: 70.0,
+            speed_flight_backward: 4.5,
+            speed_turn: 3.141594,
+            spline: MovementSpline::new(),
+        }
+    }
+
     pub fn build_update(
         &self,
         world_context: Arc<WorldContext>,
@@ -50,6 +75,7 @@ impl Movement {
             speed_flight: self.speed_flight,
             speed_flight_backward: self.speed_flight_backward,
             speed_turn: self.speed_turn,
+            current_movement: CurrentMovementData::build(self.flags, &self.spline),
         }
     }
 
@@ -75,5 +101,36 @@ impl Movement {
                 ServerMessage::new(SmsgMoveUnsetCanFly::build(&session.player_guid().unwrap()));
             session.send(&packet).unwrap();
         }
+    }
+
+    pub fn start_movement(
+        &mut self,
+        starting_position: &Vector3,
+        path: &Vec<Vector3>,
+        velocity: f32,
+        linear: bool,
+    ) -> Duration {
+        self.flags
+            .insert(MovementFlag::SplineEnabled | MovementFlag::Forward);
+        self.spline.init(starting_position, path, velocity, linear)
+    }
+
+    pub fn is_moving(&self) -> bool {
+        self.spline.state() == MovementSplineState::Moving
+    }
+
+    pub fn spline(&self) -> &MovementSpline {
+        &self.spline
+    }
+
+    pub fn update(&mut self, dt: Duration) -> (Vector3, MovementSplineState) {
+        self.spline.update(dt)
+    }
+
+    pub fn reset_spline(&mut self) {
+        self.spline.reset();
+
+        self.flags
+            .remove(MovementFlag::SplineEnabled | MovementFlag::Forward);
     }
 }

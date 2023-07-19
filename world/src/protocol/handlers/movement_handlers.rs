@@ -1,7 +1,10 @@
 use std::sync::Arc;
 
+use shipyard::{View, ViewMut};
+
 use crate::{
-    game::world_context::WorldContext,
+    ecs::components::movement::Movement,
+    entities::{creature::Creature, player::Player, position::WorldPosition},
     protocol::{client::ClientMessage, opcodes::Opcode, packets::MovementInfo},
     session::{
         opcode_handler::{OpcodeHandler, PacketHandler},
@@ -11,12 +14,7 @@ use crate::{
 
 impl OpcodeHandler {
     pub fn handle_movement_packet(opcode: Opcode) -> PacketHandler {
-        fn handle_movement(
-            opcode: Opcode,
-            session: Arc<WorldSession>,
-            world_context: Arc<WorldContext>,
-            data: Vec<u8>,
-        ) {
+        fn handle_movement(opcode: Opcode, session: Arc<WorldSession>, data: Vec<u8>) {
             let movement_info: MovementInfo = ClientMessage::read_as(data).unwrap();
             let player_guid = session.player_guid().unwrap();
 
@@ -24,24 +22,29 @@ impl OpcodeHandler {
             // TODO: Validate position
             // TODO: Handle fall if Opcode == MsgMoveFallLand
 
+            let map = session.current_map().unwrap();
             // Register new position
-            {
-                session.current_map().unwrap().update_player_position(
-                    &player_guid,
-                    session.clone(),
-                    &movement_info.position,
-                    world_context.clone(),
-                );
-            }
+            map.world().run(
+                |v_movement: View<Movement>,
+                 v_player: View<Player>,
+                 v_creature: View<Creature>,
+                 mut vm_wpos: ViewMut<WorldPosition>| {
+                    session.current_map().unwrap().update_entity_position(
+                        &player_guid,
+                        Some(session.clone()),
+                        &movement_info.position,
+                        &v_movement,
+                        &v_player,
+                        &v_creature,
+                        &mut vm_wpos,
+                    );
+                },
+            );
 
             // Broadcast to nearby players
-            session
-                .current_map()
-                .unwrap()
-                .broadcast_movement(&player_guid, opcode, &movement_info);
+            map.broadcast_movement(&player_guid, opcode, &movement_info);
         }
 
-        Box::new(move |session, ctx, data| handle_movement(opcode, session, ctx, data))
-            as PacketHandler
+        Box::new(move |session, _, data| handle_movement(opcode, session, data)) as PacketHandler
     }
 }

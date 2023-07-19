@@ -3,9 +3,8 @@ use std::time::Duration;
 use shipyard::{Get, IntoIter, IntoWithId, UniqueView, View, ViewMut};
 
 use crate::{
-    ecs::{
-        components::{guid::Guid, health::Health, melee::Melee, spell_cast::SpellCast, unit::Unit},
-        resources::DeltaTime,
+    ecs::components::{
+        guid::Guid, health::Health, melee::Melee, spell_cast::SpellCast, unit::Unit,
     },
     entities::position::WorldPosition,
     game::map::WrappedMap,
@@ -17,7 +16,6 @@ use crate::{
 };
 
 pub fn attempt_melee_attack(
-    _dt: UniqueView<DeltaTime>,
     map: UniqueView<WrappedMap>,
     v_guid: View<Guid>,
     mut v_health: ViewMut<Health>,

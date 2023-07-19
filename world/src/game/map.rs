@@ -5,7 +5,6 @@ use std::{
     time::{Duration, Instant},
 };
 
-use enumflags2::BitFlag;
 use log::{error, warn};
 use parking_lot::{Mutex, MutexGuard, RwLock};
 use parry3d::{
@@ -26,7 +25,7 @@ use crate::{
             spell_cast::SpellCast, unit::Unit,
         },
         resources::DeltaTime,
-        systems::{melee, spell, updates},
+        systems::{melee, movement, spell, updates},
     },
     entities::{
         creature::Creature,
@@ -43,7 +42,7 @@ use crate::{
     },
     repositories::{character::CharacterRecord, creature::CreatureSpawnDbRecord},
     session::world_session::WorldSession,
-    shared::constants::{HighGuidType, MovementFlag, NpcFlags, PLAYER_DEFAULT_COMBAT_REACH},
+    shared::constants::{HighGuidType, NpcFlags, PLAYER_DEFAULT_COMBAT_REACH},
     DataStore,
 };
 
@@ -89,6 +88,7 @@ impl Map {
 
         let workload = || {
             (
+                movement::update_movement,
                 melee::attempt_melee_attack,
                 spell::update_spell,
                 updates::send_entity_update,
@@ -237,19 +237,7 @@ impl Map {
                         },
                         WrappedInternalValues(player.internal_values.clone()),
                         player,
-                        Movement {
-                            flags: MovementFlag::empty(),
-                            pitch: None,
-                            fall_time: 0,
-                            speed_walk: 2.5,
-                            speed_run: 7.0,
-                            speed_run_backward: 4.5,
-                            speed_swim: 4.722222,
-                            speed_swim_backward: 2.5,
-                            speed_flight: 70.0,
-                            speed_flight_backward: 4.5,
-                            speed_turn: 3.141594,
-                        },
+                        Movement::new(),
                         SpellCast::new(),
                     ),
                 );
@@ -423,19 +411,7 @@ impl Map {
                         Unit::new(creature.internal_values.clone()),
                         *wpos,
                         WrappedInternalValues(creature.internal_values.clone()),
-                        Movement {
-                            flags: MovementFlag::empty(),
-                            pitch: None,
-                            fall_time: 0,
-                            speed_walk: 2.5,
-                            speed_run: 7.0,
-                            speed_run_backward: 4.5,
-                            speed_swim: 4.722222,
-                            speed_swim_backward: 2.5,
-                            speed_flight: 70.0,
-                            speed_flight_backward: 4.5,
-                            speed_turn: 3.141594,
-                        },
+                        Movement::new(),
                         SpellCast::new(),
                     ),
                 );
@@ -503,41 +479,42 @@ impl Map {
         }
     }
 
-    pub fn update_player_position(
+    pub fn update_entity_position(
         &self,
-        player_guid: &ObjectGuid,
-        origin_session: Arc<WorldSession>,
+        entity_guid: &ObjectGuid,
+        origin_session: Option<Arc<WorldSession>>, // Must be defined if entity is a player
         new_position: &Position,
-        world_context: Arc<WorldContext>,
+        v_movement: &View<Movement>,
+        v_player: &View<Player>,
+        v_creature: &View<Creature>,
+        vm_wpos: &mut ViewMut<WorldPosition>,
     ) {
         let previous_position: Option<Position>;
         {
             let mut tree = self.entities_tree.write();
-            previous_position = tree.update(new_position, player_guid);
+            previous_position = tree.update(new_position, entity_guid);
         }
 
         if let Some(previous_position) = previous_position {
-            if previous_position.x == new_position.x
-                && previous_position.y == new_position.y
-                && previous_position.z == new_position.z
-            {
+            if previous_position.is_same_spot(new_position) {
                 return;
             }
 
-            let mut moving_player_smsg_create_object: Option<SmsgCreateObject> = None;
-            if let Some(player_ecs_entity) = self.lookup_entity_ecs(player_guid) {
-                let world_guard = self.world.lock();
-                let (mut vm_wpos, v_movement, v_player) = world_guard
-                    .borrow::<(ViewMut<WorldPosition>, View<Movement>, View<Player>)>()
-                    .unwrap();
-                vm_wpos[player_ecs_entity].update_local(new_position);
+            let mut moving_entity_smsg_create_object: Option<SmsgCreateObject> = None;
+            if let Some(entity_id) = self.lookup_entity_ecs(entity_guid) {
+                vm_wpos[entity_id].update_local(new_position);
 
                 let movement = v_movement
-                    .get(player_ecs_entity)
+                    .get(entity_id)
                     .ok()
-                    .map(|m| m.build_update(world_context.clone(), new_position));
-                moving_player_smsg_create_object =
-                    Some(v_player[player_ecs_entity].build_create_object(movement, false));
+                    .map(|m| m.build_update(self.world_context.clone(), new_position));
+
+                if let Some(player) = v_player.get(entity_id).ok() {
+                    moving_entity_smsg_create_object =
+                        Some(player.build_create_object(movement, false));
+                } else if let Some(creature) = v_creature.get(entity_id).ok() {
+                    moving_entity_smsg_create_object = Some(creature.build_create_object(movement));
+                }
             }
 
             let visibility_distance = self.visibility_distance();
@@ -545,14 +522,14 @@ impl Map {
                 &previous_position,
                 visibility_distance,
                 true,
-                Some(player_guid),
+                Some(entity_guid),
             );
             let in_range_before: HashSet<ObjectGuid> = in_range_before.iter().cloned().collect();
             let in_range_now = self.entities_tree.read().search_around_position(
                 new_position,
-                self.visibility_distance(),
+                visibility_distance,
                 true,
-                Some(player_guid),
+                Some(entity_guid),
             );
             let in_range_now: HashSet<ObjectGuid> = in_range_now.iter().cloned().collect();
 
@@ -565,8 +542,8 @@ impl Map {
                     if let Some(other_session) = other_session {
                         // Make the moving player appear for the other player
                         other_session.create_entity(
-                            player_guid,
-                            moving_player_smsg_create_object.as_ref().unwrap().clone(),
+                            entity_guid,
+                            moving_entity_smsg_create_object.as_ref().unwrap().clone(),
                         );
                     }
 
@@ -574,21 +551,10 @@ impl Map {
                     let mut smsg_create_object: Option<SmsgCreateObject> = None;
 
                     {
-                        let world_guard = self.world.lock();
-
-                        let (v_movement, v_player, v_creature, v_wpos) = world_guard
-                            .borrow::<(
-                                View<Movement>,
-                                View<Player>,
-                                View<Creature>,
-                                View<WorldPosition>,
-                            )>()
-                            .unwrap();
-
                         let movement = v_movement.get(other_entity_id).ok().map(|m| {
                             m.build_update(
-                                world_context.clone(),
-                                &v_wpos[other_entity_id].to_position(),
+                                self.world_context.clone(),
+                                &vm_wpos[other_entity_id].to_position(),
                             )
                         });
 
@@ -600,7 +566,9 @@ impl Map {
                     }
 
                     if let Some(smsg) = smsg_create_object {
-                        origin_session.create_entity(&other_guid, smsg);
+                        origin_session
+                            .as_ref()
+                            .map(|os| os.create_entity(&other_guid, smsg));
                     } else {
                         warn!("add_player_on_login: unable to generate a SmsgCreateObject for guid {:?}", other_guid);
                     }
@@ -611,11 +579,13 @@ impl Map {
                 let other_session = self.sessions.read().get(&other_guid).cloned();
                 if let Some(other_session) = other_session {
                     // Destroy the moving player for the other player
-                    other_session.destroy_entity(player_guid);
+                    other_session.destroy_entity(entity_guid);
                 }
 
                 // Destroy the other entity for the moving player
-                origin_session.destroy_entity(&other_guid);
+                origin_session
+                    .as_ref()
+                    .map(|os| os.destroy_entity(&other_guid));
             }
         } else {
             error!("updating position for player not on map");

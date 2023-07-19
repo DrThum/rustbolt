@@ -1,10 +1,15 @@
-use std::{fs, io::Read};
+use std::{
+    fs,
+    io::Read,
+    ops::{Add, Div, Mul, Sub},
+};
 
 use binrw::{binrw, io::Cursor, BinReaderExt};
 use enumflags2::{bitflags, BitFlags};
 use enumn::N;
 use fixedbitset::FixedBitSet;
 use parry3d::{math::Point, shape::TriMesh};
+use splines::impl_Interpolate;
 
 use crate::models::wmo::WmoMesh;
 
@@ -337,9 +342,10 @@ pub struct WmoPlacement {
     pub rotation: Vector3,
 }
 
+// TODO: Move this somewhere else
 #[binrw]
 #[allow(dead_code)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Vector3 {
     pub x: f32,
     pub y: f32,
@@ -350,6 +356,12 @@ impl Vector3 {
     pub fn new(x: f32, y: f32, z: f32) -> Self {
         Self { x, y, z }
     }
+
+    pub const ZERO: Self = Self {
+        x: 0.,
+        y: 0.,
+        z: 0.,
+    };
 
     pub fn as_array(&self) -> [f32; 3] {
         [self.x, self.y, self.z]
@@ -379,6 +391,14 @@ impl Vector3 {
         }
     }
 
+    pub fn len(&self) -> f32 {
+        (self.x * self.x + self.y * self.y + self.z * self.z).sqrt()
+    }
+
+    pub fn lerp(&self, other: &Vector3, t: f32) -> Vector3 {
+        *self + (*other - *self) * t
+    }
+
     // Blizz magic
     pub fn pack(&self) -> u32 {
         let mut packed: u32 = 0;
@@ -388,6 +408,92 @@ impl Vector3 {
         packed
     }
 }
+
+impl Add for Vector3 {
+    type Output = Self;
+
+    fn add(self, other: Self) -> Self::Output {
+        Self {
+            x: self.x + other.x,
+            y: self.y + other.y,
+            z: self.z + other.z,
+        }
+    }
+}
+
+impl Sub for Vector3 {
+    type Output = Self;
+
+    fn sub(self, other: Self) -> Self::Output {
+        Self {
+            x: self.x - other.x,
+            y: self.y - other.y,
+            z: self.z - other.z,
+        }
+    }
+}
+
+impl Sub<f32> for Vector3 {
+    type Output = Self;
+
+    fn sub(self, factor: f32) -> Self::Output {
+        Self {
+            x: self.x - factor,
+            y: self.y - factor,
+            z: self.z - factor,
+        }
+    }
+}
+
+impl Mul for Vector3 {
+    type Output = Self;
+
+    fn mul(self, other: Self) -> Self::Output {
+        Self {
+            x: self.x * other.x,
+            y: self.y * other.y,
+            z: self.z * other.z,
+        }
+    }
+}
+
+impl Mul<f32> for Vector3 {
+    type Output = Self;
+
+    fn mul(self, factor: f32) -> Self::Output {
+        Self {
+            x: self.x * factor,
+            y: self.y * factor,
+            z: self.z * factor,
+        }
+    }
+}
+
+impl Div for Vector3 {
+    type Output = Self;
+
+    fn div(self, other: Self) -> Self::Output {
+        Self {
+            x: self.x / other.x,
+            y: self.y / other.y,
+            z: self.z / other.z,
+        }
+    }
+}
+
+impl Div<f32> for Vector3 {
+    type Output = Self;
+
+    fn div(self, rhs: f32) -> Self::Output {
+        Self {
+            x: self.x / rhs,
+            y: self.y / rhs,
+            z: self.z / rhs,
+        }
+    }
+}
+
+impl_Interpolate!(f32, Vector3, std::f32::consts::PI);
 
 #[binrw]
 #[allow(dead_code)]

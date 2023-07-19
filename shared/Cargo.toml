@@ -11,3 +11,4 @@ enumflags2 = { version = "0.7.5", features = ["serde" ] }
 enumn = "0.1.8"
 fixedbitset = "0.4.2"
 parry3d = "0.13.5"
+splines = "4.2.0"

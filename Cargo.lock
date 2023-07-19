@@ -3755,6 +3755,7 @@ dependencies = [
  "log",
  "miniz_oxide 0.7.1",
  "multimap",
+ "nalgebra-glm",
  "opcode_derive",
  "parking_lot",
  "parry3d",
@@ -3768,6 +3769,7 @@ dependencies = [
  "shared",
  "shell-words",
  "shipyard",
+ "splines",
  "tokio",
  "wow_srp",
 ]
@@ -3924,6 +3926,7 @@ dependencies = [
  "enumn",
  "fixedbitset",
  "parry3d",
+ "splines",
 ]
 
 [[package]]
@@ -4061,6 +4064,12 @@ dependencies = [
  "bitflags",
  "num-traits",
 ]
+
+[[package]]
+name = "splines"
+version = "4.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "345f11dca845086e60f1076569dedb4c2026e8dfe420d2900de8683142480bcf"
 
 [[package]]
 name = "static_assertions"

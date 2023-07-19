@@ -3,10 +3,10 @@ use std::collections::HashMap;
 use clap::{Arg, ArgAction, Command};
 use enumflags2::BitFlag;
 use log::info;
-use shipyard::View;
+use shipyard::{View, ViewMut};
 
 use crate::{
-    ecs::components::{guid::Guid, unit::Unit},
+    ecs::components::{guid::Guid, movement::Movement, unit::Unit},
     entities::position::WorldPosition,
     protocol::{packets::SmsgMonsterMove, server::ServerMessage},
     shared::constants::SplineFlag,
@@ -61,7 +61,10 @@ fn handle_come(ctx: CommandContext) -> ChatCommandResult {
         if let Some(ref map) = ctx.session.current_map() {
             if let Some(player_ecs_entity) = ctx.session.player_entity_id() {
                 map.world().run(
-                    |v_wpos: View<WorldPosition>, v_unit: View<Unit>, v_guid: View<Guid>| {
+                    |v_wpos: View<WorldPosition>,
+                     v_unit: View<Unit>,
+                     v_guid: View<Guid>,
+                     mut vm_movement: ViewMut<Movement>| {
                         let player_wpos = v_wpos[player_ecs_entity];
                         let player_target = v_unit[player_ecs_entity].target();
                         if player_target.is_none() {
@@ -73,17 +76,39 @@ fn handle_come(ctx: CommandContext) -> ChatCommandResult {
                         let target_entity_id = player_target.unwrap();
                         let target_wpos = v_wpos[target_entity_id];
 
+                        let path = vec![player_wpos.vec3() /* , target_wpos.vec3() */];
+                        // let path = vec![
+                        //     Vector3::new(-362.07773, -492.10568, 54.568996),
+                        //     Vector3::new(-334.93063, -513.45636, 53.77529),
+                        //     Vector3::new(-317.90097, -479.11035, 58.172054),
+                        //     player_wpos.vec3(),
+                        // ];
+
+                        // TODO: Select speed depending on move flags (implement in Movement)
+                        let speed = vm_movement[target_entity_id].speed_run;
+                        let spline_duration = vm_movement[target_entity_id].start_movement(
+                            &target_wpos.vec3(),
+                            &path,
+                            speed,
+                            true,
+                        );
+
                         let packet = ServerMessage::new(SmsgMonsterMove::build(
                             &v_guid[target_entity_id].0,
                             target_wpos.vec3(),
-                            vec![player_wpos.vec3(), target_wpos.vec3()],
+                            path,
                             0,
                             0,
                             SplineFlag::empty(),
-                            10,
+                            spline_duration.as_millis() as u32,
                         ));
 
-                        ctx.session.send(&packet).unwrap();
+                        map.broadcast_packet(
+                            &ctx.session.player_guid().unwrap(),
+                            &packet,
+                            None,
+                            true,
+                        );
 
                         ChatCommandResult::HandledOk
                     },

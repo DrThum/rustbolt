@@ -25,23 +25,27 @@ pub fn update_movement(
 ) {
     let mut map_pending_updates: Vec<(&ObjectGuid, Position)> = Vec::new();
 
-    for (guid, mut movement) in (&v_guid, &mut vm_movement)
-        .iter()
-        .filter(|(_, mvmt)| mvmt.is_moving())
-    {
-        let (new_position, spline_state) = movement.update(dt.0);
+    for (guid, mut movement) in (&v_guid, &mut vm_movement).iter() {
+        // Reset the flag after one tick
+        if movement.just_finished_movement {
+            movement.just_finished_movement = false;
+        }
 
-        let new_position = Position {
-            x: new_position.x,
-            y: new_position.y,
-            z: new_position.z,
-            o: 0., // TODO: Figure out orientation
-        };
+        if movement.is_moving() {
+            let (new_position, spline_state) = movement.update(dt.0);
 
-        map_pending_updates.push((&guid.0, new_position));
+            let new_position = Position {
+                x: new_position.x,
+                y: new_position.y,
+                z: new_position.z,
+                o: 0., // TODO: Figure out orientation
+            };
 
-        if spline_state == MovementSplineState::Arrived {
-            movement.reset_spline();
+            map_pending_updates.push((&guid.0, new_position));
+
+            if spline_state == MovementSplineState::Arrived {
+                movement.reset_spline();
+            }
         }
     }
 

@@ -11,7 +11,8 @@ use parry3d::{
     math::{Isometry, Point},
     query::{Ray, RayCast},
 };
-use shared::models::terrain_info::{Terrain, BLOCK_WIDTH, MAP_WIDTH_IN_BLOCKS};
+use rand::Rng;
+use shared::models::terrain_info::{Terrain, Vector3, BLOCK_WIDTH, MAP_WIDTH_IN_BLOCKS};
 use shipyard::{
     AllStoragesViewMut, EntitiesViewMut, EntityId, Get, IntoWorkload, Unique, UniqueViewMut, View,
     ViewMut, World,
@@ -21,11 +22,11 @@ use crate::{
     datastore::WrappedDataStore,
     ecs::{
         components::{
-            guid::Guid, health::Health, melee::Melee, movement::Movement, quest_actor::QuestActor,
-            spell_cast::SpellCast, unit::Unit,
+            behavior::Behavior, guid::Guid, health::Health, melee::Melee, movement::Movement,
+            quest_actor::QuestActor, spell_cast::SpellCast, unit::Unit,
         },
         resources::DeltaTime,
-        systems::{melee, movement, spell, updates},
+        systems::{behavior, melee, movement, spell, updates},
     },
     entities::{
         creature::Creature,
@@ -89,6 +90,7 @@ impl Map {
         let workload = || {
             (
                 movement::update_movement,
+                behavior::tick,
                 melee::attempt_melee_attack,
                 spell::update_spell,
                 updates::send_entity_update,
@@ -388,7 +390,11 @@ impl Map {
              mut vm_int_vals: ViewMut<WrappedInternalValues>,
              mut vm_creature: ViewMut<Creature>,
              mut vm_movement: ViewMut<Movement>,
-            (mut vm_spell, mut vm_quest_actor): (ViewMut<SpellCast>, ViewMut<QuestActor>)| {
+             (mut vm_spell, mut vm_quest_actor, mut vm_behavior): (
+                ViewMut<SpellCast>,
+                ViewMut<QuestActor>,
+                ViewMut<Behavior>,
+            )| {
                 let entity_id = entities.add_entity(
                     (
                         &mut vm_guid,
@@ -399,6 +405,7 @@ impl Map {
                         &mut vm_int_vals,
                         &mut vm_movement,
                         &mut vm_spell,
+                        &mut vm_behavior,
                     ),
                     (
                         Guid::new(creature_guid.clone(), creature.internal_values.clone()),
@@ -413,6 +420,7 @@ impl Map {
                         WrappedInternalValues(creature.internal_values.clone()),
                         Movement::new(),
                         SpellCast::new(),
+                        Behavior::new_aggressive_monster(), // FIXME: Not always aggressive (thankfully)
                     ),
                 );
 
@@ -740,6 +748,24 @@ impl Map {
 
     pub fn get_session(&self, player_guid: &ObjectGuid) -> Option<Arc<WorldSession>> {
         self.sessions.read().get(player_guid).cloned()
+    }
+
+    pub fn get_random_point_around(&self, origin: &Vector3, radius: f32) -> Vector3 {
+        if radius <= 0. {
+            return origin.clone();
+        }
+
+        let mut rng = rand::thread_rng();
+        let angle: f32 = rng.gen_range(0.0..2. * std::f32::consts::PI);
+        let distance = rng.gen_range(0.0..=radius);
+
+        let random_x = origin.x + distance * angle.cos();
+        let random_y = origin.y + distance * angle.sin();
+        let z = self
+            .get_ground_or_floor_height(random_x, random_y, origin.z)
+            .unwrap_or(origin.z);
+
+        Vector3::new(random_x, random_y, z)
     }
 }
 

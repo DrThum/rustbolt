@@ -17,6 +17,14 @@ impl Position {
     pub fn is_same_spot(&self, other: &Position) -> bool {
         self.x == other.x && self.y == other.y && self.z == other.z
     }
+
+    pub fn vec3(&self) -> Vector3 {
+        Vector3 {
+            x: self.x,
+            y: self.y,
+            z: self.z,
+        }
+    }
 }
 
 #[derive(Copy, Clone, Component)]

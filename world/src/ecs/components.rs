@@ -1,3 +1,4 @@
+pub mod behavior;
 pub mod guid;
 pub mod health;
 pub mod melee;

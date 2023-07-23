@@ -15,6 +15,7 @@ use crate::{
 use super::{
     internal_values::InternalValues,
     object_guid::ObjectGuid,
+    position::Position,
     update::{CreateData, MovementUpdateData, UpdateBlockBuilder, UpdateFlag, UpdateType},
     update_fields::{ObjectFields, UnitFields, UNIT_END},
 };
@@ -24,6 +25,7 @@ pub struct Creature {
     guid: ObjectGuid,
     pub entry: u32,
     pub name: String,
+    pub spawn_position: Option<Position>, // Only exists for creatures in DB
     pub npc_flags: BitFlags<NpcFlags>,
     pub internal_values: Arc<RwLock<InternalValues>>,
 }
@@ -79,6 +81,12 @@ impl Creature {
                     guid,
                     entry: template.entry,
                     name: template.name.to_owned(),
+                    spawn_position: Some(Position {
+                        x: creature_spawn.position_x,
+                        y: creature_spawn.position_y,
+                        z: creature_spawn.position_z,
+                        o: creature_spawn.orientation,
+                    }),
                     npc_flags: unsafe { BitFlags::from_bits_unchecked(template.npc_flags) },
                     internal_values: Arc::new(RwLock::new(values)),
                 }

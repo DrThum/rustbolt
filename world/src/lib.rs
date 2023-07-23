@@ -46,6 +46,8 @@ mod entities {
     pub mod player;
 
     pub mod internal_values;
+
+    pub mod behaviors;
 }
 pub mod game {
     pub mod gossip;

@@ -1,15 +1,12 @@
 use std::collections::HashMap;
 
 use clap::{Arg, ArgAction, Command};
-use enumflags2::BitFlag;
 use log::info;
 use shipyard::{View, ViewMut};
 
 use crate::{
     ecs::components::{guid::Guid, movement::Movement, unit::Unit},
     entities::position::WorldPosition,
-    protocol::{packets::SmsgMonsterMove, server::ServerMessage},
-    shared::constants::SplineFlag,
 };
 
 use super::{ChatCommandResult, ChatCommands, CommandContext, CommandHandler, CommandMap};
@@ -76,37 +73,16 @@ fn handle_come(ctx: CommandContext) -> ChatCommandResult {
                         let target_entity_id = player_target.unwrap();
                         let target_wpos = v_wpos[target_entity_id];
 
-                        let path = vec![player_wpos.vec3() /* , target_wpos.vec3() */];
-                        // let path = vec![
-                        //     Vector3::new(-362.07773, -492.10568, 54.568996),
-                        //     Vector3::new(-334.93063, -513.45636, 53.77529),
-                        //     Vector3::new(-317.90097, -479.11035, 58.172054),
-                        //     player_wpos.vec3(),
-                        // ];
+                        let path = vec![player_wpos.vec3()];
 
                         // TODO: Select speed depending on move flags (implement in Movement)
                         let speed = vm_movement[target_entity_id].speed_run;
-                        let spline_duration = vm_movement[target_entity_id].start_movement(
+                        vm_movement[target_entity_id].start_movement(
+                            &v_guid[target_entity_id].0,
+                            map.clone(),
                             &target_wpos.vec3(),
                             &path,
                             speed,
-                            true,
-                        );
-
-                        let packet = ServerMessage::new(SmsgMonsterMove::build(
-                            &v_guid[target_entity_id].0,
-                            target_wpos.vec3(),
-                            path,
-                            0,
-                            0,
-                            SplineFlag::empty(),
-                            spline_duration.as_millis() as u32,
-                        ));
-
-                        map.broadcast_packet(
-                            &ctx.session.player_guid().unwrap(),
-                            &packet,
-                            None,
                             true,
                         );
 

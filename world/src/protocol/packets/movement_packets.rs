@@ -72,7 +72,7 @@ pub struct MonsterMoveCatmullRomPath {
 impl SmsgMonsterMove {
     pub fn build(
         monster_guid: &ObjectGuid,
-        current_position: Vector3,
+        current_position: &Vector3,
         path: Vec<Vector3>,
         spline_id: u32,
         move_type: u8,
@@ -118,7 +118,7 @@ impl SmsgMonsterMove {
 
         Self {
             guid: monster_guid.as_packed(),
-            current_position,
+            current_position: *current_position,
             tick_count: spline_id,
             move_type,
             spline_flags,

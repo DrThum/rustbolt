@@ -6,15 +6,17 @@ use shipyard::Component;
 
 use crate::{
     entities::{
+        object_guid::ObjectGuid,
         position::Position,
         update::{CurrentMovementData, MovementUpdateData},
     },
     game::{
+        map::Map,
         movement_spline::{MovementSpline, MovementSplineState},
         world_context::WorldContext,
     },
     protocol::{
-        packets::{SmsgMoveSetCanFly, SmsgMoveUnsetCanFly},
+        packets::{SmsgMonsterMove, SmsgMoveSetCanFly, SmsgMoveUnsetCanFly},
         server::ServerMessage,
     },
     session::world_session::WorldSession,
@@ -35,6 +37,9 @@ pub struct Movement {
     pub speed_flight_backward: f32,
     pub speed_turn: f32,
     spline: MovementSpline,
+    pub previous_movement_kind: Option<MovementKind>,
+    pub just_finished_movement: bool, // true for one tick after completing a movement
+    pub current_movement_kind: Option<MovementKind>,
 }
 
 impl Movement {
@@ -52,6 +57,9 @@ impl Movement {
             speed_flight_backward: 4.5,
             speed_turn: 3.141594,
             spline: MovementSpline::new(),
+            previous_movement_kind: None,
+            just_finished_movement: false,
+            current_movement_kind: None,
         }
     }
 
@@ -105,18 +113,53 @@ impl Movement {
 
     pub fn start_movement(
         &mut self,
+        mover_guid: &ObjectGuid,
+        map: Arc<Map>,
         starting_position: &Vector3,
         path: &Vec<Vector3>,
         velocity: f32,
         linear: bool,
-    ) -> Duration {
+    ) {
         self.flags
             .insert(MovementFlag::SplineEnabled | MovementFlag::Forward);
-        self.spline.init(starting_position, path, velocity, linear)
+        let spline_duration = self.spline.init(starting_position, path, velocity, linear);
+
+        let packet = ServerMessage::new(SmsgMonsterMove::build(
+            mover_guid,
+            starting_position,
+            path.to_vec(),
+            0,
+            0,
+            self.spline.spline_flags(),
+            spline_duration.as_millis() as u32,
+        ));
+
+        map.broadcast_packet(mover_guid, &packet, None, true);
+    }
+
+    pub fn start_random_movement(
+        &mut self,
+        mover_guid: &ObjectGuid,
+        map: Arc<Map>,
+        starting_position: &Vector3,
+        path: &Vec<Vector3>,
+        velocity: f32,
+        linear: bool,
+    ) {
+        self.current_movement_kind = Some(MovementKind::Random);
+        self.start_movement(mover_guid, map, starting_position, path, velocity, linear);
     }
 
     pub fn is_moving(&self) -> bool {
         self.spline.state() == MovementSplineState::Moving
+    }
+
+    pub fn previous_movement_kind(&self) -> Option<MovementKind> {
+        self.previous_movement_kind
+    }
+
+    pub fn current_movement_kind(&self) -> Option<MovementKind> {
+        self.current_movement_kind
     }
 
     pub fn spline(&self) -> &MovementSpline {
@@ -128,9 +171,20 @@ impl Movement {
     }
 
     pub fn reset_spline(&mut self) {
+        self.just_finished_movement = true;
+        self.previous_movement_kind = self.current_movement_kind;
+        self.current_movement_kind = None;
         self.spline.reset();
 
         self.flags
             .remove(MovementFlag::SplineEnabled | MovementFlag::Forward);
     }
+}
+
+#[derive(PartialEq, Copy, Clone)]
+pub enum MovementKind {
+    Random, // Randomly moving around
+            // Targeted,
+            // Feared,
+            // ...
 }

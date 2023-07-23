@@ -66,7 +66,7 @@ impl MovementSpline {
         let mut full_path = vec![
             Key::new(
                 0.,
-                starting_position.lerp(&path[0], -1.),
+                (*starting_position).lerp(&path[0], -1.),
                 Interpolation::Linear,
             ),
             Key::new(0., *starting_position, Interpolation::Linear),

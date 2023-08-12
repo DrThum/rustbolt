@@ -4,7 +4,8 @@ use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::named_params;
 
 use crate::{
-    datastore::data_types::CreatureTemplate, shared::constants::MAX_CREATURE_TEMPLATE_MODELID,
+    datastore::data_types::CreatureTemplate, ecs::components::movement::MovementKind,
+    shared::constants::MAX_CREATURE_TEMPLATE_MODELID,
 };
 
 pub struct CreatureRepository;
@@ -21,13 +22,15 @@ impl CreatureRepository {
         let count = count.next().unwrap().unwrap_or(0);
         let bar = ProgressBar::new(count);
 
-        let mut stmt = conn.prepare_cached("SELECT entry, name, sub_name, icon_name, min_level, max_level, model_id1, model_id2, model_id3, model_id4, scale, family, type_id, racial_leader, type_flags, speed_walk, speed_run, rank, health_multiplier, power_multiplier, min_level_health, max_level_health, min_level_mana, max_level_mana, pet_spell_data_id, faction_template_id, npc_flags, unit_flags, dynamic_flags, gossip_menu_id FROM creature_templates ORDER BY entry").unwrap();
+        let mut stmt = conn.prepare_cached("SELECT entry, name, sub_name, icon_name, min_level, max_level, model_id1, model_id2, model_id3, model_id4, scale, family, type_id, racial_leader, type_flags, speed_walk, speed_run, rank, health_multiplier, power_multiplier, min_level_health, max_level_health, min_level_mana, max_level_mana, pet_spell_data_id, faction_template_id, npc_flags, unit_flags, dynamic_flags, gossip_menu_id, movement_type FROM creature_templates ORDER BY entry").unwrap();
 
         let result = stmt
             .query_map([], |row| {
-                let model_ids: Vec<u32> = (1..MAX_CREATURE_TEMPLATE_MODELID)
+                use CreatureTemplateColumnIndex::*;
+
+                let model_ids: Vec<u32> = (0..MAX_CREATURE_TEMPLATE_MODELID)
                     .into_iter()
-                    .map(|index| row.get(format!("model_id{}", index).as_str()).unwrap())
+                    .map(|index| row.get(ModelId1 as usize + index).unwrap())
                     .collect();
 
                 bar.inc(1);
@@ -36,33 +39,34 @@ impl CreatureRepository {
                 }
 
                 Ok(CreatureTemplate {
-                    entry: row.get("entry").unwrap(),
-                    name: row.get("name").unwrap(),
-                    sub_name: row.get("sub_name").unwrap(),
-                    icon_name: row.get("icon_name").unwrap(),
-                    min_level: row.get("min_level").unwrap(),
-                    max_level: row.get("max_level").unwrap(),
-                    min_level_health: row.get("min_level_health").unwrap(),
-                    max_level_health: row.get("max_level_health").unwrap(),
-                    min_level_mana: row.get("min_level_mana").unwrap(),
-                    max_level_mana: row.get("max_level_mana").unwrap(),
+                    entry: row.get(Entry as usize).unwrap(),
+                    name: row.get(Name as usize).unwrap(),
+                    sub_name: row.get(SubName as usize).unwrap(),
+                    icon_name: row.get(IconName as usize).unwrap(),
+                    min_level: row.get(MinLevel as usize).unwrap(),
+                    max_level: row.get(MaxLevel as usize).unwrap(),
+                    min_level_health: row.get(MinLevelHealth as usize).unwrap(),
+                    max_level_health: row.get(MaxLevelHealth as usize).unwrap(),
+                    min_level_mana: row.get(MinLevelMana as usize).unwrap(),
+                    max_level_mana: row.get(MaxLevelMana as usize).unwrap(),
                     model_ids,
-                    scale: row.get("scale").unwrap(),
-                    speed_walk: row.get("speed_walk").unwrap(),
-                    speed_run: row.get("speed_run").unwrap(),
-                    family: row.get("family").unwrap(),
-                    type_id: row.get("type_id").unwrap(),
-                    type_flags: row.get("type_flags").unwrap(),
-                    rank: row.get("rank").unwrap(),
-                    racial_leader: row.get("racial_leader").unwrap(),
-                    health_multiplier: row.get("health_multiplier").unwrap(),
-                    power_multiplier: row.get("power_multiplier").unwrap(),
-                    pet_spell_data_id: row.get("pet_spell_data_id").unwrap(),
-                    faction_template_id: row.get("faction_template_id").unwrap(),
-                    npc_flags: row.get("npc_flags").unwrap(),
-                    unit_flags: row.get("unit_flags").unwrap(),
-                    dynamic_flags: row.get("dynamic_flags").unwrap(),
-                    gossip_menu_id: row.get("gossip_menu_id").unwrap(),
+                    scale: row.get(Scale as usize).unwrap(),
+                    speed_walk: row.get(SpeedWalk as usize).unwrap(),
+                    speed_run: row.get(SpeedRun as usize).unwrap(),
+                    family: row.get(Family as usize).unwrap(),
+                    type_id: row.get(TypeId as usize).unwrap(),
+                    type_flags: row.get(TypeFlags as usize).unwrap(),
+                    rank: row.get(Rank as usize).unwrap(),
+                    racial_leader: row.get(RacialLeader as usize).unwrap(),
+                    health_multiplier: row.get(HealthMultiplier as usize).unwrap(),
+                    power_multiplier: row.get(PowerMultiplier as usize).unwrap(),
+                    pet_spell_data_id: row.get(PetSpellDataId as usize).unwrap(),
+                    faction_template_id: row.get(FactionTemplateId as usize).unwrap(),
+                    npc_flags: row.get(NpcFlags as usize).unwrap(),
+                    unit_flags: row.get(UnitFlags as usize).unwrap(),
+                    dynamic_flags: row.get(DynamicFlags as usize).unwrap(),
+                    gossip_menu_id: row.get(GossipMenuId as usize).unwrap(),
+                    movement_type: row.get(MovementType as usize).unwrap(),
                 })
             })
             .unwrap();
@@ -74,18 +78,22 @@ impl CreatureRepository {
         conn: &PooledConnection<SqliteConnectionManager>,
         map_id: u32,
     ) -> Vec<CreatureSpawnDbRecord> {
-        let mut stmt = conn.prepare_cached("SELECT guid, entry, map, position_x, position_y, position_z, orientation FROM creature_spawns WHERE map = :map_id").unwrap();
+        let mut stmt = conn.prepare_cached("SELECT guid, entry, map, position_x, position_y, position_z, orientation, movement_type_override, wander_radius FROM creature_spawns WHERE map = :map_id").unwrap();
 
         let result = stmt
             .query_map(named_params! { ":map_id": map_id }, |row| {
+                use CreatureSpawnColumnIndex::*;
+
                 Ok(CreatureSpawnDbRecord {
-                    guid: row.get("guid").unwrap(),
-                    entry: row.get("entry").unwrap(),
-                    map: row.get("map").unwrap(),
-                    position_x: row.get("position_x").unwrap(),
-                    position_y: row.get("position_y").unwrap(),
-                    position_z: row.get("position_z").unwrap(),
-                    orientation: row.get("orientation").unwrap(),
+                    guid: row.get(Guid as usize).unwrap(),
+                    entry: row.get(Entry as usize).unwrap(),
+                    map: row.get(Map as usize).unwrap(),
+                    position_x: row.get(PositionX as usize).unwrap(),
+                    position_y: row.get(PositionY as usize).unwrap(),
+                    position_z: row.get(PositionZ as usize).unwrap(),
+                    orientation: row.get(Orientation as usize).unwrap(),
+                    movement_type_override: row.get(MovementTypeOverride as usize).unwrap(),
+                    wander_radius: row.get(WanderRadius as usize).unwrap(),
                 })
             })
             .unwrap();
@@ -102,4 +110,53 @@ pub struct CreatureSpawnDbRecord {
     pub position_y: f32,
     pub position_z: f32,
     pub orientation: f32,
+    pub movement_type_override: Option<MovementKind>,
+    pub wander_radius: Option<u32>,
+}
+
+#[allow(dead_code)]
+enum CreatureTemplateColumnIndex {
+    Entry,
+    Name,
+    SubName,
+    IconName,
+    MinLevel,
+    MaxLevel,
+    ModelId1,
+    ModelId2,
+    ModelId3,
+    ModelId4,
+    Scale,
+    Family,
+    TypeId,
+    RacialLeader,
+    TypeFlags,
+    SpeedWalk,
+    SpeedRun,
+    Rank,
+    HealthMultiplier,
+    PowerMultiplier,
+    MinLevelHealth,
+    MaxLevelHealth,
+    MinLevelMana,
+    MaxLevelMana,
+    PetSpellDataId,
+    FactionTemplateId,
+    NpcFlags,
+    UnitFlags,
+    DynamicFlags,
+    GossipMenuId,
+    MovementType,
+}
+
+enum CreatureSpawnColumnIndex {
+    Guid,
+    Entry,
+    Map,
+    PositionX,
+    PositionY,
+    PositionZ,
+    Orientation,
+    MovementTypeOverride,
+    WanderRadius,
 }

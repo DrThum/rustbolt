@@ -735,7 +735,7 @@ pub enum Emote {
     StateEatNoSheathe = 423,
 }
 
-pub const MAX_CREATURE_TEMPLATE_MODELID: u32 = 4;
+pub const MAX_CREATURE_TEMPLATE_MODELID: usize = 4;
 
 pub const MAX_SPELL_TOTEMS: usize = 2;
 pub const MAX_SPELL_REAGENTS: usize = 8;

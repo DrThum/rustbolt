@@ -57,6 +57,10 @@ fn action_wander_randomly(ctx: &mut BTContext) -> NodeStatus {
             //    return NodeStatus::Failure
             // }
 
+            if creature.default_movement_kind != MovementKind::Random {
+                return NodeStatus::Failure;
+            }
+
             if mv.is_moving() {
                 if mv.current_movement_kind() == Some(MovementKind::Random) {
                     // Wandering in progress
@@ -80,8 +84,12 @@ fn action_wander_randomly(ctx: &mut BTContext) -> NodeStatus {
                         .spawn_position
                         .map(|sp| sp.vec3())
                         .unwrap_or(current_pos);
-                    // TODO: radius needs to come from creature_spawns
-                    let destination = ctx.map.0.get_random_point_around(&around, 30.);
+                    let destination = ctx.map.0.get_random_point_around(
+                        &around,
+                        creature.wander_radius.expect(
+                            "expected an existing wander radius on creature with random movement",
+                        ) as f32,
+                    );
                     let path = vec![destination];
                     // TODO: Select speed depending on move flags (implement in Movement)
                     let speed = mv.speed_run;

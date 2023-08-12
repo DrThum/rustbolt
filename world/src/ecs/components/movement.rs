@@ -1,6 +1,8 @@
 use std::{sync::Arc, time::Duration};
 
 use enumflags2::{BitFlag, BitFlags};
+use enumn::N;
+use rusqlite::types::{FromSql, FromSqlError};
 use shared::models::terrain_info::Vector3;
 use shipyard::Component;
 
@@ -181,10 +183,19 @@ impl Movement {
     }
 }
 
-#[derive(PartialEq, Copy, Clone)]
+#[derive(PartialEq, Copy, Clone, N, Debug)]
 pub enum MovementKind {
+    Idle,
     Random, // Randomly moving around
+    Path,   // aka Waypoint
             // Targeted,
             // Feared,
             // ...
+}
+
+impl FromSql for MovementKind {
+    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
+        let value = value.as_i64()?;
+        MovementKind::n(value).map_or(Err(FromSqlError::Other("invalid movement type".into())), Ok)
+    }
 }

@@ -5,6 +5,7 @@ use enumflags2::BitFlags;
 use enumn::N;
 
 use crate::{
+    ecs::components::movement::MovementKind,
     protocol::packets::{
         ItemTemplateDamage, ItemTemplateSocket, ItemTemplateSpell, ItemTemplateStat,
     },
@@ -375,6 +376,7 @@ pub struct CreatureTemplate {
     pub unit_flags: u32,
     pub dynamic_flags: u32,
     pub gossip_menu_id: Option<u32>,
+    pub movement_type: MovementKind,
 }
 
 #[allow(dead_code)]

@@ -1,11 +1,13 @@
 use std::sync::Arc;
 
 use enumflags2::{make_bitflags, BitFlags};
+use log::warn;
 use parking_lot::RwLock;
 use rand::{seq::SliceRandom, Rng};
 use shipyard::Component;
 
 use crate::{
+    ecs::components::movement::MovementKind,
     protocol::packets::SmsgCreateObject,
     repositories::creature::CreatureSpawnDbRecord,
     shared::constants::{HighGuidType, NpcFlags, ObjectTypeId, ObjectTypeMask},
@@ -26,6 +28,8 @@ pub struct Creature {
     pub entry: u32,
     pub name: String,
     pub spawn_position: Option<Position>, // Only exists for creatures in DB
+    pub default_movement_kind: MovementKind,
+    pub wander_radius: Option<u32>,
     pub npc_flags: BitFlags<NpcFlags>,
     pub internal_values: Arc<RwLock<InternalValues>>,
 }
@@ -77,6 +81,19 @@ impl Creature {
                 values.set_u32(UnitFields::UnitFieldFlags.into(), template.unit_flags);
                 values.set_u32(UnitFields::UnitDynamicFlags.into(), template.dynamic_flags);
 
+                let mut default_movement_kind = creature_spawn
+                    .movement_type_override
+                    .unwrap_or(template.movement_type);
+                let wander_radius = creature_spawn.wander_radius;
+
+                if wander_radius.is_none() && default_movement_kind == MovementKind::Random {
+                    warn!(
+                        "creature spawn with guid {} has random movement but no wander radius - defaulting to idle movement",
+                        guid.counter()
+                    );
+                    default_movement_kind = MovementKind::Idle;
+                }
+
                 Creature {
                     guid,
                     entry: template.entry,
@@ -89,6 +106,8 @@ impl Creature {
                     }),
                     npc_flags: unsafe { BitFlags::from_bits_unchecked(template.npc_flags) },
                     internal_values: Arc::new(RwLock::new(values)),
+                    default_movement_kind,
+                    wander_radius,
                 }
             })
     }

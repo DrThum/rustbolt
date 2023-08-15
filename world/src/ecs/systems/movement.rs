@@ -96,7 +96,6 @@ pub fn update_movement(
                 if let Ok(creature) = v_creature.get(entity_id) {
                     if let Some(spawn_pos) = creature.spawn_position {
                         let distance_to_home = spawn_pos.distance_to(my_wpos, true);
-                        println!("distance to home {distance_to_home}");
                         if distance_to_home > CREATURE_LEASH_DISTANCE {
                             movement.clear(true);
                             let speed = movement.speed_run;

@@ -842,6 +842,12 @@ impl Player {
             context.slot = None;
         }
     }
+
+    pub fn level(&self) -> u32 {
+        self.internal_values
+            .read()
+            .get_u32(UnitFields::UnitFieldLevel.into())
+    }
 }
 
 pub struct PlayerVisualFeatures {

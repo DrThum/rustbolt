@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use shipyard::{IntoIter, IntoWithId, UniqueView, View, ViewMut};
 
 use crate::{
@@ -12,10 +14,12 @@ use crate::{
     entities::{
         behaviors::{BTContext, NodeStatus},
         creature::Creature,
+        player::Player,
         position::WorldPosition,
     },
     game::map::WrappedMap,
-    shared::constants::MAX_CREATURE_AGGRO_DISTANCE,
+    session::world_session::WorldSession,
+    shared::constants::CREATURE_AGGRO_DISTANCE_MAX,
 };
 
 pub fn tick(
@@ -26,6 +30,7 @@ pub fn tick(
     v_guid: View<Guid>,
     v_wpos: View<WorldPosition>,
     v_creature: View<Creature>,
+    v_player: View<Player>,
 ) {
     for (entity_id, mut behavior) in (&mut vm_behavior).iter().with_id() {
         let mut context = BTContext {
@@ -36,6 +41,7 @@ pub fn tick(
             v_guid: &v_guid,
             v_wpos: &v_wpos,
             v_creature: &v_creature,
+            v_player: &v_player,
         };
 
         behavior.tree().tick(dt.0, &mut context, execute_action);
@@ -50,11 +56,23 @@ fn execute_action(action: &Action, ctx: &mut BTContext) -> NodeStatus {
 
 fn action_aggro(ctx: &mut BTContext) -> NodeStatus {
     let my_guid = ctx.v_guid[ctx.entity_id].0;
-    // TODO: Calculate the proper aggro distance depending on level
-    let sessions_around =
-        ctx.map
-            .0
-            .sessions_nearby_entity(&my_guid, MAX_CREATURE_AGGRO_DISTANCE, true, false);
+    let creature = &ctx.v_creature[ctx.entity_id];
+    let creature_position = &ctx.v_wpos[ctx.entity_id];
+
+    let sessions_around: Vec<Arc<WorldSession>> = ctx
+        .map
+        .0
+        .sessions_nearby_entity(&my_guid, CREATURE_AGGRO_DISTANCE_MAX, true, false)
+        .into_iter()
+        .filter(|session| {
+            let player_entity_id = session.player_entity_id().unwrap();
+            let player = &ctx.v_player[player_entity_id];
+            let player_position = ctx.v_wpos[player_entity_id];
+
+            creature_position.distance_to(&player_position, true)
+                <= creature.aggro_distance(player.level())
+        })
+        .collect();
 
     let closest = sessions_around.first(); // FIXME
 

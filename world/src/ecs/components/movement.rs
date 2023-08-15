@@ -212,8 +212,7 @@ impl Movement {
         velocity: f32,
         linear: bool,
     ) -> Duration {
-        self.current_movement_kinds
-            .push(MovementKind::ReturnHome);
+        self.current_movement_kinds.push(MovementKind::ReturnHome);
         self.start_movement(
             mover_guid,
             map,
@@ -281,8 +280,8 @@ pub enum MovementKind {
     },
     PlayerControlled,
     ReturnHome, // aka Evade
-                   // Feared,
-                   // ...
+                // Feared,
+                // ...
 }
 
 impl MovementKind {

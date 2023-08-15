@@ -11,7 +11,7 @@ use crate::{
     game::map::WrappedMap,
 };
 
-use super::{creature::Creature, position::WorldPosition};
+use super::{creature::Creature, player::Player, position::WorldPosition};
 
 #[allow(dead_code)]
 pub struct BehaviorTree<A> {
@@ -199,6 +199,7 @@ pub struct BTContext<'a, 'b> {
     pub v_guid: &'a View<'a, Guid>,
     pub v_wpos: &'a View<'a, WorldPosition>,
     pub v_creature: &'a View<'a, Creature>,
+    pub v_player: &'a View<'a, Player>,
 }
 
 // Internals

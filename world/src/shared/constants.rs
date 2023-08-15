@@ -1547,3 +1547,10 @@ pub enum SplineFlag {
     Unknown30 = 0x40000000,
     Unknown31 = 0x80000000,
 }
+
+pub const MAX_CREATURE_AGGRO_DISTANCE: f32 = 45.;
+// TODO: To properly implement leashing, see https://github.com/vmangos/core/issues/793
+pub const CREATURE_LEASH_DISTANCE: f32 = 100.;
+// Max distance that the target is allowed to move before the chasing entity has to update its
+// destination
+pub const MAX_CHASE_LEEWAY: f32 = 0.5;

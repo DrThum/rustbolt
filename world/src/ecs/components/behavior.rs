@@ -1,8 +1,8 @@
-use std::time::Duration;
-
 use shipyard::Component;
 
 use crate::entities::behaviors::{BehaviorNode, BehaviorTree};
+
+use super::movement::MovementKind;
 
 #[derive(Component)]
 pub struct Behavior {
@@ -10,13 +10,21 @@ pub struct Behavior {
 }
 
 impl Behavior {
-    pub fn new_aggressive_monster() -> Self {
-        let bt = BehaviorTree::new(BehaviorNode::new_cooldown_range_skippable(
-            Box::new(BehaviorNode::Action(Action::WanderRandomly)),
-            Duration::from_secs(3),
-            Duration::from_secs(10),
-            0.3,
-        ));
+    pub fn new_wild_monster() -> Self {
+        // Aggro an enemy entity passing by
+        // TODO: Add a cooldown around this one? Like 200 ms?
+        let aggro = BehaviorNode::Condition(Box::new(BehaviorNode::Action(Action::Aggro)), |ctx| {
+            // Check if we have a nearby player
+            // TODO: this should actually be "any enemy entity" not just "a player"
+            // TODO: we should only react if we're aggressive
+            let curr_move_kind = **&ctx.vm_movement[ctx.entity_id].current_movement_kind();
+
+            curr_move_kind == MovementKind::Idle
+                || curr_move_kind.is_random()
+                || curr_move_kind == MovementKind::Path
+        });
+
+        let bt = BehaviorTree::new(BehaviorNode::Selector(vec![aggro]));
 
         Self { bt }
     }
@@ -27,5 +35,5 @@ impl Behavior {
 }
 
 pub enum Action {
-    WanderRandomly,
+    Aggro,
 }

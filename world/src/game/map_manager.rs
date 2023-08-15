@@ -220,7 +220,7 @@ impl MapManager {
     }
 }
 
-#[derive(Eq, Hash, PartialEq, Clone, Copy)]
+#[derive(Eq, Hash, PartialEq, Clone, Copy, Debug)]
 pub struct MapKey {
     pub map_id: u32,
     pub instance_id: Option<u32>,

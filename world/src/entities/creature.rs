@@ -8,6 +8,7 @@ use shipyard::Component;
 
 use crate::{
     ecs::components::movement::MovementKind,
+    game::map_manager::MapKey,
     protocol::packets::SmsgCreateObject,
     repositories::creature::CreatureSpawnDbRecord,
     shared::constants::{HighGuidType, NpcFlags, ObjectTypeId, ObjectTypeMask},
@@ -17,7 +18,7 @@ use crate::{
 use super::{
     internal_values::InternalValues,
     object_guid::ObjectGuid,
-    position::Position,
+    position::WorldPosition,
     update::{CreateData, MovementUpdateData, UpdateBlockBuilder, UpdateFlag, UpdateType},
     update_fields::{ObjectFields, UnitFields, UNIT_END},
 };
@@ -27,7 +28,7 @@ pub struct Creature {
     guid: ObjectGuid,
     pub entry: u32,
     pub name: String,
-    pub spawn_position: Option<Position>, // Only exists for creatures in DB
+    pub spawn_position: Option<WorldPosition>, // Only exists for creatures in DB
     pub default_movement_kind: MovementKind,
     pub wander_radius: Option<u32>,
     pub npc_flags: BitFlags<NpcFlags>,
@@ -86,7 +87,7 @@ impl Creature {
                     .unwrap_or(template.movement_type);
                 let wander_radius = creature_spawn.wander_radius;
 
-                if wander_radius.is_none() && default_movement_kind == MovementKind::Random {
+                if wander_radius.is_none() && default_movement_kind.is_random() {
                     warn!(
                         "creature spawn with guid {} has random movement but no wander radius - defaulting to idle movement",
                         guid.counter()
@@ -98,7 +99,9 @@ impl Creature {
                     guid,
                     entry: template.entry,
                     name: template.name.to_owned(),
-                    spawn_position: Some(Position {
+                    spawn_position: Some(WorldPosition {
+                        map_key: MapKey::for_continent(creature_spawn.map), // TODO: MapKey for dungeon
+                        zone: 0, // TODO: Calculate zone from terrain files
                         x: creature_spawn.position_x,
                         y: creature_spawn.position_y,
                         z: creature_spawn.position_z,

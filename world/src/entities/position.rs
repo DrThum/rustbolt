@@ -27,7 +27,7 @@ impl Position {
     }
 }
 
-#[derive(Copy, Clone, Component)]
+#[derive(Copy, Clone, Component, Debug, PartialEq)]
 pub struct WorldPosition {
     pub map_key: MapKey,
     pub zone: u32,
@@ -66,9 +66,9 @@ impl WorldPosition {
         if is_3d {
             let dist_z = self.z - other.z;
 
-            dist_x * dist_x + dist_y * dist_y + dist_z * dist_z
+            (dist_x * dist_x + dist_y * dist_y + dist_z * dist_z).sqrt()
         } else {
-            dist_x * dist_x + dist_y * dist_y
+            (dist_x * dist_x + dist_y * dist_y).sqrt()
         }
     }
 

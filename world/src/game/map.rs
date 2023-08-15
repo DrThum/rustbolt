@@ -22,8 +22,14 @@ use crate::{
     datastore::WrappedDataStore,
     ecs::{
         components::{
-            behavior::Behavior, guid::Guid, health::Health, melee::Melee, movement::Movement,
-            quest_actor::QuestActor, spell_cast::SpellCast, unit::Unit,
+            behavior::Behavior,
+            guid::Guid,
+            health::Health,
+            melee::Melee,
+            movement::{Movement, MovementKind},
+            quest_actor::QuestActor,
+            spell_cast::SpellCast,
+            unit::Unit,
         },
         resources::DeltaTime,
         systems::{behavior, melee, movement, spell, updates},
@@ -91,7 +97,7 @@ impl Map {
             (
                 movement::update_movement,
                 behavior::tick,
-                melee::attempt_melee_attack,
+                melee::attempt_melee_attack, // TODO: player only, move creature to behavior tree
                 spell::update_spell,
                 updates::send_entity_update,
             )
@@ -239,7 +245,7 @@ impl Map {
                         },
                         WrappedInternalValues(player.internal_values.clone()),
                         player,
-                        Movement::new(),
+                        Movement::new(MovementKind::PlayerControlled),
                         SpellCast::new(),
                     ),
                 );
@@ -418,9 +424,10 @@ impl Map {
                         Unit::new(creature.internal_values.clone()),
                         *wpos,
                         WrappedInternalValues(creature.internal_values.clone()),
-                        Movement::new(),
+                        Movement::new(creature.default_movement_kind),
                         SpellCast::new(),
-                        Behavior::new_aggressive_monster(), // FIXME: Not always aggressive (thankfully)
+                        Behavior::new_wild_monster(), // FIXME: Will need different behavior
+                                                      // depending on some flags
                     ),
                 );
 

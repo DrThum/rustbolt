@@ -29,7 +29,7 @@ impl OpcodeHandler {
                  v_player: View<Player>,
                  v_creature: View<Creature>,
                  mut vm_wpos: ViewMut<WorldPosition>| {
-                    session.current_map().unwrap().update_entity_position(
+                    map.update_entity_position(
                         &player_guid,
                         Some(session.clone()),
                         &movement_info.position,

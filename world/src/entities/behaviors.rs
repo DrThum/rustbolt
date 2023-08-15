@@ -85,6 +85,13 @@ impl<A> BehaviorTree<A> {
                     NodeStatus::Failure
                 }
             }
+            BehaviorNodeState::Condition(child, pred) => {
+                if pred(ctx) {
+                    Self::evaluate_tree(child, dt, ctx, tick_fn)
+                } else {
+                    NodeStatus::Failure
+                }
+            }
             BehaviorNodeState::Action(action) => tick_fn(action, ctx),
         }
     }
@@ -104,6 +111,8 @@ pub enum BehaviorNode<A> {
         Duration,             // Maximum duration (if range)
         f32,                  // Chance to skip cooldown [0..1[
     ),
+    // Decorator that executes the child tree if the predicate is true
+    Condition(Box<BehaviorNode<A>>, fn(&BTContext) -> bool),
     // Actual action node, leaf on the tree (implemented by the user in `tick_fn`)
     Action(A),
 }
@@ -166,6 +175,9 @@ impl<A> BehaviorNode<A> {
                     expire_time: Instant::now(),
                 }
             }
+            BehaviorNode::Condition(child, pred) => {
+                BehaviorNodeState::Condition(Box::new(child.build_state()), pred)
+            }
             BehaviorNode::Action(action) => BehaviorNodeState::Action(action),
         }
     }
@@ -200,5 +212,6 @@ enum BehaviorNodeState<A> {
         skip_chance: f32,
         expire_time: Instant, // When will the cooldown be up?
     },
+    Condition(Box<BehaviorNodeState<A>>, fn(&BTContext) -> bool),
     Action(A),
 }

@@ -1,15 +1,18 @@
-use std::{sync::Arc, time::Duration};
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 use enumflags2::{BitFlag, BitFlags};
-use enumn::N;
+use rand::Rng;
 use rusqlite::types::{FromSql, FromSqlError};
 use shared::models::terrain_info::Vector3;
-use shipyard::Component;
+use shipyard::{Component, EntityId};
 
 use crate::{
     entities::{
         object_guid::ObjectGuid,
-        position::Position,
+        position::{Position, WorldPosition},
         update::{CurrentMovementData, MovementUpdateData},
     },
     game::{
@@ -39,13 +42,14 @@ pub struct Movement {
     pub speed_flight_backward: f32,
     pub speed_turn: f32,
     spline: MovementSpline,
-    pub previous_movement_kind: Option<MovementKind>,
-    pub just_finished_movement: bool, // true for one tick after completing a movement
-    pub current_movement_kind: Option<MovementKind>,
+    // Movements that expired during the latest tick
+    pub recently_expired_movement_kinds: Vec<MovementKind>,
+    // Acts like a stack, the top of the stack is at the end of the Vec
+    current_movement_kinds: Vec<MovementKind>,
 }
 
 impl Movement {
-    pub fn new() -> Self {
+    pub fn new(default_movement_kind: MovementKind) -> Self {
         Self {
             flags: MovementFlag::empty(),
             pitch: None,
@@ -59,9 +63,8 @@ impl Movement {
             speed_flight_backward: 4.5,
             speed_turn: 3.141594,
             spline: MovementSpline::new(),
-            previous_movement_kind: None,
-            just_finished_movement: false,
-            current_movement_kind: None,
+            recently_expired_movement_kinds: Vec::new(),
+            current_movement_kinds: vec![default_movement_kind],
         }
     }
 
@@ -121,7 +124,7 @@ impl Movement {
         path: &Vec<Vector3>,
         velocity: f32,
         linear: bool,
-    ) {
+    ) -> Duration {
         self.flags
             .insert(MovementFlag::SplineEnabled | MovementFlag::Forward);
         let spline_duration = self.spline.init(starting_position, path, velocity, linear);
@@ -137,6 +140,7 @@ impl Movement {
         ));
 
         map.broadcast_packet(mover_guid, &packet, None, true);
+        spline_duration
     }
 
     pub fn start_random_movement(
@@ -147,21 +151,97 @@ impl Movement {
         path: &Vec<Vector3>,
         velocity: f32,
         linear: bool,
-    ) {
-        self.current_movement_kind = Some(MovementKind::Random);
-        self.start_movement(mover_guid, map, starting_position, path, velocity, linear);
+    ) -> Duration {
+        assert!(
+            self.current_movement_kinds.len() == 1
+                && self.current_movement_kinds.first().unwrap().is_random(),
+            "random movement should always be on the bottom of the stack and never expire"
+        );
+
+        let duration =
+            self.start_movement(mover_guid, map, starting_position, path, velocity, linear);
+
+        // Calculate the cooldown according to the skip chance
+        let mut rng = rand::thread_rng();
+        let mut new_cooldown_end = Instant::now() + duration;
+        if rng.gen_range(0.0..1.0) > WANDER_COOLDOWN_SKIP_CHANCE {
+            let extra_cooldown = rng.gen_range(WANDER_COOLDOWN_MIN..WANDER_COOLDOWN_MAX);
+            new_cooldown_end += extra_cooldown;
+        }
+
+        match self.current_movement_kind_mut() {
+            MovementKind::Random { cooldown_end } => *cooldown_end = new_cooldown_end,
+            _ => panic!("expected random movement kind"),
+        }
+
+        duration
+    }
+
+    pub fn start_chasing(
+        &mut self,
+        mover_guid: &ObjectGuid,
+        target_guid: &ObjectGuid,
+        target_entity_id: EntityId,
+        map: Arc<Map>,
+        starting_position: &Vector3,
+        destination: WorldPosition,
+        velocity: f32,
+        linear: bool,
+    ) -> Duration {
+        self.current_movement_kinds.push(MovementKind::Chase {
+            target_guid: *target_guid,
+            target_entity_id,
+            destination,
+        });
+        self.start_movement(
+            mover_guid,
+            map,
+            starting_position,
+            &vec![destination.vec3()],
+            velocity,
+            linear,
+        )
+    }
+
+    pub fn go_to_home(
+        &mut self,
+        mover_guid: &ObjectGuid,
+        map: Arc<Map>,
+        starting_position: &Vector3,
+        destination: WorldPosition,
+        velocity: f32,
+        linear: bool,
+    ) -> Duration {
+        self.current_movement_kinds
+            .push(MovementKind::ReturnHome);
+        self.start_movement(
+            mover_guid,
+            map,
+            starting_position,
+            &vec![destination.vec3()],
+            velocity,
+            linear,
+        )
     }
 
     pub fn is_moving(&self) -> bool {
         self.spline.state() == MovementSplineState::Moving
     }
 
-    pub fn previous_movement_kind(&self) -> Option<MovementKind> {
-        self.previous_movement_kind
+    pub fn previous_movement_kind(&self) -> &Vec<MovementKind> {
+        &self.recently_expired_movement_kinds
     }
 
-    pub fn current_movement_kind(&self) -> Option<MovementKind> {
-        self.current_movement_kind
+    pub fn current_movement_kind(&self) -> &MovementKind {
+        self.current_movement_kinds
+            .last()
+            .expect("unexpected empty movement kinds stack")
+    }
+
+    pub fn current_movement_kind_mut(&mut self) -> &mut MovementKind {
+        self.current_movement_kinds
+            .last_mut()
+            .expect("unexpected empty movement kinds stack")
     }
 
     pub fn spline(&self) -> &MovementSpline {
@@ -172,10 +252,14 @@ impl Movement {
         self.spline.update(dt)
     }
 
-    pub fn reset_spline(&mut self) {
-        self.just_finished_movement = true;
-        self.previous_movement_kind = self.current_movement_kind;
-        self.current_movement_kind = None;
+    pub fn clear(&mut self, should_expire: bool) {
+        if should_expire {
+            let expired = self
+                .current_movement_kinds
+                .pop()
+                .expect("unexpected empty movement kinds stack");
+            self.recently_expired_movement_kinds.push(expired);
+        }
         self.spline.reset();
 
         self.flags
@@ -183,19 +267,49 @@ impl Movement {
     }
 }
 
-#[derive(PartialEq, Copy, Clone, N, Debug)]
+#[derive(PartialEq, Copy, Clone, Debug)]
 pub enum MovementKind {
     Idle,
-    Random, // Randomly moving around
-    Path,   // aka Waypoint
-            // Targeted,
-            // Feared,
-            // ...
+    Random {
+        cooldown_end: Instant,
+    }, // Randomly moving around
+    Path, // aka Waypoint
+    Chase {
+        target_guid: ObjectGuid,
+        target_entity_id: EntityId,
+        destination: WorldPosition,
+    },
+    PlayerControlled,
+    ReturnHome, // aka Evade
+                   // Feared,
+                   // ...
+}
+
+impl MovementKind {
+    pub fn is_random(&self) -> bool {
+        match self {
+            MovementKind::Random { cooldown_end: _ } => true,
+            _ => false,
+        }
+    }
 }
 
 impl FromSql for MovementKind {
     fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
-        let value = value.as_i64()?;
-        MovementKind::n(value).map_or(Err(FromSqlError::Other("invalid movement type".into())), Ok)
+        match value.as_i64() {
+            Ok(0) => Ok(MovementKind::Idle),
+            Ok(1) => Ok(MovementKind::Random {
+                cooldown_end: Instant::now(),
+            }),
+            Ok(2) => Ok(MovementKind::Path),
+            Ok(_) => Err(FromSqlError::Other(
+                "database movement type can only be Idle, Random or Path".into(),
+            )),
+            Err(_) => Err(FromSqlError::Other("invalid movement type".into())),
+        }
     }
 }
+
+pub const WANDER_COOLDOWN_MIN: Duration = Duration::from_secs(3);
+pub const WANDER_COOLDOWN_MAX: Duration = Duration::from_secs(10);
+pub const WANDER_COOLDOWN_SKIP_CHANCE: f32 = 0.3;

@@ -1,11 +1,15 @@
 use indicatif::ProgressBar;
 use r2d2::PooledConnection;
 use r2d2_sqlite::SqliteConnectionManager;
-use rusqlite::named_params;
+use rusqlite::{
+    named_params,
+    types::{FromSql, FromSqlError},
+};
 
 use crate::{
-    datastore::data_types::CreatureTemplate, ecs::components::movement::MovementKind,
-    shared::constants::MAX_CREATURE_TEMPLATE_MODELID,
+    datastore::data_types::CreatureTemplate,
+    ecs::components::movement::MovementKind,
+    shared::constants::{Gender, MAX_CREATURE_TEMPLATE_MODELID},
 };
 
 pub struct CreatureRepository;
@@ -100,6 +104,29 @@ impl CreatureRepository {
 
         result.filter_map(|res| res.ok()).into_iter().collect()
     }
+
+    pub fn load_creature_model_info(
+        conn: &PooledConnection<SqliteConnectionManager>,
+    ) -> Vec<CreatureModelInfo> {
+        let mut stmt = conn.prepare_cached("SELECT model_id, bounding_radius, combat_reach, gender, model_id_other_gender, model_id_alternative FROM creature_model_info").unwrap();
+
+        let result = stmt
+            .query_map([], |row| {
+                use CreatureModelInfoColumnIndex::*;
+
+                Ok(CreatureModelInfo {
+                    model_id: row.get(ModelId as usize).unwrap(),
+                    bounding_radius: row.get(BoundingRadius as usize).unwrap(),
+                    combat_reach: row.get(CombatReach as usize).unwrap(),
+                    gender: row.get(Gender as usize).unwrap(),
+                    model_id_other_gender: row.get(ModelIdOtherGender as usize).unwrap(),
+                    model_id_alternative: row.get(ModelIdAlternative as usize).unwrap(),
+                })
+            })
+            .unwrap();
+
+        result.filter_map(|res| res.ok()).into_iter().collect()
+    }
 }
 
 pub struct CreatureSpawnDbRecord {
@@ -159,4 +186,29 @@ enum CreatureSpawnColumnIndex {
     Orientation,
     MovementTypeOverride,
     WanderRadius,
+}
+
+pub struct CreatureModelInfo {
+    pub model_id: u32,
+    pub bounding_radius: f32,
+    pub combat_reach: f32,
+    pub gender: Gender,
+    pub model_id_other_gender: u32,
+    pub model_id_alternative: u32,
+}
+
+enum CreatureModelInfoColumnIndex {
+    ModelId,
+    BoundingRadius,
+    CombatReach,
+    Gender,
+    ModelIdOtherGender,
+    ModelIdAlternative,
+}
+
+impl FromSql for Gender {
+    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
+        let value = value.as_i64()?;
+        Gender::n(value).map_or(Err(FromSqlError::Other("invalid gender".into())), Ok)
+    }
 }

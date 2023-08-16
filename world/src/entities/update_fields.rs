@@ -95,7 +95,7 @@ pub enum UnitFields {
     UnitFieldAurastate = OBJECT_END + 0x008C, // Size: 1, Type: Int, Flags: Public
     UnitFieldBaseattacktime = OBJECT_END + 0x008D, // Size: 2, Type: Int, Flags: Public
     UnitFieldRangedattacktime = OBJECT_END + 0x008F, // Size: 1, Type: Int, Flags: Private
-    UnitFieldBoundingradius = OBJECT_END + 0x0090, // Size: 1, Type: Float, Flags: Public
+    UnitFieldBoundingRadius = OBJECT_END + 0x0090, // Size: 1, Type: Float, Flags: Public
     UnitFieldCombatReach = OBJECT_END + 0x0091, // Size: 1, Type: Float, Flags: Public
     UnitFieldDisplayid = OBJECT_END + 0x0092, // Size: 1, Type: Int, Flags: Public
     UnitFieldNativedisplayid = OBJECT_END + 0x0093, // Size: 1, Type: Int, Flags: Public

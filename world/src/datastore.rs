@@ -17,8 +17,11 @@ use crate::{
         dbc::Dbc,
     },
     repositories::{
-        creature::CreatureRepository, gossip::GossipRepository, item::ItemRepository,
-        player_creation::PlayerCreationRepository, quest::QuestRepository,
+        creature::{CreatureModelInfo, CreatureRepository},
+        gossip::GossipRepository,
+        item::ItemRepository,
+        player_creation::PlayerCreationRepository,
+        quest::QuestRepository,
     },
     shared::constants::{CharacterClassBit, CharacterRaceBit},
 };
@@ -61,6 +64,7 @@ pub struct DataStore {
     quest_relations_by_creature: SqlMultiStore<QuestRelation>,
     npc_texts: SqlStore<NpcTextDbRecord>,
     gossip_menus: SqlMultiStore<GossipMenuDbRecord>,
+    creature_model_info: SqlStore<CreatureModelInfo>,
 }
 
 macro_rules! parse_dbc {
@@ -203,6 +207,16 @@ impl DataStore {
             multimap
         };
 
+        let creature_model_info = {
+            info!("Loading creature models info...");
+            let creature_model_info = CreatureRepository::load_creature_model_info(conn);
+            let creature_model_info: SqlStore<CreatureModelInfo> = creature_model_info
+                .into_iter()
+                .map(|cmi| (cmi.model_id, cmi))
+                .collect();
+            creature_model_info
+        };
+
         Ok(DataStore {
             chr_races,
             chr_classes,
@@ -226,6 +240,7 @@ impl DataStore {
             quest_relations_by_creature,
             npc_texts,
             gossip_menus,
+            creature_model_info,
         })
     }
 
@@ -362,6 +377,10 @@ impl DataStore {
 
     pub fn get_gossip_menu(&self, id: u32) -> Option<&GossipMenuDbRecord> {
         self.gossip_menus.get(&id) // TODO: Select the best menu depending on conditions
+    }
+
+    pub fn get_creature_model_info(&self, model_id: u32) -> Option<&CreatureModelInfo> {
+        self.creature_model_info.get(&model_id)
     }
 }
 

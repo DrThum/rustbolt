@@ -55,6 +55,7 @@ pub struct Player {
     action_buttons: HashMap<usize, ActionButton>,
     faction_standings: HashMap<u32, FactionStanding>,
     quest_statuses: HashMap<u32, QuestLogContext>,
+    in_combat_with: RwLock<HashSet<ObjectGuid>>,
 }
 
 impl Player {
@@ -531,6 +532,7 @@ impl Player {
             action_buttons,
             faction_standings,
             quest_statuses,
+            in_combat_with: RwLock::new(HashSet::new()),
         }
     }
 
@@ -582,6 +584,10 @@ impl Player {
 
     pub fn spells(&self) -> &Vec<u32> {
         &self.spells
+    }
+
+    pub fn guid(&self) -> ObjectGuid {
+        self.guid
     }
 
     pub fn action_buttons(&self) -> &HashMap<usize, ActionButton> {
@@ -847,6 +853,18 @@ impl Player {
         self.internal_values
             .read()
             .get_u32(UnitFields::UnitFieldLevel.into())
+    }
+
+    pub fn set_in_combat_with(&self, guid: ObjectGuid) {
+        self.in_combat_with.write().insert(guid);
+    }
+
+    pub fn unset_in_combat_with(&self, guid: ObjectGuid) {
+        self.in_combat_with.write().remove(&guid);
+    }
+
+    pub fn in_combat_with(&self) -> HashSet<ObjectGuid> {
+        self.in_combat_with.read().clone()
     }
 }
 

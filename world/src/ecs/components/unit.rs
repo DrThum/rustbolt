@@ -6,7 +6,7 @@ use shipyard::{Component, EntityId};
 
 use crate::{
     entities::{internal_values::InternalValues, update_fields::UnitFields},
-    shared::constants::UnitStandState,
+    shared::constants::{UnitFlags, UnitStandState},
 };
 
 #[derive(Component)]
@@ -56,5 +56,26 @@ impl Unit {
                 stand_state
             );
         }
+    }
+
+    pub fn set_combat_state(&self, set_in_combat: bool) {
+        if set_in_combat {
+            self.internal_values.write().set_flag_u32(
+                UnitFields::UnitFieldFlags.into(),
+                UnitFlags::InCombat as u32,
+            );
+        } else {
+            self.internal_values.write().unset_flag_u32(
+                UnitFields::UnitFieldFlags.into(),
+                UnitFlags::InCombat as u32,
+            );
+        }
+    }
+
+    pub fn combat_state(&self) -> bool {
+        self.internal_values.read().has_flag_u32(
+            UnitFields::UnitFieldFlags.into(),
+            UnitFlags::InCombat as u32,
+        )
     }
 }

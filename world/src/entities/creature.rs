@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use enumflags2::{make_bitflags, BitFlags};
 use log::warn;
@@ -36,7 +36,8 @@ pub struct Creature {
     pub default_movement_kind: MovementKind,
     pub wander_radius: Option<u32>,
     pub npc_flags: BitFlags<NpcFlags>,
-    pub internal_values: Arc<RwLock<InternalValues>>,
+    pub internal_values: Arc<RwLock<InternalValues>>, // TODO: Arc -> Rc everywhere in rustbolt-world
+    threat_list: RwLock<HashMap<ObjectGuid, f32>>,
 }
 
 impl Creature {
@@ -115,6 +116,7 @@ impl Creature {
                     internal_values: Arc::new(RwLock::new(values)),
                     default_movement_kind,
                     wander_radius,
+                    threat_list: RwLock::new(HashMap::new())
                 }
             })
     }
@@ -174,5 +176,21 @@ impl Creature {
         self.internal_values
             .read()
             .get_u32(UnitFields::UnitFieldLevel.into())
+    }
+
+    pub fn modify_threat(&self, guid: ObjectGuid, amount: f32) {
+        self.threat_list
+            .write()
+            .entry(guid)
+            .and_modify(|threat| *threat += amount)
+            .or_insert(amount);
+    }
+
+    pub fn remove_from_threat_list(&self, guid: &ObjectGuid) {
+        self.threat_list.write().remove(guid);
+    }
+
+    pub fn threat_list(&self) -> HashMap<ObjectGuid, f32> {
+        self.threat_list.read().clone()
     }
 }

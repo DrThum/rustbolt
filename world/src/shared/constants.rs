@@ -1101,6 +1101,7 @@ pub const FACTION_NUMBER_BASE_REPUTATION_MASKS: usize = 4;
 pub const MAX_VISIBLE_REPUTATIONS: usize = 128;
 
 #[allow(dead_code)]
+#[repr(u32)]
 pub enum UnitFlags {
     None = 0x00000000,
     ServerControlled = 0x00000001,
@@ -1138,6 +1139,7 @@ pub enum UnitFlags {
 }
 
 #[allow(dead_code)]
+#[repr(u32)]
 pub enum UnitFlags2 {
     FeignDeath = 0x00000001,
     HideBody = 0x00000002,

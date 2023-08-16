@@ -32,7 +32,7 @@ use crate::{
             unit::Unit,
         },
         resources::DeltaTime,
-        systems::{behavior, melee, movement, spell, updates},
+        systems::{behavior, combat, melee, movement, spell, updates},
     },
     entities::{
         creature::Creature,
@@ -97,6 +97,7 @@ impl Map {
             (
                 movement::update_movement,
                 behavior::tick,
+                combat::update_combat_state,
                 melee::attempt_melee_attack, // TODO: player only, move creature to behavior tree
                 spell::update_spell,
                 updates::send_entity_update,

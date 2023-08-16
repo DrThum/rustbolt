@@ -15,6 +15,7 @@ use crate::{
     shared::constants::{MeleeAttackError, WeaponAttackType, ATTACK_DISPLAY_DELAY},
 };
 
+// TODO: Move to systems/combat?
 pub fn attempt_melee_attack(
     map: UniqueView<WrappedMap>,
     v_guid: View<Guid>,

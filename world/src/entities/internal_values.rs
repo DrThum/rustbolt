@@ -155,6 +155,37 @@ impl InternalValues {
 
         unsafe { self.values[index].as_i32 }
     }
+
+    #[allow(dead_code)]
+    pub fn set_flag_u32(&mut self, index: usize, flag: u32) {
+        assert!(index < self.size, "index is too high");
+
+        let current = self.get_u32(index);
+        let new = current | flag;
+
+        if current != new {
+            self.set_u32(index, new);
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn unset_flag_u32(&mut self, index: usize, flag: u32) {
+        assert!(index < self.size, "index is too high");
+
+        let current = self.get_u32(index);
+        let new = current & !flag;
+
+        if current != new {
+            self.set_u32(index, new);
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn has_flag_u32(&self, index: usize, flag: u32) -> bool {
+        assert!(index < self.size, "index is too high");
+
+        self.get_u32(index) & flag != 0
+    }
 }
 
 #[derive(Component)]

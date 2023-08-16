@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use shipyard::{IntoIter, IntoWithId, UniqueView, View, ViewMut};
+use shipyard::{Get, IntoIter, IntoWithId, UniqueView, View, ViewMut};
 
 use crate::{
     ecs::{
@@ -80,6 +80,11 @@ fn action_aggro(ctx: &mut BTContext) -> NodeStatus {
         let origin = ctx.v_wpos[ctx.entity_id];
         let target_entity_id = session.player_entity_id().unwrap();
         let dest = ctx.v_wpos[target_entity_id];
+
+        if let Ok(player) = ctx.v_player.get(target_entity_id) {
+            player.set_in_combat_with(my_guid);
+            creature.modify_threat(player.guid(), 0.);
+        }
 
         let speed = ctx.vm_movement[ctx.entity_id].speed_run;
         ctx.vm_movement[ctx.entity_id].start_chasing(

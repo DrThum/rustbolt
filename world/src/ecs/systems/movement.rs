@@ -97,7 +97,13 @@ pub fn update_movement(
                     if let Some(spawn_pos) = creature.spawn_position {
                         let distance_to_home = spawn_pos.distance_to(my_wpos, true);
                         if distance_to_home > CREATURE_LEASH_DISTANCE {
+                            if let Ok(player) = v_player.get(*target_entity_id) {
+                                player.unset_in_combat_with(guid.0);
+                                creature.remove_from_threat_list(&player.guid());
+                            }
+
                             movement.clear(true);
+
                             let speed = movement.speed_run;
                             movement.go_to_home(
                                 &guid.0,

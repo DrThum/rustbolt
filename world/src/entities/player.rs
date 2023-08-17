@@ -26,7 +26,7 @@ use crate::{
         Gender, HighGuidType, InventorySlot, InventoryType, ItemClass, ItemSubclassConsumable,
         ObjectTypeId, ObjectTypeMask, PlayerQuestStatus, PowerType, QuestSlotState,
         QuestStartError, SkillRangeType, UnitFlags, MAX_QUESTS_IN_LOG, MAX_QUEST_OBJECTIVES_COUNT,
-        PLAYER_DEFAULT_COMBAT_REACH,
+        PLAYER_DEFAULT_BOUNDING_RADIUS, PLAYER_DEFAULT_COMBAT_REACH,
     },
 };
 
@@ -339,6 +339,10 @@ impl Player {
 
         values.set_u32(UnitFields::UnitFieldDisplayid.into(), display_id);
         values.set_u32(UnitFields::UnitFieldNativedisplayid.into(), display_id);
+        values.set_f32(
+            UnitFields::UnitFieldBoundingRadius.into(),
+            PLAYER_DEFAULT_BOUNDING_RADIUS,
+        );
         values.set_f32(
             UnitFields::UnitFieldCombatReach.into(),
             PLAYER_DEFAULT_COMBAT_REACH,

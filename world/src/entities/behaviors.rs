@@ -5,7 +5,7 @@ use shipyard::{EntityId, UniqueView, View, ViewMut};
 
 use crate::{
     ecs::{
-        components::{guid::Guid, movement::Movement},
+        components::{guid::Guid, movement::Movement, unit::Unit},
         resources::DeltaTime,
     },
     game::map::WrappedMap,
@@ -200,6 +200,7 @@ pub struct BTContext<'a, 'b> {
     pub v_wpos: &'a View<'a, WorldPosition>,
     pub v_creature: &'a View<'a, Creature>,
     pub v_player: &'a View<'a, Player>,
+    pub v_unit: &'a View<'a, Unit>,
 }
 
 // Internals

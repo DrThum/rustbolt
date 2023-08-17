@@ -148,7 +148,7 @@ impl Movement {
         mover_guid: &ObjectGuid,
         map: Arc<Map>,
         starting_position: &Vector3,
-        path: &Vec<Vector3>,
+        destination: Vector3,
         velocity: f32,
         linear: bool,
     ) -> Duration {
@@ -158,8 +158,14 @@ impl Movement {
             "random movement should always be on the bottom of the stack and never expire"
         );
 
-        let duration =
-            self.start_movement(mover_guid, map, starting_position, path, velocity, linear);
+        let duration = self.start_movement(
+            mover_guid,
+            map,
+            starting_position,
+            &vec![destination],
+            velocity,
+            linear,
+        );
 
         // Calculate the cooldown according to the skip chance
         let mut rng = rand::thread_rng();
@@ -182,21 +188,29 @@ impl Movement {
         mover_guid: &ObjectGuid,
         target_guid: &ObjectGuid,
         target_entity_id: EntityId,
+        chase_distance: f32,
         map: Arc<Map>,
-        starting_position: &Vector3,
-        destination: WorldPosition,
+        starting_position: &WorldPosition,
+        target_position: WorldPosition,
         velocity: f32,
         linear: bool,
     ) -> Duration {
+        let destination = map.get_point_around_at_angle(
+            &target_position,
+            chase_distance,
+            target_position.get_2d_angle_with(starting_position),
+        );
+
         self.current_movement_kinds.push(MovementKind::Chase {
             target_guid: *target_guid,
             target_entity_id,
             destination,
+            distance: chase_distance,
         });
         self.start_movement(
             mover_guid,
             map,
-            starting_position,
+            &starting_position.vec3(),
             &vec![destination.vec3()],
             velocity,
             linear,
@@ -277,6 +291,7 @@ pub enum MovementKind {
         target_guid: ObjectGuid,
         target_entity_id: EntityId,
         destination: WorldPosition,
+        distance: f32,
     },
     PlayerControlled,
     ReturnHome, // aka Evade

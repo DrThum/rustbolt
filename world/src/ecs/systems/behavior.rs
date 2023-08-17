@@ -8,6 +8,7 @@ use crate::{
             behavior::{Action, Behavior},
             guid::Guid,
             movement::Movement,
+            unit::Unit,
         },
         resources::DeltaTime,
     },
@@ -31,6 +32,7 @@ pub fn tick(
     v_wpos: View<WorldPosition>,
     v_creature: View<Creature>,
     v_player: View<Player>,
+    v_unit: View<Unit>,
 ) {
     for (entity_id, mut behavior) in (&mut vm_behavior).iter().with_id() {
         let mut context = BTContext {
@@ -42,6 +44,7 @@ pub fn tick(
             v_wpos: &v_wpos,
             v_creature: &v_creature,
             v_player: &v_player,
+            v_unit: &v_unit,
         };
 
         behavior.tree().tick(dt.0, &mut context, execute_action);
@@ -86,13 +89,18 @@ fn action_aggro(ctx: &mut BTContext) -> NodeStatus {
             creature.modify_threat(player.guid(), 0.);
         }
 
+        let my_bounding_radius = ctx.v_unit[ctx.entity_id].bounding_radius();
+        let target_bounding_radius = ctx.v_unit[target_entity_id].bounding_radius();
+        let chase_distance = my_bounding_radius + target_bounding_radius;
+
         let speed = ctx.vm_movement[ctx.entity_id].speed_run;
         ctx.vm_movement[ctx.entity_id].start_chasing(
             &ctx.v_guid[ctx.entity_id].0,
             &ctx.v_guid[target_entity_id].0,
             target_entity_id,
+            chase_distance,
             ctx.map.0.clone(),
-            &origin.vec3(),
+            &origin,
             dest,
             speed,
             true,

@@ -78,4 +78,10 @@ impl Unit {
             UnitFlags::InCombat as u32,
         )
     }
+
+    pub fn bounding_radius(&self) -> f32 {
+        self.internal_values
+            .read()
+            .get_f32(UnitFields::UnitFieldBoundingRadius.into())
+    }
 }

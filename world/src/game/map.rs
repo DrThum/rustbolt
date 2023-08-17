@@ -775,6 +775,27 @@ impl Map {
 
         Vector3::new(random_x, random_y, z)
     }
+
+    pub fn get_point_around_at_angle(
+        &self,
+        origin: &WorldPosition,
+        distance: f32,
+        angle: f32,
+    ) -> WorldPosition {
+        let x = origin.x + distance * angle.cos();
+        let y = origin.y + distance * angle.sin();
+
+        let z = self
+            .get_ground_or_floor_height(x, y, origin.z)
+            .unwrap_or(origin.z);
+
+        let mut point = origin.clone();
+        point.x = x;
+        point.y = y;
+        point.z = z;
+
+        point
+    }
 }
 
 #[derive(Unique)]

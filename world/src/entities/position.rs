@@ -1,3 +1,5 @@
+use std::f32::consts;
+
 use binrw::binrw;
 use shared::models::terrain_info::Vector3;
 use shipyard::Component;
@@ -77,5 +79,17 @@ impl WorldPosition {
         self.y = pos.y;
         self.z = pos.z;
         self.o = pos.o;
+    }
+
+    pub fn get_2d_angle_with(&self, other: &WorldPosition) -> f32 {
+        let dx = other.x - self.x;
+        let dy = other.y - self.y;
+
+        let angle = f32::atan2(dy, dx);
+        if angle >= 0. {
+            angle
+        } else {
+            angle + 2. * consts::PI
+        }
     }
 }

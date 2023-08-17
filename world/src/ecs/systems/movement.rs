@@ -7,6 +7,7 @@ use crate::{
         components::{
             guid::Guid,
             movement::{Movement, MovementKind},
+            unit::Unit,
         },
         resources::DeltaTime,
     },
@@ -26,6 +27,7 @@ pub fn update_movement(
     v_guid: View<Guid>,
     v_player: View<Player>,
     v_creature: View<Creature>,
+    v_unit: View<Unit>,
     mut vm_movement: ViewMut<Movement>,
     mut vm_wpos: ViewMut<WorldPosition>,
 ) {
@@ -73,14 +75,13 @@ pub fn update_movement(
                             "expected an existing wander radius on creature with random movement",
                         ) as f32,
                     );
-                        let path = vec![destination];
                         // TODO: Select speed depending on move flags (implement in Movement)
                         let speed = movement.speed_run;
                         movement.start_random_movement(
                             &guid.0,
                             map.0.clone(),
                             &current_pos,
-                            &path,
+                            destination,
                             speed,
                             true,
                         );
@@ -92,6 +93,7 @@ pub fn update_movement(
                 target_guid,
                 target_entity_id,
                 destination,
+                distance,
             } => {
                 if let Ok(creature) = v_creature.get(entity_id) {
                     if let Some(spawn_pos) = creature.spawn_position {
@@ -119,9 +121,13 @@ pub fn update_movement(
                 }
 
                 let target_position = vm_wpos[*target_entity_id];
-                if destination.distance_to(&target_position, true) > MAX_CHASE_LEEWAY {
+                if destination.distance_to(&target_position, true) > MAX_CHASE_LEEWAY + distance {
                     let target_guid = target_guid.clone();
                     let target_entity_id = *target_entity_id;
+
+                    let my_bounding_radius = v_unit[entity_id].bounding_radius();
+                    let target_bounding_radius = v_unit[target_entity_id].bounding_radius();
+                    let chase_distance = my_bounding_radius + target_bounding_radius;
 
                     movement.clear(true);
 
@@ -130,8 +136,9 @@ pub fn update_movement(
                         &guid.0,
                         &target_guid,
                         target_entity_id,
+                        chase_distance,
                         map.0.clone(),
-                        &my_wpos.vec3(),
+                        &my_wpos,
                         target_position,
                         speed,
                         true,

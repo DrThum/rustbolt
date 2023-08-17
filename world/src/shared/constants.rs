@@ -1095,6 +1095,7 @@ impl FromSql for ActionButtonType {
 
 pub const PLAYER_MAX_ACTION_BUTTONS: usize = 132;
 pub const PLAYER_DEFAULT_COMBAT_REACH: f32 = 1.5;
+pub const PLAYER_DEFAULT_BOUNDING_RADIUS: f32 = 1.5;
 pub const BASE_MELEE_RANGE_OFFSET: f32 = 1.33;
 pub const ATTACK_DISPLAY_DELAY: Duration = Duration::from_millis(200);
 

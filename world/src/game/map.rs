@@ -49,7 +49,7 @@ use crate::{
     },
     repositories::{character::CharacterRecord, creature::CreatureSpawnDbRecord},
     session::world_session::WorldSession,
-    shared::constants::{HighGuidType, NpcFlags, PLAYER_DEFAULT_COMBAT_REACH},
+    shared::constants::{HighGuidType, NpcFlags},
     DataStore,
 };
 
@@ -232,8 +232,8 @@ impl Map {
                         Health::new(50, 100, player.internal_values.clone()),
                         Melee::new(
                             player.internal_values.clone(),
-                            5,
-                            PLAYER_DEFAULT_COMBAT_REACH,
+                            5, // FIXME: damage should be dynamic
+                            false,
                         ),
                         Unit::new(player.internal_values.clone()),
                         WorldPosition {
@@ -419,9 +419,9 @@ impl Map {
                         Health::new(80, 80, creature.internal_values.clone()),
                         Melee::new(
                             creature.internal_values.clone(),
-                            5,
-                            PLAYER_DEFAULT_COMBAT_REACH,
-                        ), // FIXME: wrong, it's based on the 3D model for creatures
+                            5, // FIXME: damage should be dynamic
+                            true,
+                        ),
                         Unit::new(creature.internal_values.clone()),
                         *wpos,
                         WrappedInternalValues(creature.internal_values.clone()),

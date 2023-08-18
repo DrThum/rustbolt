@@ -32,7 +32,7 @@ pub fn tick(
     v_wpos: View<WorldPosition>,
     v_creature: View<Creature>,
     v_player: View<Player>,
-    v_unit: View<Unit>,
+    mut vm_unit: ViewMut<Unit>,
 ) {
     for (entity_id, mut behavior) in (&mut vm_behavior).iter().with_id() {
         let mut context = BTContext {
@@ -44,7 +44,7 @@ pub fn tick(
             v_wpos: &v_wpos,
             v_creature: &v_creature,
             v_player: &v_player,
-            v_unit: &v_unit,
+            vm_unit: &mut vm_unit,
         };
 
         behavior.tree().tick(dt.0, &mut context, execute_action);
@@ -87,10 +87,11 @@ fn action_aggro(ctx: &mut BTContext) -> NodeStatus {
         if let Ok(player) = ctx.v_player.get(target_entity_id) {
             player.set_in_combat_with(my_guid);
             creature.modify_threat(player.guid(), 0.);
+            ctx.vm_unit[ctx.entity_id].set_target(Some(target_entity_id), player.guid().raw());
         }
 
-        let my_bounding_radius = ctx.v_unit[ctx.entity_id].bounding_radius();
-        let target_bounding_radius = ctx.v_unit[target_entity_id].bounding_radius();
+        let my_bounding_radius = ctx.vm_unit[ctx.entity_id].bounding_radius();
+        let target_bounding_radius = ctx.vm_unit[target_entity_id].bounding_radius();
         let chase_distance = my_bounding_radius + target_bounding_radius;
 
         let speed = ctx.vm_movement[ctx.entity_id].speed_run;

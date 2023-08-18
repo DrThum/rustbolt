@@ -27,7 +27,7 @@ pub fn update_movement(
     v_guid: View<Guid>,
     v_player: View<Player>,
     v_creature: View<Creature>,
-    v_unit: View<Unit>,
+    mut vm_unit: ViewMut<Unit>,
     mut vm_movement: ViewMut<Movement>,
     mut vm_wpos: ViewMut<WorldPosition>,
 ) {
@@ -102,6 +102,7 @@ pub fn update_movement(
                             if let Ok(player) = v_player.get(*target_entity_id) {
                                 player.unset_in_combat_with(guid.0);
                                 creature.remove_from_threat_list(&player.guid());
+                                vm_unit[entity_id].set_target(None, 0);
                             }
 
                             movement.clear(true);
@@ -125,8 +126,8 @@ pub fn update_movement(
                     let target_guid = target_guid.clone();
                     let target_entity_id = *target_entity_id;
 
-                    let my_bounding_radius = v_unit[entity_id].bounding_radius();
-                    let target_bounding_radius = v_unit[target_entity_id].bounding_radius();
+                    let my_bounding_radius = vm_unit[entity_id].bounding_radius();
+                    let target_bounding_radius = vm_unit[target_entity_id].bounding_radius();
                     let chase_distance = my_bounding_radius + target_bounding_radius;
 
                     movement.clear(true);

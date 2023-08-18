@@ -13,7 +13,7 @@ pub struct CmsgAttackSwing {
 #[binwrite]
 #[server_opcode]
 pub struct SmsgAttackStop {
-    pub player_guid: PackedObjectGuid,
+    pub attacker_guid: PackedObjectGuid,
     pub enemy_guid: PackedObjectGuid,
     pub unk: u32, // 0 or 1, "NowDead" in TrinityCore
 }

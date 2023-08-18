@@ -27,7 +27,6 @@ pub struct Melee {
     next_attack_times: [Instant; NUMBER_WEAPON_ATTACK_TYPES], // MainHand, OffHand, Ranged
     attack_intervals: [Duration; NUMBER_WEAPON_ATTACK_TYPES],
     has_off_hand: bool,
-    pub melee_reach: f32, // How far the unit can reach with its melee weapons
     last_error: MeleeAttackError,
     sheath_state: SheathState,
 }
@@ -36,7 +35,7 @@ impl Melee {
     pub fn new(
         internal_values: Arc<RwLock<InternalValues>>,
         damage: u32,
-        melee_reach: f32,
+        is_default_attacking: bool,
     ) -> Self {
         let now = Instant::now();
 
@@ -49,11 +48,10 @@ impl Melee {
         Self {
             internal_values,
             damage,
-            is_attacking: false,
+            is_attacking: is_default_attacking,
             next_attack_times: [now, now, now],
             attack_intervals: [Duration::from_millis(800), Duration::MAX, Duration::MAX],
             has_off_hand: false,
-            melee_reach,
             last_error: MeleeAttackError::None,
             sheath_state: SheathState::Unarmed,
         }
@@ -61,6 +59,12 @@ impl Melee {
 
     pub fn damage(&self) -> u32 {
         self.damage
+    }
+
+    pub fn melee_reach(&self) -> f32 {
+        self.internal_values
+            .read()
+            .get_f32(UnitFields::UnitFieldCombatReach.into())
     }
 
     pub fn is_attack_ready(&self, weap_type: WeaponAttackType) -> bool {
@@ -94,7 +98,7 @@ impl Melee {
         target_position: &WorldPosition,
         target_melee_reach: f32,
     ) -> bool {
-        let total_reach = self.melee_reach + target_melee_reach + BASE_MELEE_RANGE_OFFSET;
+        let total_reach = self.melee_reach() + target_melee_reach + BASE_MELEE_RANGE_OFFSET;
         let distance = my_position.distance_to(target_position, true);
 
         distance <= total_reach

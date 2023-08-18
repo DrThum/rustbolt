@@ -59,7 +59,7 @@ impl OpcodeHandler {
                 );
 
                 let packet = ServerMessage::new(SmsgAttackStop {
-                    player_guid: player_guid.as_packed(),
+                    attacker_guid: player_guid.as_packed(),
                     enemy_guid: target_guid.unwrap_or(ObjectGuid::zero()).as_packed(),
                     unk: 0,
                 });

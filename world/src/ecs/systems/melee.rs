@@ -41,7 +41,7 @@ pub fn attempt_melee_attack(
                 v_melee
                     .get(target_id)
                     .expect("target has no Melee component")
-                    .melee_reach
+                    .melee_reach()
             };
 
             let mut melee = (&mut v_melee).get(my_id).unwrap();
@@ -54,7 +54,7 @@ pub fn attempt_melee_attack(
             if !target_health.is_alive() {
                 let packet = {
                     ServerMessage::new(SmsgAttackStop {
-                        player_guid: guid.0.as_packed(),
+                        attacker_guid: guid.0.as_packed(),
                         enemy_guid: target_guid.as_packed(),
                         unk: 0,
                     })

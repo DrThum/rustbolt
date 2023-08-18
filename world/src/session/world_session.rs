@@ -448,7 +448,7 @@ impl WorldSession {
 
     pub fn send_attack_stop(&self, target_guid: Option<ObjectGuid>) {
         let packet = ServerMessage::new(SmsgAttackStop {
-            player_guid: self.player_guid.read().unwrap().as_packed(),
+            attacker_guid: self.player_guid.read().unwrap().as_packed(),
             enemy_guid: target_guid.unwrap_or(ObjectGuid::zero()).as_packed(),
             unk: 0,
         });

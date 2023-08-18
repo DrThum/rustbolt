@@ -191,7 +191,7 @@ pub enum NodeStatus {
     Running,
 }
 
-pub struct BTContext<'a, 'b> {
+pub struct BTContext<'a, 'b, 'c> {
     pub entity_id: EntityId,
     pub dt: &'a UniqueView<'a, DeltaTime>,
     pub map: &'a UniqueView<'a, WrappedMap>,
@@ -200,7 +200,7 @@ pub struct BTContext<'a, 'b> {
     pub v_wpos: &'a View<'a, WorldPosition>,
     pub v_creature: &'a View<'a, Creature>,
     pub v_player: &'a View<'a, Player>,
-    pub v_unit: &'a View<'a, Unit>,
+    pub vm_unit: &'a mut ViewMut<'c, Unit>,
 }
 
 // Internals

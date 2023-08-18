@@ -6,6 +6,7 @@ use crate::{
     ecs::{
         components::{
             guid::Guid,
+            health::Health,
             movement::{Movement, MovementKind},
             unit::Unit,
         },
@@ -27,6 +28,7 @@ pub fn update_movement(
     v_guid: View<Guid>,
     v_player: View<Player>,
     v_creature: View<Creature>,
+    v_health: View<Health>,
     mut vm_unit: ViewMut<Unit>,
     mut vm_movement: ViewMut<Movement>,
     mut vm_wpos: ViewMut<WorldPosition>,
@@ -96,9 +98,20 @@ pub fn update_movement(
                 distance,
             } => {
                 if let Ok(creature) = v_creature.get(entity_id) {
+                    let mut should_stop_chasing = false;
                     if let Some(spawn_pos) = creature.spawn_position {
                         let distance_to_home = spawn_pos.distance_to(my_wpos, true);
                         if distance_to_home > CREATURE_LEASH_DISTANCE {
+                            should_stop_chasing = true;
+                        }
+
+                        if let Ok(health) = v_health.get(*target_entity_id) {
+                            if !health.is_alive() {
+                                should_stop_chasing = true;
+                            }
+                        }
+
+                        if should_stop_chasing {
                             if let Ok(player) = v_player.get(*target_entity_id) {
                                 player.unset_in_combat_with(guid.0);
                                 creature.remove_from_threat_list(&player.guid());

@@ -7,6 +7,7 @@ use crate::{
         components::{
             behavior::{Action, Behavior},
             guid::Guid,
+            health::Health,
             movement::Movement,
             unit::Unit,
         },
@@ -28,11 +29,12 @@ pub fn tick(
     map: UniqueView<WrappedMap>,
     mut vm_behavior: ViewMut<Behavior>,
     mut vm_movement: ViewMut<Movement>,
+    mut vm_unit: ViewMut<Unit>,
     v_guid: View<Guid>,
     v_wpos: View<WorldPosition>,
     v_creature: View<Creature>,
     v_player: View<Player>,
-    mut vm_unit: ViewMut<Unit>,
+    v_health: View<Health>,
 ) {
     for (entity_id, mut behavior) in (&mut vm_behavior).iter().with_id() {
         let mut context = BTContext {
@@ -40,11 +42,12 @@ pub fn tick(
             dt: &dt,
             map: &map,
             vm_movement: &mut vm_movement,
+            vm_unit: &mut vm_unit,
             v_guid: &v_guid,
             v_wpos: &v_wpos,
             v_creature: &v_creature,
             v_player: &v_player,
-            vm_unit: &mut vm_unit,
+            v_health: &v_health,
         };
 
         behavior.tree().tick(dt.0, &mut context, execute_action);
@@ -71,9 +74,11 @@ fn action_aggro(ctx: &mut BTContext) -> NodeStatus {
             let player_entity_id = session.player_entity_id().unwrap();
             let player = &ctx.v_player[player_entity_id];
             let player_position = ctx.v_wpos[player_entity_id];
+            let player_health = &ctx.v_health[player_entity_id];
 
-            creature_position.distance_to(&player_position, true)
-                <= creature.aggro_distance(player.level())
+            player_health.is_alive()
+                && creature_position.distance_to(&player_position, true)
+                    <= creature.aggro_distance(player.level())
         })
         .collect();
 

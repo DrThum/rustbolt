@@ -73,7 +73,7 @@ mod repositories {
     pub mod creature;
     pub mod gossip;
     pub mod item;
-    pub mod player_creation;
+    pub mod player_static_data;
     pub mod quest;
 }
 pub mod session {

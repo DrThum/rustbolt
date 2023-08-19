@@ -20,10 +20,13 @@ use crate::{
         creature::{CreatureModelInfo, CreatureRepository},
         gossip::GossipRepository,
         item::ItemRepository,
-        player_creation::PlayerCreationRepository,
+        player_static_data::{
+            PlayerBaseAttributesPerLevelDbRecord, PlayerBaseHealthManaPerLevelDbRecord,
+            PlayerStaticDataRepository,
+        },
         quest::QuestRepository,
     },
-    shared::constants::{CharacterClassBit, CharacterRaceBit},
+    shared::constants::{CharacterClass, CharacterClassBit, CharacterRace, CharacterRaceBit},
 };
 
 use self::data_types::{
@@ -65,6 +68,8 @@ pub struct DataStore {
     npc_texts: SqlStore<NpcTextDbRecord>,
     gossip_menus: SqlMultiStore<GossipMenuDbRecord>,
     creature_model_info: SqlStore<CreatureModelInfo>,
+    player_base_health_mana: SqlStore<PlayerBaseHealthManaPerLevelDbRecord>,
+    player_base_attributes: SqlStore<PlayerBaseAttributesPerLevelDbRecord>,
 }
 
 macro_rules! parse_dbc {
@@ -152,7 +157,7 @@ impl DataStore {
         };
 
         info!("Loading player creation positions...");
-        let player_create_positions = PlayerCreationRepository::load_positions(conn);
+        let player_create_positions = PlayerStaticDataRepository::load_positions(conn);
         let player_create_positions: SqlStore<PlayerCreatePosition> = player_create_positions
             .into_iter()
             .map(|pcp| {
@@ -163,7 +168,7 @@ impl DataStore {
             .collect();
 
         info!("Loading player creation spells...");
-        let player_create_spells = PlayerCreationRepository::load_spells(conn);
+        let player_create_spells = PlayerStaticDataRepository::load_spells(conn);
         let player_create_spells: SqlMultiStore<u32> = {
             let mut multimap: MultiMap<u32, u32> = MultiMap::new();
 
@@ -176,7 +181,7 @@ impl DataStore {
         };
 
         info!("Loading player creation action buttons...");
-        let player_create_action_buttons = PlayerCreationRepository::load_action_buttons(conn);
+        let player_create_action_buttons = PlayerStaticDataRepository::load_action_buttons(conn);
         let player_create_action_buttons: SqlMultiStore<PlayerCreateActionButton> = {
             let mut multimap: MultiMap<u32, PlayerCreateActionButton> = MultiMap::new();
             for action_button in player_create_action_buttons {
@@ -217,6 +222,30 @@ impl DataStore {
             creature_model_info
         };
 
+        let player_base_health_mana = {
+            info!("Loading player base health and mana per level...");
+            let player_base_health_mana =
+                PlayerStaticDataRepository::load_base_health_mana_per_level(conn);
+            let player_base_health_mana: SqlStore<PlayerBaseHealthManaPerLevelDbRecord> =
+                player_base_health_mana
+                    .into_iter()
+                    .map(|pbhm| (pbhm.key(), pbhm))
+                    .collect();
+            player_base_health_mana
+        };
+
+        let player_base_attributes = {
+            info!("Loading player base attributes per level...");
+            let player_base_attributes =
+                PlayerStaticDataRepository::load_base_attributes_per_level(conn);
+            let player_base_attributes: SqlStore<PlayerBaseAttributesPerLevelDbRecord> =
+                player_base_attributes
+                    .into_iter()
+                    .map(|pba| (pba.key(), pba))
+                    .collect();
+            player_base_attributes
+        };
+
         Ok(DataStore {
             chr_races,
             chr_classes,
@@ -241,6 +270,8 @@ impl DataStore {
             npc_texts,
             gossip_menus,
             creature_model_info,
+            player_base_health_mana,
+            player_base_attributes,
         })
     }
 
@@ -381,6 +412,25 @@ impl DataStore {
 
     pub fn get_creature_model_info(&self, model_id: u32) -> Option<&CreatureModelInfo> {
         self.creature_model_info.get(&model_id)
+    }
+
+    pub fn get_player_base_health_mana(
+        &self,
+        class: CharacterClass,
+        level: u32,
+    ) -> Option<&PlayerBaseHealthManaPerLevelDbRecord> {
+        self.player_base_health_mana
+            .get(&(((class as u32) << 8) | level))
+    }
+
+    pub fn get_player_base_attributes(
+        &self,
+        race: CharacterRace,
+        class: CharacterClass,
+        level: u32,
+    ) -> Option<&PlayerBaseAttributesPerLevelDbRecord> {
+        self.player_base_attributes
+            .get(&(((race as u32) << 16) | ((class as u32) << 8) | level))
     }
 }
 

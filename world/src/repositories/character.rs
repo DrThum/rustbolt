@@ -2,17 +2,18 @@ use std::{collections::HashMap, sync::Arc};
 
 use r2d2::PooledConnection;
 use r2d2_sqlite::SqliteConnectionManager;
-use rusqlite::{named_params, Transaction};
+use rusqlite::{named_params, Error, Transaction};
 
 use crate::{
     datastore::{
         data_types::{ItemRecord, PlayerCreatePosition},
         DataStore,
     },
+    ecs::components::health::Health,
     entities::{
         player::{
             player_data::{ActionButton, CharacterSkill, QuestLogContext},
-            PlayerVisualFeatures,
+            Player, PlayerVisualFeatures,
         },
         position::WorldPosition,
     },
@@ -220,7 +221,7 @@ impl CharacterRepository {
         guid: u64,
     ) -> Option<CharacterRecord> {
         let mut stmt = conn
-            .prepare_cached("SELECT account_id, race, class, level, gender, name, haircolor, hairstyle, face, skin, facialstyle, map_id, zone_id, position_x, position_y, position_z, orientation FROM characters WHERE guid = :guid")
+            .prepare_cached("SELECT account_id, race, class, level, gender, name, haircolor, hairstyle, face, skin, facialstyle, map_id, zone_id, position_x, position_y, position_z, orientation, current_health FROM characters WHERE guid = :guid")
             .unwrap();
         let mut rows = stmt
             .query(named_params! {
@@ -245,13 +246,15 @@ impl CharacterRepository {
                     facialstyle: row.get("facialstyle").unwrap(),
                 },
                 position: WorldPosition {
-                    map_key: MapKey::for_continent(row.get("map_id").unwrap()), // FIXME
+                    // FIXME: for instanced maps
+                    map_key: MapKey::for_continent(row.get("map_id").unwrap()),
                     zone: row.get("zone_id").unwrap(),
                     x: row.get("position_x").unwrap(),
                     y: row.get("position_y").unwrap(),
                     z: row.get("position_z").unwrap(),
                     o: row.get("orientation").unwrap(),
                 },
+                current_health: row.get("current_health").unwrap(),
             })
         } else {
             None
@@ -446,6 +449,26 @@ impl CharacterRepository {
 
         result.filter_map(|res| res.ok()).collect()
     }
+
+    // TODO: Migrate save_position_to_db and save_quest_status_to_db here
+    pub fn save_to_db(
+        transaction: &Transaction,
+        player: &Player,
+        health: &Health,
+    ) -> Result<(), Error> {
+        let mut stmt = transaction
+            .prepare_cached(
+                "UPDATE characters SET current_health = :current_health WHERE guid = :guid",
+            )
+            .unwrap();
+
+        stmt.execute(named_params! {
+            ":current_health": health.current(),
+            ":guid": player.guid().counter(),
+        })?;
+
+        Ok(())
+    }
 }
 
 pub struct CharacterRecord {
@@ -458,6 +481,7 @@ pub struct CharacterRecord {
     pub name: String,
     pub position: WorldPosition,
     pub visual_features: PlayerVisualFeatures,
+    pub current_health: u32,
 }
 
 pub struct CharacterReputationDbRecord {

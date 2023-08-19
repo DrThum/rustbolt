@@ -22,6 +22,7 @@ use tokio::{
 use wow_srp::tbc_header::HeaderCrypto;
 
 use crate::{
+    ecs::components::health::Health,
     entities::{object_guid::ObjectGuid, player::Player, position::WorldPosition},
     game::{map::Map, world_context::WorldContext},
     protocol::{
@@ -34,6 +35,7 @@ use crate::{
         },
         server::{ServerMessage, ServerMessageHeader, ServerMessagePayload},
     },
+    repositories::character::CharacterRepository,
     shared::constants::{
         ChatMessageType, Language, MAX_VISIBLE_REPUTATIONS, PLAYER_MAX_ACTION_BUTTONS,
     },
@@ -147,8 +149,10 @@ impl WorldSession {
 
         if let Some(map) = self.current_map() {
             if let Some(entity_id) = self.player_entity_id() {
-                map.world()
-                    .run(|v_player: View<Player>, v_wpos: View<WorldPosition>| {
+                map.world().run(
+                    |v_player: View<Player>,
+                     v_wpos: View<WorldPosition>,
+                     v_health: View<Health>| {
                         let transaction = conn.transaction().unwrap();
                         v_player[entity_id]
                             .save_position_to_db(&transaction, &v_wpos[entity_id])
@@ -156,8 +160,16 @@ impl WorldSession {
                         v_player[entity_id]
                             .save_quest_statuses_to_db(&transaction)
                             .unwrap();
+
+                        CharacterRepository::save_to_db(
+                            &transaction,
+                            &v_player[entity_id],
+                            &v_health[entity_id],
+                        )
+                        .unwrap();
                         transaction.commit().unwrap();
-                    });
+                    },
+                );
             }
 
             map.remove_player(&self.player_guid.read().unwrap());

@@ -1,0 +1,1 @@
+ALTER TABLE characters ADD COLUMN current_health INTEGER NOT NULL DEFAULT 1;

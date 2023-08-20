@@ -71,14 +71,18 @@ fn action_aggro(ctx: &mut BTContext) -> NodeStatus {
         .sessions_nearby_entity(&my_guid, CREATURE_AGGRO_DISTANCE_MAX, true, false)
         .into_iter()
         .filter(|session| {
-            let player_entity_id = session.player_entity_id().unwrap();
-            let player = &ctx.v_player[player_entity_id];
-            let player_position = ctx.v_wpos[player_entity_id];
-            let player_health = &ctx.v_health[player_entity_id];
+            session
+                .player_entity_id()
+                .map(|player_entity_id| {
+                    let player = &ctx.v_player[player_entity_id];
+                    let player_position = ctx.v_wpos[player_entity_id];
+                    let player_health = &ctx.v_health[player_entity_id];
 
-            player_health.is_alive()
-                && creature_position.distance_to(&player_position, true)
-                    <= creature.aggro_distance(player.level())
+                    player_health.is_alive()
+                        && creature_position.distance_to(&player_position, true)
+                            <= creature.aggro_distance(player.level())
+                })
+                .unwrap_or(false)
         })
         .collect();
 

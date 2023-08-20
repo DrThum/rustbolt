@@ -3,6 +3,7 @@ use std::time::Duration;
 use enumflags2::bitflags;
 use enumn::N;
 use rusqlite::types::{FromSql, FromSqlError};
+use strum::EnumIter;
 
 pub const STANDARD_ADDON_CRC: u32 = 0x1C776D01;
 
@@ -153,7 +154,7 @@ impl From<u8> for CharacterClassBit {
 }
 
 #[allow(dead_code)]
-#[derive(Clone, Copy, N)]
+#[derive(Clone, Copy, N, EnumIter)]
 pub enum PowerType {
     Health = -2,
     Mana = 0,
@@ -162,6 +163,11 @@ pub enum PowerType {
     Energy = 3,
     PetHappiness = 4,
 }
+
+pub const MAX_BASE_POWER_RAGE: u32 = 1000;
+pub const MAX_BASE_POWER_FOCUS: u32 = 100;
+pub const MAX_BASE_POWER_ENERGY: u32 = 100;
+pub const MAX_BASE_POWER_PET_HAPPINESS: u32 = 1000000;
 
 #[allow(dead_code)]
 #[derive(Clone, Copy, N, Hash, Eq, PartialEq)]

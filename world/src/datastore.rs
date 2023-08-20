@@ -26,7 +26,11 @@ use crate::{
         },
         quest::QuestRepository,
     },
-    shared::constants::{CharacterClass, CharacterClassBit, CharacterRace, CharacterRaceBit},
+    shared::constants::{
+        CharacterClass, CharacterClassBit, CharacterRace, CharacterRaceBit, PowerType,
+        MAX_BASE_POWER_ENERGY, MAX_BASE_POWER_FOCUS, MAX_BASE_POWER_PET_HAPPINESS,
+        MAX_BASE_POWER_RAGE,
+    },
 };
 
 use self::data_types::{
@@ -431,6 +435,39 @@ impl DataStore {
     ) -> Option<&PlayerBaseAttributesPerLevelDbRecord> {
         self.player_base_attributes
             .get(&(((race as u32) << 16) | ((class as u32) << 8) | level))
+    }
+
+    pub fn get_max_base_power(
+        &self,
+        power_type: PowerType,
+        class: CharacterClass,
+        level: u32,
+        is_hunter_pet: bool,
+    ) -> u32 {
+        let base_health_mana = self
+            .get_player_base_health_mana(class, level)
+            .expect("unable to find base health/mana for this race/level combination");
+
+        match power_type {
+            PowerType::Health => base_health_mana.base_health,
+            PowerType::Mana => base_health_mana.base_mana,
+            PowerType::Rage => MAX_BASE_POWER_RAGE,
+            PowerType::Focus => {
+                if is_hunter_pet {
+                    MAX_BASE_POWER_FOCUS
+                } else {
+                    0
+                }
+            }
+            PowerType::Energy => MAX_BASE_POWER_ENERGY,
+            PowerType::PetHappiness => {
+                if is_hunter_pet {
+                    MAX_BASE_POWER_PET_HAPPINESS
+                } else {
+                    0
+                }
+            }
+        }
     }
 }
 

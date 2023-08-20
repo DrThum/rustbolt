@@ -39,5 +39,6 @@ shared = { path = "../shared" }
 shell-words = "1.1.0"
 shipyard = { git = "https://github.com/leudz/shipyard" }
 splines = "4.2.0"
+strum = { version = "0.25", features = ["derive"] }
 tokio = { version = "1", features = ["full"] }
 wow_srp = { version = "0.5.3", features = ["tbc-header"] }

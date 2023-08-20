@@ -11,6 +11,7 @@ use r2d2::PooledConnection;
 use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::{named_params, Error, Transaction};
 use shipyard::Component;
+use strum::IntoEnumIterator;
 
 use crate::{
     datastore::{
@@ -377,18 +378,31 @@ impl Player {
             base_attributes_record.agility * 2,
         );
 
-        // TODO: use actual powers and their values
-        values.set_u32(
-            UnitFields::UnitFieldPower1 as usize + power_type as usize,
-            100,
-        );
-        values.set_u32(
-            UnitFields::UnitFieldMaxpower1 as usize + power_type as usize,
-            100,
-        );
+        // Skip health
+        for (index, power_type) in PowerType::iter().enumerate().skip(1) {
+            // TODO: Save powers in characters table
+            values.set_u32(
+                UnitFields::UnitFieldPower1 as usize + index - 1,
+                world_context.data_store.get_max_base_power(
+                    power_type,
+                    character.class,
+                    character.level as u32,
+                    false,
+                ),
+            );
+            values.set_u32(
+                UnitFields::UnitFieldMaxPower1 as usize + index - 1,
+                world_context.data_store.get_max_base_power(
+                    power_type,
+                    character.class,
+                    character.level as u32,
+                    false,
+                ),
+            );
+        }
 
         values.set_u32(
-            UnitFields::UnitFieldFactiontemplate.into(),
+            UnitFields::UnitFieldFactionTemplate.into(),
             chr_races_record.faction_id,
         );
 

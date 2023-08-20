@@ -82,7 +82,7 @@ impl Creature {
                 values.set_f32(UnitFields::UnitFieldBoundingRadius.into(), template.scale * model_info.bounding_radius);
 
                 values.set_u32(
-                    UnitFields::UnitFieldFactiontemplate.into(),
+                    UnitFields::UnitFieldFactionTemplate.into(),
                     template.faction_template_id,
                 );
 

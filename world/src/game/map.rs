@@ -215,6 +215,12 @@ impl Map {
                 session.send_initial_action_buttons(&player);
                 session.send_initial_reputations(&player);
 
+                let base_health_mana_record = self
+                    .world_context
+                    .data_store
+                    .get_player_base_health_mana(char_data.class, char_data.level as u32)
+                    .expect("unable to retrieve base health/mana for this class/level combination");
+
                 let entity_id = entities.add_entity(
                     (
                         &mut vm_guid,
@@ -231,7 +237,7 @@ impl Map {
                         Guid::new(player_guid.clone(), player.internal_values.clone()),
                         Health::new(
                             char_data.current_health,
-                            char_data.current_health, // FIXME: calculate max from base + modifiers
+                            base_health_mana_record.base_health, // FIXME: calculate max from base + modifiers
                             player.internal_values.clone(),
                         ),
                         Melee::new(

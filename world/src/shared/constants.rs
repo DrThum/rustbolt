@@ -1561,3 +1561,25 @@ pub const CREATURE_LEASH_DISTANCE: f32 = 100.;
 // Max distance that the target is allowed to move before the chasing entity has to update its
 // destination
 pub const MAX_CHASE_LEEWAY: f32 = 0.5;
+
+#[allow(dead_code)]
+#[derive(Clone, Copy, Debug, Hash, Eq, PartialEq)]
+pub enum UnitAttribute {
+    Strength = 0,
+    Agility = 1,
+    Stamina = 2,
+    Intellect = 3,
+    Spirit = 4,
+}
+
+#[allow(dead_code)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum SpellSchool {
+    Normal = 0, // Physical
+    Holy = 1,
+    Fire = 2,
+    Nature = 3,
+    Frost = 4,
+    Shadow = 5,
+    Arcane = 6,
+}

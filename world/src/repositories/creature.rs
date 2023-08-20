@@ -108,11 +108,24 @@ impl CreatureRepository {
     pub fn load_creature_model_info(
         conn: &PooledConnection<SqliteConnectionManager>,
     ) -> Vec<CreatureModelInfo> {
+        let mut stmt = conn
+            .prepare_cached("SELECT COUNT(model_id) FROM creature_model_info")
+            .unwrap();
+        let mut count = stmt.query_map([], |row| row.get::<usize, u64>(0)).unwrap();
+
+        let count = count.next().unwrap().unwrap_or(0);
+        let bar = ProgressBar::new(count);
+
         let mut stmt = conn.prepare_cached("SELECT model_id, bounding_radius, combat_reach, gender, model_id_other_gender, model_id_alternative FROM creature_model_info").unwrap();
 
         let result = stmt
             .query_map([], |row| {
                 use CreatureModelInfoColumnIndex::*;
+
+                bar.inc(1);
+                if bar.position() == count {
+                    bar.finish();
+                }
 
                 Ok(CreatureModelInfo {
                     model_id: row.get(ModelId as usize).unwrap(),

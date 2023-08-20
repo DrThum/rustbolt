@@ -20,8 +20,8 @@ use crate::{
     game::map_manager::MapKey,
     protocol::packets::{CharEnumData, CharEnumEquip, CmsgCharCreate, CmsgCharDelete},
     shared::constants::{
-        ActionButtonType, InventorySlot, InventoryType, PlayerQuestStatus,
-        MAX_QUEST_OBJECTIVES_COUNT,
+        ActionButtonType, CharacterClass, CharacterRace, InventorySlot, InventoryType,
+        PlayerQuestStatus, MAX_QUEST_OBJECTIVES_COUNT,
     },
 };
 
@@ -474,8 +474,8 @@ impl CharacterRepository {
 pub struct CharacterRecord {
     pub guid: u64,
     pub account_id: u32,
-    pub race: u8,
-    pub class: u8,
+    pub race: CharacterRace,
+    pub class: CharacterClass,
     pub level: u8,
     pub gender: u8,
     pub name: String,

@@ -151,7 +151,7 @@ impl PlayerStaticDataRepository {
         let count = count.next().unwrap().unwrap_or(0);
         let bar = ProgressBar::new(count);
 
-        let mut stmt = conn.prepare("SELECT race, class, level, strength, agility, stamina, intelligence, spirit FROM player_base_attributes_per_level").unwrap();
+        let mut stmt = conn.prepare("SELECT race, class, level, strength, agility, stamina, intellect, spirit FROM player_base_attributes_per_level").unwrap();
 
         let result = stmt
             .query_map([], |row| {
@@ -167,7 +167,7 @@ impl PlayerStaticDataRepository {
                     strength: row.get("strength").unwrap(),
                     agility: row.get("agility").unwrap(),
                     stamina: row.get("stamina").unwrap(),
-                    intelligence: row.get("intelligence").unwrap(),
+                    intellect: row.get("intellect").unwrap(),
                     spirit: row.get("spirit").unwrap(),
                 })
             })
@@ -207,7 +207,7 @@ pub struct PlayerBaseAttributesPerLevelDbRecord {
     pub strength: u32,
     pub agility: u32,
     pub stamina: u32,
-    pub intelligence: u32,
+    pub intellect: u32,
     pub spirit: u32,
 }
 

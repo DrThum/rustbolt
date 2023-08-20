@@ -22,10 +22,10 @@ use crate::{
     protocol::packets::{CmsgCharCreate, SmsgCreateObject},
     repositories::{character::CharacterRepository, item::ItemRepository},
     shared::constants::{
-        AbilityLearnType, CharacterClass, CharacterClassBit, CharacterRace, CharacterRaceBit,
-        Gender, HighGuidType, InventorySlot, InventoryType, ItemClass, ItemSubclassConsumable,
-        ObjectTypeId, ObjectTypeMask, PlayerQuestStatus, PowerType, QuestSlotState,
-        QuestStartError, SkillRangeType, UnitFlags, MAX_QUESTS_IN_LOG, MAX_QUEST_OBJECTIVES_COUNT,
+        AbilityLearnType, CharacterClassBit, CharacterRaceBit, Gender, HighGuidType, InventorySlot,
+        InventoryType, ItemClass, ItemSubclassConsumable, ObjectTypeId, ObjectTypeMask,
+        PlayerQuestStatus, PowerType, QuestSlotState, QuestStartError, SkillRangeType, SpellSchool,
+        UnitAttribute, UnitFlags, MAX_QUESTS_IN_LOG, MAX_QUEST_OBJECTIVES_COUNT,
         PLAYER_DEFAULT_BOUNDING_RADIUS, PLAYER_DEFAULT_COMBAT_REACH,
     },
 };
@@ -295,12 +295,9 @@ impl Player {
             world_context.config.world.game.player.maxlevel,
         );
 
-        let race = CharacterRace::n(character.race).expect("Character has invalid race id in DB");
-        values.set_u8(UnitFields::UnitFieldBytes0.into(), 0, race as u8);
+        values.set_u8(UnitFields::UnitFieldBytes0.into(), 0, character.race as u8);
 
-        let class =
-            CharacterClass::n(character.class).expect("Character has invalid class id in DB");
-        values.set_u8(UnitFields::UnitFieldBytes0.into(), 1, class as u8);
+        values.set_u8(UnitFields::UnitFieldBytes0.into(), 1, character.class as u8);
 
         let gender = Gender::n(character.gender).expect("Character has invalid gender in DB");
         values.set_u8(UnitFields::UnitFieldBytes0.into(), 2, gender as u8);
@@ -348,10 +345,39 @@ impl Player {
             PLAYER_DEFAULT_COMBAT_REACH,
         );
 
-        /* BEGIN TO REFACTOR LATER */
-        values.set_u32(UnitFields::UnitFieldHealth.into(), 100);
-        values.set_u32(UnitFields::UnitFieldMaxhealth.into(), 100);
+        // Base attributes
+        let base_attributes_record = world_context
+            .data_store
+            .get_player_base_attributes(character.race, character.class, character.level as u32)
+            .expect("unable to retrieve base attributes for this race/class/level combination");
+        values.set_u32(
+            UnitFields::UnitFieldStat0 as usize + UnitAttribute::Strength as usize,
+            base_attributes_record.strength,
+        );
+        values.set_u32(
+            UnitFields::UnitFieldStat0 as usize + UnitAttribute::Agility as usize,
+            base_attributes_record.agility,
+        );
+        values.set_u32(
+            UnitFields::UnitFieldStat0 as usize + UnitAttribute::Stamina as usize,
+            base_attributes_record.stamina,
+        );
+        values.set_u32(
+            UnitFields::UnitFieldStat0 as usize + UnitAttribute::Intellect as usize,
+            base_attributes_record.intellect,
+        );
+        values.set_u32(
+            UnitFields::UnitFieldStat0 as usize + UnitAttribute::Spirit as usize,
+            base_attributes_record.spirit,
+        );
 
+        // Armor is SpellSchool::Normal resistance
+        values.set_u32(
+            UnitFields::UnitFieldResistances as usize + SpellSchool::Normal as usize,
+            base_attributes_record.agility * 2,
+        );
+
+        // TODO: use actual powers and their values
         values.set_u32(
             UnitFields::UnitFieldPower1 as usize + power_type as usize,
             100,
@@ -417,7 +443,10 @@ impl Player {
                             FactionStanding {
                                 faction_id: db_record.faction_id,
                                 base_standing: dbc_record
-                                    .base_reputation_standing(race.into(), class.into())
+                                    .base_reputation_standing(
+                                        character.race.into(),
+                                        character.class.into(),
+                                    )
                                     .unwrap_or(0),
                                 db_standing: db_record.standing,
                                 flags: db_record.flags,
@@ -869,6 +898,23 @@ impl Player {
 
     pub fn in_combat_with(&self) -> HashSet<ObjectGuid> {
         self.in_combat_with.read().clone()
+    }
+
+    // NOTE: MaNGOS uses f32 for internal calculation but client expects u32
+    pub fn attribute(&self, attr: UnitAttribute) -> u32 {
+        self.internal_values
+            .read()
+            .get_u32(UnitFields::UnitFieldStat0 as usize + attr as usize)
+    }
+
+    pub fn resistance(&self, spell_school: SpellSchool) -> u32 {
+        self.internal_values
+            .read()
+            .get_u32(UnitFields::UnitFieldResistances as usize + spell_school as usize)
+    }
+
+    pub fn armor(&self) -> u32 {
+        self.resistance(SpellSchool::Normal)
     }
 }
 

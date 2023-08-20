@@ -11,15 +11,16 @@ fn main() -> Result<(), std::io::Error> {
         "DBFilesClient\\ChrRaces.dbc",
         "DBFilesClient\\ChrClasses.dbc",
         "DBFilesClient\\CharStartOutfit.dbc",
+        "DBFilesClient\\EmotesText.dbc",
+        "DBFilesClient\\Faction.dbc",
+        "DBFilesClient\\FactionTemplate.dbc",
         "DBFilesClient\\Item.dbc",
         "DBFilesClient\\Map.dbc",
-        "DBFilesClient\\EmotesText.dbc",
         "DBFilesClient\\Spell.dbc",
         "DBFilesClient\\SpellDuration.dbc",
         "DBFilesClient\\SpellCastTimes.dbc",
         "DBFilesClient\\SkillLine.dbc",
         "DBFilesClient\\SkillLineAbility.dbc",
-        "DBFilesClient\\Faction.dbc",
     ]
     .into_iter()
     .map(|f| f.to_owned())

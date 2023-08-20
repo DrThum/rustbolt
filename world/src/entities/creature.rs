@@ -32,7 +32,7 @@ pub struct Creature {
     guid: ObjectGuid,
     pub entry: u32,
     pub name: String,
-    pub spawn_position: Option<WorldPosition>, // Only exists for creatures in DB
+    pub spawn_position: WorldPosition,
     pub default_movement_kind: MovementKind,
     pub wander_radius: Option<u32>,
     pub npc_flags: BitFlags<NpcFlags>,
@@ -107,14 +107,14 @@ impl Creature {
                     guid,
                     entry: template.entry,
                     name: template.name.to_owned(),
-                    spawn_position: Some(WorldPosition {
+                    spawn_position: WorldPosition {
                         map_key: MapKey::for_continent(creature_spawn.map), // TODO: MapKey for dungeon
                         zone: 0, // TODO: Calculate zone from terrain files
                         x: creature_spawn.position_x,
                         y: creature_spawn.position_y,
                         z: creature_spawn.position_z,
                         o: creature_spawn.orientation,
-                    }),
+                    },
                     npc_flags: unsafe { BitFlags::from_bits_unchecked(template.npc_flags) },
                     internal_values: Arc::new(RwLock::new(values)),
                     default_movement_kind,

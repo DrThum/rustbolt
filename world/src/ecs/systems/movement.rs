@@ -67,10 +67,7 @@ pub fn update_movement(
                         // For the search, we need to start from:
                         //   - the creature spawn point if applicable
                         //   - the current position otherwise
-                        let around = creature
-                            .spawn_position
-                            .map(|sp| sp.vec3())
-                            .unwrap_or(current_pos);
+                        let around = creature.spawn_position.vec3();
                         let destination = map.0.get_random_point_around(
                         &around,
                         creature.wander_radius.expect(
@@ -97,77 +94,81 @@ pub fn update_movement(
                 destination,
                 distance,
             } => {
+                let target_entity_id = target_entity_id.clone();
                 if let Ok(creature) = v_creature.get(entity_id) {
                     let mut should_stop_chasing = false;
-                    if let Some(spawn_pos) = creature.spawn_position {
-                        let distance_to_home = spawn_pos.distance_to(my_wpos, true);
-                        if distance_to_home > CREATURE_LEASH_DISTANCE {
+                    let distance_to_home = creature.spawn_position.distance_to(my_wpos, true);
+                    if distance_to_home > CREATURE_LEASH_DISTANCE {
+                        should_stop_chasing = true;
+                    }
+
+                    if let Ok(health) = v_health.get(target_entity_id) {
+                        if !health.is_alive() {
                             should_stop_chasing = true;
                         }
+                    }
 
-                        if let Ok(health) = v_health.get(*target_entity_id) {
-                            if !health.is_alive() {
-                                should_stop_chasing = true;
-                            }
-                        }
+                    if let Ok(target_position) = vm_wpos.get(target_entity_id) {
+                        if destination.distance_to(&target_position, true)
+                            > MAX_CHASE_LEEWAY + distance
+                        {
+                            let target_guid = target_guid.clone();
 
-                        if should_stop_chasing {
-                            if let Ok(player) = v_player.get(*target_entity_id) {
-                                player.unset_in_combat_with(guid.0);
-                                creature.remove_from_threat_list(&player.guid());
-                                vm_unit[entity_id].set_target(None, 0);
-                            }
+                            let my_bounding_radius = vm_unit[entity_id].bounding_radius();
+                            let target_bounding_radius =
+                                vm_unit[target_entity_id].bounding_radius();
+                            let chase_distance = my_bounding_radius + target_bounding_radius;
 
                             movement.clear(true);
 
                             let speed = movement.speed_run;
-                            movement.go_to_home(
+                            movement.start_chasing(
                                 &guid.0,
+                                &target_guid,
+                                target_entity_id,
+                                chase_distance,
                                 map.0.clone(),
-                                &my_wpos.vec3(),
-                                spawn_pos,
+                                &my_wpos,
+                                *target_position,
                                 speed,
                                 true,
                             );
-                            continue;
+                        } else if movement.is_moving() {
+                            let (new_position, _spline_state) = movement.update(dt.0);
+
+                            let new_position = Position {
+                                x: new_position.x,
+                                y: new_position.y,
+                                z: new_position.z,
+                                o: 0., // TODO: Figure out orientation
+                            };
+
+                            map_pending_updates.push((&guid.0, new_position));
                         }
+                    } else {
+                        should_stop_chasing = true;
                     }
-                }
 
-                let target_position = vm_wpos[*target_entity_id];
-                if destination.distance_to(&target_position, true) > MAX_CHASE_LEEWAY + distance {
-                    let target_guid = target_guid.clone();
-                    let target_entity_id = *target_entity_id;
+                    if should_stop_chasing {
+                        if let Ok(player) = v_player.get(target_entity_id) {
+                            player.unset_in_combat_with(guid.0);
+                            creature.remove_from_threat_list(&player.guid());
+                            vm_unit[entity_id].set_target(None, 0);
+                        }
 
-                    let my_bounding_radius = vm_unit[entity_id].bounding_radius();
-                    let target_bounding_radius = vm_unit[target_entity_id].bounding_radius();
-                    let chase_distance = my_bounding_radius + target_bounding_radius;
+                        movement.clear(true);
 
-                    movement.clear(true);
-
-                    let speed = movement.speed_run;
-                    movement.start_chasing(
-                        &guid.0,
-                        &target_guid,
-                        target_entity_id,
-                        chase_distance,
-                        map.0.clone(),
-                        &my_wpos,
-                        target_position,
-                        speed,
-                        true,
-                    );
-                } else if movement.is_moving() {
-                    let (new_position, _spline_state) = movement.update(dt.0);
-
-                    let new_position = Position {
-                        x: new_position.x,
-                        y: new_position.y,
-                        z: new_position.z,
-                        o: 0., // TODO: Figure out orientation
-                    };
-
-                    map_pending_updates.push((&guid.0, new_position));
+                        let speed = movement.speed_run;
+                        movement.go_to_home(
+                            &guid.0,
+                            map.0.clone(),
+                            &my_wpos.vec3(),
+                            creature.spawn_position,
+                            speed,
+                            true,
+                        );
+                        continue;
+                    }
                 }
             }
             MovementKind::ReturnHome => {

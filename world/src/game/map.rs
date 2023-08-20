@@ -245,7 +245,10 @@ impl Map {
                             5, // FIXME: damage should be dynamic
                             false,
                         ),
-                        Unit::new(player.internal_values.clone()),
+                        Unit::new(
+                            player.internal_values.clone(),
+                            self.world_context.data_store.clone(),
+                        ),
                         WorldPosition {
                             map_key: self.key,
                             zone: 0, /* TODO */
@@ -432,7 +435,10 @@ impl Map {
                             5, // FIXME: damage should be dynamic
                             true,
                         ),
-                        Unit::new(creature.internal_values.clone()),
+                        Unit::new(
+                            creature.internal_values.clone(),
+                            self.world_context.data_store.clone(),
+                        ),
                         *wpos,
                         WrappedInternalValues(creature.internal_values.clone()),
                         Movement::new(creature.default_movement_kind),

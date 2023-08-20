@@ -7,6 +7,7 @@ use shipyard::{Component, EntityId};
 use crate::{
     entities::{internal_values::InternalValues, update_fields::UnitFields},
     shared::constants::{UnitFlags, UnitStandState},
+    DataStore,
 };
 
 #[derive(Component)]
@@ -14,10 +15,11 @@ pub struct Unit {
     target: Option<EntityId>,
     internal_values: Arc<RwLock<InternalValues>>,
     stand_state: UnitStandState,
+    data_store: Arc<DataStore>,
 }
 
 impl Unit {
-    pub fn new(internal_values: Arc<RwLock<InternalValues>>) -> Self {
+    pub fn new(internal_values: Arc<RwLock<InternalValues>>, data_store: Arc<DataStore>) -> Self {
         internal_values.write().set_u8(
             UnitFields::UnitFieldBytes1.into(),
             0,
@@ -28,6 +30,7 @@ impl Unit {
             target: None,
             internal_values,
             stand_state: UnitStandState::Stand,
+            data_store,
         }
     }
 
@@ -83,5 +86,28 @@ impl Unit {
         self.internal_values
             .read()
             .get_f32(UnitFields::UnitFieldBoundingRadius.into())
+    }
+
+    pub fn faction_id(&self) -> u32 {
+        self.internal_values
+            .read()
+            .get_u32(UnitFields::UnitFieldFactionTemplate.into())
+    }
+
+    pub fn is_hostile_to(&self, other: &Unit) -> bool {
+        if let Some(my_faction) = self
+            .data_store
+            .get_faction_template_record(self.faction_id())
+        {
+            if let Some(target_faction) = self
+                .data_store
+                .get_faction_template_record(other.faction_id())
+            {
+                return my_faction.is_hostile_to(target_faction);
+            }
+        }
+
+        warn!("faction {} not found", self.faction_id());
+        return false;
     }
 }

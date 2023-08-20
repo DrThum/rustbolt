@@ -973,6 +973,77 @@ impl DbcTypedRecord for FactionRecord {
 }
 
 #[allow(dead_code)]
+pub struct FactionTemplateRecord {
+    faction_id: u32,
+    faction_flags: u32, // TODO: BitFlags
+    faction_group_mask: u32,
+    friend_group_mask: u32,
+    enemy_group_mask: u32,
+    enemies: [u32; 4],
+    friends: [u32; 4],
+}
+
+#[allow(dead_code)]
+impl FactionTemplateRecord {
+    pub fn is_friendly_to(&self, other: &Self) -> bool {
+        if other.faction_id != 0 {
+            if self.enemies.contains(&other.faction_id) {
+                return false;
+            } else if self.friends.contains(&other.faction_id) {
+                return true;
+            }
+        }
+
+        let other_is_friend_with_us = (self.friend_group_mask & other.faction_group_mask) != 0;
+        let we_are_friends_with_other = (self.faction_group_mask & other.friend_group_mask) != 0;
+
+        other_is_friend_with_us || we_are_friends_with_other
+    }
+
+    pub fn is_hostile_to(&self, other: &Self) -> bool {
+        if other.faction_id != 0 {
+            if self.enemies.contains(&other.faction_id) {
+                return true;
+            } else if self.friends.contains(&other.faction_id) {
+                return false;
+            }
+        }
+
+        (self.enemy_group_mask & other.faction_group_mask) != 0
+    }
+}
+
+impl DbcTypedRecord for FactionTemplateRecord {
+    fn from_record(record: &DbcRecord, _strings: &DbcStringBlock) -> (u32, Self) {
+        unsafe {
+            let key = record.fields[0].as_u32;
+
+            let record = FactionTemplateRecord {
+                faction_id: record.fields[1].as_u32,
+                faction_flags: record.fields[2].as_u32,
+                faction_group_mask: record.fields[3].as_u32,
+                friend_group_mask: record.fields[4].as_u32,
+                enemy_group_mask: record.fields[5].as_u32,
+                enemies: [
+                    record.fields[6].as_u32,
+                    record.fields[7].as_u32,
+                    record.fields[8].as_u32,
+                    record.fields[9].as_u32,
+                ],
+                friends: [
+                    record.fields[10].as_u32,
+                    record.fields[11].as_u32,
+                    record.fields[12].as_u32,
+                    record.fields[13].as_u32,
+                ],
+            };
+
+            (key, record)
+        }
+    }
+}
+
+#[allow(dead_code)]
 pub struct QuestTemplate {
     pub entry: u32,
     pub method: u32, // 0, 1 or 2 - not used server-side

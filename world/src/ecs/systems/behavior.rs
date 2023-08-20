@@ -64,6 +64,7 @@ fn action_aggro(ctx: &mut BTContext) -> NodeStatus {
     let my_guid = ctx.v_guid[ctx.entity_id].0;
     let creature = &ctx.v_creature[ctx.entity_id];
     let creature_position = &ctx.v_wpos[ctx.entity_id];
+    let unit_me = &ctx.vm_unit[ctx.entity_id];
 
     let sessions_around: Vec<Arc<WorldSession>> = ctx
         .map
@@ -77,8 +78,10 @@ fn action_aggro(ctx: &mut BTContext) -> NodeStatus {
                     let player = &ctx.v_player[player_entity_id];
                     let player_position = ctx.v_wpos[player_entity_id];
                     let player_health = &ctx.v_health[player_entity_id];
+                    let target_unit = &ctx.vm_unit[player_entity_id];
 
                     player_health.is_alive()
+                        && unit_me.is_hostile_to(&target_unit)
                         && creature_position.distance_to(&player_position, true)
                             <= creature.aggro_distance(player.level())
                 })

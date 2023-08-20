@@ -16,7 +16,7 @@ impl Behavior {
         let aggro = BehaviorNode::Condition(Box::new(BehaviorNode::Action(Action::Aggro)), |ctx| {
             // Check if we have a nearby player
             // TODO: this should actually be "any enemy entity" not just "a player"
-            // TODO: we should only react if we're aggressive
+            // TODO: we should only react if we're hostile to the target
             let curr_move_kind = **&ctx.vm_movement[ctx.entity_id].current_movement_kind();
 
             curr_move_kind == MovementKind::Idle

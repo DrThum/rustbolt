@@ -35,9 +35,9 @@ use crate::{
 
 use self::data_types::{
     CharStartOutfitRecord, ChrClassesRecord, ChrRacesRecord, EmotesTextRecord, FactionRecord,
-    GossipMenuDbRecord, ItemRecord, ItemTemplate, MapRecord, PlayerCreateActionButton,
-    QuestRelation, QuestTemplate, SkillLineAbilityRecord, SkillLineRecord, SpellCastTimeRecord,
-    SpellDurationRecord, SpellRecord,
+    FactionTemplateRecord, GossipMenuDbRecord, ItemRecord, ItemTemplate, MapRecord,
+    PlayerCreateActionButton, QuestRelation, QuestTemplate, SkillLineAbilityRecord,
+    SkillLineRecord, SpellCastTimeRecord, SpellDurationRecord, SpellRecord,
 };
 
 pub mod data_types;
@@ -62,6 +62,7 @@ pub struct DataStore {
     skill_line_ability: DbcStore<SkillLineAbilityRecord>,
     skill_line_ability_by_spell: DbcMultiStore<SkillLineAbilityRecord>,
     faction: DbcStore<FactionRecord>,
+    faction_template: DbcStore<FactionTemplateRecord>,
     item_templates: SqlStore<ItemTemplate>,
     player_create_positions: SqlStore<PlayerCreatePosition>,
     player_create_spells: SqlMultiStore<u32>,
@@ -114,6 +115,7 @@ impl DataStore {
             multimap
         };
         let faction = parse_dbc!(config.common.data.directory, "Faction");
+        let faction_template = parse_dbc!(config.common.data.directory, "FactionTemplate");
 
         // SQL stores
         let item_templates = {
@@ -264,6 +266,7 @@ impl DataStore {
             skill_line_ability,
             skill_line_ability_by_spell,
             faction,
+            faction_template,
             item_templates,
             player_create_positions,
             player_create_spells,
@@ -342,6 +345,10 @@ impl DataStore {
 
     pub fn get_faction_record(&self, id: u32) -> Option<&FactionRecord> {
         self.faction.get(&id)
+    }
+
+    pub fn get_faction_template_record(&self, faction_id: u32) -> Option<&FactionTemplateRecord> {
+        self.faction_template.get(&faction_id)
     }
 
     pub fn get_starting_factions(

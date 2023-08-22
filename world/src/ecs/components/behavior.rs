@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use shipyard::Component;
 
 use crate::entities::behaviors::{BehaviorNode, BehaviorTree};
@@ -12,17 +14,21 @@ pub struct Behavior {
 impl Behavior {
     pub fn new_wild_monster() -> Self {
         // Aggro an enemy entity passing by
-        // TODO: Add a cooldown around this one? Like 200 ms?
-        let aggro = BehaviorNode::Condition(Box::new(BehaviorNode::Action(Action::Aggro)), |ctx| {
-            // Check if we have a nearby player
-            // TODO: this should actually be "any enemy entity" not just "a player"
-            // TODO: we should only react if we're hostile to the target
-            let curr_move_kind = **&ctx.vm_movement[ctx.entity_id].current_movement_kind();
+        let aggro = BehaviorNode::new_cooldown(
+            Box::new(BehaviorNode::Condition(
+                Box::new(BehaviorNode::Action(Action::Aggro)),
+                |ctx| {
+                    // Check if we have a nearby player
+                    // TODO: this should actually be "any enemy entity" not just "a player"
+                    let curr_move_kind = **&ctx.vm_movement[ctx.entity_id].current_movement_kind();
 
-            curr_move_kind == MovementKind::Idle
-                || curr_move_kind.is_random()
-                || curr_move_kind == MovementKind::Path
-        });
+                    curr_move_kind == MovementKind::Idle
+                        || curr_move_kind.is_random()
+                        || curr_move_kind == MovementKind::Path
+                },
+            )),
+            Duration::from_millis(200),
+        );
 
         let bt = BehaviorTree::new(BehaviorNode::Selector(vec![aggro]));
 

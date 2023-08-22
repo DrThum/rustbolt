@@ -34,8 +34,14 @@ impl SpellCast {
         }
     }
 
-    pub fn set_current_ranged(&mut self, spell_id: u32, duration: Duration, target: EntityId) {
-        self.current_ranged = Some(Arc::new(Spell::new(spell_id, target)));
+    pub fn set_current_ranged(
+        &mut self,
+        spell_id: u32,
+        duration: Duration,
+        caster: EntityId,
+        target: EntityId,
+    ) {
+        self.current_ranged = Some(Arc::new(Spell::new(spell_id, caster, target)));
         self.ranged_cast_end = Some(Instant::now() + duration)
     }
 

@@ -54,6 +54,7 @@ impl OpcodeHandler {
                         vm_spell[entity_id].set_current_ranged(
                             cmsg.spell_id,
                             spell_base_cast_time,
+                            entity_id,
                             target,
                         );
 

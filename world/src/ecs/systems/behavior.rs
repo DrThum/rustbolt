@@ -101,7 +101,7 @@ fn action_aggro(ctx: &mut BTContext) -> NodeStatus {
 
         if let Ok(player) = ctx.v_player.get(target_entity_id) {
             player.set_in_combat_with(my_guid);
-            threat_list.modify_threat(player.guid(), 0.);
+            threat_list.modify_threat(target_entity_id, 0.);
             ctx.vm_unit[ctx.entity_id].set_target(Some(target_entity_id), player.guid().raw());
         }
 

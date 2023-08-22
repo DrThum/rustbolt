@@ -154,7 +154,7 @@ pub fn update_movement(
                     if should_stop_chasing {
                         if let Ok(player) = v_player.get(target_entity_id) {
                             player.unset_in_combat_with(guid.0);
-                            vm_threat_list[entity_id].remove_from_threat_list(&player.guid());
+                            vm_threat_list[entity_id].remove_from_threat_list(&target_entity_id);
                             vm_unit[entity_id].set_target(None, 0);
                         }
 

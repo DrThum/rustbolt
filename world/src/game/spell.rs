@@ -2,12 +2,13 @@ use shipyard::EntityId;
 
 pub struct Spell {
     id: u32,
+    caster: EntityId,
     target: EntityId,
 }
 
 impl<'a> Spell {
-    pub fn new(id: u32, target: EntityId) -> Self {
-        Self { id, target }
+    pub fn new(id: u32, caster: EntityId, target: EntityId) -> Self {
+        Self { id, caster, target }
     }
 
     pub fn id(&self) -> u32 {
@@ -16,5 +17,9 @@ impl<'a> Spell {
 
     pub fn target(&self) -> EntityId {
         self.target
+    }
+
+    pub fn caster(&self) -> EntityId {
+        self.caster
     }
 }

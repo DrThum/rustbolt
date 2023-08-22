@@ -2,7 +2,10 @@ use std::sync::Arc;
 
 use shipyard::{AllStoragesViewMut, ViewMut};
 
-use crate::{datastore::data_types::SpellRecord, ecs::components::health::Health};
+use crate::{
+    datastore::data_types::SpellRecord,
+    ecs::components::{health::Health, threat_list::ThreatList},
+};
 
 use super::{
     map::Map, spell::Spell, spell_effect_handler::SpellEffectHandler, world_context::WorldContext,
@@ -21,16 +24,19 @@ impl SpellEffectHandler {
 
     pub fn handle_effect_school_damage(
         _world_context: Arc<WorldContext>,
-        _spell: Arc<Spell>,
+        spell: Arc<Spell>,
         _map: Arc<Map>,
-        _spell_record: Arc<SpellRecord>,
+        spell_record: Arc<SpellRecord>,
         effect_index: usize,
         all_storages: &AllStoragesViewMut,
     ) {
-        all_storages.run(|mut vm_health: ViewMut<Health>| {
-            let damage = _spell_record.calc_simple_value(effect_index);
-            vm_health[_spell.target()].apply_damage(damage as u32);
-        });
+        all_storages.run(
+            |mut vm_health: ViewMut<Health>, mut vm_threat_list: ViewMut<ThreatList>| {
+                let damage = spell_record.calc_simple_value(effect_index);
+                vm_health[spell.target()].apply_damage(damage as u32);
+                vm_threat_list[spell.target()].modify_threat(spell.caster(), damage as f32);
+            },
+        );
     }
 
     pub fn handle_effect_heal(

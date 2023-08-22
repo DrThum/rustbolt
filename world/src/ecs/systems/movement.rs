@@ -8,6 +8,7 @@ use crate::{
             guid::Guid,
             health::Health,
             movement::{Movement, MovementKind},
+            threat_list::ThreatList,
             unit::Unit,
         },
         resources::DeltaTime,
@@ -32,6 +33,7 @@ pub fn update_movement(
     mut vm_unit: ViewMut<Unit>,
     mut vm_movement: ViewMut<Movement>,
     mut vm_wpos: ViewMut<WorldPosition>,
+    mut vm_threat_list: ViewMut<ThreatList>,
 ) {
     let mut map_pending_updates: Vec<(&ObjectGuid, Position)> = Vec::new();
 
@@ -152,7 +154,7 @@ pub fn update_movement(
                     if should_stop_chasing {
                         if let Ok(player) = v_player.get(target_entity_id) {
                             player.unset_in_combat_with(guid.0);
-                            creature.remove_from_threat_list(&player.guid());
+                            vm_threat_list[entity_id].remove_from_threat_list(&player.guid());
                             vm_unit[entity_id].set_target(None, 0);
                         }
 

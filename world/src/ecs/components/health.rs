@@ -38,6 +38,9 @@ impl Health {
         self.internal_values
             .write()
             .set_u32(UnitFields::UnitFieldHealth.into(), new_health);
+
+        // TODO: Handle threat based on the damage
+        // See Unit.cpp:1014
     }
 
     pub fn apply_healing(&mut self, healing: u32) {

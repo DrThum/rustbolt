@@ -29,6 +29,7 @@ use crate::{
             movement::{Movement, MovementKind},
             quest_actor::QuestActor,
             spell_cast::SpellCast,
+            threat_list::ThreatList,
             unit::Unit,
         },
         resources::DeltaTime,
@@ -410,10 +411,11 @@ impl Map {
              mut vm_int_vals: ViewMut<WrappedInternalValues>,
              mut vm_creature: ViewMut<Creature>,
              mut vm_movement: ViewMut<Movement>,
-             (mut vm_spell, mut vm_quest_actor, mut vm_behavior): (
+             (mut vm_spell, mut vm_quest_actor, mut vm_behavior, mut vm_threat_list): (
                 ViewMut<SpellCast>,
                 ViewMut<QuestActor>,
                 ViewMut<Behavior>,
+                ViewMut<ThreatList>,
             )| {
                 let entity_id = entities.add_entity(
                     (
@@ -426,6 +428,7 @@ impl Map {
                         &mut vm_movement,
                         &mut vm_spell,
                         &mut vm_behavior,
+                        &mut vm_threat_list,
                     ),
                     (
                         Guid::new(creature_guid.clone(), creature.internal_values.clone()),
@@ -443,8 +446,9 @@ impl Map {
                         WrappedInternalValues(creature.internal_values.clone()),
                         Movement::new(creature.default_movement_kind),
                         SpellCast::new(),
-                        Behavior::new_wild_monster(), // FIXME: Will need different behavior
-                                                      // depending on some flags
+                        // FIXME: Will need different behavior depending on some flags
+                        Behavior::new_wild_monster(),
+                        ThreatList::new(),
                     ),
                 );
 

@@ -9,6 +9,7 @@ use crate::{
             guid::Guid,
             health::Health,
             movement::Movement,
+            threat_list::ThreatList,
             unit::Unit,
         },
         resources::DeltaTime,
@@ -30,11 +31,11 @@ pub fn tick(
     mut vm_behavior: ViewMut<Behavior>,
     mut vm_movement: ViewMut<Movement>,
     mut vm_unit: ViewMut<Unit>,
+    mut vm_threat_list: ViewMut<ThreatList>,
     v_guid: View<Guid>,
     v_wpos: View<WorldPosition>,
     v_creature: View<Creature>,
-    v_player: View<Player>,
-    v_health: View<Health>,
+    (v_player, v_health): (View<Player>, View<Health>),
 ) {
     for (entity_id, mut behavior) in (&mut vm_behavior).iter().with_id() {
         let mut context = BTContext {
@@ -43,6 +44,7 @@ pub fn tick(
             map: &map,
             vm_movement: &mut vm_movement,
             vm_unit: &mut vm_unit,
+            vm_threat_list: &mut vm_threat_list,
             v_guid: &v_guid,
             v_wpos: &v_wpos,
             v_creature: &v_creature,
@@ -64,6 +66,7 @@ fn action_aggro(ctx: &mut BTContext) -> NodeStatus {
     let my_guid = ctx.v_guid[ctx.entity_id].0;
     let creature = &ctx.v_creature[ctx.entity_id];
     let creature_position = &ctx.v_wpos[ctx.entity_id];
+    let threat_list = &mut ctx.vm_threat_list[ctx.entity_id];
     let unit_me = &ctx.vm_unit[ctx.entity_id];
 
     let sessions_around: Vec<Arc<WorldSession>> = ctx
@@ -98,7 +101,7 @@ fn action_aggro(ctx: &mut BTContext) -> NodeStatus {
 
         if let Ok(player) = ctx.v_player.get(target_entity_id) {
             player.set_in_combat_with(my_guid);
-            creature.modify_threat(player.guid(), 0.);
+            threat_list.modify_threat(player.guid(), 0.);
             ctx.vm_unit[ctx.entity_id].set_target(Some(target_entity_id), player.guid().raw());
         }
 

@@ -100,7 +100,7 @@ impl Map {
                 behavior::tick,
                 combat::update_combat_state,
                 combat::select_target,
-                melee::attempt_melee_attack, // TODO: player only, move creature to behavior tree
+                melee::attempt_melee_attack,
                 spell::update_spell,
                 updates::send_entity_update,
             )

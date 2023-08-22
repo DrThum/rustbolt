@@ -1,4 +1,4 @@
-use shipyard::{IntoIter, View, ViewMut};
+use shipyard::{Get, IntoIter, View, ViewMut};
 
 use crate::{
     ecs::components::{guid::Guid, threat_list::ThreatList, unit::Unit},
@@ -36,17 +36,21 @@ pub fn update_combat_state(
 // TODO: 130%/110% rule for taking aggro if there's already a target
 pub fn select_target(
     mut vm_unit: ViewMut<Unit>,
-    v_threat_list: View<ThreatList>,
+    mut vm_threat_list: ViewMut<ThreatList>,
     v_guid: View<Guid>,
 ) {
-    for (mut unit, threat_list) in (&mut vm_unit, &v_threat_list).iter() {
+    for (mut unit, mut threat_list) in (&mut vm_unit, &mut vm_threat_list).iter() {
         threat_list
             .threat_list()
             .into_iter()
             .max_by(|&a, &b| a.1.total_cmp(&b.1))
             .map(|(entity_id, _threat)| {
                 if unit.target() != Some(entity_id) {
-                    unit.set_target(Some(entity_id), v_guid[entity_id].0.raw());
+                    if let Ok(target_guid) = v_guid.get(entity_id) {
+                        unit.set_target(Some(entity_id), target_guid.0.raw());
+                    } else {
+                        threat_list.remove(&entity_id);
+                    }
                 }
             });
     }

@@ -25,7 +25,7 @@ impl ThreatList {
             .or_insert(amount);
     }
 
-    pub fn remove_from_threat_list(&mut self, entity_id: &EntityId) {
+    pub fn remove(&mut self, entity_id: &EntityId) {
         self.threat_list.remove(entity_id);
     }
 

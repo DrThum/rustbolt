@@ -30,7 +30,13 @@ impl Behavior {
             Duration::from_millis(200),
         );
 
-        let bt = BehaviorTree::new(BehaviorNode::Selector(vec![aggro]));
+        let attack_melee = BehaviorNode::Action(Action::AttackInMelee);
+        // let attack_spell = todo!();
+        let chase_target = BehaviorNode::Action(Action::ChaseTarget);
+        let attack =
+            BehaviorNode::Selector(vec![attack_melee /*, attack_spell */, chase_target]);
+
+        let bt = BehaviorTree::new(BehaviorNode::Selector(vec![attack, aggro]));
 
         Self { bt }
     }
@@ -42,4 +48,7 @@ impl Behavior {
 
 pub enum Action {
     Aggro,
+    AttackInMelee,
+    AttackWithSpell,
+    ChaseTarget,
 }

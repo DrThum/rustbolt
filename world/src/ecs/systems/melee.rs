@@ -6,7 +6,7 @@ use crate::{
     ecs::components::{
         guid::Guid, health::Health, melee::Melee, spell_cast::SpellCast, unit::Unit,
     },
-    entities::position::WorldPosition,
+    entities::{player::Player, position::WorldPosition},
     game::map::WrappedMap,
     protocol::{
         packets::{SmsgAttackStop, SmsgAttackerStateUpdate},
@@ -24,8 +24,10 @@ pub fn attempt_melee_attack(
     mut vm_unit: ViewMut<Unit>,
     v_wpos: View<WorldPosition>,
     v_spell: View<SpellCast>,
+    v_player: View<Player>,
 ) {
-    for (my_id, (guid, mut unit, my_position)) in (&v_guid, &mut vm_unit, &v_wpos).iter().with_id()
+    for (my_id, (guid, mut unit, my_position, _)) in
+        (&v_guid, &mut vm_unit, &v_wpos, &v_player).iter().with_id()
     {
         if let Some(target_id) = unit.target() {
             if let Ok(target_guid) = v_guid.get(target_id).map(|g| g.0) {

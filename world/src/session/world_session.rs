@@ -479,6 +479,10 @@ impl WorldSession {
 
         self.send(&packet).unwrap();
     }
+
+    pub fn send_error_system_message(&self, message: &str) {
+        self.send_system_message(format!("|cffff0000Error:|r {message}").as_str())
+    }
 }
 
 impl PartialEq for WorldSession {

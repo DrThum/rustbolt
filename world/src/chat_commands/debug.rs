@@ -2,11 +2,11 @@ use std::collections::HashMap;
 
 use clap::{Arg, ArgAction, Command};
 use log::info;
-use shipyard::{View, ViewMut};
+use shipyard::{Get, View, ViewMut};
 
 use crate::{
-    ecs::components::{guid::Guid, movement::Movement, unit::Unit},
-    entities::position::WorldPosition,
+    ecs::components::{guid::Guid, movement::Movement, threat_list::ThreatList, unit::Unit},
+    entities::{creature::Creature, player::Player, position::WorldPosition},
 };
 
 use super::{ChatCommandResult, ChatCommands, CommandContext, CommandHandler, CommandMap};
@@ -15,6 +15,7 @@ pub(super) fn commands() -> CommandMap {
     HashMap::from([
         (COMMAND_GPS, handle_gps as CommandHandler),
         (COMMAND_COME, handle_come as CommandHandler),
+        (COMMAND_THREAT, handle_threat as CommandHandler),
     ])
 }
 
@@ -65,8 +66,8 @@ fn handle_come(ctx: CommandContext) -> ChatCommandResult {
                         let player_wpos = v_wpos[player_ecs_entity];
                         let player_target = v_unit[player_ecs_entity].target();
                         if player_target.is_none() {
-                            // TODO: Improve this with <error> in red and colors
-                            ctx.session.send_system_message("You must select a target");
+                            ctx.session
+                                .send_error_system_message("You must select a target");
                             return ChatCommandResult::HandledWithError;
                         }
 
@@ -86,12 +87,65 @@ fn handle_come(ctx: CommandContext) -> ChatCommandResult {
                             true,
                         );
 
-                        ChatCommandResult::HandledOk
+                        return ChatCommandResult::HandledOk;
                     },
                 );
             }
         }
 
-        ChatCommandResult::HandledOk
+        ChatCommandResult::HandledWithError
+    })
+}
+
+static COMMAND_THREAT: &str = "threat";
+fn handle_threat(ctx: CommandContext) -> ChatCommandResult {
+    let command = Command::new(COMMAND_THREAT).arg(
+        Arg::new("list")
+            .short('l')
+            .long("list")
+            .action(ArgAction::SetTrue)
+            .required(true), // Make this an ArgGroup when we implement threat modification
+    );
+
+    ChatCommands::process(command, &ctx, &|matches| {
+        if let Some(ref map) = ctx.session.current_map() {
+            if let Some(player_ecs_entity) = ctx.session.player_entity_id() {
+                map.world().run(
+                    |v_unit: View<Unit>,
+                     v_threat_list: View<ThreatList>,
+                     v_player: View<Player>,
+                     v_creature: View<Creature>| {
+                        if let Some(my_target) = v_unit[player_ecs_entity].target() {
+                            if let Ok(tl) = v_threat_list.get(my_target) {
+                                if matches.get_flag("list") {
+                                    ctx.session.send_system_message("Threat list:");
+                                    for (entity_id, threat_level) in tl.threat_list() {
+                                        let mut target_name = "<unexpected entity type>";
+
+                                        if let Ok(player) = v_player.get(entity_id) {
+                                            target_name = player.name.as_str();
+                                        } else if let Ok(creature) = v_creature.get(entity_id) {
+                                            target_name = creature.name.as_str();
+                                        }
+
+                                        ctx.session.send_system_message(
+                                            format!("- {target_name} ({threat_level})").as_str(),
+                                        );
+                                    }
+
+                                    return ChatCommandResult::HandledOk;
+                                }
+                            }
+                        }
+
+                        ctx.session
+                            .send_error_system_message("You must select a creature target");
+                        return ChatCommandResult::HandledWithError;
+                    },
+                );
+            }
+        }
+
+        ChatCommandResult::HandledWithError
     })
 }

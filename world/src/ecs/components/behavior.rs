@@ -49,6 +49,6 @@ impl Behavior {
 pub enum Action {
     Aggro,
     AttackInMelee,
-    AttackWithSpell,
+    // AttackWithSpell,
     ChaseTarget,
 }

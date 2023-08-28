@@ -18,6 +18,9 @@ use crate::{
     },
     repositories::{
         creature::{CreatureModelInfo, CreatureRepository},
+        creature_static_data::{
+            CreatureBaseAttributesPerLevelDbRecord, CreatureStaticDataRepository,
+        },
         gossip::GossipRepository,
         item::ItemRepository,
         player_static_data::{
@@ -75,6 +78,7 @@ pub struct DataStore {
     creature_model_info: SqlStore<CreatureModelInfo>,
     player_base_health_mana: SqlStore<PlayerBaseHealthManaPerLevelDbRecord>,
     player_base_attributes: SqlStore<PlayerBaseAttributesPerLevelDbRecord>,
+    creature_base_attributes: SqlStore<CreatureBaseAttributesPerLevelDbRecord>,
 }
 
 macro_rules! parse_dbc {
@@ -252,6 +256,18 @@ impl DataStore {
             player_base_attributes
         };
 
+        let creature_base_attributes = {
+            info!("Loading creature base attributes per level...");
+            let creature_base_attributes =
+                CreatureStaticDataRepository::load_base_attributes_per_level(conn);
+            let creature_base_attributes: SqlStore<CreatureBaseAttributesPerLevelDbRecord> =
+                creature_base_attributes
+                    .into_iter()
+                    .map(|cba| (cba.key(), cba))
+                    .collect();
+            creature_base_attributes
+        };
+
         Ok(DataStore {
             chr_races,
             chr_classes,
@@ -279,6 +295,7 @@ impl DataStore {
             creature_model_info,
             player_base_health_mana,
             player_base_attributes,
+            creature_base_attributes,
         })
     }
 

@@ -71,6 +71,7 @@ mod repositories {
     pub mod account;
     pub mod character;
     pub mod creature;
+    pub mod creature_static_data;
     pub mod gossip;
     pub mod item;
     pub mod player_static_data;

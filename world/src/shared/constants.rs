@@ -99,7 +99,7 @@ impl From<u8> for CharacterRaceBit {
 }
 
 #[allow(dead_code)]
-#[derive(Clone, Copy, N)]
+#[derive(Clone, Copy, N, PartialEq)]
 pub enum CharacterClass {
     None = 0,
     Warrior = 1,

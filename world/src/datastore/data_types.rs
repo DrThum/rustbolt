@@ -10,8 +10,8 @@ use crate::{
         ItemTemplateDamage, ItemTemplateSocket, ItemTemplateSpell, ItemTemplateStat,
     },
     shared::constants::{
-        AbilityLearnType, ActionButtonType, CharacterClassBit, CharacterRaceBit, InventoryType,
-        MapType, QuestFlag, SkillCategory, SkillRangeType, SkillType, SpellEffect,
+        AbilityLearnType, ActionButtonType, CharacterClass, CharacterClassBit, CharacterRaceBit,
+        InventoryType, MapType, QuestFlag, SkillCategory, SkillRangeType, SkillType, SpellEffect,
         FACTION_NUMBER_BASE_REPUTATION_MASKS, MAX_QUEST_CHOICE_REWARDS_COUNT,
         MAX_QUEST_OBJECTIVES_COUNT, MAX_QUEST_REWARDS_COUNT, MAX_QUEST_REWARDS_REPUT_COUNT,
         MAX_SPELL_EFFECTS, MAX_SPELL_REAGENTS, MAX_SPELL_TOTEMS, NPC_TEXT_EMOTE_COUNT,
@@ -353,6 +353,7 @@ pub struct CreatureTemplate {
     pub name: String,
     pub sub_name: Option<String>,
     pub icon_name: Option<String>,
+    pub unit_class: CharacterClass, // Can only be Warrior (1), Paladin (2), Rogue (4) or Mage (8)
     pub min_level: u32,
     pub max_level: u32,
     pub min_level_health: u32, // TODO: replace these 4 with creature_template_classlevelstats

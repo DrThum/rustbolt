@@ -11,7 +11,7 @@ use rusqlite::{
 use crate::{
     datastore::data_types::CreatureTemplate,
     ecs::components::movement::MovementKind,
-    shared::constants::{Gender, MAX_CREATURE_TEMPLATE_MODELID},
+    shared::constants::{CharacterClass, Gender, MAX_CREATURE_TEMPLATE_MODELID},
 };
 
 pub struct CreatureRepository;
@@ -28,7 +28,7 @@ impl CreatureRepository {
         let count = count.next().unwrap().unwrap_or(0);
         let bar = ProgressBar::new(count);
 
-        let mut stmt = conn.prepare_cached("SELECT entry, name, sub_name, icon_name, min_level, max_level, model_id1, model_id2, model_id3, model_id4, scale, family, type_id, racial_leader, type_flags, speed_walk, speed_run, rank, health_multiplier, power_multiplier, min_level_health, max_level_health, min_level_mana, max_level_mana, melee_base_attack_time_ms, ranged_base_attack_time_ms, pet_spell_data_id, faction_template_id, npc_flags, unit_flags, dynamic_flags, gossip_menu_id, movement_type FROM creature_templates ORDER BY entry").unwrap();
+        let mut stmt = conn.prepare_cached("SELECT entry, name, sub_name, icon_name, unit_class, min_level, max_level, model_id1, model_id2, model_id3, model_id4, scale, family, type_id, racial_leader, type_flags, speed_walk, speed_run, rank, health_multiplier, power_multiplier, min_level_health, max_level_health, min_level_mana, max_level_mana, melee_base_attack_time_ms, ranged_base_attack_time_ms, pet_spell_data_id, faction_template_id, npc_flags, unit_flags, dynamic_flags, gossip_menu_id, movement_type FROM creature_templates ORDER BY entry").unwrap();
 
         let result = stmt
             .query_map([], |row| {
@@ -44,11 +44,12 @@ impl CreatureRepository {
                     bar.finish();
                 }
 
-                Ok(CreatureTemplate {
+                let template = CreatureTemplate {
                     entry: row.get(Entry as usize).unwrap(),
                     name: row.get(Name as usize).unwrap(),
                     sub_name: row.get(SubName as usize).unwrap(),
                     icon_name: row.get(IconName as usize).unwrap(),
+                    unit_class: row.get(UnitClass as usize).unwrap(),
                     min_level: row.get(MinLevel as usize).unwrap(),
                     max_level: row.get(MaxLevel as usize).unwrap(),
                     min_level_health: row.get(MinLevelHealth as usize).unwrap(),
@@ -81,7 +82,20 @@ impl CreatureRepository {
                     dynamic_flags: row.get(DynamicFlags as usize).unwrap(),
                     gossip_menu_id: row.get(GossipMenuId as usize).unwrap(),
                     movement_type: row.get(MovementType as usize).unwrap(),
-                })
+                };
+
+                assert!(
+                    vec![
+                        CharacterClass::Warrior,
+                        CharacterClass::Paladin,
+                        CharacterClass::Rogue,
+                        CharacterClass::Mage
+                    ]
+                    .contains(&template.unit_class),
+                    "creature unit_class must be Warrior, Paladin, Rogue or Mage"
+                );
+
+                Ok(template)
             })
             .unwrap();
 
@@ -170,6 +184,7 @@ enum CreatureTemplateColumnIndex {
     Name,
     SubName,
     IconName,
+    UnitClass,
     MinLevel,
     MaxLevel,
     ModelId1,

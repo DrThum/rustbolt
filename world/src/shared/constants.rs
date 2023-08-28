@@ -221,8 +221,8 @@ pub enum InventorySlot {
     EquipmentTrinket1 = 12,
     EquipmentTrinket2 = 13,
     EquipmentBack = 14,
-    EquipmentMainhand = 15,
-    EquipmentOffhand = 16,
+    EquipmentMainHand = 15,
+    EquipmentOffHand = 16,
     EquipmentRanged = 17,
     EquipmentTabard = 18,
 }
@@ -1589,3 +1589,5 @@ pub enum SpellSchool {
     Shadow = 5,
     Arcane = 6,
 }
+
+pub const BASE_ATTACK_TIME: Duration = Duration::from_millis(2000);

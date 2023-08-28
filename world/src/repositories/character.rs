@@ -95,8 +95,8 @@ impl CharacterRepository {
                 InventoryType::Trinket
             }
             InventorySlot::EquipmentBack => InventoryType::Cloak,
-            InventorySlot::EquipmentMainhand => InventoryType::WeaponMainHand,
-            InventorySlot::EquipmentOffhand => InventoryType::WeaponOffHand,
+            InventorySlot::EquipmentMainHand => InventoryType::WeaponMainHand,
+            InventorySlot::EquipmentOffHand => InventoryType::WeaponOffHand,
             InventorySlot::EquipmentRanged => InventoryType::Ranged,
             InventorySlot::EquipmentTabard => InventoryType::Tabard,
         }

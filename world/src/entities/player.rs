@@ -26,8 +26,8 @@ use crate::{
         AbilityLearnType, CharacterClassBit, CharacterRaceBit, Gender, HighGuidType, InventorySlot,
         InventoryType, ItemClass, ItemSubclassConsumable, ObjectTypeId, ObjectTypeMask,
         PlayerQuestStatus, PowerType, QuestSlotState, QuestStartError, SkillRangeType, SpellSchool,
-        UnitAttribute, UnitFlags, MAX_QUESTS_IN_LOG, MAX_QUEST_OBJECTIVES_COUNT,
-        PLAYER_DEFAULT_BOUNDING_RADIUS, PLAYER_DEFAULT_COMBAT_REACH,
+        UnitAttribute, UnitFlags, WeaponAttackType, BASE_ATTACK_TIME, MAX_QUESTS_IN_LOG,
+        MAX_QUEST_OBJECTIVES_COUNT, PLAYER_DEFAULT_BOUNDING_RADIUS, PLAYER_DEFAULT_COMBAT_REACH,
     },
 };
 
@@ -134,10 +134,10 @@ impl Player {
                     InventoryType::Weapon
                     | InventoryType::Holdable
                     | InventoryType::TwoHandWeapon
-                    | InventoryType::WeaponMainHand => InventorySlot::EquipmentMainhand as u32,
+                    | InventoryType::WeaponMainHand => InventorySlot::EquipmentMainHand as u32,
                     InventoryType::Shield
                     | InventoryType::WeaponOffHand
-                    | InventoryType::Quiver => InventorySlot::EquipmentOffhand as u32,
+                    | InventoryType::Quiver => InventorySlot::EquipmentOffHand as u32,
                     InventoryType::Ranged | InventoryType::RangedRight | InventoryType::Relic => {
                         InventorySlot::EquipmentRanged as u32
                     }
@@ -929,6 +929,27 @@ impl Player {
 
     pub fn armor(&self) -> u32 {
         self.resistance(SpellSchool::Normal)
+    }
+
+    pub fn base_attack_time(
+        &self,
+        attack_type: WeaponAttackType,
+        data_store: Arc<DataStore>,
+    ) -> Duration {
+        let slot = match attack_type {
+            WeaponAttackType::MainHand => InventorySlot::EquipmentMainHand,
+            WeaponAttackType::OffHand => InventorySlot::EquipmentOffHand,
+            WeaponAttackType::Ranged => InventorySlot::EquipmentRanged,
+        } as u32;
+
+        self.inventory
+            .get(&slot)
+            .and_then(|item| {
+                data_store
+                    .get_item_template(item.entry())
+                    .map(|template| Duration::from_millis(template.delay as u64))
+            })
+            .unwrap_or(BASE_ATTACK_TIME)
     }
 }
 

@@ -50,7 +50,7 @@ use crate::{
     },
     repositories::{character::CharacterRecord, creature::CreatureSpawnDbRecord},
     session::world_session::WorldSession,
-    shared::constants::{HighGuidType, NpcFlags},
+    shared::constants::{HighGuidType, NpcFlags, WeaponAttackType},
     DataStore,
 };
 
@@ -223,6 +223,19 @@ impl Map {
                     .get_player_base_health_mana(char_data.class, char_data.level as u32)
                     .expect("unable to retrieve base health/mana for this class/level combination");
 
+                let main_hand_attack_time = player.base_attack_time(
+                    WeaponAttackType::MainHand,
+                    self.world_context.data_store.clone(),
+                );
+                let off_hand_attack_time = player.base_attack_time(
+                    WeaponAttackType::OffHand,
+                    self.world_context.data_store.clone(),
+                );
+                let ranged_attack_time = player.base_attack_time(
+                    WeaponAttackType::Ranged,
+                    self.world_context.data_store.clone(),
+                );
+
                 let entity_id = entities.add_entity(
                     (
                         &mut vm_guid,
@@ -247,10 +260,9 @@ impl Map {
                             5, // FIXME: damage should be dynamic
                             false,
                             [
-                                // TODO
-                                Duration::from_millis(500),
-                                Duration::from_millis(1000),
-                                Duration::from_millis(2000),
+                                main_hand_attack_time,
+                                off_hand_attack_time,
+                                ranged_attack_time,
                             ],
                         ),
                         Unit::new(

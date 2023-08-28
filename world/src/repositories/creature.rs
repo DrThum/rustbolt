@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use indicatif::ProgressBar;
 use r2d2::PooledConnection;
 use r2d2_sqlite::SqliteConnectionManager;
@@ -26,7 +28,7 @@ impl CreatureRepository {
         let count = count.next().unwrap().unwrap_or(0);
         let bar = ProgressBar::new(count);
 
-        let mut stmt = conn.prepare_cached("SELECT entry, name, sub_name, icon_name, min_level, max_level, model_id1, model_id2, model_id3, model_id4, scale, family, type_id, racial_leader, type_flags, speed_walk, speed_run, rank, health_multiplier, power_multiplier, min_level_health, max_level_health, min_level_mana, max_level_mana, pet_spell_data_id, faction_template_id, npc_flags, unit_flags, dynamic_flags, gossip_menu_id, movement_type FROM creature_templates ORDER BY entry").unwrap();
+        let mut stmt = conn.prepare_cached("SELECT entry, name, sub_name, icon_name, min_level, max_level, model_id1, model_id2, model_id3, model_id4, scale, family, type_id, racial_leader, type_flags, speed_walk, speed_run, rank, health_multiplier, power_multiplier, min_level_health, max_level_health, min_level_mana, max_level_mana, melee_base_attack_time_ms, ranged_base_attack_time_ms, pet_spell_data_id, faction_template_id, npc_flags, unit_flags, dynamic_flags, gossip_menu_id, movement_type FROM creature_templates ORDER BY entry").unwrap();
 
         let result = stmt
             .query_map([], |row| {
@@ -53,6 +55,14 @@ impl CreatureRepository {
                     max_level_health: row.get(MaxLevelHealth as usize).unwrap(),
                     min_level_mana: row.get(MinLevelMana as usize).unwrap(),
                     max_level_mana: row.get(MaxLevelMana as usize).unwrap(),
+                    melee_base_attack_time: Duration::from_millis(
+                        row.get::<usize, u64>(MeleeBaseAttackTimeMs as usize)
+                            .unwrap(),
+                    ),
+                    ranged_base_attack_time: Duration::from_millis(
+                        row.get::<usize, u64>(RangedBaseAttackTimeMs as usize)
+                            .unwrap(),
+                    ),
                     model_ids,
                     scale: row.get(Scale as usize).unwrap(),
                     speed_walk: row.get(SpeedWalk as usize).unwrap(),
@@ -180,6 +190,8 @@ enum CreatureTemplateColumnIndex {
     MaxLevelHealth,
     MinLevelMana,
     MaxLevelMana,
+    MeleeBaseAttackTimeMs,
+    RangedBaseAttackTimeMs,
     PetSpellDataId,
     FactionTemplateId,
     NpcFlags,

@@ -246,6 +246,12 @@ impl Map {
                             player.internal_values.clone(),
                             5, // FIXME: damage should be dynamic
                             false,
+                            [
+                                // TODO
+                                Duration::from_millis(500),
+                                Duration::from_millis(1000),
+                                Duration::from_millis(2000),
+                            ],
                         ),
                         Unit::new(
                             player.internal_values.clone(),
@@ -402,6 +408,12 @@ impl Map {
         creature: Creature,
         wpos: &WorldPosition,
     ) {
+        let creature_template = self
+            .world_context
+            .data_store
+            .get_creature_template(creature.entry)
+            .expect("creature template not found when adding to map");
+
         self.world.lock().run(
             |mut entities: EntitiesViewMut,
              mut vm_guid: ViewMut<Guid>,
@@ -438,6 +450,11 @@ impl Map {
                             creature.internal_values.clone(),
                             5, // FIXME: damage should be dynamic
                             true,
+                            [
+                                creature_template.melee_base_attack_time,
+                                creature_template.melee_base_attack_time * 0.75 as u32,
+                                creature_template.ranged_base_attack_time,
+                            ],
                         ),
                         Unit::new(
                             creature.internal_values.clone(),

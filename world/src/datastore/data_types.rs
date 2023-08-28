@@ -355,10 +355,12 @@ pub struct CreatureTemplate {
     pub icon_name: Option<String>,
     pub min_level: u32,
     pub max_level: u32,
-    pub min_level_health: u32,
+    pub min_level_health: u32, // TODO: replace these 4 with creature_template_classlevelstats
     pub max_level_health: u32,
     pub min_level_mana: u32,
     pub max_level_mana: u32,
+    pub melee_base_attack_time: Duration,
+    pub ranged_base_attack_time: Duration,
     pub model_ids: Vec<u32>,
     pub scale: f32,
     pub speed_walk: f32,

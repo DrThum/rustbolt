@@ -36,6 +36,7 @@ impl Melee {
         internal_values: Arc<RwLock<InternalValues>>,
         damage: u32,
         is_default_attacking: bool,
+        attack_intervals: [Duration; 3],
     ) -> Self {
         let now = Instant::now();
 
@@ -45,12 +46,26 @@ impl Melee {
             SheathState::Unarmed as u8,
         );
 
+        // TODO: multiply these by modifiers
+        internal_values.write().set_u32(
+            UnitFields::UnitFieldBaseAttackTime.into(),
+            attack_intervals[0].as_millis() as u32,
+        );
+        internal_values.write().set_u32(
+            UnitFields::UnitFieldBaseAttackTime as usize + 1,
+            attack_intervals[1].as_millis() as u32,
+        );
+        internal_values.write().set_u32(
+            UnitFields::UnitFieldRangedAttackTime.into(),
+            attack_intervals[2].as_millis() as u32,
+        );
+
         Self {
             internal_values,
             damage,
             is_attacking: is_default_attacking,
             next_attack_times: [now, now, now],
-            attack_intervals: [Duration::from_millis(800), Duration::MAX, Duration::MAX],
+            attack_intervals,
             has_off_hand: false,
             last_error: MeleeAttackError::None,
             sheath_state: SheathState::Unarmed,

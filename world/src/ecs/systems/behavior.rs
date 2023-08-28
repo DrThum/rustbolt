@@ -124,7 +124,6 @@ fn action_aggro(ctx: &mut BTContext) -> NodeStatus {
 }
 
 fn action_attack_in_melee(ctx: &mut BTContext) -> NodeStatus {
-    // for (my_id, (guid, mut unit, my_position)) in (ctx.v_guid, ctx.vm_unit, ctx.v_wpos).iter().with_id()
     let my_id = ctx.entity_id;
     let guid = &ctx.v_guid[my_id];
     let unit = &mut ctx.vm_unit[my_id];
@@ -182,6 +181,7 @@ fn action_attack_in_melee(ctx: &mut BTContext) -> NodeStatus {
             if melee.is_attack_ready(WeaponAttackType::MainHand) {
                 let damage = melee.damage();
                 target_health.apply_damage(damage);
+                ctx.vm_threat_list[target_id].modify_threat(my_id, damage as f32);
 
                 let packet = ServerMessage::new(SmsgAttackerStateUpdate {
                     hit_info: 2, // TODO enum HitInfo

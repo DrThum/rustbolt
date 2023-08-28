@@ -4,7 +4,8 @@ use shipyard::{Get, IntoIter, IntoWithId, UniqueView, View, ViewMut};
 
 use crate::{
     ecs::components::{
-        guid::Guid, health::Health, melee::Melee, spell_cast::SpellCast, unit::Unit,
+        guid::Guid, health::Health, melee::Melee, spell_cast::SpellCast, threat_list::ThreatList,
+        unit::Unit,
     },
     entities::{player::Player, position::WorldPosition},
     game::map::WrappedMap,
@@ -22,6 +23,7 @@ pub fn attempt_melee_attack(
     mut v_health: ViewMut<Health>,
     mut v_melee: ViewMut<Melee>,
     mut vm_unit: ViewMut<Unit>,
+    mut vm_threat_list: ViewMut<ThreatList>,
     v_wpos: View<WorldPosition>,
     v_spell: View<SpellCast>,
     v_player: View<Player>,
@@ -86,6 +88,7 @@ pub fn attempt_melee_attack(
                 if melee.is_attack_ready(WeaponAttackType::MainHand) {
                     let damage = melee.damage();
                     target_health.apply_damage(damage);
+                    vm_threat_list[target_id].modify_threat(my_id, damage as f32);
 
                     let packet = ServerMessage::new(SmsgAttackerStateUpdate {
                         hit_info: 2, // TODO enum HitInfo

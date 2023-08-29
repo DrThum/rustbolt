@@ -15,7 +15,8 @@ impl Health {
         {
             let mut guard = internal_values.write();
             guard.set_u32(UnitFields::UnitFieldHealth.into(), current);
-            guard.set_u32(UnitFields::UnitFieldMaxhealth.into(), max);
+            guard.set_u32(UnitFields::UnitFieldMaxHealth.into(), max);
+            guard.set_u32(UnitFields::UnitFieldBaseHealth.into(), max);
         }
 
         Self { internal_values }
@@ -24,7 +25,7 @@ impl Health {
     pub fn max(&self) -> u32 {
         self.internal_values
             .read()
-            .get_u32(UnitFields::UnitFieldMaxhealth.into())
+            .get_u32(UnitFields::UnitFieldMaxHealth.into())
     }
 
     pub fn current(&self) -> u32 {

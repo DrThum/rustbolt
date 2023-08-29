@@ -75,7 +75,7 @@ pub enum UnitFields {
     UnitFieldPower3 = OBJECT_END + 0x0013, // Size: 1, Type: Int, Flags: Public
     UnitFieldPower4 = OBJECT_END + 0x0014, // Size: 1, Type: Int, Flags: Public
     UnitFieldPower5 = OBJECT_END + 0x0015, // Size: 1, Type: Int, Flags: Public
-    UnitFieldMaxhealth = OBJECT_END + 0x0016, // Size: 1, Type: Int, Flags: Dynamic
+    UnitFieldMaxHealth = OBJECT_END + 0x0016, // Size: 1, Type: Int, Flags: Dynamic
     UnitFieldMaxPower1 = OBJECT_END + 0x0017, // Size: 1, Type: Int, Flags: Public
     UnitFieldMaxPower2 = OBJECT_END + 0x0018, // Size: 1, Type: Int, Flags: Public
     UnitFieldMaxPower3 = OBJECT_END + 0x0019, // Size: 1, Type: Int, Flags: Public

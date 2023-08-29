@@ -353,13 +353,15 @@ pub struct CreatureTemplate {
     pub name: String,
     pub sub_name: Option<String>,
     pub icon_name: Option<String>,
+    pub expansion: Option<u32>,
     pub unit_class: CharacterClass, // Can only be Warrior (1), Paladin (2), Rogue (4) or Mage (8)
     pub min_level: u32,
     pub max_level: u32,
-    pub min_level_health: u32, // TODO: replace these 4 with creature_template_classlevelstats
-    pub max_level_health: u32,
-    pub min_level_mana: u32,
-    pub max_level_mana: u32,
+    pub health_multiplier: f32,
+    pub power_multiplier: f32,
+    pub damage_multiplier: f32,
+    pub armor_multiplier: f32,
+    pub experience_multiplier: f32,
     pub melee_base_attack_time: Duration,
     pub ranged_base_attack_time: Duration,
     pub model_ids: Vec<u32>,
@@ -370,9 +372,7 @@ pub struct CreatureTemplate {
     pub type_id: u32, // CreatureType.dbc
     pub type_flags: u32,
     pub rank: u32,
-    pub racial_leader: u8, // bool
-    pub health_multiplier: f32,
-    pub power_multiplier: f32,
+    pub racial_leader: u8,        // bool
     pub pet_spell_data_id: u32,   // CreatureSpellData.dbc
     pub faction_template_id: u32, // FactionTemplate.dbc
     pub npc_flags: u32,

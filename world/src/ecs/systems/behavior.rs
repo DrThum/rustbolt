@@ -71,7 +71,6 @@ fn execute_action(action: &Action, ctx: &mut BTContext) -> NodeStatus {
     match action {
         Action::Aggro => action_aggro(ctx),
         Action::AttackInMelee => action_attack_in_melee(ctx),
-        Action::AttackWithSpell => todo!(),
         Action::ChaseTarget => action_chase_target(ctx),
     }
 }

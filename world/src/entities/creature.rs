@@ -12,7 +12,7 @@ use crate::{
     protocol::packets::SmsgCreateObject,
     repositories::creature::CreatureSpawnDbRecord,
     shared::constants::{
-        HighGuidType, NpcFlags, ObjectTypeId, ObjectTypeMask,
+        CharacterClass, HighGuidType, NpcFlags, ObjectTypeId, ObjectTypeMask, PowerType,
         CREATURE_AGGRO_DISTANCE_AT_SAME_LEVEL, CREATURE_AGGRO_DISTANCE_MAX,
         CREATURE_AGGRO_DISTANCE_MIN, MAX_LEVEL_DIFFERENCE_FOR_AGGRO,
     },
@@ -63,6 +63,16 @@ impl Creature {
                 values.set_u32(ObjectFields::ObjectFieldEntry.into(), template.entry);
 
                 values.set_f32(ObjectFields::ObjectFieldScaleX.into(), template.scale);
+
+                values.set_u8(UnitFields::UnitFieldBytes0.into(), 1, template.unit_class as u8);
+
+                // Set power type based on unit class
+                match template.unit_class {
+                    CharacterClass::Warrior => values.set_u8(UnitFields::UnitFieldBytes0.into(), 3, PowerType::Rage as u8),
+                    CharacterClass::Rogue => values.set_u8(UnitFields::UnitFieldBytes0.into(), 3, PowerType::Energy as u8),
+                    CharacterClass::Paladin | CharacterClass::Mage => values.set_u8(UnitFields::UnitFieldBytes0.into(), 3, PowerType::Mana as u8),
+                    _ => (),
+                }
 
                 values.set_u32(
                     UnitFields::UnitFieldLevel.into(),

@@ -2,7 +2,7 @@ use indicatif::ProgressBar;
 use r2d2::PooledConnection;
 use r2d2_sqlite::SqliteConnectionManager;
 
-use crate::shared::constants::CharacterClass;
+use crate::shared::constants::{CharacterClass, MAX_EXPANSION};
 
 pub struct CreatureStaticDataRepository;
 
@@ -30,11 +30,15 @@ impl CreatureStaticDataRepository {
                 Ok(CreatureBaseAttributesPerLevelDbRecord {
                     class: row.get("class").unwrap(),
                     level: row.get("level").unwrap(),
-                    health_exp0: row.get("health_exp0").unwrap(),
-                    health_exp1: row.get("health_exp1").unwrap(),
+                    health: [
+                        row.get("health_exp0").unwrap(),
+                        row.get("health_exp1").unwrap(),
+                    ],
                     mana: row.get("mana").unwrap(),
-                    damage_exp0: row.get("damage_exp0").unwrap(),
-                    damage_exp1: row.get("damage_exp1").unwrap(),
+                    damage: [
+                        row.get("damage_exp0").unwrap(),
+                        row.get("damage_exp1").unwrap(),
+                    ],
                     melee_attack_power: row.get("melee_attack_power").unwrap(),
                     ranged_attack_power: row.get("ranged_attack_power").unwrap(),
                     armor: row.get("armor").unwrap(),
@@ -49,11 +53,9 @@ impl CreatureStaticDataRepository {
 pub struct CreatureBaseAttributesPerLevelDbRecord {
     pub class: CharacterClass,
     pub level: u32,
-    pub health_exp0: u32,
-    pub health_exp1: u32,
+    pub health: [u32; MAX_EXPANSION],
     pub mana: u32,
-    pub damage_exp0: f32,
-    pub damage_exp1: f32,
+    pub damage: [f32; MAX_EXPANSION],
     pub melee_attack_power: f32,
     pub ranged_attack_power: f32,
     pub armor: u32,

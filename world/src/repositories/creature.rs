@@ -28,7 +28,7 @@ impl CreatureRepository {
         let count = count.next().unwrap().unwrap_or(0);
         let bar = ProgressBar::new(count);
 
-        let mut stmt = conn.prepare_cached("SELECT entry, name, sub_name, icon_name, unit_class, min_level, max_level, model_id1, model_id2, model_id3, model_id4, scale, family, type_id, racial_leader, type_flags, speed_walk, speed_run, rank, health_multiplier, power_multiplier, min_level_health, max_level_health, min_level_mana, max_level_mana, melee_base_attack_time_ms, ranged_base_attack_time_ms, pet_spell_data_id, faction_template_id, npc_flags, unit_flags, dynamic_flags, gossip_menu_id, movement_type FROM creature_templates ORDER BY entry").unwrap();
+        let mut stmt = conn.prepare_cached("SELECT entry, name, sub_name, icon_name, expansion, unit_class, min_level, max_level, health_multiplier, power_multiplier, damage_multiplier, armor_multiplier, experience_multiplier, model_id1, model_id2, model_id3, model_id4, scale, family, type_id, racial_leader, type_flags, speed_walk, speed_run, rank, melee_base_attack_time_ms, ranged_base_attack_time_ms, pet_spell_data_id, faction_template_id, npc_flags, unit_flags, dynamic_flags, gossip_menu_id, movement_type FROM creature_templates ORDER BY entry").unwrap();
 
         let result = stmt
             .query_map([], |row| {
@@ -49,13 +49,15 @@ impl CreatureRepository {
                     name: row.get(Name as usize).unwrap(),
                     sub_name: row.get(SubName as usize).unwrap(),
                     icon_name: row.get(IconName as usize).unwrap(),
+                    expansion: row.get(Expansion as usize).unwrap(),
                     unit_class: row.get(UnitClass as usize).unwrap(),
                     min_level: row.get(MinLevel as usize).unwrap(),
                     max_level: row.get(MaxLevel as usize).unwrap(),
-                    min_level_health: row.get(MinLevelHealth as usize).unwrap(),
-                    max_level_health: row.get(MaxLevelHealth as usize).unwrap(),
-                    min_level_mana: row.get(MinLevelMana as usize).unwrap(),
-                    max_level_mana: row.get(MaxLevelMana as usize).unwrap(),
+                    health_multiplier: row.get(HealthMultiplier as usize).unwrap(),
+                    power_multiplier: row.get(PowerMultiplier as usize).unwrap(),
+                    damage_multiplier: row.get(DamageMultiplier as usize).unwrap(),
+                    armor_multiplier: row.get(ArmorMultiplier as usize).unwrap(),
+                    experience_multiplier: row.get(ExperienceMultiplier as usize).unwrap(),
                     melee_base_attack_time: Duration::from_millis(
                         row.get::<usize, u64>(MeleeBaseAttackTimeMs as usize)
                             .unwrap(),
@@ -73,8 +75,6 @@ impl CreatureRepository {
                     type_flags: row.get(TypeFlags as usize).unwrap(),
                     rank: row.get(Rank as usize).unwrap(),
                     racial_leader: row.get(RacialLeader as usize).unwrap(),
-                    health_multiplier: row.get(HealthMultiplier as usize).unwrap(),
-                    power_multiplier: row.get(PowerMultiplier as usize).unwrap(),
                     pet_spell_data_id: row.get(PetSpellDataId as usize).unwrap(),
                     faction_template_id: row.get(FactionTemplateId as usize).unwrap(),
                     npc_flags: row.get(NpcFlags as usize).unwrap(),
@@ -184,9 +184,15 @@ enum CreatureTemplateColumnIndex {
     Name,
     SubName,
     IconName,
+    Expansion,
     UnitClass,
     MinLevel,
     MaxLevel,
+    HealthMultiplier,
+    PowerMultiplier,
+    DamageMultiplier,
+    ArmorMultiplier,
+    ExperienceMultiplier,
     ModelId1,
     ModelId2,
     ModelId3,
@@ -199,12 +205,6 @@ enum CreatureTemplateColumnIndex {
     SpeedWalk,
     SpeedRun,
     Rank,
-    HealthMultiplier,
-    PowerMultiplier,
-    MinLevelHealth,
-    MaxLevelHealth,
-    MinLevelMana,
-    MaxLevelMana,
     MeleeBaseAttackTimeMs,
     RangedBaseAttackTimeMs,
     PetSpellDataId,

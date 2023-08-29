@@ -383,7 +383,7 @@ impl Player {
             // TODO: Save powers in characters table
             values.set_u32(
                 UnitFields::UnitFieldPower1 as usize + index - 1,
-                world_context.data_store.get_max_base_power(
+                world_context.data_store.get_player_max_base_power(
                     power_type,
                     character.class,
                     character.level as u32,
@@ -392,7 +392,7 @@ impl Player {
             );
             values.set_u32(
                 UnitFields::UnitFieldMaxPower1 as usize + index - 1,
-                world_context.data_store.get_max_base_power(
+                world_context.data_store.get_player_max_base_power(
                     power_type,
                     character.class,
                     character.level as u32,

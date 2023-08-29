@@ -461,7 +461,16 @@ impl DataStore {
             .get(&(((race as u32) << 16) | ((class as u32) << 8) | level))
     }
 
-    pub fn get_max_base_power(
+    pub fn get_creature_base_attributes(
+        &self,
+        class: CharacterClass,
+        level: u32,
+    ) -> Option<&CreatureBaseAttributesPerLevelDbRecord> {
+        self.creature_base_attributes
+            .get(&(((class as u32) << 16) | level))
+    }
+
+    pub fn get_player_max_base_power(
         &self,
         power_type: PowerType,
         class: CharacterClass,

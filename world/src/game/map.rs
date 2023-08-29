@@ -426,6 +426,18 @@ impl Map {
             .get_creature_template(creature.entry)
             .expect("creature template not found when adding to map");
 
+        let creature_health = self
+            .world_context
+            .data_store
+            .get_creature_base_attributes(creature_template.unit_class, creature.real_level())
+            .map(|attrs| {
+                attrs.health(
+                    creature_template.expansion as usize,
+                    creature_template.health_multiplier,
+                )
+            })
+            .expect("creature base attributes not found");
+
         self.world.lock().run(
             |mut entities: EntitiesViewMut,
              mut vm_guid: ViewMut<Guid>,
@@ -457,7 +469,11 @@ impl Map {
                     ),
                     (
                         Guid::new(creature_guid.clone(), creature.internal_values.clone()),
-                        Health::new(80, 80, creature.internal_values.clone()),
+                        Health::new(
+                            creature_health,
+                            creature_health,
+                            creature.internal_values.clone(),
+                        ),
                         Melee::new(
                             creature.internal_values.clone(),
                             5, // FIXME: damage should be dynamic

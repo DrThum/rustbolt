@@ -49,7 +49,10 @@ impl CreatureRepository {
                     name: row.get(Name as usize).unwrap(),
                     sub_name: row.get(SubName as usize).unwrap(),
                     icon_name: row.get(IconName as usize).unwrap(),
-                    expansion: row.get(Expansion as usize).unwrap(),
+                    expansion: row
+                        .get::<usize, Option<usize>>(Expansion as usize)
+                        .unwrap()
+                        .unwrap_or(0),
                     unit_class: row.get(UnitClass as usize).unwrap(),
                     min_level: row.get(MinLevel as usize).unwrap(),
                     max_level: row.get(MaxLevel as usize).unwrap(),

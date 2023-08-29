@@ -353,7 +353,7 @@ pub struct CreatureTemplate {
     pub name: String,
     pub sub_name: Option<String>,
     pub icon_name: Option<String>,
-    pub expansion: Option<u32>,
+    pub expansion: usize,
     pub unit_class: CharacterClass, // Can only be Warrior (1), Paladin (2), Rogue (4) or Mage (8)
     pub min_level: u32,
     pub max_level: u32,

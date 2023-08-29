@@ -173,7 +173,7 @@ impl Creature {
     // Minimum Aggro Radius for a mob seems to be combat range (5 yards)
     pub fn aggro_distance(&self, other_entity_level: u32) -> f32 {
         let level_difference: i32 = (other_entity_level as i32
-            - self.level(other_entity_level) as i32)
+            - self.level_against(other_entity_level) as i32)
             .max(MAX_LEVEL_DIFFERENCE_FOR_AGGRO);
 
         let aggro_distance: f32 = CREATURE_AGGRO_DISTANCE_AT_SAME_LEVEL - level_difference as f32;
@@ -182,8 +182,14 @@ impl Creature {
         aggro_distance.clamp(CREATURE_AGGRO_DISTANCE_MIN, CREATURE_AGGRO_DISTANCE_MAX)
     }
 
-    pub fn level(&self, _other_entity_level: u32) -> u32 {
+    pub fn level_against(&self, _other_entity_level: u32) -> u32 {
         // TODO: World Boss case, need other_entity_level
+        self.internal_values
+            .read()
+            .get_u32(UnitFields::UnitFieldLevel.into())
+    }
+
+    pub fn real_level(&self) -> u32 {
         self.internal_values
             .read()
             .get_u32(UnitFields::UnitFieldLevel.into())

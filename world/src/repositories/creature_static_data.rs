@@ -65,4 +65,8 @@ impl CreatureBaseAttributesPerLevelDbRecord {
     pub fn key(&self) -> u32 {
         ((self.class as u32) << 16) | self.level
     }
+
+    pub fn health(&self, expansion: usize, multiplier: f32) -> u32 {
+        ((self.health[expansion] as f32 * multiplier).ceil() as u32).max(1)
+    }
 }

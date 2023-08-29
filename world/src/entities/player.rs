@@ -26,8 +26,9 @@ use crate::{
         AbilityLearnType, CharacterClassBit, CharacterRaceBit, Gender, HighGuidType, InventorySlot,
         InventoryType, ItemClass, ItemSubclassConsumable, ObjectTypeId, ObjectTypeMask,
         PlayerQuestStatus, PowerType, QuestSlotState, QuestStartError, SkillRangeType, SpellSchool,
-        UnitAttribute, UnitFlags, WeaponAttackType, BASE_ATTACK_TIME, MAX_QUESTS_IN_LOG,
-        MAX_QUEST_OBJECTIVES_COUNT, PLAYER_DEFAULT_BOUNDING_RADIUS, PLAYER_DEFAULT_COMBAT_REACH,
+        UnitAttribute, UnitFlags, WeaponAttackType, BASE_ATTACK_TIME, BASE_DAMAGE,
+        MAX_QUESTS_IN_LOG, MAX_QUEST_OBJECTIVES_COUNT, PLAYER_DEFAULT_BOUNDING_RADIUS,
+        PLAYER_DEFAULT_COMBAT_REACH,
     },
 };
 
@@ -950,6 +951,28 @@ impl Player {
                     .map(|template| Duration::from_millis(template.delay as u64))
             })
             .unwrap_or(BASE_ATTACK_TIME)
+    }
+
+    // TODO: This should be a range (min, max)
+    pub fn base_damage(&self, attack_type: WeaponAttackType, data_store: Arc<DataStore>) -> f32 {
+        let slot = match attack_type {
+            WeaponAttackType::MainHand => InventorySlot::EquipmentMainHand,
+            WeaponAttackType::OffHand => InventorySlot::EquipmentOffHand,
+            WeaponAttackType::Ranged => InventorySlot::EquipmentRanged,
+        } as u32;
+
+        self.inventory
+            .get(&slot)
+            .and_then(|item| {
+                data_store.get_item_template(item.entry()).map(|template| {
+                    template
+                        .damages
+                        .iter()
+                        .map(|dmg| dmg.damage_min)
+                        .sum::<f32>()
+                })
+            })
+            .unwrap_or(BASE_DAMAGE)
     }
 }
 

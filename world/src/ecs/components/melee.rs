@@ -22,7 +22,7 @@ use crate::{
 #[derive(Component)]
 pub struct Melee {
     internal_values: Arc<RwLock<InternalValues>>,
-    damage: u32,
+    damage: f32,
     pub is_attacking: bool,
     next_attack_times: [Instant; NUMBER_WEAPON_ATTACK_TYPES], // MainHand, OffHand, Ranged
     attack_intervals: [Duration; NUMBER_WEAPON_ATTACK_TYPES],
@@ -34,31 +34,36 @@ pub struct Melee {
 impl Melee {
     pub fn new(
         internal_values: Arc<RwLock<InternalValues>>,
-        damage: u32,
+        damage: f32,
         is_default_attacking: bool,
         attack_intervals: [Duration; 3],
     ) -> Self {
         let now = Instant::now();
 
-        internal_values.write().set_u8(
-            UnitFields::UnitFieldBytes2.into(),
-            0,
-            SheathState::Unarmed as u8,
-        );
+        {
+            let mut guard = internal_values.write();
+            guard.set_u8(
+                UnitFields::UnitFieldBytes2.into(),
+                0,
+                SheathState::Unarmed as u8,
+            );
 
-        // TODO: multiply these by modifiers
-        internal_values.write().set_u32(
-            UnitFields::UnitFieldBaseAttackTime.into(),
-            attack_intervals[0].as_millis() as u32,
-        );
-        internal_values.write().set_u32(
-            UnitFields::UnitFieldBaseAttackTime as usize + 1,
-            attack_intervals[1].as_millis() as u32,
-        );
-        internal_values.write().set_u32(
-            UnitFields::UnitFieldRangedAttackTime.into(),
-            attack_intervals[2].as_millis() as u32,
-        );
+            // TODO: multiply these by modifiers
+            guard.set_u32(
+                UnitFields::UnitFieldBaseAttackTime.into(),
+                attack_intervals[0].as_millis() as u32,
+            );
+            guard.set_u32(
+                UnitFields::UnitFieldBaseAttackTime as usize + 1,
+                attack_intervals[1].as_millis() as u32,
+            );
+            guard.set_u32(
+                UnitFields::UnitFieldRangedAttackTime.into(),
+                attack_intervals[2].as_millis() as u32,
+            );
+            guard.set_f32(UnitFields::UnitFieldMinDamage.into(), damage);
+            guard.set_f32(UnitFields::UnitFieldMaxDamage.into(), damage);
+        }
 
         Self {
             internal_values,
@@ -72,7 +77,7 @@ impl Melee {
         }
     }
 
-    pub fn damage(&self) -> u32 {
+    pub fn damage(&self) -> f32 {
         self.damage
     }
 

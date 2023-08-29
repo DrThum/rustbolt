@@ -100,8 +100,8 @@ pub enum UnitFields {
     UnitFieldDisplayid = OBJECT_END + 0x0092, // Size: 1, Type: Int, Flags: Public
     UnitFieldNativedisplayid = OBJECT_END + 0x0093, // Size: 1, Type: Int, Flags: Public
     UnitFieldMountdisplayid = OBJECT_END + 0x0094, // Size: 1, Type: Int, Flags: Public
-    UnitFieldMindamage = OBJECT_END + 0x0095, // Size: 1, Type: Float, Flags: Private, OwnerOnly, Unk3
-    UnitFieldMaxdamage = OBJECT_END + 0x0096, // Size: 1, Type: Float, Flags: Private, OwnerOnly, Unk3
+    UnitFieldMinDamage = OBJECT_END + 0x0095, // Size: 1, Type: Float, Flags: Private, OwnerOnly, Unk3
+    UnitFieldMaxDamage = OBJECT_END + 0x0096, // Size: 1, Type: Float, Flags: Private, OwnerOnly, Unk3
     UnitFieldMinOffHandDamage = OBJECT_END + 0x0097, // Size: 1, Type: Float, Flags: Private, OwnerOnly, Unk3
     UnitFieldMaxOffHandDamage = OBJECT_END + 0x0098, // Size: 1, Type: Float, Flags: Private, OwnerOnly, Unk3
     UnitFieldBytes1 = OBJECT_END + 0x0099,           // Size: 1, Type: Bytes, Flags: Public

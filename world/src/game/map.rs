@@ -236,6 +236,11 @@ impl Map {
                     self.world_context.data_store.clone(),
                 );
 
+                let main_hand_base_damage = player.base_damage(
+                    WeaponAttackType::MainHand,
+                    self.world_context.data_store.clone(),
+                );
+
                 let entity_id = entities.add_entity(
                     (
                         &mut vm_guid,
@@ -257,7 +262,7 @@ impl Map {
                         ),
                         Melee::new(
                             player.internal_values.clone(),
-                            5, // FIXME: damage should be dynamic
+                            main_hand_base_damage, // FIXME: still wildly inaccurate
                             false,
                             [
                                 main_hand_attack_time,

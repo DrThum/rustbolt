@@ -87,18 +87,18 @@ pub fn attempt_melee_attack(
 
                 if melee.is_attack_ready(WeaponAttackType::MainHand) {
                     let damage = melee.damage();
-                    target_health.apply_damage(damage);
+                    target_health.apply_damage(damage as u32);
                     vm_threat_list[target_id].modify_threat(my_id, damage as f32);
 
                     let packet = ServerMessage::new(SmsgAttackerStateUpdate {
                         hit_info: 2, // TODO enum HitInfo
                         attacker_guid: guid.0.as_packed(),
                         target_guid: target_guid.as_packed(),
-                        actual_damage: damage,
+                        actual_damage: damage as u32,
                         sub_damage_count: 1,
                         sub_damage_school_mask: 1, // Physical
                         sub_damage: 1.0,
-                        sub_damage_rounded: damage,
+                        sub_damage_rounded: damage as u32,
                         sub_damage_absorb: 0,
                         sub_damage_resist: 0,
                         target_state: 1, // TODO: Enum VictimState

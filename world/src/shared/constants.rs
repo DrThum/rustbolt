@@ -1591,6 +1591,7 @@ pub enum SpellSchool {
 }
 
 pub const BASE_ATTACK_TIME: Duration = Duration::from_millis(2000);
+pub const BASE_DAMAGE: f32 = 2.;
 
 // 0 = Vanilla, 1 = TBC
 pub const MAX_EXPANSION: usize = 2;

@@ -86,7 +86,7 @@ pub fn attempt_melee_attack(
                 }
 
                 if melee.is_attack_ready(WeaponAttackType::MainHand) {
-                    let damage = melee.damage();
+                    let damage = melee.calc_damage();
                     target_health.apply_damage(damage as u32);
                     vm_threat_list[target_id].modify_threat(my_id, damage as f32);
 

@@ -178,7 +178,7 @@ fn action_attack_in_melee(ctx: &mut BTContext) -> NodeStatus {
             }
 
             if melee.is_attack_ready(WeaponAttackType::MainHand) {
-                let damage = melee.damage();
+                let damage = melee.calc_damage();
                 target_health.apply_damage(damage as u32);
 
                 if let Ok(mut tl) = ctx.vm_threat_list.get(target_id) {

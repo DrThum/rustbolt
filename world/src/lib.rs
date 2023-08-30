@@ -58,6 +58,7 @@ pub mod game {
     pub mod spell;
     pub mod spell_effect_handler;
     mod spell_effect_handlers;
+    pub mod value_range;
     pub mod world_context;
 }
 mod protocol {

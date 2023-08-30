@@ -262,7 +262,8 @@ impl Map {
                         ),
                         Melee::new(
                             player.internal_values.clone(),
-                            main_hand_base_damage, // FIXME: still wildly inaccurate
+                            main_hand_base_damage.min(), // FIXME: still wildly inaccurate
+                            main_hand_base_damage.max(), // FIXME: still wildly inaccurate
                             false,
                             [
                                 main_hand_attack_time,
@@ -488,6 +489,7 @@ impl Map {
                         Melee::new(
                             creature.internal_values.clone(),
                             // FIXME: should have min/max damage based on CreatureTemplate.BaseVariance
+                            creature_base_damage,
                             creature_base_damage,
                             true,
                             [

@@ -19,7 +19,7 @@ use crate::{
         DataStore,
     },
     entities::player::player_data::FactionStanding,
-    game::world_context::WorldContext,
+    game::{value_range::ValueRange, world_context::WorldContext},
     protocol::packets::{CmsgCharCreate, SmsgCreateObject},
     repositories::{character::CharacterRepository, item::ItemRepository},
     shared::constants::{
@@ -953,8 +953,11 @@ impl Player {
             .unwrap_or(BASE_ATTACK_TIME)
     }
 
-    // TODO: This should be a range (min, max)
-    pub fn base_damage(&self, attack_type: WeaponAttackType, data_store: Arc<DataStore>) -> f32 {
+    pub fn base_damage(
+        &self,
+        attack_type: WeaponAttackType,
+        data_store: Arc<DataStore>,
+    ) -> ValueRange<f32> {
         let slot = match attack_type {
             WeaponAttackType::MainHand => InventorySlot::EquipmentMainHand,
             WeaponAttackType::OffHand => InventorySlot::EquipmentOffHand,
@@ -965,14 +968,22 @@ impl Player {
             .get(&slot)
             .and_then(|item| {
                 data_store.get_item_template(item.entry()).map(|template| {
-                    template
+                    let min = template
                         .damages
                         .iter()
                         .map(|dmg| dmg.damage_min)
-                        .sum::<f32>()
+                        .sum::<f32>();
+
+                    let max = template
+                        .damages
+                        .iter()
+                        .map(|dmg| dmg.damage_max)
+                        .sum::<f32>();
+
+                    ValueRange::new(min, max)
                 })
             })
-            .unwrap_or(BASE_DAMAGE)
+            .unwrap_or(ValueRange::new(BASE_DAMAGE, BASE_DAMAGE))
     }
 }
 

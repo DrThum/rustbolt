@@ -11,6 +11,7 @@ use crate::{
     entities::{
         internal_values::InternalValues, position::WorldPosition, update_fields::UnitFields,
     },
+    game::value_range::ValueRange,
     protocol::{packets::SmsgAttackSwingNotInRange, server::ServerMessage},
     session::world_session::WorldSession,
     shared::constants::{
@@ -22,7 +23,7 @@ use crate::{
 #[derive(Component)]
 pub struct Melee {
     internal_values: Arc<RwLock<InternalValues>>,
-    damage: f32,
+    damage_interval: ValueRange<f32>,
     pub is_attacking: bool,
     next_attack_times: [Instant; NUMBER_WEAPON_ATTACK_TYPES], // MainHand, OffHand, Ranged
     attack_intervals: [Duration; NUMBER_WEAPON_ATTACK_TYPES],
@@ -34,7 +35,8 @@ pub struct Melee {
 impl Melee {
     pub fn new(
         internal_values: Arc<RwLock<InternalValues>>,
-        damage: f32,
+        damage_min: f32,
+        damage_max: f32,
         is_default_attacking: bool,
         attack_intervals: [Duration; 3],
     ) -> Self {
@@ -61,13 +63,13 @@ impl Melee {
                 UnitFields::UnitFieldRangedAttackTime.into(),
                 attack_intervals[2].as_millis() as u32,
             );
-            guard.set_f32(UnitFields::UnitFieldMinDamage.into(), damage);
-            guard.set_f32(UnitFields::UnitFieldMaxDamage.into(), damage);
+            guard.set_f32(UnitFields::UnitFieldMinDamage.into(), damage_min);
+            guard.set_f32(UnitFields::UnitFieldMaxDamage.into(), damage_max);
         }
 
         Self {
             internal_values,
-            damage,
+            damage_interval: ValueRange::new(damage_min, damage_max),
             is_attacking: is_default_attacking,
             next_attack_times: [now, now, now],
             attack_intervals,
@@ -77,8 +79,8 @@ impl Melee {
         }
     }
 
-    pub fn damage(&self) -> f32 {
-        self.damage
+    pub fn calc_damage(&self) -> f32 {
+        self.damage_interval.random_value()
     }
 
     pub fn melee_reach(&self) -> f32 {

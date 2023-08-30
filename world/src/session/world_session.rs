@@ -154,17 +154,12 @@ impl WorldSession {
                      v_wpos: View<WorldPosition>,
                      v_health: View<Health>| {
                         let transaction = conn.transaction().unwrap();
-                        v_player[entity_id]
-                            .save_position_to_db(&transaction, &v_wpos[entity_id])
-                            .unwrap();
-                        v_player[entity_id]
-                            .save_quest_statuses_to_db(&transaction)
-                            .unwrap();
 
                         CharacterRepository::save_to_db(
                             &transaction,
                             &v_player[entity_id],
                             &v_health[entity_id],
+                            &v_wpos[entity_id],
                         )
                         .unwrap();
                         transaction.commit().unwrap();

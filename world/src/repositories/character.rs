@@ -457,17 +457,51 @@ impl CharacterRepository {
         transaction: &Transaction,
         player: &Player,
         health: &Health,
+        position: &WorldPosition,
     ) -> Result<(), Error> {
+        let guid = player.guid().counter();
+
+        // Save character data
         let mut stmt = transaction
             .prepare_cached(
-                "UPDATE characters SET current_health = :current_health WHERE guid = :guid",
+                "UPDATE characters SET map_id = :map_id, zone_id = :zone_id, position_x = :x, position_y = :y, position_z = :z, orientation = :o, current_health = :current_health WHERE guid = :guid",
             )
             .unwrap();
 
         stmt.execute(named_params! {
+            ":map_id": position.map_key.map_id,
+            ":zone_id": position.zone,
+            ":x": position.x,
+            ":y": position.y,
+            ":z": position.z,
+            ":o": position.o,
             ":current_health": health.current(),
-            ":guid": player.guid().counter(),
+            ":guid": guid,
         })?;
+
+        // Save quest data
+        let mut stmt = transaction
+            .prepare_cached("DELETE FROM character_quests WHERE character_guid = :guid")
+            .unwrap();
+        stmt.execute(named_params! { ":guid": player.guid().counter() })?;
+
+        // TODO: Save the current timer here
+        let mut stmt = transaction.prepare_cached("INSERT INTO character_quests (character_guid, quest_id, status, entity_count1, entity_count2, entity_count3, entity_count4) VALUES (:guid, :quest_id, :status, :entity_count1, :entity_count2, :entity_count3, :entity_count4)").unwrap();
+        player
+            .quest_statuses()
+            .iter()
+            .for_each(|(quest_id, context)| {
+                stmt.execute(named_params! {
+                    ":guid": guid,
+                    ":quest_id": quest_id,
+                    ":status": context.status as u32,
+                    ":entity_count1": context.entity_counts[0],
+                    ":entity_count2": context.entity_counts[1],
+                    ":entity_count3": context.entity_counts[2],
+                    ":entity_count4": context.entity_counts[3],
+                })
+                .unwrap();
+            });
 
         Ok(())
     }

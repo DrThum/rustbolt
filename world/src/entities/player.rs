@@ -9,7 +9,7 @@ use log::{error, warn};
 use parking_lot::RwLock;
 use r2d2::PooledConnection;
 use r2d2_sqlite::SqliteConnectionManager;
-use rusqlite::{named_params, Error, Transaction};
+use rusqlite::Error;
 use shipyard::Component;
 use strum::IntoEnumIterator;
 
@@ -38,7 +38,6 @@ use super::{
     internal_values::{InternalValues, QuestSlotOffset, QUEST_SLOT_OFFSETS_COUNT},
     item::Item,
     object_guid::ObjectGuid,
-    position::WorldPosition,
     update::{CreateData, MovementUpdateData, UpdateBlockBuilder, UpdateFlag, UpdateType},
     update_fields::*,
 };
@@ -589,52 +588,6 @@ impl Player {
         }
     }
 
-    // TODO: Move these to CharacterRepository
-    pub fn save_position_to_db(
-        &self,
-        transaction: &Transaction,
-        position: &WorldPosition,
-    ) -> Result<(), Error> {
-        let mut stmt = transaction.prepare_cached("UPDATE characters SET map_id = :map_id, zone_id = :zone_id, position_x = :x, position_y = :y, position_z = :z, orientation = :o WHERE guid = :guid").unwrap();
-
-        stmt.execute(named_params! {
-            ":map_id": position.map_key.map_id,
-            ":zone_id": position.zone,
-            ":x": position.x,
-            ":y": position.y,
-            ":z": position.z,
-            ":o": position.o,
-            ":guid": self.guid.counter(),
-        })?;
-
-        Ok(())
-    }
-
-    pub fn save_quest_statuses_to_db(&self, transaction: &Transaction) -> Result<(), Error> {
-        let mut stmt = transaction
-            .prepare_cached("DELETE FROM character_quests WHERE character_guid = :guid")
-            .unwrap();
-        stmt.execute(named_params! { ":guid": self.guid.raw() })?;
-
-        // TODO: Save the current timer here
-
-        let mut stmt = transaction.prepare_cached("INSERT INTO character_quests (character_guid, quest_id, status, entity_count1, entity_count2, entity_count3, entity_count4) VALUES (:guid, :quest_id, :status, :entity_count1, :entity_count2, :entity_count3, :entity_count4)").unwrap();
-        self.quest_statuses.iter().for_each(|(quest_id, context)| {
-            stmt.execute(named_params! {
-                ":guid": self.guid.raw(),
-                ":quest_id": quest_id,
-                ":status": context.status as u32,
-                ":entity_count1": context.entity_counts[0],
-                ":entity_count2": context.entity_counts[1],
-                ":entity_count3": context.entity_counts[2],
-                ":entity_count4": context.entity_counts[3],
-            })
-            .unwrap();
-        });
-
-        Ok(())
-    }
-
     pub fn spells(&self) -> &Vec<u32> {
         &self.spells
     }
@@ -758,6 +711,10 @@ impl Player {
 
     pub fn quest_status(&self, quest_id: &u32) -> Option<&QuestLogContext> {
         self.quest_statuses.get(quest_id)
+    }
+
+    pub fn quest_statuses(&self) -> &HashMap<u32, QuestLogContext> {
+        &self.quest_statuses
     }
 
     pub fn can_turn_in_quest(&self, quest_id: &u32) -> bool {

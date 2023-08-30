@@ -23,12 +23,12 @@ use crate::{
     protocol::packets::{CmsgCharCreate, SmsgCreateObject},
     repositories::{character::CharacterRepository, item::ItemRepository},
     shared::constants::{
-        AbilityLearnType, CharacterClassBit, CharacterRaceBit, Gender, HighGuidType, InventorySlot,
-        InventoryType, ItemClass, ItemSubclassConsumable, ObjectTypeId, ObjectTypeMask,
-        PlayerQuestStatus, PowerType, QuestSlotState, QuestStartError, SkillRangeType, SpellSchool,
-        UnitAttribute, UnitFlags, WeaponAttackType, BASE_ATTACK_TIME, BASE_DAMAGE,
-        MAX_QUESTS_IN_LOG, MAX_QUEST_OBJECTIVES_COUNT, PLAYER_DEFAULT_BOUNDING_RADIUS,
-        PLAYER_DEFAULT_COMBAT_REACH,
+        AbilityLearnType, CharacterClass, CharacterClassBit, CharacterRaceBit, Gender,
+        HighGuidType, InventorySlot, InventoryType, ItemClass, ItemSubclassConsumable,
+        ObjectTypeId, ObjectTypeMask, PlayerQuestStatus, PowerType, QuestSlotState,
+        QuestStartError, SkillRangeType, SpellSchool, UnitAttribute, UnitFlags, WeaponAttackType,
+        BASE_ATTACK_TIME, BASE_DAMAGE, MAX_QUESTS_IN_LOG, MAX_QUEST_OBJECTIVES_COUNT,
+        PLAYER_DEFAULT_BOUNDING_RADIUS, PLAYER_DEFAULT_COMBAT_REACH,
     },
 };
 
@@ -71,13 +71,18 @@ impl Player {
 
         let create_position: &PlayerCreatePosition = data_store
             .get_player_create_position(creation_payload.race as u32, creation_payload.class as u32)
-            .expect("Missing player create position in DB");
+            .expect("missing player create position in DB");
+
+        let base_health_mana_record = data_store
+            .get_player_base_health_mana(CharacterClass::n(creation_payload.class).unwrap(), 1)
+            .expect("unable to retrieve base health/mana for this class/level combination");
 
         let character_guid = CharacterRepository::create_character(
             &transaction,
             creation_payload,
             account_id,
             create_position,
+            base_health_mana_record.base_health,
         );
 
         let start_items = data_store

@@ -201,42 +201,46 @@ impl OpcodeHandler {
                 let player = &mut vm_player[session.player_entity_id().unwrap()];
 
                 if player.can_turn_in_quest(&cmsg.quest_id) {
-                    player.reward_quest(cmsg.quest_id);
-
-                    let quest_template = world_context
-                        .data_store
-                        .get_quest_template(cmsg.quest_id)
-                        .unwrap();
-                    let packet = ServerMessage::new(SmsgQuestGiverQuestComplete {
-                        quest_id: cmsg.quest_id,
-                        unk: 0x03,
-                        xp: 20, // TODO: implement XP calculation
-                        required_or_reward_money: quest_template.required_or_reward_money,
-                        honorable_kills: 10 * quest_template.reward_honorable_kills,
-                        reward_items_count: 0, // TODO: depends on what the player chose as a reward
-                        reward_items: Vec::new(),
-                    });
-
-                    session.send(&packet).unwrap();
-
-                    let quest_giver_entity_id = map
-                        .lookup_entity_ecs(&ObjectGuid::from_raw(cmsg.quest_giver_guid).unwrap())
-                        .unwrap();
-                    let next_quest_id = quest_template.next_quest_in_chain;
-                    let next_quest = world_context
-                        .data_store
-                        .get_quest_template(next_quest_id)
-                        .unwrap();
-
-                    if next_quest_id != 0
-                        && v_quest_actor[quest_giver_entity_id].starts_quest(next_quest_id)
-                        && player.can_start_quest(&next_quest)
+                    if let Some(gained_xp) =
+                        player.reward_quest(cmsg.quest_id, world_context.data_store.clone())
                     {
-                        Self::send_quest_details(
-                            cmsg.quest_giver_guid,
-                            next_quest,
-                            session.clone(),
-                        );
+                        let quest_template = world_context
+                            .data_store
+                            .get_quest_template(cmsg.quest_id)
+                            .expect("attempt to reward a non-existing quest");
+                        let packet = ServerMessage::new(SmsgQuestGiverQuestComplete {
+                            quest_id: cmsg.quest_id,
+                            unk: 0x03,
+                            xp: gained_xp,
+                            required_or_reward_money: quest_template.required_or_reward_money,
+                            honorable_kills: 10 * quest_template.reward_honorable_kills,
+                            reward_items_count: 0, // TODO: depends on what the player chose as a reward
+                            reward_items: Vec::new(),
+                        });
+
+                        session.send(&packet).unwrap();
+
+                        let quest_giver_entity_id = map
+                            .lookup_entity_ecs(
+                                &ObjectGuid::from_raw(cmsg.quest_giver_guid).unwrap(),
+                            )
+                            .unwrap();
+                        let next_quest_id = quest_template.next_quest_in_chain;
+                        let next_quest = world_context
+                            .data_store
+                            .get_quest_template(next_quest_id)
+                            .unwrap();
+
+                        if next_quest_id != 0
+                            && v_quest_actor[quest_giver_entity_id].starts_quest(next_quest_id)
+                            && player.can_start_quest(&next_quest)
+                        {
+                            Self::send_quest_details(
+                                cmsg.quest_giver_guid,
+                                next_quest,
+                                session.clone(),
+                            );
+                        }
                     }
                 } else {
                     warn!("unexpected player quest status in CMSG_QUESTGIVER_CHOOSE_REWARD");

@@ -1153,6 +1153,30 @@ impl QuestTemplate {
             .map(|(id, count)| (id.clone(), count.clone()))
             .collect()
     }
+
+    pub fn experience_reward_at_level(&self, player_level: u32) -> u32 {
+        let rmml = self.reward_money_max_level as f32;
+        let quest_level = self.level.max(0) as u32;
+
+        if rmml > 0. {
+            let full_xp = match self.level {
+                lvl if lvl >= 65 => rmml / 6.,
+                64 => rmml / 4.8,
+                63 => rmml / 3.6,
+                62 => rmml / 2.4,
+                61 => rmml / 1.2,
+                lvl if lvl > 0 => rmml / 0.6,
+                _ => 0.,
+            };
+
+            let level_difference =
+                player_level.saturating_sub(quest_level).saturating_sub(5) as f32;
+            let penalty = (1. - (level_difference * 0.2)).max(0.1);
+            (full_xp * penalty).ceil() as u32
+        } else {
+            0
+        }
+    }
 }
 
 #[allow(dead_code)]

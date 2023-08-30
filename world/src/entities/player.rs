@@ -841,30 +841,41 @@ impl Player {
         }
     }
 
-    pub fn reward_quest(&mut self, quest_id: u32) {
+    pub fn reward_quest(&mut self, quest_id: u32, data_store: Arc<DataStore>) -> Option<u32> {
         warn!("TODO: Implement Player::reward_quest");
 
         if let Some(context) = self.quest_statuses.get_mut(&quest_id) {
-            if context.status != PlayerQuestStatus::ObjectivesCompleted {
-                error!(
-                    "attempt to reward a quest with an unexpected status {:?}",
-                    context.status
-                );
-                return;
+            if let Some(quest_template) = data_store.get_quest_template(quest_id) {
+                if context.status != PlayerQuestStatus::ObjectivesCompleted {
+                    error!(
+                        "attempt to reward a quest with an unexpected status {:?}",
+                        context.status
+                    );
+                    return None;
+                }
+
+                context.status = PlayerQuestStatus::TurnedIn;
+
+                {
+                    let mut values_guard = self.internal_values.write();
+                    let base_index = UnitFields::PlayerQuestLog1_1 as usize
+                        + (context.slot.unwrap() * QUEST_SLOT_OFFSETS_COUNT);
+
+                    for index in 0..QUEST_SLOT_OFFSETS_COUNT {
+                        values_guard.set_u32(base_index + index, 0);
+                    }
+                }
+
+                context.slot = None;
+
+                let xp = quest_template.experience_reward_at_level(self.level());
+                self.give_experience(xp);
+                return Some(xp);
             }
-
-            context.status = PlayerQuestStatus::TurnedIn;
-
-            let mut values_guard = self.internal_values.write();
-            let base_index = UnitFields::PlayerQuestLog1_1 as usize
-                + (context.slot.unwrap() * QUEST_SLOT_OFFSETS_COUNT);
-
-            for index in 0..QUEST_SLOT_OFFSETS_COUNT {
-                values_guard.set_u32(base_index + index, 0);
-            }
-
-            context.slot = None;
         }
+
+        error!("attempt to reward an non-existing quest");
+        None
     }
 
     pub fn level(&self) -> u32 {

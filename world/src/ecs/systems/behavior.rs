@@ -22,14 +22,14 @@ use crate::{
         player::Player,
         position::WorldPosition,
     },
-    game::map::WrappedMap,
+    game::{map::WrappedMap, world_context::WrappedWorldContext},
     session::world_session::WorldSession,
     shared::constants::{CREATURE_AGGRO_DISTANCE_MAX, MAX_CHASE_LEEWAY},
 };
 
 pub fn tick(
     dt: UniqueView<DeltaTime>,
-    map: UniqueView<WrappedMap>,
+    (map, world_context): (UniqueView<WrappedMap>, UniqueView<WrappedWorldContext>),
     (mut vm_behavior, mut vm_movement): (ViewMut<Behavior>, ViewMut<Movement>),
     mut vm_unit: ViewMut<Unit>,
     mut vm_threat_list: ViewMut<ThreatList>,
@@ -37,22 +37,23 @@ pub fn tick(
     v_guid: View<Guid>,
     v_wpos: View<WorldPosition>,
     v_creature: View<Creature>,
-    (v_player, mut vm_health, v_spell): (View<Player>, ViewMut<Health>, View<SpellCast>),
+    (mut vm_player, mut vm_health, v_spell): (ViewMut<Player>, ViewMut<Health>, View<SpellCast>),
 ) {
     for (entity_id, mut behavior) in (&mut vm_behavior).iter().with_id() {
         let mut context = BTContext {
             entity_id,
             dt: &dt,
             map: &map,
+            world_context: &world_context,
             vm_movement: &mut vm_movement,
             vm_unit: &mut vm_unit,
             vm_threat_list: &mut vm_threat_list,
             vm_health: &mut vm_health,
             vm_melee: &mut vm_melee,
+            vm_player: &mut vm_player,
             v_guid: &v_guid,
             v_wpos: &v_wpos,
             v_creature: &v_creature,
-            v_player: &v_player,
             v_spell: &v_spell,
         };
 
@@ -84,7 +85,7 @@ fn action_aggro(ctx: &mut BTContext) -> NodeStatus {
             session
                 .player_entity_id()
                 .map(|player_entity_id| {
-                    let player = &ctx.v_player[player_entity_id];
+                    let player = &ctx.vm_player[player_entity_id];
                     let player_position = ctx.v_wpos[player_entity_id];
                     let player_health = &ctx.vm_health[player_entity_id];
                     let target_unit = &ctx.vm_unit[player_entity_id];
@@ -103,7 +104,7 @@ fn action_aggro(ctx: &mut BTContext) -> NodeStatus {
     closest.map(|session| {
         let target_entity_id = session.player_entity_id().unwrap();
 
-        if let Ok(player) = ctx.v_player.get(target_entity_id) {
+        if let Ok(player) = ctx.vm_player.get(target_entity_id) {
             player.set_in_combat_with(my_guid);
             threat_list.modify_threat(target_entity_id, 0.);
             ctx.vm_unit[ctx.entity_id].set_target(Some(target_entity_id), player.guid().raw());
@@ -126,12 +127,15 @@ fn action_attack_in_melee(ctx: &mut BTContext) -> NodeStatus {
                 target_id,
                 target_guid,
                 ctx.map.0.clone(),
+                ctx.world_context.0.data_store.clone(),
                 ctx.v_guid,
                 ctx.v_wpos,
                 ctx.v_spell,
+                ctx.v_creature,
                 ctx.vm_health,
                 ctx.vm_melee,
                 ctx.vm_threat_list,
+                ctx.vm_player,
             ) {
                 Ok(_) => return NodeStatus::Success,
                 Err(_) => return NodeStatus::Failure,

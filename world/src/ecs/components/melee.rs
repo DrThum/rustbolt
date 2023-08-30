@@ -9,10 +9,10 @@ use shipyard::{Component, EntityId, Get, View, ViewMut};
 
 use crate::{
     entities::{
-        internal_values::InternalValues, object_guid::ObjectGuid, position::WorldPosition,
-        update_fields::UnitFields,
+        creature::Creature, internal_values::InternalValues, object_guid::ObjectGuid,
+        player::Player, position::WorldPosition, update_fields::UnitFields,
     },
-    game::{map::Map, value_range::ValueRange},
+    game::{experience::Experience, map::Map, value_range::ValueRange},
     protocol::{
         packets::{SmsgAttackStop, SmsgAttackSwingNotInRange, SmsgAttackerStateUpdate},
         server::ServerMessage,
@@ -22,6 +22,7 @@ use crate::{
         MeleeAttackError, SheathState, WeaponAttackType, ATTACK_DISPLAY_DELAY,
         BASE_MELEE_RANGE_OFFSET, NUMBER_WEAPON_ATTACK_TYPES,
     },
+    DataStore,
 };
 
 use super::{guid::Guid, health::Health, spell_cast::SpellCast, threat_list::ThreatList};
@@ -169,12 +170,15 @@ impl Melee {
         target_id: EntityId,
         target_guid: ObjectGuid,
         map: Arc<Map>,
+        data_store: Arc<DataStore>,
         v_guid: &View<Guid>,
         v_wpos: &View<WorldPosition>,
         v_spell: &View<SpellCast>,
+        v_creature: &View<Creature>,
         vm_health: &mut ViewMut<Health>,
         vm_melee: &mut ViewMut<Melee>,
         vm_threat_list: &mut ViewMut<ThreatList>,
+        vm_player: &mut ViewMut<Player>,
     ) -> Result<(), ()> {
         let guid = v_guid[attacker_id].0;
         let my_position = v_wpos[attacker_id];
@@ -228,10 +232,6 @@ impl Melee {
             let damage = melee.calc_damage();
             target_health.apply_damage(damage as u32);
 
-            if let Ok(mut tl) = vm_threat_list.get(target_id) {
-                tl.modify_threat(attacker_id, damage as f32);
-            }
-
             let packet = ServerMessage::new(SmsgAttackerStateUpdate {
                 hit_info: 2, // TODO enum HitInfo
                 attacker_guid: guid.as_packed(),
@@ -254,6 +254,26 @@ impl Melee {
             melee.reset_attack_type(WeaponAttackType::MainHand);
             melee.ensure_attack_time(WeaponAttackType::OffHand, ATTACK_DISPLAY_DELAY);
             melee.set_error(MeleeAttackError::None, None);
+
+            if target_health.is_alive() {
+                if let Ok(mut tl) = vm_threat_list.get(target_id) {
+                    tl.modify_threat(attacker_id, damage as f32);
+                }
+            } else {
+                // We killed our target
+                // Reward xp if a player killed a creature
+                if let Ok(player) = vm_player.get(attacker_id) {
+                    if let Ok(creature) = v_creature.get(target_id) {
+                        let xp_gain = Experience::xp_gain_against(
+                            &player,
+                            creature,
+                            map.id(),
+                            data_store.clone(),
+                        );
+                        player.give_experience(xp_gain, Some(target_guid));
+                    }
+                }
+            }
 
             return Ok(());
         } else if melee.is_attack_ready(WeaponAttackType::OffHand) {

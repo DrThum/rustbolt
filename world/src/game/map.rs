@@ -174,6 +174,10 @@ impl Map {
         self.world.lock()
     }
 
+    pub fn id(&self) -> u32 {
+        self.key.map_id
+    }
+
     pub fn lookup_entity_ecs(&self, guid: &ObjectGuid) -> Option<EntityId> {
         self.ecs_entities.read().get(guid).copied()
     }
@@ -211,6 +215,7 @@ impl Map {
                     session.account_id,
                     char_data.guid,
                     self.world_context.clone(),
+                    session.clone(),
                 );
 
                 session.send_initial_spells(&player);
@@ -262,8 +267,8 @@ impl Map {
                         ),
                         Melee::new(
                             player.internal_values.clone(),
-                            main_hand_base_damage.min(), // FIXME: still wildly inaccurate
-                            main_hand_base_damage.max(), // FIXME: still wildly inaccurate
+                            main_hand_base_damage.min() + 50., // FIXME: still wildly inaccurate
+                            main_hand_base_damage.max() + 50., // FIXME: still wildly inaccurate
                             false,
                             [
                                 main_hand_attack_time,

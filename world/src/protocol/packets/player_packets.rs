@@ -65,3 +65,17 @@ pub struct SmsgInitializeFactions {
 pub struct CmsgSetSelection {
     pub guid: u64,
 }
+
+#[binwrite]
+#[server_opcode]
+pub struct SmsgLogXpGain {
+    pub victim_guid: u64,
+    pub given_xp: u32,
+    #[bw(map = |b: &bool| if *b { 1_u8 } else { 0_u8 })]
+    pub from_kill: bool,
+    #[bw(if(!from_kill))]
+    pub xp_without_rested_bonus: Option<u32>,
+    #[bw(if(!from_kill))]
+    pub group_bonus: Option<u32>,
+    pub unk: u8, // Always 0
+}

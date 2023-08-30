@@ -12,8 +12,8 @@ pub struct Experience;
 
 impl Experience {
     pub fn xp_gain_against(
-        player: Player,
-        creature: Creature,
+        player: &Player,
+        creature: &Creature,
         map_id: u32,
         data_store: Arc<DataStore>,
     ) -> u32 {

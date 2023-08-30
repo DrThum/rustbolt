@@ -20,8 +20,12 @@ use crate::{
     },
     entities::player::player_data::FactionStanding,
     game::{value_range::ValueRange, world_context::WorldContext},
-    protocol::packets::{CmsgCharCreate, SmsgCreateObject},
+    protocol::{
+        packets::{CmsgCharCreate, SmsgCreateObject, SmsgLogXpGain},
+        server::ServerMessage,
+    },
     repositories::{character::CharacterRepository, item::ItemRepository},
+    session::world_session::WorldSession,
     shared::constants::{
         AbilityLearnType, CharacterClass, CharacterClassBit, CharacterRaceBit, Gender,
         HighGuidType, InventorySlot, InventoryType, ItemClass, ItemSubclassConsumable,
@@ -48,6 +52,7 @@ pub type PlayerInventory = HashMap<u32, Item>; // Key is slot
 
 #[derive(Component)]
 pub struct Player {
+    pub session: Arc<WorldSession>,
     guid: ObjectGuid,
     pub name: String,
     pub internal_values: Arc<RwLock<InternalValues>>,
@@ -256,7 +261,12 @@ impl Player {
         transaction.commit()
     }
 
-    pub fn load_from_db(account_id: u32, guid: u64, world_context: Arc<WorldContext>) -> Player {
+    pub fn load_from_db(
+        account_id: u32,
+        guid: u64,
+        world_context: Arc<WorldContext>,
+        session: Arc<WorldSession>,
+    ) -> Player {
         let conn = world_context.database.characters.get().unwrap();
         let character = CharacterRepository::fetch_basic_character_data(&conn, guid)
             .expect("Failed to load character from DB");
@@ -584,6 +594,7 @@ impl Player {
         values.reset_dirty();
 
         Self {
+            session,
             guid,
             name: character.name,
             internal_values: Arc::new(RwLock::new(values)),
@@ -869,7 +880,7 @@ impl Player {
                 context.slot = None;
 
                 let xp = quest_template.experience_reward_at_level(self.level());
-                self.give_experience(xp);
+                self.give_experience(xp, None);
                 return Some(xp);
             }
         }
@@ -973,10 +984,24 @@ impl Player {
             .get_u32(UnitFields::PlayerXp.into())
     }
 
-    pub fn give_experience(&self, xp: u32) {
+    pub fn give_experience(&self, xp: u32, victim_guid: Option<ObjectGuid>) {
+        let current_xp = self.experience();
+
         self.internal_values
             .write()
-            .set_u32(UnitFields::PlayerXp.into(), xp);
+            .set_u32(UnitFields::PlayerXp.into(), current_xp + xp);
+
+        // TODO: Implement SmsgLogXpGain::new
+        let packet = ServerMessage::new(SmsgLogXpGain {
+            victim_guid: victim_guid.map(|g| g.raw()).unwrap_or(0),
+            given_xp: xp,
+            from_kill: victim_guid.is_some(),
+            xp_without_rested_bonus: victim_guid.map(|_| xp), // TODO: Implement rested xp
+            group_bonus: victim_guid.map(|_| 0),              // TODO: Implement groups
+            unk: 0,
+        });
+
+        self.session.send(&packet).unwrap();
     }
 }
 

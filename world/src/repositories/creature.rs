@@ -11,7 +11,7 @@ use rusqlite::{
 use crate::{
     datastore::data_types::CreatureTemplate,
     ecs::components::movement::MovementKind,
-    shared::constants::{CharacterClass, Gender, MAX_CREATURE_TEMPLATE_MODELID},
+    shared::constants::{CharacterClass, CreatureRank, Gender, MAX_CREATURE_TEMPLATE_MODELID},
 };
 
 pub struct CreatureRepository;
@@ -255,5 +255,12 @@ impl FromSql for Gender {
     fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
         let value = value.as_i64()?;
         Gender::n(value).map_or(Err(FromSqlError::Other("invalid gender".into())), Ok)
+    }
+}
+
+impl FromSql for CreatureRank {
+    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
+        let value = value.as_i64()?;
+        CreatureRank::n(value).map_or(Err(FromSqlError::Other("invalid creature rank".into())), Ok)
     }
 }

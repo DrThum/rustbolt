@@ -7,6 +7,7 @@ use rand::{seq::SliceRandom, Rng};
 use shipyard::Component;
 
 use crate::{
+    datastore::data_types::CreatureTemplate,
     ecs::components::movement::MovementKind,
     game::map_manager::MapKey,
     protocol::packets::SmsgCreateObject,
@@ -32,6 +33,7 @@ pub struct Creature {
     guid: ObjectGuid,
     pub entry: u32,
     pub name: String,
+    pub template: CreatureTemplate,
     pub spawn_position: WorldPosition,
     pub default_movement_kind: MovementKind,
     pub wander_radius: Option<u32>,
@@ -126,6 +128,7 @@ impl Creature {
                     guid,
                     entry: template.entry,
                     name: template.name.to_owned(),
+                    template: template.clone(),
                     spawn_position: WorldPosition {
                         map_key: MapKey::for_continent(creature_spawn.map), // TODO: MapKey for dungeon
                         zone: 0, // TODO: Calculate zone from terrain files

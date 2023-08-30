@@ -11,11 +11,11 @@ use crate::{
     },
     shared::constants::{
         AbilityLearnType, ActionButtonType, CharacterClass, CharacterClassBit, CharacterRaceBit,
-        InventoryType, MapType, QuestFlag, SkillCategory, SkillRangeType, SkillType, SpellEffect,
-        FACTION_NUMBER_BASE_REPUTATION_MASKS, MAX_QUEST_CHOICE_REWARDS_COUNT,
-        MAX_QUEST_OBJECTIVES_COUNT, MAX_QUEST_REWARDS_COUNT, MAX_QUEST_REWARDS_REPUT_COUNT,
-        MAX_SPELL_EFFECTS, MAX_SPELL_REAGENTS, MAX_SPELL_TOTEMS, NPC_TEXT_EMOTE_COUNT,
-        NPC_TEXT_TEXT_COUNT,
+        CreatureRank, Expansion, InventoryType, MapType, QuestFlag, SkillCategory, SkillRangeType,
+        SkillType, SpellEffect, FACTION_NUMBER_BASE_REPUTATION_MASKS,
+        MAX_QUEST_CHOICE_REWARDS_COUNT, MAX_QUEST_OBJECTIVES_COUNT, MAX_QUEST_REWARDS_COUNT,
+        MAX_QUEST_REWARDS_REPUT_COUNT, MAX_SPELL_EFFECTS, MAX_SPELL_REAGENTS, MAX_SPELL_TOTEMS,
+        NPC_TEXT_EMOTE_COUNT, NPC_TEXT_TEXT_COUNT,
     },
     DataStore,
 };
@@ -291,7 +291,7 @@ pub struct MapRecord {
     // reset_time_heroic: u32 // in seconds
     // unk (unused)
     // time_of_day_override: i32 // always -1
-    // expansion_id: u32 (0 = Vanilla, 1 = TBC)
+    pub expansion: Expansion,
 }
 
 impl DbcTypedRecord for MapRecord {
@@ -306,6 +306,8 @@ impl DbcTypedRecord for MapRecord {
                     .expect("string not found in Map.dbc"),
                 map_type: MapType::n(record.fields[2].as_u32)
                     .expect("Invalid map type found in Map.dbc"),
+                expansion: Expansion::n(record.fields[124].as_u32)
+                    .expect("Invalid expansion found in Map.dbc"),
             };
 
             (key, record)
@@ -324,6 +326,13 @@ impl MapRecord {
     pub fn is_continent(&self) -> bool {
         match self.id {
             0 | 1 | 530 => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_dungeon(&self) -> bool {
+        match self.map_type {
+            MapType::Instance | MapType::Raid => true,
             _ => false,
         }
     }
@@ -348,6 +357,7 @@ impl DbcTypedRecord for EmotesTextRecord {
 }
 
 #[allow(dead_code)]
+#[derive(Clone)]
 pub struct CreatureTemplate {
     pub entry: u32,
     pub name: String,
@@ -372,7 +382,7 @@ pub struct CreatureTemplate {
     pub family: u32,  // CreatureFamily.dbc
     pub type_id: u32, // CreatureType.dbc
     pub type_flags: u32,
-    pub rank: u32,
+    pub rank: CreatureRank,
     pub racial_leader: u8,        // bool
     pub pet_spell_data_id: u32,   // CreatureSpellData.dbc
     pub faction_template_id: u32, // FactionTemplate.dbc

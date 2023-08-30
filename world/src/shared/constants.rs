@@ -1593,5 +1593,34 @@ pub enum SpellSchool {
 pub const BASE_ATTACK_TIME: Duration = Duration::from_millis(2000);
 pub const BASE_DAMAGE: f32 = 2.;
 
-// 0 = Vanilla, 1 = TBC
+#[allow(dead_code)]
+#[derive(N, Debug)]
+pub enum Expansion {
+    Vanilla,
+    Tbc,
+}
 pub const MAX_EXPANSION: usize = 2;
+
+#[allow(dead_code)]
+#[derive(N, Copy, Clone)]
+pub enum CreatureRank {
+    Normal = 0,
+    Elite = 1,
+    RareElite = 2,
+    WorldBoss = 3,
+    Rare = 4,
+    Unknown = 5,
+}
+
+impl CreatureRank {
+    pub fn is_elite(&self) -> bool {
+        match self {
+            CreatureRank::Normal => false,
+            CreatureRank::Elite => true,
+            CreatureRank::RareElite => true,
+            CreatureRank::WorldBoss => true,
+            CreatureRank::Rare => false,
+            CreatureRank::Unknown => false,
+        }
+    }
+}

@@ -37,7 +37,7 @@ impl OpcodeHandler {
                 type_flags: template.type_flags,
                 type_id: template.type_id,
                 family: template.family,
-                rank: template.rank,
+                rank: template.rank as u32,
                 unk: 0,
                 pet_spell_data_id: template.pet_spell_data_id,
                 model_ids: template.model_ids.clone(),

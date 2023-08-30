@@ -34,6 +34,8 @@ impl SpellEffectHandler {
             |mut vm_health: ViewMut<Health>, mut vm_threat_list: ViewMut<ThreatList>| {
                 let damage = spell_record.calc_simple_value(effect_index);
                 vm_health[spell.target()].apply_damage(damage as u32);
+                // TODO: use vm_threat_list.get for the case when it's a creature casting a spell
+                // on a player (see how it's done for melee attacks)
                 vm_threat_list[spell.target()].modify_threat(spell.caster(), damage as f32);
             },
         );

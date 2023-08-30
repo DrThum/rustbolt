@@ -1,4 +1,4 @@
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
 
 use shipyard::{Get, IntoIter, IntoWithId, UniqueView, View, ViewMut};
 
@@ -23,15 +23,8 @@ use crate::{
         position::WorldPosition,
     },
     game::map::WrappedMap,
-    protocol::{
-        packets::{SmsgAttackStop, SmsgAttackerStateUpdate},
-        server::ServerMessage,
-    },
     session::world_session::WorldSession,
-    shared::constants::{
-        MeleeAttackError, WeaponAttackType, ATTACK_DISPLAY_DELAY, CREATURE_AGGRO_DISTANCE_MAX,
-        MAX_CHASE_LEEWAY,
-    },
+    shared::constants::{CREATURE_AGGRO_DISTANCE_MAX, MAX_CHASE_LEEWAY},
 };
 
 pub fn tick(
@@ -124,92 +117,24 @@ fn action_aggro(ctx: &mut BTContext) -> NodeStatus {
 
 fn action_attack_in_melee(ctx: &mut BTContext) -> NodeStatus {
     let my_id = ctx.entity_id;
-    let guid = &ctx.v_guid[my_id];
     let unit = &mut ctx.vm_unit[my_id];
-    let my_position = ctx.v_wpos[my_id];
 
     if let Some(target_id) = unit.target() {
         if let Ok(target_guid) = ctx.v_guid.get(target_id).map(|g| g.0) {
-            let mut target_health = ctx
-                .vm_health
-                .get(target_id)
-                .expect("target has no Health component");
-            let target_position = ctx
-                .v_wpos
-                .get(target_id)
-                .expect("target has no WorldPosition component");
-            let target_melee_reach = {
-                ctx.vm_melee
-                    .get(target_id)
-                    .expect("target has no Melee component")
-                    .melee_reach()
-            };
-
-            let mut melee = ctx.vm_melee.get(my_id).unwrap();
-            let my_spell_cast = ctx.v_spell.get(my_id);
-
-            if !melee.is_attacking || my_spell_cast.is_ok_and(|sp| sp.current_ranged().is_some()) {
-                return NodeStatus::Failure;
-            }
-
-            if !target_health.is_alive() {
-                let packet = {
-                    ServerMessage::new(SmsgAttackStop {
-                        attacker_guid: guid.0.as_packed(),
-                        enemy_guid: target_guid.as_packed(),
-                        unk: 0,
-                    })
-                };
-
-                ctx.map.0.broadcast_packet(&guid.0, &packet, None, true);
-
-                melee.is_attacking = false;
-
-                return NodeStatus::Failure;
-            }
-
-            if !melee.can_reach_target_in_melee(&my_position, target_position, target_melee_reach) {
-                let my_session = ctx.map.0.get_session(&guid.0);
-                melee.set_error(MeleeAttackError::NotInRange, my_session);
-
-                melee.ensure_attack_time(WeaponAttackType::MainHand, Duration::from_millis(100));
-                melee.ensure_attack_time(WeaponAttackType::OffHand, Duration::from_millis(100));
-                return NodeStatus::Failure;
-            }
-
-            if melee.is_attack_ready(WeaponAttackType::MainHand) {
-                let damage = melee.calc_damage();
-                target_health.apply_damage(damage as u32);
-
-                if let Ok(mut tl) = ctx.vm_threat_list.get(target_id) {
-                    tl.modify_threat(my_id, damage as f32);
-                }
-
-                let packet = ServerMessage::new(SmsgAttackerStateUpdate {
-                    hit_info: 2, // TODO enum HitInfo
-                    attacker_guid: guid.0.as_packed(),
-                    target_guid: target_guid.as_packed(),
-                    actual_damage: damage as u32,
-                    sub_damage_count: 1,
-                    sub_damage_school_mask: 1, // Physical
-                    sub_damage: 1.0,
-                    sub_damage_rounded: damage as u32,
-                    sub_damage_absorb: 0,
-                    sub_damage_resist: 0,
-                    target_state: 1, // TODO: Enum VictimState
-                    unk1: 0,
-                    spell_id: 0,
-                    damage_blocked_amount: 0,
-                });
-
-                // TODO: Replace all map_manager.0 with Unique<Map>
-                ctx.map.0.broadcast_packet(&guid.0, &packet, None, true);
-
-                melee.reset_attack_type(WeaponAttackType::MainHand);
-                melee.ensure_attack_time(WeaponAttackType::OffHand, ATTACK_DISPLAY_DELAY);
-                melee.set_error(MeleeAttackError::None, None);
-            } else if melee.is_attack_ready(WeaponAttackType::OffHand) {
-                todo!();
+            match Melee::execute_attack(
+                my_id,
+                target_id,
+                target_guid,
+                ctx.map.0.clone(),
+                ctx.v_guid,
+                ctx.v_wpos,
+                ctx.v_spell,
+                ctx.vm_health,
+                ctx.vm_melee,
+                ctx.vm_threat_list,
+            ) {
+                Ok(_) => return NodeStatus::Success,
+                Err(_) => return NodeStatus::Failure,
             }
         } else {
             unit.set_target(None, 0);

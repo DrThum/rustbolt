@@ -267,8 +267,8 @@ impl Map {
                         ),
                         Melee::new(
                             player.internal_values.clone(),
-                            main_hand_base_damage.min() + 50., // FIXME: still wildly inaccurate
-                            main_hand_base_damage.max() + 50., // FIXME: still wildly inaccurate
+                            main_hand_base_damage.min(), // FIXME: still wildly inaccurate
+                            main_hand_base_damage.max(), // FIXME: still wildly inaccurate
                             false,
                             [
                                 main_hand_attack_time,

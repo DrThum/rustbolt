@@ -1,10 +1,11 @@
 use std::sync::Arc;
 
-use shipyard::{AllStoragesViewMut, ViewMut};
+use shipyard::{AllStoragesViewMut, Get, View, ViewMut};
 
 use crate::{
     datastore::data_types::SpellRecord,
-    ecs::components::{health::Health, threat_list::ThreatList},
+    ecs::components::{guid::Guid, health::Health, threat_list::ThreatList, unit::Unit},
+    entities::{creature::Creature, player::Player},
 };
 
 use super::{
@@ -23,20 +24,39 @@ impl SpellEffectHandler {
     }
 
     pub fn handle_effect_school_damage(
-        _world_context: Arc<WorldContext>,
+        world_context: Arc<WorldContext>,
         spell: Arc<Spell>,
-        _map: Arc<Map>,
+        map: Arc<Map>,
         spell_record: Arc<SpellRecord>,
         effect_index: usize,
         all_storages: &AllStoragesViewMut,
     ) {
         all_storages.run(
-            |mut vm_health: ViewMut<Health>, mut vm_threat_list: ViewMut<ThreatList>| {
+            |mut vm_health: ViewMut<Health>,
+             mut vm_threat_list: ViewMut<ThreatList>,
+             v_guid: View<Guid>,
+             mut vm_player: ViewMut<Player>,
+             v_creature: View<Creature>| {
                 let damage = spell_record.calc_simple_value(effect_index);
-                vm_health[spell.target()].apply_damage(damage as u32);
-                // TODO: use vm_threat_list.get for the case when it's a creature casting a spell
-                // on a player (see how it's done for melee attacks)
-                vm_threat_list[spell.target()].modify_threat(spell.caster(), damage as f32);
+                let target_health = &mut vm_health[spell.target()];
+                target_health.apply_damage(damage as u32);
+
+                if target_health.is_alive() {
+                    if let Ok(mut threat_list) = (&mut vm_threat_list).get(spell.target()) {
+                        threat_list.modify_threat(spell.caster(), damage as f32);
+                    }
+                } else {
+                    // We killed our target
+                    Unit::killed_by(
+                        spell.caster(),
+                        spell.target(),
+                        v_guid[spell.target()].0,
+                        &mut vm_player,
+                        &v_creature,
+                        map.clone(),
+                        world_context.data_store.clone(),
+                    );
+                }
             },
         );
     }

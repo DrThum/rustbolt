@@ -36,7 +36,12 @@ impl Behavior {
         let attack =
             BehaviorNode::Selector(vec![attack_melee /*, attack_spell */, chase_target]);
 
-        let bt = BehaviorTree::new(BehaviorNode::Selector(vec![attack, aggro]));
+        let alive_behavior = BehaviorNode::Condition(
+            Box::new(BehaviorNode::Selector(vec![attack, aggro])),
+            |ctx| ctx.vm_health[ctx.entity_id].is_alive(),
+        );
+
+        let bt = BehaviorTree::new(alive_behavior);
 
         Self { bt }
     }

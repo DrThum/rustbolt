@@ -4,12 +4,13 @@ use shipyard::{AllStoragesViewMut, Get, View, ViewMut};
 
 use crate::{
     datastore::data_types::SpellRecord,
-    ecs::components::{guid::Guid, health::Health, threat_list::ThreatList, unit::Unit},
+    ecs::components::{guid::Guid, health::Health, threat_list::ThreatList},
     entities::{creature::Creature, player::Player},
 };
 
 use super::{
-    map::Map, spell::Spell, spell_effect_handler::SpellEffectHandler, world_context::WorldContext,
+    experience::Experience, map::Map, spell::Spell, spell_effect_handler::SpellEffectHandler,
+    world_context::WorldContext,
 };
 
 impl SpellEffectHandler {
@@ -45,17 +46,18 @@ impl SpellEffectHandler {
                     if let Ok(mut threat_list) = (&mut vm_threat_list).get(spell.target()) {
                         threat_list.modify_threat(spell.caster(), damage as f32);
                     }
-                } else {
-                    // We killed our target
-                    Unit::killed_by(
-                        spell.caster(),
-                        spell.target(),
-                        v_guid[spell.target()].0,
-                        &mut vm_player,
-                        &v_creature,
-                        map.clone(),
-                        world_context.data_store.clone(),
-                    );
+                } else if let Ok(player) = (&mut vm_player).get(spell.caster()) {
+                    let target_guid = v_guid[spell.target()].0;
+                    if let Ok(creature) = v_creature.get(spell.target()) {
+                        let xp_gain = Experience::xp_gain_against(
+                            &player,
+                            creature,
+                            map.id(),
+                            world_context.data_store.clone(),
+                        );
+                        player.give_experience(xp_gain, Some(target_guid));
+                    }
+                    player.unset_in_combat_with(target_guid);
                 }
             },
         );

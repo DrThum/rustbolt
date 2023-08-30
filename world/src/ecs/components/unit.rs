@@ -2,14 +2,10 @@ use std::sync::Arc;
 
 use log::warn;
 use parking_lot::RwLock;
-use shipyard::{Component, EntityId, Get, View, ViewMut};
+use shipyard::{Component, EntityId};
 
 use crate::{
-    entities::{
-        creature::Creature, internal_values::InternalValues, object_guid::ObjectGuid,
-        player::Player, update_fields::UnitFields,
-    },
-    game::{experience::Experience, map::Map},
+    entities::{internal_values::InternalValues, update_fields::UnitFields},
     shared::constants::{UnitFlags, UnitStandState},
     DataStore,
 };
@@ -113,24 +109,5 @@ impl Unit {
 
         warn!("faction {} not found", self.faction_id());
         return false;
-    }
-
-    pub fn killed_by(
-        killer_id: EntityId,
-        victim_id: EntityId,
-        victim_guid: ObjectGuid,
-        vm_player: &mut ViewMut<Player>,
-        v_creature: &View<Creature>,
-        map: Arc<Map>,
-        data_store: Arc<DataStore>,
-    ) {
-        // Reward xp if a player killed a creature
-        if let Ok(player) = vm_player.get(killer_id) {
-            if let Ok(creature) = v_creature.get(victim_id) {
-                let xp_gain =
-                    Experience::xp_gain_against(&player, creature, map.id(), data_store.clone());
-                player.give_experience(xp_gain, Some(victim_guid));
-            }
-        }
     }
 }

@@ -37,11 +37,17 @@ pub fn update_movement(
 ) {
     let mut map_pending_updates: Vec<(&ObjectGuid, Position)> = Vec::new();
 
-    for (entity_id, (guid, mut movement, my_wpos)) in
-        (&v_guid, &mut vm_movement, &vm_wpos).iter().with_id()
+    for (entity_id, (guid, mut movement, my_wpos, health)) in
+        (&v_guid, &mut vm_movement, &vm_wpos, &v_health)
+            .iter()
+            .with_id()
     {
         // Reset expired movements after one tick
         movement.recently_expired_movement_kinds.clear();
+
+        if !health.is_alive() {
+            continue;
+        }
 
         match movement.current_movement_kind() {
             MovementKind::Idle => (),

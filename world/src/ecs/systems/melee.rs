@@ -22,12 +22,12 @@ pub fn attempt_melee_attack(
     v_spell: View<SpellCast>,
     v_creature: View<Creature>,
 ) {
-    for (my_id, (_, mut unit, _)) in (&v_guid, &mut vm_unit, &v_wpos).iter().with_id() {
+    for (my_id, (_, mut attacker, _)) in (&v_guid, &mut vm_unit, &v_wpos).iter().with_id() {
         if vm_player.get(my_id).is_err() {
             continue;
         }
 
-        if let Some(target_id) = unit.target() {
+        if let Some(target_id) = attacker.target() {
             if let Ok(target_guid) = v_guid.get(target_id).map(|g| g.0) {
                 match Melee::execute_attack(
                     my_id,
@@ -48,7 +48,7 @@ pub fn attempt_melee_attack(
                     Err(_) => continue,
                 }
             } else {
-                unit.set_target(None, 0);
+                attacker.set_target(None, 0);
             }
         }
     }

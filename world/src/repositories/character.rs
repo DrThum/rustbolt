@@ -465,11 +465,12 @@ impl CharacterRepository {
         // Save character data
         let mut stmt = transaction
             .prepare_cached(
-                "UPDATE characters SET map_id = :map_id, zone_id = :zone_id, position_x = :x, position_y = :y, position_z = :z, orientation = :o, current_health = :current_health, experience = :experience WHERE guid = :guid",
+                "UPDATE characters SET level = :level, map_id = :map_id, zone_id = :zone_id, position_x = :x, position_y = :y, position_z = :z, orientation = :o, current_health = :current_health, experience = :experience WHERE guid = :guid",
             )
             .unwrap();
 
         stmt.execute(named_params! {
+            ":level": player.level(),
             ":map_id": position.map_key.map_id,
             ":zone_id": position.zone,
             ":x": position.x,

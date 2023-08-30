@@ -118,9 +118,9 @@ fn action_aggro(ctx: &mut BTContext) -> NodeStatus {
 
 fn action_attack_in_melee(ctx: &mut BTContext) -> NodeStatus {
     let my_id = ctx.entity_id;
-    let unit = &mut ctx.vm_unit[my_id];
+    let attacker = &mut ctx.vm_unit[my_id];
 
-    if let Some(target_id) = unit.target() {
+    if let Some(target_id) = attacker.target() {
         if let Ok(target_guid) = ctx.v_guid.get(target_id).map(|g| g.0) {
             match Melee::execute_attack(
                 my_id,
@@ -141,7 +141,7 @@ fn action_attack_in_melee(ctx: &mut BTContext) -> NodeStatus {
                 Err(_) => return NodeStatus::Failure,
             }
         } else {
-            unit.set_target(None, 0);
+            attacker.set_target(None, 0);
         }
     }
 

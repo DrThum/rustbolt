@@ -12,7 +12,7 @@ use crate::{
         creature::Creature, internal_values::InternalValues, object_guid::ObjectGuid,
         player::Player, position::WorldPosition, update_fields::UnitFields,
     },
-    game::{map::Map, value_range::ValueRange},
+    game::{experience::Experience, map::Map, value_range::ValueRange},
     protocol::{
         packets::{SmsgAttackStop, SmsgAttackSwingNotInRange, SmsgAttackerStateUpdate},
         server::ServerMessage,
@@ -25,9 +25,7 @@ use crate::{
     DataStore,
 };
 
-use super::{
-    guid::Guid, health::Health, spell_cast::SpellCast, threat_list::ThreatList, unit::Unit,
-};
+use super::{guid::Guid, health::Health, spell_cast::SpellCast, threat_list::ThreatList};
 
 #[derive(Component)]
 pub struct Melee {
@@ -261,16 +259,17 @@ impl Melee {
                 if let Ok(mut tl) = vm_threat_list.get(target_id) {
                     tl.modify_threat(attacker_id, damage as f32);
                 }
-            } else {
-                Unit::killed_by(
-                    attacker_id,
-                    target_id,
-                    target_guid,
-                    vm_player,
-                    &v_creature,
-                    map.clone(),
-                    data_store.clone(),
-                );
+            } else if let Ok(player) = vm_player.get(attacker_id) {
+                if let Ok(creature) = v_creature.get(target_id) {
+                    let xp_gain = Experience::xp_gain_against(
+                        &player,
+                        creature,
+                        map.id(),
+                        data_store.clone(),
+                    );
+                    player.give_experience(xp_gain, Some(target_guid));
+                }
+                player.unset_in_combat_with(target_guid);
             }
 
             return Ok(());

@@ -25,7 +25,7 @@ use crate::{
         item::ItemRepository,
         player_static_data::{
             PlayerBaseAttributesPerLevelDbRecord, PlayerBaseHealthManaPerLevelDbRecord,
-            PlayerStaticDataRepository,
+            PlayerExperiencePerLevel, PlayerStaticDataRepository,
         },
         quest::QuestRepository,
     },
@@ -79,6 +79,7 @@ pub struct DataStore {
     player_base_health_mana: SqlStore<PlayerBaseHealthManaPerLevelDbRecord>,
     player_base_attributes: SqlStore<PlayerBaseAttributesPerLevelDbRecord>,
     creature_base_attributes: SqlStore<CreatureBaseAttributesPerLevelDbRecord>,
+    player_experience_per_level: SqlStore<PlayerExperiencePerLevel>,
 }
 
 macro_rules! parse_dbc {
@@ -268,6 +269,18 @@ impl DataStore {
             creature_base_attributes
         };
 
+        let player_experience_per_level = {
+            info!("Loading player required experience per level...");
+            let player_experience_per_level =
+                PlayerStaticDataRepository::load_experience_per_level(conn);
+            let player_experience_per_level: SqlStore<PlayerExperiencePerLevel> =
+                player_experience_per_level
+                    .into_iter()
+                    .map(|pe| (pe.level, pe))
+                    .collect();
+            player_experience_per_level
+        };
+
         Ok(DataStore {
             chr_races,
             chr_classes,
@@ -296,6 +309,7 @@ impl DataStore {
             player_base_health_mana,
             player_base_attributes,
             creature_base_attributes,
+            player_experience_per_level,
         })
     }
 
@@ -501,6 +515,13 @@ impl DataStore {
                 }
             }
         }
+    }
+
+    pub fn get_player_required_experience_at_level(&self, level: u32) -> u32 {
+        self.player_experience_per_level
+            .get(&level)
+            .map(|pe| pe.required_experience)
+            .unwrap_or(0)
     }
 }
 

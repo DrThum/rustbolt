@@ -1,0 +1,1 @@
+ALTER TABLE characters ADD COLUMN experience NOT NULL DEFAULT 0;

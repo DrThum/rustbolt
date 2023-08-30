@@ -301,6 +301,14 @@ impl Player {
             world_context.config.world.game.player.maxlevel,
         );
 
+        values.set_u32(UnitFields::PlayerXp.into(), character.experience);
+        values.set_u32(
+            UnitFields::PlayerNextLevelXp.into(),
+            world_context
+                .data_store
+                .get_player_required_experience_at_level(character.level.into()),
+        );
+
         values.set_u8(UnitFields::UnitFieldBytes0.into(), 0, character.race as u8);
 
         values.set_u8(UnitFields::UnitFieldBytes0.into(), 1, character.class as u8);
@@ -946,6 +954,18 @@ impl Player {
                 })
             })
             .unwrap_or(ValueRange::new(BASE_DAMAGE, BASE_DAMAGE))
+    }
+
+    pub fn experience(&self) -> u32 {
+        self.internal_values
+            .read()
+            .get_u32(UnitFields::PlayerXp.into())
+    }
+
+    pub fn give_experience(&self, xp: u32) {
+        self.internal_values
+            .write()
+            .set_u32(UnitFields::PlayerXp.into(), xp);
     }
 }
 

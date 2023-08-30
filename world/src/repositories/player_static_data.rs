@@ -175,6 +175,38 @@ impl PlayerStaticDataRepository {
 
         result.filter_map(|res| res.ok()).into_iter().collect()
     }
+
+    pub fn load_experience_per_level(
+        conn: &PooledConnection<SqliteConnectionManager>,
+    ) -> Vec<PlayerExperiencePerLevel> {
+        let mut stmt = conn
+            .prepare("SELECT COUNT(*) FROM player_experience_per_level")
+            .unwrap();
+        let mut count = stmt.query_map([], |row| row.get::<usize, u64>(0)).unwrap();
+
+        let count = count.next().unwrap().unwrap_or(0);
+        let bar = ProgressBar::new(count);
+
+        let mut stmt = conn
+            .prepare("SELECT level, required_experience FROM player_experience_per_level")
+            .unwrap();
+
+        let result = stmt
+            .query_map([], |row| {
+                bar.inc(1);
+                if bar.position() == count {
+                    bar.finish();
+                }
+
+                Ok(PlayerExperiencePerLevel {
+                    level: row.get("level").unwrap(),
+                    required_experience: row.get("required_experience").unwrap(),
+                })
+            })
+            .unwrap();
+
+        result.filter_map(|res| res.ok()).into_iter().collect()
+    }
 }
 
 pub struct PlayerBaseHealthManaPerLevelDbRecord {
@@ -225,4 +257,9 @@ impl FromSql for CharacterRace {
             Ok,
         )
     }
+}
+
+pub struct PlayerExperiencePerLevel {
+    pub level: u32,
+    pub required_experience: u32,
 }

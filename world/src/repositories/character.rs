@@ -223,7 +223,7 @@ impl CharacterRepository {
         guid: u64,
     ) -> Option<CharacterRecord> {
         let mut stmt = conn
-            .prepare_cached("SELECT account_id, race, class, level, gender, name, haircolor, hairstyle, face, skin, facialstyle, map_id, zone_id, position_x, position_y, position_z, orientation, current_health FROM characters WHERE guid = :guid")
+            .prepare_cached("SELECT account_id, race, class, level, gender, name, haircolor, hairstyle, face, skin, facialstyle, map_id, zone_id, position_x, position_y, position_z, orientation, current_health, experience FROM characters WHERE guid = :guid")
             .unwrap();
         let mut rows = stmt
             .query(named_params! {
@@ -257,6 +257,7 @@ impl CharacterRepository {
                     o: row.get("orientation").unwrap(),
                 },
                 current_health: row.get("current_health").unwrap(),
+                experience: row.get("experience").unwrap(),
             })
         } else {
             None
@@ -464,7 +465,7 @@ impl CharacterRepository {
         // Save character data
         let mut stmt = transaction
             .prepare_cached(
-                "UPDATE characters SET map_id = :map_id, zone_id = :zone_id, position_x = :x, position_y = :y, position_z = :z, orientation = :o, current_health = :current_health WHERE guid = :guid",
+                "UPDATE characters SET map_id = :map_id, zone_id = :zone_id, position_x = :x, position_y = :y, position_z = :z, orientation = :o, current_health = :current_health, experience = :experience WHERE guid = :guid",
             )
             .unwrap();
 
@@ -476,6 +477,7 @@ impl CharacterRepository {
             ":z": position.z,
             ":o": position.o,
             ":current_health": health.current(),
+            ":experience": player.experience(),
             ":guid": guid,
         })?;
 
@@ -518,6 +520,7 @@ pub struct CharacterRecord {
     pub position: WorldPosition,
     pub visual_features: PlayerVisualFeatures,
     pub current_health: u32,
+    pub experience: u32,
 }
 
 pub struct CharacterReputationDbRecord {

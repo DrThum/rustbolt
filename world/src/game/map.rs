@@ -488,9 +488,8 @@ impl Map {
                         ),
                         Melee::new(
                             creature.internal_values.clone(),
-                            // FIXME: should have min/max damage based on CreatureTemplate.BaseVariance
                             creature_base_damage,
-                            creature_base_damage,
+                            creature_base_damage * (1. + creature_template.base_damage_variance),
                             true,
                             [
                                 creature_template.melee_base_attack_time,

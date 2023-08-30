@@ -364,6 +364,7 @@ pub struct CreatureTemplate {
     pub experience_multiplier: f32,
     pub melee_base_attack_time: Duration,
     pub ranged_base_attack_time: Duration,
+    pub base_damage_variance: f32,
     pub model_ids: Vec<u32>,
     pub scale: f32,
     pub speed_walk: f32,

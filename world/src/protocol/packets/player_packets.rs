@@ -1,6 +1,7 @@
 use binrw::{binread, binwrite};
 use opcode_derive::server_opcode;
 
+use crate::entities::object_guid::ObjectGuid;
 use crate::protocol::opcodes::Opcode;
 use crate::protocol::server::ServerMessagePayload;
 
@@ -78,4 +79,48 @@ pub struct SmsgLogXpGain {
     #[bw(if(!from_kill))]
     pub group_bonus: Option<u32>,
     pub unk: u8, // Always 0
+}
+
+impl SmsgLogXpGain {
+    pub fn build(victim_guid: Option<ObjectGuid>, experience: u32) -> Self {
+        Self {
+            victim_guid: victim_guid.map(|g| g.raw()).unwrap_or(0),
+            given_xp: experience,
+            from_kill: victim_guid.is_some(),
+            xp_without_rested_bonus: victim_guid.map(|_| experience), // TODO: Implement rested xp
+            group_bonus: victim_guid.map(|_| 0),                      // TODO: Implement groups
+            unk: 0,
+        }
+    }
+}
+
+#[binwrite]
+#[server_opcode]
+pub struct SmsgLevelUpInfo {
+    pub level: u32,
+    pub health_gained: u32,
+    pub mana_gained: u32,
+    pub powers_gained: [u32; 4], // Filled with zeroes
+    pub strength_gained: u32,
+    pub agility_gained: u32,
+    pub stamina_gained: u32,
+    pub intellect_gained: u32,
+    pub spirit_gained: u32,
+}
+
+impl SmsgLevelUpInfo {
+    // TODO: enrich this when we have a better stats system
+    pub fn build(level: u32) -> Self {
+        Self {
+            level,
+            health_gained: 0,
+            mana_gained: 0,
+            powers_gained: [0, 0, 0, 0],
+            strength_gained: 0,
+            agility_gained: 0,
+            stamina_gained: 0,
+            intellect_gained: 0,
+            spirit_gained: 0,
+        }
+    }
 }

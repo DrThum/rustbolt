@@ -471,7 +471,7 @@ pub enum Opcode {
     SmsgAuraCastLog = 0x1D1,
     CmsgReclaimCorpse = 0x1D2,
     CmsgWrapItem = 0x1D3,
-    SmsgLevelupInfo = 0x1D4,
+    SmsgLevelUpInfo = 0x1D4,
     MsgMinimapPing = 0x1D5,
     SmsgResistlog = 0x1D6,
     SmsgEnchantmentlog = 0x1D7,

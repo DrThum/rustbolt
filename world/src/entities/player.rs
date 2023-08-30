@@ -21,7 +21,7 @@ use crate::{
     entities::player::player_data::FactionStanding,
     game::{value_range::ValueRange, world_context::WorldContext},
     protocol::{
-        packets::{CmsgCharCreate, SmsgCreateObject, SmsgLogXpGain},
+        packets::{CmsgCharCreate, SmsgCreateObject, SmsgLevelUpInfo, SmsgLogXpGain},
         server::ServerMessage,
     },
     repositories::{character::CharacterRepository, item::ItemRepository},
@@ -53,6 +53,7 @@ pub type PlayerInventory = HashMap<u32, Item>; // Key is slot
 #[derive(Component)]
 pub struct Player {
     pub session: Arc<WorldSession>,
+    world_context: Arc<WorldContext>,
     guid: ObjectGuid,
     pub name: String,
     pub internal_values: Arc<RwLock<InternalValues>>,
@@ -595,6 +596,7 @@ impl Player {
 
         Self {
             session,
+            world_context: world_context.clone(),
             guid,
             name: character.name,
             internal_values: Arc::new(RwLock::new(values)),
@@ -889,12 +891,6 @@ impl Player {
         None
     }
 
-    pub fn level(&self) -> u32 {
-        self.internal_values
-            .read()
-            .get_u32(UnitFields::UnitFieldLevel.into())
-    }
-
     pub fn set_in_combat_with(&self, guid: ObjectGuid) {
         self.in_combat_with.write().insert(guid);
     }
@@ -984,23 +980,59 @@ impl Player {
             .get_u32(UnitFields::PlayerXp.into())
     }
 
+    pub fn experience_for_next_level(&self) -> u32 {
+        self.internal_values
+            .read()
+            .get_u32(UnitFields::PlayerNextLevelXp.into())
+    }
+
     pub fn give_experience(&self, xp: u32, victim_guid: Option<ObjectGuid>) {
+        let packet = ServerMessage::new(SmsgLogXpGain::build(victim_guid, xp));
         let current_xp = self.experience();
+        let mut new_xp = current_xp + xp;
+        let mut next_level_xp = self.experience_for_next_level();
+
+        while new_xp >= next_level_xp
+            && self.level() <= self.world_context.config.world.game.player.maxlevel
+        {
+            self.increment_level();
+            new_xp -= next_level_xp;
+            next_level_xp = self.experience_for_next_level();
+        }
 
         self.internal_values
             .write()
-            .set_u32(UnitFields::PlayerXp.into(), current_xp + xp);
+            .set_u32(UnitFields::PlayerXp.into(), new_xp);
 
-        // TODO: Implement SmsgLogXpGain::new
-        let packet = ServerMessage::new(SmsgLogXpGain {
-            victim_guid: victim_guid.map(|g| g.raw()).unwrap_or(0),
-            given_xp: xp,
-            from_kill: victim_guid.is_some(),
-            xp_without_rested_bonus: victim_guid.map(|_| xp), // TODO: Implement rested xp
-            group_bonus: victim_guid.map(|_| 0),              // TODO: Implement groups
-            unk: 0,
-        });
+        self.session.send(&packet).unwrap();
+    }
 
+    pub fn level(&self) -> u32 {
+        self.internal_values
+            .read()
+            .get_u32(UnitFields::UnitFieldLevel.into())
+    }
+
+    pub fn increment_level(&self) {
+        let current_level = self.level();
+        if current_level >= self.world_context.config.world.game.player.maxlevel {
+            return;
+        }
+
+        let next_level = current_level + 1;
+        let next_level_xp = self
+            .world_context
+            .data_store
+            .get_player_required_experience_at_level(next_level);
+
+        {
+            let mut guard = self.internal_values.write();
+            guard.set_u32(UnitFields::UnitFieldLevel.into(), next_level);
+            guard.set_u32(UnitFields::PlayerNextLevelXp.into(), next_level_xp);
+            guard.set_u32(UnitFields::PlayerXp.into(), 0);
+        }
+
+        let packet = ServerMessage::new(SmsgLevelUpInfo::build(next_level));
         self.session.send(&packet).unwrap();
     }
 }

@@ -399,6 +399,23 @@ impl Vector3 {
         *self + (*other - *self) * t
     }
 
+    #[inline]
+    pub fn square_distance_2d(&self, other: &Vector3) -> f32 {
+        let dist_x = self.x - other.x;
+        let dist_y = self.y - other.y;
+
+        (dist_x * dist_x) + (dist_y * dist_y)
+    }
+
+    #[inline]
+    pub fn square_distance_3d(&self, other: &Vector3) -> f32 {
+        let dist_x = self.x - other.x;
+        let dist_y = self.y - other.y;
+        let dist_z = self.z - other.z;
+
+        (dist_x * dist_x) + (dist_y * dist_y) + (dist_z * dist_z)
+    }
+
     // Blizz magic
     pub fn pack(&self) -> u32 {
         let mut packed: u32 = 0;

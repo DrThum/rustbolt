@@ -705,7 +705,7 @@ impl Map {
                     .map(|os| os.destroy_entity(&other_guid));
             }
         } else {
-            error!("updating position for player not on map");
+            error!("updating position for entity not on map");
         }
     }
 

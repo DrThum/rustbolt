@@ -39,26 +39,29 @@ pub fn tick(
     v_creature: View<Creature>,
     (mut vm_player, mut vm_health, v_spell): (ViewMut<Player>, ViewMut<Health>, View<SpellCast>),
 ) {
-    for (entity_id, mut behavior) in (&mut vm_behavior).iter().with_id() {
-        let mut context = BTContext {
-            entity_id,
-            dt: &dt,
-            map: &map,
-            world_context: &world_context,
-            vm_movement: &mut vm_movement,
-            vm_unit: &mut vm_unit,
-            vm_threat_list: &mut vm_threat_list,
-            vm_health: &mut vm_health,
-            vm_melee: &mut vm_melee,
-            vm_player: &mut vm_player,
-            v_guid: &v_guid,
-            v_wpos: &v_wpos,
-            v_creature: &v_creature,
-            v_spell: &v_spell,
-        };
+    (&mut vm_behavior)
+        .iter()
+        .with_id()
+        .for_each(|(entity_id, mut behavior)| {
+            let mut context = BTContext {
+                entity_id,
+                dt: &dt,
+                map: &map,
+                world_context: &world_context,
+                vm_movement: &mut vm_movement,
+                vm_unit: &mut vm_unit,
+                vm_threat_list: &mut vm_threat_list,
+                vm_health: &mut vm_health,
+                vm_melee: &mut vm_melee,
+                vm_player: &mut vm_player,
+                v_guid: &v_guid,
+                v_wpos: &v_wpos,
+                v_creature: &v_creature,
+                v_spell: &v_spell,
+            };
 
-        behavior.tree().tick(dt.0, &mut context, execute_action);
-    }
+            behavior.tree().tick(dt.0, &mut context, execute_action);
+        });
 }
 
 fn execute_action(action: &Action, ctx: &mut BTContext) -> NodeStatus {

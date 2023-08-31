@@ -3,3 +3,5 @@
 *.MPQ
 *.dbc
 config.toml
+perf.data
+perf.data.old

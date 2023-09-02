@@ -1,11 +1,11 @@
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{HashMap, HashSet, VecDeque},
     sync::Arc,
     thread,
     time::{Duration, Instant},
 };
 
-use log::{error, warn};
+use log::{error, info, warn};
 use parking_lot::{Mutex, MutexGuard, RwLock};
 use parry3d::{
     math::{Isometry, Point},
@@ -145,8 +145,11 @@ impl Map {
 
         map.world.lock().add_unique(WrappedMap(map.clone()));
 
+        let map_id = key.map_id;
         thread::spawn(move || {
             let mut time = Instant::now();
+            let mut update_times: VecDeque<u128> = VecDeque::with_capacity(200);
+            let mut last_update_time_print = Instant::now();
 
             loop {
                 let tick_start_time = Instant::now();
@@ -162,6 +165,20 @@ impl Map {
                 }
 
                 let tick_duration = Instant::now().duration_since(tick_start_time);
+                if update_times.len() == 200 {
+                    update_times.pop_front();
+                }
+
+                update_times.push_back(tick_duration.as_millis());
+
+                if tick_start_time.duration_since(last_update_time_print) > Duration::from_secs(10)
+                {
+                    let mean_tick_time =
+                        update_times.iter().sum::<u128>() / update_times.len() as u128;
+                    info!("Mean tick time on map {}: {mean_tick_time}", map_id);
+                    last_update_time_print = tick_start_time;
+                }
+
                 // TODO: 50 in config
                 thread::sleep(Duration::from_millis(50).saturating_sub(tick_duration));
             }

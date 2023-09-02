@@ -986,6 +986,7 @@ impl DbcTypedRecord for FactionRecord {
     }
 }
 
+// https://www.azerothcore.org/wiki/factiontemplate
 #[allow(dead_code)]
 pub struct FactionTemplateRecord {
     faction_id: u32,
@@ -1024,6 +1025,15 @@ impl FactionTemplateRecord {
         }
 
         (self.enemy_group_mask & other.faction_group_mask) != 0
+    }
+
+    // TODO: a faction is not neutral to all if it has a position_in_reputation_list
+    pub fn is_neutral_to_all(&self) -> bool {
+        if self.enemies.iter().any(|&enemy| enemy != 0) {
+            return false;
+        }
+
+        self.faction_group_mask == 0 && self.enemy_group_mask == 0
     }
 }
 

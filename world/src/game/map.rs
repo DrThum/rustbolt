@@ -472,6 +472,11 @@ impl Map {
             })
             .expect("creature base attributes not found");
 
+        let creature_faction_template = self
+            .world_context
+            .data_store
+            .get_faction_template_record(creature.template.faction_template_id);
+
         self.world.lock().run(
             |mut entities: EntitiesViewMut,
              mut vm_guid: ViewMut<Guid>,
@@ -528,7 +533,7 @@ impl Map {
                         Movement::new(creature.default_movement_kind),
                         SpellCast::new(),
                         // FIXME: Will need different behavior depending on some flags
-                        Behavior::new_wild_monster(),
+                        Behavior::new_wild_monster(creature_faction_template),
                         ThreatList::new(),
                     ),
                 );

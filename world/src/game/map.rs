@@ -610,6 +610,7 @@ impl Map {
         v_player: &View<Player>,
         v_creature: &View<Creature>,
         vm_wpos: &mut ViewMut<WorldPosition>,
+        vm_behavior: &mut ViewMut<Behavior>,
     ) {
         let previous_position: Option<Position>;
         {
@@ -708,6 +709,27 @@ impl Map {
                 origin_session
                     .as_ref()
                     .map(|os| os.destroy_entity(&other_guid));
+            }
+
+            // If a creature is involved (whether it moved or it witnessed another entity moving),
+            // inform its behavior tree that a neighbor has moved (for aggro, script, etc)
+            if let Some(mover_entity_id) = self.lookup_entity_ecs(entity_guid) {
+                let neighbors: Vec<EntityId> = in_range_now
+                    .iter()
+                    .flat_map(|in_range_guid| self.lookup_entity_ecs(in_range_guid))
+                    .collect();
+
+                if let Ok(mut source_behavior) = vm_behavior.get(mover_entity_id) {
+                    for &neighbor in neighbors.iter() {
+                        source_behavior.neighbor_moved(neighbor);
+                    }
+                }
+
+                for neighbor in neighbors {
+                    if let Ok(mut neighbor_behavior) = vm_behavior.get(neighbor) {
+                        neighbor_behavior.neighbor_moved(mover_entity_id);
+                    }
+                }
             }
         } else {
             error!("updating position for entity not on map");

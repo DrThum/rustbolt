@@ -196,6 +196,7 @@ pub enum NodeStatus {
 
 pub struct BTContext<'a, 'b, 'c, 'd, 'e, 'f, 'g> {
     pub entity_id: EntityId,
+    pub neighbors: Vec<EntityId>,
     pub dt: &'a UniqueView<'a, DeltaTime>,
     pub map: &'a UniqueView<'a, WrappedMap>,
     pub world_context: &'a UniqueView<'a, WrappedWorldContext>,

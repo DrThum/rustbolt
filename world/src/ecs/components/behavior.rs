@@ -1,6 +1,6 @@
-use std::time::Duration;
+use std::{collections::HashSet, time::Duration};
 
-use shipyard::Component;
+use shipyard::{Component, EntityId};
 
 use crate::{
     datastore::data_types::FactionTemplateRecord,
@@ -12,6 +12,8 @@ use super::movement::MovementKind;
 #[derive(Component)]
 pub struct Behavior {
     bt: BehaviorTree<Action>,
+    // Entities that moved around us within visibility distance during the last server tick
+    moving_neighbors: HashSet<EntityId>,
 }
 
 impl Behavior {
@@ -53,11 +55,26 @@ impl Behavior {
 
         let bt = BehaviorTree::new(alive_behavior);
 
-        Self { bt }
+        Self {
+            bt,
+            moving_neighbors: HashSet::new(),
+        }
     }
 
     pub fn tree(&mut self) -> &mut BehaviorTree<Action> {
         &mut self.bt
+    }
+
+    pub fn neighbor_moved(&mut self, neighbor_entity_id: EntityId) {
+        self.moving_neighbors.insert(neighbor_entity_id);
+    }
+
+    pub fn neighbors(&self) -> Vec<EntityId> {
+        self.moving_neighbors.iter().cloned().collect()
+    }
+
+    pub fn reset_neighbors(&mut self) {
+        self.moving_neighbors.clear();
     }
 }
 

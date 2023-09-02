@@ -5,6 +5,7 @@ use shipyard::{Get, IntoIter, IntoWithId, UniqueView, View, ViewMut};
 use crate::{
     ecs::{
         components::{
+            behavior::Behavior,
             guid::Guid,
             health::Health,
             movement::{Movement, MovementKind},
@@ -30,10 +31,13 @@ pub fn update_movement(
     v_player: View<Player>,
     v_creature: View<Creature>,
     v_health: View<Health>,
-    mut vm_unit: ViewMut<Unit>,
-    mut vm_movement: ViewMut<Movement>,
-    mut vm_wpos: ViewMut<WorldPosition>,
-    mut vm_threat_list: ViewMut<ThreatList>,
+    (mut vm_unit, mut vm_movement, mut vm_wpos, mut vm_threat_list, mut vm_behavior): (
+        ViewMut<Unit>,
+        ViewMut<Movement>,
+        ViewMut<WorldPosition>,
+        ViewMut<ThreatList>,
+        ViewMut<Behavior>,
+    ),
 ) {
     let mut map_pending_updates: Vec<(&ObjectGuid, Position)> = Vec::new();
 
@@ -211,6 +215,7 @@ pub fn update_movement(
             &v_player,
             &v_creature,
             &mut vm_wpos,
+            &mut vm_behavior,
         );
     }
 }

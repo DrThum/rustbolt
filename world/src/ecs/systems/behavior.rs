@@ -1,6 +1,4 @@
-use std::sync::Arc;
-
-use shipyard::{Get, IntoIter, IntoWithId, UniqueView, View, ViewMut};
+use shipyard::{EntityId, Get, IntoIter, IntoWithId, UniqueView, View, ViewMut};
 
 use crate::{
     ecs::{
@@ -23,8 +21,7 @@ use crate::{
         position::WorldPosition,
     },
     game::{map::WrappedMap, world_context::WrappedWorldContext},
-    session::world_session::WorldSession,
-    shared::constants::{CREATURE_AGGRO_DISTANCE_MAX, MAX_CHASE_LEEWAY},
+    shared::constants::MAX_CHASE_LEEWAY,
 };
 
 pub fn tick(
@@ -45,6 +42,7 @@ pub fn tick(
         .for_each(|(entity_id, mut behavior)| {
             let mut context = BTContext {
                 entity_id,
+                neighbors: behavior.neighbors(),
                 dt: &dt,
                 map: &map,
                 world_context: &world_context,
@@ -61,6 +59,7 @@ pub fn tick(
             };
 
             behavior.tree().tick(dt.0, &mut context, execute_action);
+            behavior.reset_neighbors();
         });
 }
 
@@ -75,42 +74,47 @@ fn execute_action(action: &Action, ctx: &mut BTContext) -> NodeStatus {
 fn action_aggro(ctx: &mut BTContext) -> NodeStatus {
     let my_guid = ctx.v_guid[ctx.entity_id].0;
     let creature = &ctx.v_creature[ctx.entity_id];
-    let creature_position = &ctx.v_wpos[ctx.entity_id];
-    let threat_list = &mut ctx.vm_threat_list[ctx.entity_id];
+    let my_position = &ctx.v_wpos[ctx.entity_id];
     let unit_me = &ctx.vm_unit[ctx.entity_id];
 
-    let sessions_around: Vec<Arc<WorldSession>> = ctx
-        .map
-        .0
-        .sessions_nearby_entity(&my_guid, CREATURE_AGGRO_DISTANCE_MAX, true, false)
-        .into_iter()
-        .filter(|session| {
-            session
-                .player_entity_id()
-                .map(|player_entity_id| {
-                    let player = &ctx.vm_player[player_entity_id];
-                    let player_position = ctx.v_wpos[player_entity_id];
-                    let player_health = &ctx.vm_health[player_entity_id];
-                    let target_unit = &ctx.vm_unit[player_entity_id];
+    let mut relevant_neighbors: Vec<(EntityId, f32)> = ctx
+        .neighbors
+        .iter()
+        .filter_map(|&neighbor_entity_id| {
+            let neighbor_health = &ctx.vm_health[neighbor_entity_id];
+            let neighbor_position = &ctx.v_wpos[neighbor_entity_id];
+            let neighbor_unit = &ctx.vm_unit[neighbor_entity_id];
+            let neighbor_level = if let Ok(player) = ctx.vm_player.get(neighbor_entity_id) {
+                player.level()
+            } else if let Ok(other_creature) = ctx.v_creature.get(neighbor_entity_id) {
+                other_creature.level_against(creature.real_level())
+            } else {
+                0
+            };
 
-                    player_health.is_alive()
-                        && unit_me.is_hostile_to(&target_unit)
-                        && creature_position.distance_to(&player_position, true)
-                            <= creature.aggro_distance(player.level())
-                })
-                .unwrap_or(false)
+            let neighbor_distance = my_position.distance_to(&neighbor_position, true);
+
+            if neighbor_health.is_alive()
+                && unit_me.is_hostile_to(&neighbor_unit)
+                && my_position.distance_to(&neighbor_position, true)
+                    <= creature.aggro_distance(neighbor_level)
+            {
+                Some((neighbor_entity_id, neighbor_distance))
+            } else {
+                None
+            }
         })
         .collect();
 
-    let closest = sessions_around.first(); // FIXME
+    relevant_neighbors.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
 
-    closest.map(|session| {
-        let target_entity_id = session.player_entity_id().unwrap();
+    relevant_neighbors.first().map(|&(neighbor, _)| {
+        ctx.vm_threat_list[ctx.entity_id].modify_threat(neighbor, 0.);
 
-        if let Ok(player) = ctx.vm_player.get(target_entity_id) {
+        if let Ok(player) = ctx.vm_player.get(neighbor) {
             player.set_in_combat_with(my_guid);
-            threat_list.modify_threat(target_entity_id, 0.);
-            ctx.vm_unit[ctx.entity_id].set_target(Some(target_entity_id), player.guid().raw());
+        } else if let Ok(mut other_threat_list) = ctx.vm_threat_list.get(neighbor) {
+            other_threat_list.modify_threat(ctx.entity_id, 0.);
         }
 
         return NodeStatus::Success;

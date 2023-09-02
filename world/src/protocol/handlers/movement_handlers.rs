@@ -3,7 +3,7 @@ use std::sync::Arc;
 use shipyard::{View, ViewMut};
 
 use crate::{
-    ecs::components::movement::Movement,
+    ecs::components::{behavior::Behavior, movement::Movement},
     entities::{creature::Creature, player::Player, position::WorldPosition},
     protocol::{client::ClientMessage, opcodes::Opcode, packets::MovementInfo},
     session::{
@@ -28,7 +28,8 @@ impl OpcodeHandler {
                 |v_movement: View<Movement>,
                  v_player: View<Player>,
                  v_creature: View<Creature>,
-                 mut vm_wpos: ViewMut<WorldPosition>| {
+                 mut vm_wpos: ViewMut<WorldPosition>,
+                 mut vm_behavior: ViewMut<Behavior>| {
                     map.update_entity_position(
                         &player_guid,
                         Some(session.clone()),
@@ -37,6 +38,7 @@ impl OpcodeHandler {
                         &v_player,
                         &v_creature,
                         &mut vm_wpos,
+                        &mut vm_behavior,
                     );
                 },
             );

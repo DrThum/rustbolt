@@ -28,7 +28,7 @@ enum Quadrant {
 }
 
 impl Quadrant {
-    // Reminder: in WoW coords, X grows upward and y grows leftward
+    // Reminder: in WoW coords, X grows upward and Y grows leftward
     fn select(coords: &Vector3, bounds: &Bounds) -> Self {
         let mid_x = (bounds.upper_left.x + bounds.lower_right.x) / 2.0;
         let mid_y = (bounds.upper_left.y + bounds.lower_right.y) / 2.0;
@@ -396,6 +396,7 @@ struct Point {
     pub y: f32,
 }
 
+#[derive(Debug)]
 struct Bounds {
     upper_left: Point,
     lower_right: Point,
@@ -454,27 +455,16 @@ impl Bounds {
     }
 
     fn intersects_circle(&self, center: &Vector3, radius_square: f32) -> bool {
-        let test_x: f32;
-
-        if center.x > self.upper_left.x {
-            test_x = self.upper_left.x
-        } else if center.x < self.lower_right.x {
-            test_x = self.lower_right.x
-        } else {
-            // If the circle is inside the bounds, it always intersects
+        if center.x <= self.upper_left.x
+            && center.x >= self.lower_right.x
+            && center.y <= self.upper_left.y
+            && center.y >= self.lower_right.y
+        {
             return true;
-        };
+        }
 
-        let test_y: f32;
-
-        if center.y > self.upper_left.y {
-            test_y = self.upper_left.y
-        } else if center.y < self.lower_right.y {
-            test_y = self.lower_right.y
-        } else {
-            // If the circle is inside the bounds, it always intersects
-            return true;
-        };
+        let test_x: f32 = center.x.clamp(self.lower_right.x, self.upper_left.x);
+        let test_y: f32 = center.y.clamp(self.lower_right.y, self.upper_left.y);
 
         let dist_x = center.x - test_x;
         let dist_x_sq = dist_x * dist_x;

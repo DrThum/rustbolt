@@ -30,7 +30,7 @@ impl Behavior {
                         || curr_move_kind == MovementKind::Path
                 },
             )),
-            Duration::from_millis(200),
+            Duration::from_millis(400),
         );
 
         let attack_melee = BehaviorNode::Action(Action::AttackInMelee);

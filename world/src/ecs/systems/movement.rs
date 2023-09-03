@@ -76,16 +76,13 @@ pub fn update_movement(
                 } else {
                     if *cooldown_end <= Instant::now() {
                         let current_pos = my_wpos.vec3();
-                        // For the search, we need to start from:
-                        //   - the creature spawn point if applicable
-                        //   - the current position otherwise
                         let around = creature.spawn_position.vec3();
                         let destination = map.0.get_random_point_around(
-                        &around,
-                        creature.wander_radius.expect(
-                            "expected an existing wander radius on creature with random movement",
-                        ) as f32,
-                    );
+                            &around,
+                            creature.wander_radius.expect(
+                                "expected an existing wander radius on creature with random movement",
+                            ) as f32,
+                        );
                         // TODO: Select speed depending on move flags (implement in Movement)
                         let speed = movement.speed_run;
                         movement.start_random_movement(

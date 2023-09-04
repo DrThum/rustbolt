@@ -604,6 +604,7 @@ impl Map {
     pub fn update_entity_position(
         &self,
         entity_guid: &ObjectGuid,
+        mover_entity_id: EntityId,
         origin_session: Option<Arc<WorldSession>>, // Must be defined if entity is a player
         new_position: &Position,
         v_movement: &View<Movement>,
@@ -623,22 +624,7 @@ impl Map {
                 return;
             }
 
-            let mut moving_entity_smsg_create_object: Option<SmsgCreateObject> = None;
-            if let Some(entity_id) = self.lookup_entity_ecs(entity_guid) {
-                vm_wpos[entity_id].update_local(new_position);
-
-                let movement = v_movement
-                    .get(entity_id)
-                    .ok()
-                    .map(|m| m.build_update(self.world_context.clone(), new_position));
-
-                if let Some(player) = v_player.get(entity_id).ok() {
-                    moving_entity_smsg_create_object =
-                        Some(player.build_create_object(movement, false));
-                } else if let Some(creature) = v_creature.get(entity_id).ok() {
-                    moving_entity_smsg_create_object = Some(creature.build_create_object(movement));
-                }
-            }
+            vm_wpos[mover_entity_id].update_local(new_position);
 
             let visibility_distance = self.visibility_distance();
             let in_range_before = self.entities_tree.read().search_around_position(
@@ -647,23 +633,41 @@ impl Map {
                 true,
                 Some(entity_guid),
             );
-            let in_range_before: HashSet<ObjectGuid> = in_range_before.iter().cloned().collect();
+            let in_range_before: HashSet<ObjectGuid> = in_range_before.into_iter().collect();
             let in_range_now = self.entities_tree.read().search_around_position(
                 new_position,
                 visibility_distance,
                 true,
                 Some(entity_guid),
             );
-            let in_range_now: HashSet<ObjectGuid> = in_range_now.iter().cloned().collect();
+            let in_range_now: HashSet<ObjectGuid> = in_range_now.into_iter().collect();
 
             let appeared_for = &in_range_now - &in_range_before;
             let disappeared_for = &in_range_before - &in_range_now;
 
+            let mut moving_entity_smsg_create_object: Option<SmsgCreateObject> = None;
+
             for other_guid in appeared_for {
                 if let Some(other_entity_id) = self.lookup_entity_ecs(&other_guid) {
                     let other_session = self.sessions.read().get(&other_guid).cloned();
+                    // Make the moving entity appear for the other player
                     if let Some(other_session) = other_session {
-                        // Make the moving player appear for the other player
+                        // Construct the SMSG the first time that it's needed
+                        if moving_entity_smsg_create_object.is_none() {
+                            let movement = v_movement
+                                .get(mover_entity_id)
+                                .ok()
+                                .map(|m| m.build_update(self.world_context.clone(), new_position));
+
+                            if let Some(player) = v_player.get(mover_entity_id).ok() {
+                                moving_entity_smsg_create_object =
+                                    Some(player.build_create_object(movement, false));
+                            } else if let Some(creature) = v_creature.get(mover_entity_id).ok() {
+                                moving_entity_smsg_create_object =
+                                    Some(creature.build_create_object(movement));
+                            }
+                        }
+
                         other_session.create_entity(
                             entity_guid,
                             moving_entity_smsg_create_object.as_ref().unwrap().clone(),

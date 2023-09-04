@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use shipyard::{Get, IntoIter, IntoWithId, UniqueView, View, ViewMut};
+use shipyard::{EntityId, Get, IntoIter, IntoWithId, UniqueView, View, ViewMut};
 
 use crate::{
     ecs::{
@@ -39,7 +39,7 @@ pub fn update_movement(
         ViewMut<Behavior>,
     ),
 ) {
-    let mut map_pending_updates: Vec<(&ObjectGuid, Position)> = Vec::new();
+    let mut map_pending_updates: Vec<(&ObjectGuid, EntityId, Position)> = Vec::new();
 
     for (entity_id, (guid, mut movement, my_wpos, health)) in
         (&v_guid, &mut vm_movement, &vm_wpos, &v_health)
@@ -68,7 +68,7 @@ pub fn update_movement(
                         o: 0., // TODO: Figure out orientation
                     };
 
-                    map_pending_updates.push((&guid.0, new_position));
+                    map_pending_updates.push((&guid.0, entity_id, new_position));
 
                     if spline_state == MovementSplineState::Arrived {
                         movement.clear(false);
@@ -152,7 +152,7 @@ pub fn update_movement(
                                 o: 0., // TODO: Figure out orientation
                             };
 
-                            map_pending_updates.push((&guid.0, new_position));
+                            map_pending_updates.push((&guid.0, entity_id, new_position));
                         }
                     } else {
                         should_stop_chasing = true;
@@ -190,7 +190,7 @@ pub fn update_movement(
                     o: 0., // TODO: Figure out orientation
                 };
 
-                map_pending_updates.push((&guid.0, new_position));
+                map_pending_updates.push((&guid.0, entity_id, new_position));
 
                 if spline_state == MovementSplineState::Arrived {
                     movement.clear(true);
@@ -203,9 +203,10 @@ pub fn update_movement(
     // Update the map out of the loop because we need to borrow View<Movement> and the loop already
     // borrows ViewMut<Movement>
     let v_movement = vm_movement.as_view();
-    for (guid, pos) in map_pending_updates {
+    for (guid, entity_id, pos) in map_pending_updates {
         map.0.update_entity_position(
             guid,
+            entity_id,
             None, // FIXME: Must be defined if it's a server-controlled player (feared for example)
             &pos,
             &v_movement,

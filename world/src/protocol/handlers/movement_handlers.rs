@@ -32,6 +32,7 @@ impl OpcodeHandler {
                  mut vm_behavior: ViewMut<Behavior>| {
                     map.update_entity_position(
                         &player_guid,
+                        session.player_entity_id().unwrap(),
                         Some(session.clone()),
                         &movement_info.position,
                         &v_movement,

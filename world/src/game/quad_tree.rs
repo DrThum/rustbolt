@@ -363,6 +363,9 @@ impl QuadTree {
     }
 
     pub fn update(&mut self, new_position: &Position, guid: &ObjectGuid) -> Option<Position> {
+        // Possible optimization: use self.entities_position to compare the current pos and the new
+        // one, and return Some(new_position) if they are the same spot (x/y/z)
+
         // Possible optimization: search for the value and update it in place if the new position
         // ends up in the same node as the old position
         // For now, simply delete then insert

@@ -1624,3 +1624,6 @@ impl CreatureRank {
         }
     }
 }
+
+// From DBC: "Friendly" faction template
+pub const FRIENDLY_FACTION_TEMPLATE_ID: u32 = 35;

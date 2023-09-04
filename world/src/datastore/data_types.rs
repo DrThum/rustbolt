@@ -989,6 +989,7 @@ impl DbcTypedRecord for FactionRecord {
 // https://www.azerothcore.org/wiki/factiontemplate
 #[allow(dead_code)]
 pub struct FactionTemplateRecord {
+    pub id: u32,
     faction_id: u32,
     faction_flags: u32, // TODO: BitFlags
     faction_group_mask: u32,
@@ -1043,6 +1044,7 @@ impl DbcTypedRecord for FactionTemplateRecord {
             let key = record.fields[0].as_u32;
 
             let record = FactionTemplateRecord {
+                id: record.fields[0].as_u32,
                 faction_id: record.fields[1].as_u32,
                 faction_flags: record.fields[2].as_u32,
                 faction_group_mask: record.fields[3].as_u32,

@@ -5,6 +5,7 @@ use shipyard::{Component, EntityId};
 use crate::{
     datastore::data_types::FactionTemplateRecord,
     entities::behaviors::{BehaviorNode, BehaviorTree},
+    shared::constants::FRIENDLY_FACTION_TEMPLATE_ID,
 };
 
 use super::movement::MovementKind;
@@ -38,7 +39,7 @@ impl Behavior {
         let attack = BehaviorNode::Selector(vec![attack_melee, chase_target]);
 
         let is_neutral_to_all = match faction_template {
-            Some(ft) => ft.is_neutral_to_all(),
+            Some(ft) => ft.is_neutral_to_all() || ft.id == FRIENDLY_FACTION_TEMPLATE_ID,
             None => true,
         };
         // TODO: also exclude civilians and triggers

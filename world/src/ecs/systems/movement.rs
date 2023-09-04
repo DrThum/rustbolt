@@ -212,6 +212,7 @@ pub fn update_movement(
             &v_movement,
             &v_player,
             &v_creature,
+            &v_guid,
             &mut vm_wpos,
             &mut vm_behavior,
         );

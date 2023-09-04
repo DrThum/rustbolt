@@ -182,22 +182,13 @@ impl MapManager {
         origin_guid: &ObjectGuid,
         map_key: Option<MapKey>,
         packet: &ServerMessage<OPCODE, Payload>,
-        range: Option<f32>,
         include_self: bool,
     ) {
         if let Some(current_map_key) = map_key {
             let map: Option<Arc<Map>> = self.maps.read().get(&current_map_key).cloned();
 
             if let Some(map) = map {
-                // TODO: Implement Map::broadcast_packet
-                for session in map.sessions_nearby_entity(
-                    origin_guid,
-                    range.unwrap_or(map.visibility_distance()),
-                    true,
-                    include_self,
-                ) {
-                    session.send(packet).unwrap();
-                }
+                map.broadcast_packet(origin_guid, packet, None, include_self);
             }
         }
     }

@@ -1,4 +1,4 @@
-use std::{collections::HashSet, time::Duration};
+use std::time::Duration;
 
 use shipyard::{Component, EntityId};
 
@@ -14,7 +14,7 @@ use super::movement::MovementKind;
 pub struct Behavior {
     bt: BehaviorTree<Action>,
     // Entities that moved around us within visibility distance during the last server tick
-    moving_neighbors: HashSet<EntityId>,
+    moving_neighbors: Vec<EntityId>,
 }
 
 impl Behavior {
@@ -58,7 +58,7 @@ impl Behavior {
 
         Self {
             bt,
-            moving_neighbors: HashSet::new(),
+            moving_neighbors: Vec::new(),
         }
     }
 
@@ -67,7 +67,7 @@ impl Behavior {
     }
 
     pub fn neighbor_moved(&mut self, neighbor_entity_id: EntityId) {
-        self.moving_neighbors.insert(neighbor_entity_id);
+        self.moving_neighbors.push(neighbor_entity_id);
     }
 
     pub fn neighbors(&self) -> Vec<EntityId> {

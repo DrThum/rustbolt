@@ -19,6 +19,7 @@ use shipyard::{
 };
 
 use crate::{
+    config::WorldConfig,
     datastore::WrappedDataStore,
     ecs::{
         components::{
@@ -85,6 +86,7 @@ impl Map {
         terrain: Arc<HashMap<TerrainBlockCoords, Terrain>>,
         spawns: Vec<CreatureSpawnDbRecord>,
         data_store: Arc<DataStore>,
+        config: Arc<WorldConfig>,
     ) -> Arc<Map> {
         let world = World::new();
         world.add_unique(DeltaTime::default());
@@ -146,6 +148,7 @@ impl Map {
         map.world.lock().add_unique(WrappedMap(map.clone()));
 
         let map_id = key.map_id;
+        let target_tick_time = config.world.game.target_tick_time_ms;
         thread::spawn(move || {
             let mut time = Instant::now();
             let mut update_times: VecDeque<u128> = VecDeque::with_capacity(200);
@@ -179,8 +182,9 @@ impl Map {
                     last_update_time_print = tick_start_time;
                 }
 
-                // TODO: 50 in config
-                thread::sleep(Duration::from_millis(50).saturating_sub(tick_duration));
+                thread::sleep(
+                    Duration::from_millis(target_tick_time).saturating_sub(tick_duration),
+                );
             }
         });
 

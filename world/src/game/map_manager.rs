@@ -96,6 +96,7 @@ impl MapManager {
                     map_terrains,
                     spawns,
                     data_store.clone(),
+                    config.clone(),
                 ),
             );
         }
@@ -151,6 +152,7 @@ impl MapManager {
                         map_terrain.clone(),
                         spawns,
                         self.data_store.clone(),
+                        self.config.clone(),
                     );
                     map_guard.insert(map_key, map.clone());
 

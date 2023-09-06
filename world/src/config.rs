@@ -44,6 +44,7 @@ pub struct NetworkSection {
 
 #[derive(Debug, Deserialize)]
 pub struct GameSection {
+    pub target_tick_time_ms: u64,
     pub player: PlayerSection,
 }
 

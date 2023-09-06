@@ -899,6 +899,8 @@ impl Player {
 
                 context.slot = None;
 
+                self.modify_money(quest_template.required_or_reward_money);
+
                 let xp = quest_template.experience_reward_at_level(self.level());
                 self.give_experience(xp, None);
                 return Some(xp);

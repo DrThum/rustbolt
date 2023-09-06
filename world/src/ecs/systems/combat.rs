@@ -11,7 +11,17 @@ pub fn update_combat_state(
     v_threat_list: View<ThreatList>,
     v_health: View<Health>,
 ) {
-    for (player, unit) in (&v_player, &vm_unit).iter() {
+    for (player, unit, health) in (&v_player, &vm_unit, &v_health).iter() {
+        if !health.is_alive() {
+            if unit.combat_state() {
+                unit.set_combat_state(false);
+            }
+
+            player.reset_in_combat_with();
+
+            continue;
+        }
+
         let in_combat_with = player.in_combat_with();
         // We need to update the combat state if we have opponents and are not in combat, or the
         // opposite

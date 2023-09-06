@@ -895,6 +895,10 @@ impl Player {
         self.in_combat_with.write().insert(guid);
     }
 
+    pub fn reset_in_combat_with(&self) {
+        self.in_combat_with.write().clear();
+    }
+
     pub fn unset_in_combat_with(&self, guid: ObjectGuid) {
         self.in_combat_with.write().remove(&guid);
     }

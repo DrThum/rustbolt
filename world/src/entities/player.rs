@@ -373,6 +373,8 @@ impl Player {
             PLAYER_DEFAULT_COMBAT_REACH,
         );
 
+        values.set_u32(UnitFields::PlayerFieldCoinage.into(), character.money);
+
         // Base attributes
         let base_attributes_record = world_context
             .data_store
@@ -1107,6 +1109,20 @@ impl Player {
         for quest_template in updated_quests {
             self.try_complete_quest(&quest_template);
         }
+    }
+
+    pub fn money(&self) -> u32 {
+        self.internal_values
+            .read()
+            .get_u32(UnitFields::PlayerFieldCoinage.into())
+    }
+
+    pub fn modify_money(&self, amount: i32) {
+        let current_money = self.money();
+        let new_money = current_money.saturating_add_signed(amount);
+        self.internal_values
+            .write()
+            .set_u32(UnitFields::PlayerFieldCoinage.into(), new_money);
     }
 }
 

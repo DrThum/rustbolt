@@ -223,7 +223,7 @@ impl CharacterRepository {
         guid: u64,
     ) -> Option<CharacterRecord> {
         let mut stmt = conn
-            .prepare_cached("SELECT account_id, race, class, level, gender, name, haircolor, hairstyle, face, skin, facialstyle, map_id, zone_id, position_x, position_y, position_z, orientation, current_health, experience FROM characters WHERE guid = :guid")
+            .prepare_cached("SELECT account_id, race, class, level, gender, name, haircolor, hairstyle, face, skin, facialstyle, map_id, zone_id, position_x, position_y, position_z, orientation, current_health, experience, money FROM characters WHERE guid = :guid")
             .unwrap();
         let mut rows = stmt
             .query(named_params! {
@@ -258,6 +258,7 @@ impl CharacterRepository {
                 },
                 current_health: row.get("current_health").unwrap(),
                 experience: row.get("experience").unwrap(),
+                money: row.get("money").unwrap(),
             })
         } else {
             None
@@ -453,7 +454,6 @@ impl CharacterRepository {
         result.filter_map(|res| res.ok()).collect()
     }
 
-    // TODO: Migrate save_position_to_db and save_quest_status_to_db here
     pub fn save_to_db(
         transaction: &Transaction,
         player: &Player,
@@ -465,7 +465,7 @@ impl CharacterRepository {
         // Save character data
         let mut stmt = transaction
             .prepare_cached(
-                "UPDATE characters SET level = :level, map_id = :map_id, zone_id = :zone_id, position_x = :x, position_y = :y, position_z = :z, orientation = :o, current_health = :current_health, experience = :experience WHERE guid = :guid",
+                "UPDATE characters SET level = :level, map_id = :map_id, zone_id = :zone_id, position_x = :x, position_y = :y, position_z = :z, orientation = :o, current_health = :current_health, experience = :experience, money = :money WHERE guid = :guid",
             )
             .unwrap();
 
@@ -479,6 +479,7 @@ impl CharacterRepository {
             ":o": position.o,
             ":current_health": health.current(),
             ":experience": player.experience(),
+            ":money": player.money(),
             ":guid": guid,
         })?;
 
@@ -522,6 +523,7 @@ pub struct CharacterRecord {
     pub visual_features: PlayerVisualFeatures,
     pub current_health: u32,
     pub experience: u32,
+    pub money: u32,
 }
 
 pub struct CharacterReputationDbRecord {

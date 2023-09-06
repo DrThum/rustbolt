@@ -99,7 +99,7 @@ impl Node {
     }
 }
 
-pub const QUADTREE_DEFAULT_NODE_CAPACITY: usize = 50;
+pub const QUADTREE_DEFAULT_NODE_CAPACITY: usize = 200;
 
 pub struct QuadTree {
     node_capacity: usize,

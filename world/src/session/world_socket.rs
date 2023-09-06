@@ -6,7 +6,7 @@ use tokio::{
     io::{AsyncReadExt, AsyncWriteExt, ReadHalf, WriteHalf},
     net::TcpStream,
     sync::{
-        mpsc::{error::SendError, Receiver},
+        mpsc::{error::SendError, UnboundedReceiver, UnboundedSender},
         Mutex,
     },
 };
@@ -25,7 +25,7 @@ pub struct WorldSocket {
     pub read_half: Arc<Mutex<ReadHalf<TcpStream>>>,
     pub encryption: Arc<Mutex<HeaderCrypto>>,
     pub account_id: u32,
-    socket_to_session_tx: tokio::sync::mpsc::Sender<ClientMessage>,
+    socket_to_session_tx: UnboundedSender<ClientMessage>,
 }
 
 impl WorldSocket {
@@ -34,8 +34,8 @@ impl WorldSocket {
         read_half: Arc<Mutex<ReadHalf<TcpStream>>>,
         encryption: Arc<Mutex<HeaderCrypto>>,
         account_id: u32,
-        mut rx: Receiver<(ServerMessageHeader, Vec<u8>)>,
-        socket_to_session_tx: tokio::sync::mpsc::Sender<ClientMessage>,
+        mut rx: UnboundedReceiver<(ServerMessageHeader, Vec<u8>)>,
+        socket_to_session_tx: UnboundedSender<ClientMessage>,
     ) -> WorldSocket {
         let encryption_clone = encryption.clone();
         tokio::spawn(async move {
@@ -74,11 +74,11 @@ impl WorldSocket {
         }
     }
 
-    pub async fn queue_client_message(
+    pub fn queue_client_message(
         &self,
         client_message: ClientMessage,
     ) -> Result<(), SendError<ClientMessage>> {
-        self.socket_to_session_tx.send(client_message).await
+        self.socket_to_session_tx.send(client_message)
     }
 
     pub async fn read_packet(&self) -> Result<ClientMessage, WorldSocketError> {

@@ -14,7 +14,7 @@ use log::trace;
 use tokio::{
     net::TcpStream,
     sync::{
-        mpsc::{self, error::SendError, Sender},
+        mpsc::{self, error::SendError, UnboundedSender},
         Mutex,
     },
     task::JoinHandle,
@@ -52,7 +52,7 @@ pub enum WorldSessionState {
 
 pub struct WorldSession {
     socket: WorldSocket,
-    session_to_socket_tx: Sender<(ServerMessageHeader, Vec<u8>)>,
+    session_to_socket_tx: UnboundedSender<(ServerMessageHeader, Vec<u8>)>,
     pub account_id: u32,
     pub state: RwLock<WorldSessionState>,
     current_map: RwLock<Option<Arc<Map>>>,
@@ -78,9 +78,10 @@ impl WorldSession {
         let encryption = Arc::new(Mutex::new(encryption));
 
         let (session_to_socket_tx, session_to_socket_rx) =
-            mpsc::channel::<(ServerMessageHeader, Vec<u8>)>(1500);
+            mpsc::unbounded_channel::<(ServerMessageHeader, Vec<u8>)>();
 
-        let (socket_to_session_tx, mut socket_to_session_rx) = mpsc::channel::<ClientMessage>(1500);
+        let (socket_to_session_tx, mut socket_to_session_rx) =
+            mpsc::unbounded_channel::<ClientMessage>();
 
         let socket = WorldSocket::new(
             write_half,
@@ -242,7 +243,7 @@ impl WorldSession {
 
             (header, payload)
         };
-        futures::executor::block_on(async move { tx.send(channel_payload).await })
+        tx.send(channel_payload)
     }
 
     pub fn send_movement(
@@ -252,26 +253,24 @@ impl WorldSession {
         movement_info: &MovementInfo,
     ) -> Result<(), SendError<(ServerMessageHeader, Vec<u8>)>> {
         let tx = self.session_to_socket_tx.clone();
-        futures::executor::block_on(async move {
-            let mut writer = Cursor::new(Vec::new());
-            writer.write_le(&origin_guid.as_packed()).unwrap();
-            writer.write_le(movement_info).unwrap();
-            let payload = writer.get_ref().clone();
+        let mut writer = Cursor::new(Vec::new());
+        writer.write_le(&origin_guid.as_packed()).unwrap();
+        writer.write_le(movement_info).unwrap();
+        let payload = writer.get_ref().clone();
 
-            let header = ServerMessageHeader {
-                size: payload.len() as u16 + 2, // + 2 for the opcode size
-                opcode: opcode as u16,
-            };
+        let header = ServerMessageHeader {
+            size: payload.len() as u16 + 2, // + 2 for the opcode size
+            opcode: opcode as u16,
+        };
 
-            tx.send((header, payload)).await
-        })
+        tx.send((header, payload))
     }
 
     pub async fn process_incoming_packet(
         session: Arc<WorldSession>,
     ) -> Result<(), WorldSocketError> {
         let client_message = session.socket.read_packet().await?;
-        if let Err(e) = session.socket.queue_client_message(client_message).await {
+        if let Err(e) = session.socket.queue_client_message(client_message) {
             return Err(e.into());
         }
 

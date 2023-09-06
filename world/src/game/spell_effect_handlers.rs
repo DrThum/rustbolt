@@ -41,12 +41,13 @@ impl SpellEffectHandler {
                 let damage = spell_record.calc_simple_value(effect_index);
                 let target_health = &mut vm_health[spell.target()];
                 target_health.apply_damage(damage as u32);
+                // TODO: Log damage somehow
 
                 if target_health.is_alive() {
                     if let Ok(mut threat_list) = (&mut vm_threat_list).get(spell.target()) {
                         threat_list.modify_threat(spell.caster(), damage as f32);
                     }
-                } else if let Ok(player) = (&mut vm_player).get(spell.caster()) {
+                } else if let Ok(mut player) = (&mut vm_player).get(spell.caster()) {
                     let target_guid = v_guid[spell.target()].0;
                     if let Ok(creature) = v_creature.get(spell.target()) {
                         let xp_gain = Experience::xp_gain_against(
@@ -56,6 +57,7 @@ impl SpellEffectHandler {
                             world_context.data_store.clone(),
                         );
                         player.give_experience(xp_gain, Some(target_guid));
+                        player.notify_killed_creature(creature.guid(), creature.template.entry);
                     }
                     player.unset_in_combat_with(target_guid);
                 }

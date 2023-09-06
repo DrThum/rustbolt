@@ -346,3 +346,13 @@ pub struct QuestCompleteRewardItem {
     pub id: u32,
     pub count: u32,
 }
+
+#[binwrite]
+#[server_opcode]
+pub struct SmsgQuestUpdateAddKill {
+    pub quest_id: u32,
+    pub entity_id: u32,
+    pub new_count: u32,
+    pub required_count: u32,
+    pub guid: u64,
+}

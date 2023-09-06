@@ -1070,6 +1070,7 @@ impl DbcTypedRecord for FactionTemplateRecord {
 }
 
 #[allow(dead_code)]
+#[derive(Clone)]
 pub struct QuestTemplate {
     pub entry: u32,
     pub method: u32, // 0, 1 or 2 - not used server-side
@@ -1206,6 +1207,16 @@ impl QuestTemplate {
             id if id >= 0 => None,
             id => Some(-id as u32),
         }
+    }
+
+    pub fn creature_requirements(&self, creature_id: u32) -> Option<(usize, u32)> {
+        for (index, req_ent_id) in self.required_entity_ids.iter().enumerate() {
+            if *req_ent_id as u32 == creature_id {
+                return Some((index, self.required_entity_counts[index]));
+            }
+        }
+
+        return None;
     }
 }
 

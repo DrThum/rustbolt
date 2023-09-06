@@ -282,6 +282,10 @@ impl Melee {
                                     data_store.clone(),
                                 );
                                 player.give_experience(xp_gain, Some(target_guid));
+                                player.notify_killed_creature(
+                                    creature.guid(),
+                                    creature.template.entry,
+                                );
                             }
                             player.unset_in_combat_with(target_guid);
                         } else if let Ok(mut threat_list) = vm_threat_list.get(attacker_id) {

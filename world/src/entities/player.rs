@@ -21,7 +21,10 @@ use crate::{
     entities::player::player_data::FactionStanding,
     game::{value_range::ValueRange, world_context::WorldContext},
     protocol::{
-        packets::{CmsgCharCreate, SmsgCreateObject, SmsgLevelUpInfo, SmsgLogXpGain},
+        packets::{
+            CmsgCharCreate, SmsgCreateObject, SmsgLevelUpInfo, SmsgLogXpGain,
+            SmsgQuestUpdateAddKill,
+        },
         server::ServerMessage,
     },
     repositories::{character::CharacterRepository, item::ItemRepository},
@@ -1051,6 +1054,59 @@ impl Player {
 
         let packet = ServerMessage::new(SmsgLevelUpInfo::build(next_level));
         self.session.send(&packet).unwrap();
+    }
+
+    pub fn notify_killed_creature(&mut self, creature_guid: &ObjectGuid, creature_entry: u32) {
+        // Update quest kills counters
+        let mut updated_quests: Vec<QuestTemplate> = Vec::new();
+        self.quest_statuses.iter_mut().for_each(|(quest_id, ctx)| {
+            let quest_template = self
+                .world_context
+                .data_store
+                .get_quest_template(*quest_id)
+                .expect("player has non-existing quest in log");
+
+            if let Some((objective_index, required_count)) =
+                quest_template.creature_requirements(creature_entry)
+            {
+                match (ctx.status, ctx.slot) {
+                    (PlayerQuestStatus::InProgress, Some(slot)) => {
+                        let current_count = ctx.entity_counts[objective_index];
+                        if current_count < required_count {
+                            let new_count = (current_count + 1).min(required_count);
+                            ctx.entity_counts[objective_index] = new_count;
+
+                            {
+                                let mut values_guard = self.internal_values.write();
+                                let index = UnitFields::PlayerQuestLog1_1 as usize
+                                    + (slot * QUEST_SLOT_OFFSETS_COUNT
+                                        + QuestSlotOffset::Counters as usize);
+
+                                values_guard.set_u8(index, objective_index, new_count as u8);
+                            }
+
+                            let packet = ServerMessage::new(SmsgQuestUpdateAddKill {
+                                quest_id: quest_template.entry,
+                                entity_id: creature_entry,
+                                new_count,
+                                required_count,
+                                guid: creature_guid.raw(),
+                            });
+
+                            self.session.send(&packet).unwrap();
+
+                            updated_quests.push(quest_template.clone());
+                        }
+                    }
+                    _ => (),
+                }
+            }
+        });
+
+        // Try to complete the affected quests
+        for quest_template in updated_quests {
+            self.try_complete_quest(&quest_template);
+        }
     }
 }
 

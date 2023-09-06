@@ -27,6 +27,28 @@ impl Position {
             z: self.z,
         }
     }
+
+    pub fn distance_to(&self, other: &Position, is_3d: bool) -> f32 {
+        let dist_x = self.x - other.x;
+        let dist_y = self.y - other.y;
+
+        if is_3d {
+            let dist_z = self.z - other.z;
+
+            (dist_x * dist_x + dist_y * dist_y + dist_z * dist_z).sqrt()
+        } else {
+            (dist_x * dist_x + dist_y * dist_y).sqrt()
+        }
+    }
+
+    pub fn center_between(&self, other: &Position) -> Position {
+        Position {
+            x: (self.x + other.x) / 2.,
+            y: (self.y + other.y) / 2.,
+            z: (self.z + other.z) / 2.,
+            o: 0.,
+        }
+    }
 }
 
 #[derive(Copy, Clone, Component, Debug, PartialEq)]

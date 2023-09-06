@@ -216,14 +216,14 @@ impl QuadTree {
         radius: f32,
         search_in_3d: bool,
         exclude_id: Option<&EntityId>,
-    ) -> Vec<EntityId> {
+    ) -> Vec<Value> {
         fn search_rec(
             node: &Box<Node>,
             bounds: Bounds,
             center: &Vector3,
             radius_square: f32,
             search_in_3d: bool,
-            acc: &mut Vec<EntityId>,
+            acc: &mut Vec<Value>,
         ) {
             match &node.content {
                 NodeContent::Empty => (),
@@ -236,7 +236,7 @@ impl QuadTree {
                         };
 
                         if dist_square <= radius_square {
-                            acc.push(value.0.clone());
+                            acc.push(value.clone());
                         }
                     }
                 }
@@ -265,7 +265,7 @@ impl QuadTree {
             }
         }
 
-        let mut entities: Vec<EntityId> = Vec::new();
+        let mut entities: Vec<Value> = Vec::new();
         search_rec(
             &self.root,
             Bounds::root_bounds(),
@@ -276,7 +276,7 @@ impl QuadTree {
         );
 
         if let Some(id) = exclude_id {
-            entities.retain(|&res| res != *id);
+            entities.retain(|&res| res.0 != *id);
         }
 
         entities
@@ -288,7 +288,7 @@ impl QuadTree {
         radius: f32,
         search_in_3d: bool,
         exclude_id: Option<&EntityId>,
-    ) -> Vec<EntityId> {
+    ) -> Vec<Value> {
         if let Some(position) = self.entities_positions.get(&entity_id) {
             return self.search_around_position(position, radius, search_in_3d, exclude_id);
         }

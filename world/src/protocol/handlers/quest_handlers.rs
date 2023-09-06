@@ -191,6 +191,37 @@ impl OpcodeHandler {
         }
     }
 
+    pub(crate) fn handle_cmsg_quest_giver_request_reward(
+        session: Arc<WorldSession>,
+        world_context: Arc<WorldContext>,
+        data: Vec<u8>,
+    ) {
+        let cmsg: CmsgQuestGiverRequestReward = ClientMessage::read_as(data).unwrap();
+
+        if let Some(map) = session.current_map() {
+            map.world().run(|mut vm_player: ViewMut<Player>| {
+                if let Ok(mut player) = (&mut vm_player).get(session.player_entity_id().unwrap()) {
+                    if let Some(quest_template) =
+                        world_context.data_store.get_quest_template(cmsg.quest_id)
+                    {
+                        player.try_complete_quest(quest_template);
+
+                        if player.can_turn_in_quest(&cmsg.quest_id) {
+                            let packet =
+                                ServerMessage::new(SmsgQuestGiverOfferReward::from_template(
+                                    cmsg.entity_guid,
+                                    true,
+                                    quest_template,
+                                    world_context.data_store.clone(),
+                                ));
+                            session.send(&packet).unwrap();
+                        }
+                    }
+                }
+            });
+        }
+    }
+
     pub(crate) fn handle_cmsg_quest_giver_choose_reward(
         session: Arc<WorldSession>,
         world_context: Arc<WorldContext>,
@@ -229,20 +260,22 @@ impl OpcodeHandler {
                             )
                             .unwrap();
                         let next_quest_id = quest_template.next_quest_in_chain;
-                        let next_quest = world_context
-                            .data_store
-                            .get_quest_template(next_quest_id)
-                            .unwrap();
 
                         if next_quest_id != 0
                             && v_quest_actor[quest_giver_entity_id].starts_quest(next_quest_id)
-                            && player.can_start_quest(&next_quest)
                         {
-                            Self::send_quest_details(
-                                cmsg.quest_giver_guid,
-                                next_quest,
-                                session.clone(),
-                            );
+                            let next_quest = world_context
+                                .data_store
+                                .get_quest_template(next_quest_id)
+                                .unwrap();
+
+                            if player.can_start_quest(&next_quest) {
+                                Self::send_quest_details(
+                                    cmsg.quest_giver_guid,
+                                    next_quest,
+                                    session.clone(),
+                                );
+                            }
                         }
                     }
                 } else {

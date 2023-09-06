@@ -177,7 +177,7 @@ impl SmsgQuestGiverRequestItems {
             emote_id,
             auto_finish: if auto_finish { 1 } else { 0 },
             suggested_players: template.suggested_players,
-            required_money: template.required_or_reward_money.max(0).unsigned_abs(),
+            required_money: template.required_or_reward_money.min(0).unsigned_abs(),
             required_items_count: required_items.len() as u32,
             required_items,
             flags1: if completable { 3 } else { 0 },
@@ -193,6 +193,12 @@ pub struct QuestGiverRequiredItem {
     pub id: u32,
     pub count: u32,
     pub display_id: u32,
+}
+
+#[binread]
+pub struct CmsgQuestGiverRequestReward {
+    pub entity_guid: u64,
+    pub quest_id: u32,
 }
 
 #[binwrite]

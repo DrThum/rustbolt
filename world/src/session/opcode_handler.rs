@@ -186,6 +186,10 @@ impl OpcodeHandler {
                     Opcode::CmsgQuestGiverChooseReward,
                     OpcodeHandler::handle_cmsg_quest_giver_choose_reward
                 ),
+                define_handler!(
+                    Opcode::CmsgQuestGiverRequestReward,
+                    OpcodeHandler::handle_cmsg_quest_giver_request_reward
+                ),
             ]),
         }
     }

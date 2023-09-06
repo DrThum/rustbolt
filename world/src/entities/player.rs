@@ -682,21 +682,23 @@ impl Player {
     /**
      * Checks to perform:
      *
-     * - player does not have the quest (OK)
-     * - satisfy exclusive_group requirements (TODO)
-     * - player class is in required_classes mask (OK)
-     * - player race is in required_races mask (OK)
-     * - player level >= quest_template.min_level (OK)
-     * - player skill level >= quest_template required skill (TODO)
-     * - player reputation >= quest_template required reputation (TODO)
-     * - player has done the previous quests (see qInfo.prevQuests in MaNGOS) (TODO)
-     * - player can only have one timed quest at the same time (TODO)
-     * - player is not doing/has not done the next quest in chain (TODO)
-     * - player has done the previous quest in chain (see qInfo.prevChainQuests in MaNGOS) (TODO)
-     * - player still has daily quests allowance if quest is daily (TODO)
-     * - game event must be active if quest is related to one (TODO)
+     * - (1) player does not have the quest (OK)
+     * - (2) satisfy exclusive_group requirements (TODO)
+     * - (3) player class is in required_classes mask (OK)
+     * - (4) player race is in required_races mask (OK)
+     * - (5) player level >= quest_template.min_level (OK)
+     * - (6) player skill level >= quest_template required skill (TODO)
+     * - (7) player reputation >= quest_template required reputation (TODO)
+     * - (8) player has done the previous quest (previous_quest_id > 0) (OK)
+     * - (9) player is actively doing the parent quest (previous_quest_id < 0) (TODO)
+     * - (10) player can only have one timed quest at the same time (TODO)
+     * - (11) player is not doing/has not done the next quest in chain (TODO)
+     * - (12) player has done the previous quest in chain (see qInfo.prevChainQuests in MaNGOS) (TODO)
+     * - (13) player still has daily quests allowance if quest is daily (TODO)
+     * - (14) game event must be active if quest is related to one (TODO)
      */
     fn check_quest_requirements(&self, quest_template: &QuestTemplate) -> Option<QuestStartError> {
+        // (1)
         if self.quest_statuses.contains_key(&quest_template.entry) {
             return Some(QuestStartError::AlreadyOn);
         }
@@ -704,10 +706,17 @@ impl Player {
         {
             let values = self.internal_values.read();
 
-            if values.get_u32(UnitFields::UnitFieldLevel.into()) < quest_template.min_level {
-                return Some(QuestStartError::TooLowLevel);
+            // (3)
+            let class_id = values.get_u8(UnitFields::UnitFieldBytes0.into(), 1);
+            if !quest_template.required_classes.is_empty()
+                && !quest_template
+                    .required_classes
+                    .contains(CharacterClassBit::from(class_id))
+            {
+                return Some(QuestStartError::FailedRequirement);
             }
 
+            // (4)
             let race_id = values.get_u8(UnitFields::UnitFieldBytes0.into(), 0);
             if !quest_template.required_races.is_empty()
                 && !quest_template
@@ -717,13 +726,17 @@ impl Player {
                 return Some(QuestStartError::WrongRace);
             }
 
-            let class_id = values.get_u8(UnitFields::UnitFieldBytes0.into(), 1);
-            if !quest_template.required_classes.is_empty()
-                && !quest_template
-                    .required_classes
-                    .contains(CharacterClassBit::from(class_id))
-            {
-                return Some(QuestStartError::FailedRequirement);
+            // (5)
+            if values.get_u32(UnitFields::UnitFieldLevel.into()) < quest_template.min_level {
+                return Some(QuestStartError::TooLowLevel);
+            }
+        }
+
+        // (8)
+        if let Some(previous_quest) = quest_template.previous_quest_id() {
+            match self.quest_statuses.get(&previous_quest) {
+                Some(context) if context.status == PlayerQuestStatus::TurnedIn => return None,
+                _ => return Some(QuestStartError::FailedRequirement),
             }
         }
 

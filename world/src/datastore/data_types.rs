@@ -1189,6 +1189,24 @@ impl QuestTemplate {
             0
         }
     }
+
+    // Previous quest id if previous_quest_id > 0
+    // Player must have completed the previous quest before accepting this one
+    pub fn previous_quest_id(&self) -> Option<u32> {
+        match self.previous_quest_id {
+            id if id <= 0 => None,
+            id => Some(id as u32),
+        }
+    }
+
+    // Parent quest id if previous_quest_id < 0
+    // Player must have the parent quest active to accept this one
+    pub fn parent_quest_id(&self) -> Option<u32> {
+        match self.previous_quest_id {
+            id if id >= 0 => None,
+            id => Some(-id as u32),
+        }
+    }
 }
 
 #[allow(dead_code)]

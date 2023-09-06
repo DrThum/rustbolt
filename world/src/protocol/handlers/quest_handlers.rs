@@ -25,23 +25,26 @@ impl OpcodeHandler {
 
         if let Some(guid) = ObjectGuid::from_raw(cmsg.guid) {
             let map = session.current_map().unwrap();
-            map.world()
-                .run(|v_player: View<Player>, v_quest_actor: View<QuestActor>| {
-                    let guid_entity_id = map.lookup_entity_ecs(&guid).unwrap();
-                    if let Ok(quest_actor) = v_quest_actor.get(guid_entity_id) {
-                        let status = quest_actor.quest_status_for_player(
-                            v_player.get(session.player_entity_id().unwrap()).unwrap(),
-                            world_context.clone(),
-                        );
+            let maybe_status =
+                map.world()
+                    .run(|v_player: View<Player>, v_quest_actor: View<QuestActor>| {
+                        let guid_entity_id = map.lookup_entity_ecs(&guid).unwrap();
+                        v_quest_actor.get(guid_entity_id).ok().map(|quest_actor| {
+                            quest_actor.quest_status_for_player(
+                                v_player.get(session.player_entity_id().unwrap()).unwrap(),
+                                world_context.clone(),
+                            )
+                        })
+                    });
 
-                        let packet = ServerMessage::new(SmsgQuestGiverStatus {
-                            guid: cmsg.guid,
-                            status,
-                        });
-
-                        session.send(&packet).unwrap();
-                    }
+            maybe_status.map(|status| {
+                let packet = ServerMessage::new(SmsgQuestGiverStatus {
+                    guid: cmsg.guid,
+                    status,
                 });
+
+                session.send(&packet).unwrap();
+            });
         }
     }
 

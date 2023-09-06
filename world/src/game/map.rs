@@ -149,44 +149,48 @@ impl Map {
 
         let map_id = key.map_id;
         let target_tick_time = config.world.game.target_tick_time_ms;
-        thread::spawn(move || {
-            let mut time = Instant::now();
-            let mut update_times: VecDeque<u128> = VecDeque::with_capacity(200);
-            let mut last_update_time_print = Instant::now();
+        thread::Builder::new()
+            .name(format!("Map {map_id}"))
+            .spawn(move || {
+                let mut time = Instant::now();
+                let mut update_times: VecDeque<u128> = VecDeque::with_capacity(200);
+                let mut last_update_time_print = Instant::now();
 
-            loop {
-                let tick_start_time = Instant::now();
-                let elapsed_since_last_tick = tick_start_time.duration_since(time);
-                time = tick_start_time;
+                loop {
+                    let tick_start_time = Instant::now();
+                    let elapsed_since_last_tick = tick_start_time.duration_since(time);
+                    time = tick_start_time;
 
-                {
-                    let world_guard = world.lock();
-                    world_guard.run(|mut dt: UniqueViewMut<DeltaTime>| {
-                        *dt = DeltaTime(elapsed_since_last_tick);
-                    });
-                    world_guard.run_workload(workload).unwrap();
+                    {
+                        let world_guard = world.lock();
+                        world_guard.run(|mut dt: UniqueViewMut<DeltaTime>| {
+                            *dt = DeltaTime(elapsed_since_last_tick);
+                        });
+                        world_guard.run_workload(workload).unwrap();
+                    }
+
+                    let tick_duration = Instant::now().duration_since(tick_start_time);
+                    if update_times.len() == 200 {
+                        update_times.pop_front();
+                    }
+
+                    update_times.push_back(tick_duration.as_millis());
+
+                    if tick_start_time.duration_since(last_update_time_print)
+                        > Duration::from_secs(10)
+                    {
+                        let mean_tick_time =
+                            update_times.iter().sum::<u128>() / update_times.len() as u128;
+                        info!("Mean tick time on map {}: {mean_tick_time}", map_id);
+                        last_update_time_print = tick_start_time;
+                    }
+
+                    thread::sleep(
+                        Duration::from_millis(target_tick_time).saturating_sub(tick_duration),
+                    );
                 }
-
-                let tick_duration = Instant::now().duration_since(tick_start_time);
-                if update_times.len() == 200 {
-                    update_times.pop_front();
-                }
-
-                update_times.push_back(tick_duration.as_millis());
-
-                if tick_start_time.duration_since(last_update_time_print) > Duration::from_secs(10)
-                {
-                    let mean_tick_time =
-                        update_times.iter().sum::<u128>() / update_times.len() as u128;
-                    info!("Mean tick time on map {}: {mean_tick_time}", map_id);
-                    last_update_time_print = tick_start_time;
-                }
-
-                thread::sleep(
-                    Duration::from_millis(target_tick_time).saturating_sub(tick_duration),
-                );
-            }
-        });
+            })
+            .unwrap();
 
         map
     }

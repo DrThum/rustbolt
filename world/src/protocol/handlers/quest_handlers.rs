@@ -14,6 +14,7 @@ use crate::protocol::server::ServerMessage;
 use crate::session::opcode_handler::OpcodeHandler;
 use crate::session::world_session::WorldSession;
 use crate::shared::constants::PlayerQuestStatus;
+use crate::DataStore;
 
 impl OpcodeHandler {
     pub(crate) fn handle_cmsg_quest_giver_status_query(
@@ -66,7 +67,12 @@ impl OpcodeHandler {
         let cmsg: CmsgQuestGiverQueryQuest = ClientMessage::read_as(data).unwrap();
 
         if let Some(quest_template) = world_context.data_store.get_quest_template(cmsg.quest_id) {
-            Self::send_quest_details(cmsg.guid, quest_template, session.clone());
+            Self::send_quest_details(
+                cmsg.guid,
+                quest_template,
+                session.clone(),
+                world_context.data_store.clone(),
+            );
         } else {
             error!(
                 "received CMSG_QUESTGIVER_QUERY_QUEST for unknown quest {}",
@@ -274,6 +280,7 @@ impl OpcodeHandler {
                                     cmsg.quest_giver_guid,
                                     next_quest,
                                     session.clone(),
+                                    world_context.data_store.clone(),
                                 );
                             }
                         }
@@ -289,11 +296,11 @@ impl OpcodeHandler {
         quest_giver_guid: u64,
         quest_template: &QuestTemplate,
         session: Arc<WorldSession>,
+        data_store: Arc<DataStore>,
     ) {
         let reward_choice_items = quest_template.reward_choice_items();
         let reward_items = quest_template.reward_items();
 
-        // TODO: Refactor this and the other place it is used
         let packet = ServerMessage::new(SmsgQuestGiverQuestDetails {
             guid: quest_giver_guid, // TODO: Validate this
             quest_id: quest_template.entry,
@@ -321,10 +328,13 @@ impl OpcodeHandler {
             reward_choice_items: reward_choice_items
                 .iter()
                 .map(|(id, count)| {
+                    let item_display_id = data_store
+                        .get_item_template(*id)
+                        .map_or(0, |it| it.display_id);
                     QuestDetailsItemRewards {
                         item_id: *id,
                         item_count: *count,
-                        item_display_id: 0, // TODO: actual display id
+                        item_display_id,
                     }
                 })
                 .collect(),
@@ -332,10 +342,13 @@ impl OpcodeHandler {
             reward_items: reward_items
                 .iter()
                 .map(|(id, count)| {
+                    let item_display_id = data_store
+                        .get_item_template(*id)
+                        .map_or(0, |it| it.display_id);
                     QuestDetailsItemRewards {
                         item_id: *id,
                         item_count: *count,
-                        item_display_id: 0, // TODO: actual display id
+                        item_display_id,
                     }
                 })
                 .collect(),

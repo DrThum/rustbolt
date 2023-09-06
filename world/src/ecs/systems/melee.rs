@@ -1,4 +1,4 @@
-use shipyard::{Get, IntoIter, IntoWithId, UniqueView, View, ViewMut};
+use shipyard::{IntoIter, IntoWithId, UniqueView, View, ViewMut};
 
 use crate::{
     ecs::components::{
@@ -22,34 +22,23 @@ pub fn attempt_melee_attack(
     v_spell: View<SpellCast>,
     v_creature: View<Creature>,
 ) {
-    for (my_id, (_, mut attacker, _)) in (&v_guid, &mut vm_unit, &v_wpos).iter().with_id() {
-        if vm_player.get(my_id).is_err() {
-            continue;
-        }
-
-        if let Some(target_id) = attacker.target() {
-            if let Ok(target_guid) = v_guid.get(target_id).map(|g| g.0) {
-                match Melee::execute_attack(
-                    my_id,
-                    target_id,
-                    target_guid,
-                    map.0.clone(),
-                    world_context.0.data_store.clone(),
-                    &v_guid,
-                    &v_wpos,
-                    &v_spell,
-                    &v_creature,
-                    &mut vm_health,
-                    &mut vm_melee,
-                    &mut vm_threat_list,
-                    &mut vm_player,
-                ) {
-                    Ok(_) => (),
-                    Err(_) => continue,
-                }
-            } else {
-                attacker.set_target(None, 0);
-            }
+    for (my_id, mut player) in (&mut vm_player).iter().with_id() {
+        match Melee::execute_attack(
+            my_id,
+            map.0.clone(),
+            world_context.0.data_store.clone(),
+            &v_guid,
+            &v_wpos,
+            &v_spell,
+            &v_creature,
+            &mut vm_unit,
+            &mut vm_health,
+            &mut vm_melee,
+            &mut vm_threat_list,
+            Some(&mut player),
+        ) {
+            Ok(_) => (),
+            Err(_) => continue,
         }
     }
 }

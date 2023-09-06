@@ -9,8 +9,8 @@ use shipyard::{Component, EntityId, Get, View, ViewMut};
 
 use crate::{
     entities::{
-        creature::Creature, internal_values::InternalValues, object_guid::ObjectGuid,
-        player::Player, position::WorldPosition, update_fields::UnitFields,
+        creature::Creature, internal_values::InternalValues, player::Player,
+        position::WorldPosition, update_fields::UnitFields,
     },
     game::{experience::Experience, map::Map, value_range::ValueRange},
     protocol::{
@@ -25,7 +25,9 @@ use crate::{
     DataStore,
 };
 
-use super::{guid::Guid, health::Health, spell_cast::SpellCast, threat_list::ThreatList};
+use super::{
+    guid::Guid, health::Health, spell_cast::SpellCast, threat_list::ThreatList, unit::Unit,
+};
 
 #[derive(Component)]
 pub struct Melee {
@@ -167,114 +169,133 @@ impl Melee {
 
     pub fn execute_attack(
         attacker_id: EntityId,
-        target_id: EntityId,
-        target_guid: ObjectGuid,
         map: Arc<Map>,
         data_store: Arc<DataStore>,
         v_guid: &View<Guid>,
         v_wpos: &View<WorldPosition>,
         v_spell: &View<SpellCast>,
         v_creature: &View<Creature>,
+        vm_unit: &mut ViewMut<Unit>,
         vm_health: &mut ViewMut<Health>,
         vm_melee: &mut ViewMut<Melee>,
         vm_threat_list: &mut ViewMut<ThreatList>,
-        vm_player: &mut ViewMut<Player>,
+        player_attacker: Option<&mut Player>,
     ) -> Result<(), ()> {
-        let guid = v_guid[attacker_id].0;
-        let my_position = v_wpos[attacker_id];
+        let attacker = &mut vm_unit[attacker_id];
 
-        let mut target_health = vm_health
-            .get(target_id)
-            .expect("target has no Health component");
-        let target_position = v_wpos
-            .get(target_id)
-            .expect("target has no WorldPosition component");
-        let target_melee_reach = {
-            vm_melee
-                .get(target_id)
-                .expect("target has no Melee component")
-                .melee_reach()
-        };
+        if let Some(target_id) = attacker.target() {
+            if let Ok(target_guid) = v_guid.get(target_id).map(|g| g.0) {
+                let guid = v_guid[attacker_id].0;
+                let my_position = v_wpos[attacker_id];
 
-        let melee = &mut vm_melee.get(attacker_id).unwrap();
-        let my_spell_cast = v_spell.get(attacker_id);
+                let mut target_health = vm_health
+                    .get(target_id)
+                    .expect("target has no Health component");
+                let target_position = v_wpos
+                    .get(target_id)
+                    .expect("target has no WorldPosition component");
+                let target_melee_reach = {
+                    vm_melee
+                        .get(target_id)
+                        .expect("target has no Melee component")
+                        .melee_reach()
+                };
 
-        if !melee.is_attacking || my_spell_cast.is_ok_and(|sp| sp.current_ranged().is_some()) {
-            return Err(());
-        }
+                let melee = &mut vm_melee.get(attacker_id).unwrap();
+                let my_spell_cast = v_spell.get(attacker_id);
 
-        if !target_health.is_alive() {
-            let packet = {
-                ServerMessage::new(SmsgAttackStop {
-                    attacker_guid: guid.as_packed(),
-                    enemy_guid: target_guid.as_packed(),
-                    unk: 0,
-                })
-            };
-
-            map.broadcast_packet(&guid, &packet, None, true);
-
-            melee.is_attacking = false;
-
-            return Err(());
-        }
-
-        if !melee.can_reach_target_in_melee(&my_position, target_position, target_melee_reach) {
-            let my_session = map.get_session(&guid);
-            melee.set_error(MeleeAttackError::NotInRange, my_session);
-
-            melee.ensure_attack_time(WeaponAttackType::MainHand, Duration::from_millis(100));
-            melee.ensure_attack_time(WeaponAttackType::OffHand, Duration::from_millis(100));
-            return Err(());
-        }
-
-        if melee.is_attack_ready(WeaponAttackType::MainHand) {
-            let damage = melee.calc_damage();
-            target_health.apply_damage(damage as u32);
-
-            let packet = ServerMessage::new(SmsgAttackerStateUpdate {
-                hit_info: 2, // TODO enum HitInfo
-                attacker_guid: guid.as_packed(),
-                target_guid: target_guid.as_packed(),
-                actual_damage: damage as u32,
-                sub_damage_count: 1,
-                sub_damage_school_mask: 1, // Physical
-                sub_damage: 1.0,
-                sub_damage_rounded: damage as u32,
-                sub_damage_absorb: 0,
-                sub_damage_resist: 0,
-                target_state: 1, // TODO: Enum VictimState
-                unk1: 0,
-                spell_id: 0,
-                damage_blocked_amount: 0,
-            });
-
-            map.broadcast_packet(&guid, &packet, None, true);
-
-            melee.reset_attack_type(WeaponAttackType::MainHand);
-            melee.ensure_attack_time(WeaponAttackType::OffHand, ATTACK_DISPLAY_DELAY);
-            melee.set_error(MeleeAttackError::None, None);
-
-            if target_health.is_alive() {
-                if let Ok(mut tl) = vm_threat_list.get(target_id) {
-                    tl.modify_threat(attacker_id, damage as f32);
+                if !melee.is_attacking
+                    || my_spell_cast.is_ok_and(|sp| sp.current_ranged().is_some())
+                {
+                    return Err(());
                 }
-            } else if let Ok(player) = vm_player.get(attacker_id) {
-                if let Ok(creature) = v_creature.get(target_id) {
-                    let xp_gain = Experience::xp_gain_against(
-                        &player,
-                        creature,
-                        map.id(),
-                        data_store.clone(),
-                    );
-                    player.give_experience(xp_gain, Some(target_guid));
+
+                if !target_health.is_alive() {
+                    let packet = {
+                        ServerMessage::new(SmsgAttackStop {
+                            attacker_guid: guid.as_packed(),
+                            enemy_guid: target_guid.as_packed(),
+                            unk: 0,
+                        })
+                    };
+
+                    map.broadcast_packet(&guid, &packet, None, true);
+
+                    melee.is_attacking = false;
+                    attacker.set_target(None, 0);
+
+                    return Err(());
                 }
-                player.unset_in_combat_with(target_guid);
+
+                if !melee.can_reach_target_in_melee(
+                    &my_position,
+                    target_position,
+                    target_melee_reach,
+                ) {
+                    let my_session = map.get_session(&guid);
+                    melee.set_error(MeleeAttackError::NotInRange, my_session);
+
+                    melee
+                        .ensure_attack_time(WeaponAttackType::MainHand, Duration::from_millis(100));
+                    melee.ensure_attack_time(WeaponAttackType::OffHand, Duration::from_millis(100));
+                    return Err(());
+                }
+
+                if melee.is_attack_ready(WeaponAttackType::MainHand) {
+                    let damage = melee.calc_damage();
+                    target_health.apply_damage(damage as u32);
+
+                    let packet = ServerMessage::new(SmsgAttackerStateUpdate {
+                        hit_info: 2, // TODO enum HitInfo
+                        attacker_guid: guid.as_packed(),
+                        target_guid: target_guid.as_packed(),
+                        actual_damage: damage as u32,
+                        sub_damage_count: 1,
+                        sub_damage_school_mask: 1, // Physical
+                        sub_damage: 1.0,
+                        sub_damage_rounded: damage as u32,
+                        sub_damage_absorb: 0,
+                        sub_damage_resist: 0,
+                        target_state: 1, // TODO: Enum VictimState
+                        unk1: 0,
+                        spell_id: 0,
+                        damage_blocked_amount: 0,
+                    });
+
+                    map.broadcast_packet(&guid, &packet, None, true);
+
+                    melee.reset_attack_type(WeaponAttackType::MainHand);
+                    melee.ensure_attack_time(WeaponAttackType::OffHand, ATTACK_DISPLAY_DELAY);
+                    melee.set_error(MeleeAttackError::None, None);
+
+                    if target_health.is_alive() {
+                        if let Ok(mut tl) = vm_threat_list.get(target_id) {
+                            tl.modify_threat(attacker_id, damage as f32);
+                        }
+                    } else {
+                        if let Some(player) = player_attacker {
+                            if let Ok(creature) = v_creature.get(target_id) {
+                                let xp_gain = Experience::xp_gain_against(
+                                    &player,
+                                    creature,
+                                    map.id(),
+                                    data_store.clone(),
+                                );
+                                player.give_experience(xp_gain, Some(target_guid));
+                            }
+                            player.unset_in_combat_with(target_guid);
+                        } else if let Ok(mut threat_list) = vm_threat_list.get(attacker_id) {
+                            threat_list.remove(&target_id);
+                        }
+                    }
+
+                    return Ok(());
+                } else if melee.is_attack_ready(WeaponAttackType::OffHand) {
+                    todo!();
+                }
+            } else {
+                attacker.set_target(None, 0);
             }
-
-            return Ok(());
-        } else if melee.is_attack_ready(WeaponAttackType::OffHand) {
-            todo!();
         }
 
         Err(())

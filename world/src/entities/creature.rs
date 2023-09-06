@@ -207,4 +207,8 @@ impl Creature {
             .read()
             .get_u32(UnitFields::UnitFieldLevel.into())
     }
+
+    pub fn guid(&self) -> &ObjectGuid {
+        &self.guid
+    }
 }

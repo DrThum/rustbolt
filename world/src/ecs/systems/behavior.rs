@@ -125,34 +125,24 @@ fn action_aggro(ctx: &mut BTContext) -> NodeStatus {
 
 fn action_attack_in_melee(ctx: &mut BTContext) -> NodeStatus {
     let my_id = ctx.entity_id;
-    let attacker = &mut ctx.vm_unit[my_id];
 
-    if let Some(target_id) = attacker.target() {
-        if let Ok(target_guid) = ctx.v_guid.get(target_id).map(|g| g.0) {
-            match Melee::execute_attack(
-                my_id,
-                target_id,
-                target_guid,
-                ctx.map.0.clone(),
-                ctx.world_context.0.data_store.clone(),
-                ctx.v_guid,
-                ctx.v_wpos,
-                ctx.v_spell,
-                ctx.v_creature,
-                ctx.vm_health,
-                ctx.vm_melee,
-                ctx.vm_threat_list,
-                ctx.vm_player,
-            ) {
-                Ok(_) => return NodeStatus::Success,
-                Err(_) => return NodeStatus::Failure,
-            }
-        } else {
-            attacker.set_target(None, 0);
-        }
+    match Melee::execute_attack(
+        my_id,
+        ctx.map.0.clone(),
+        ctx.world_context.0.data_store.clone(),
+        ctx.v_guid,
+        ctx.v_wpos,
+        ctx.v_spell,
+        ctx.v_creature,
+        ctx.vm_unit,
+        ctx.vm_health,
+        ctx.vm_melee,
+        ctx.vm_threat_list,
+        None,
+    ) {
+        Ok(_) => return NodeStatus::Success,
+        Err(_) => return NodeStatus::Failure,
     }
-
-    NodeStatus::Failure
 }
 
 fn action_chase_target(ctx: &mut BTContext) -> NodeStatus {
@@ -167,12 +157,14 @@ fn action_chase_target(ctx: &mut BTContext) -> NodeStatus {
         // Change movement if
         // - already chasing but chasing the wrong target
         // - not chasing and the target is too far away from us
+        // Don't change if evading
         let (should_init_movement, should_clear) =
             match ctx.vm_movement[ctx.entity_id].current_movement_kind() {
                 MovementKind::Chase {
                     target_entity_id: chasing_entity_id,
                     ..
                 } => (*chasing_entity_id != target_entity_id, true),
+                MovementKind::ReturnHome => (false, false), // Ignore everything while evading
                 _ => (
                     my_current_position.distance_to(&target_position, true) > MAX_CHASE_LEEWAY,
                     false,

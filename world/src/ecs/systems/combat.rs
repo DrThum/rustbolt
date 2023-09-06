@@ -61,6 +61,7 @@ pub fn select_target(
 ) {
     for (mut unit, mut threat_list, health) in (&mut vm_unit, &mut vm_threat_list, &v_health).iter()
     {
+        // Reset our target and threat list if we're dead
         if !health.is_alive() {
             if unit.target().is_some() {
                 unit.set_target(None, 0);

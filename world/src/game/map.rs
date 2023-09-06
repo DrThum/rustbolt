@@ -663,7 +663,9 @@ impl Map {
                 in_range_before = in_range_all
                     .iter()
                     .filter_map(|(entity_id, vec3)| {
-                        if vec3.square_distance_3d(&previous_vec3) <= visibility_distance {
+                        if vec3.square_distance_3d(&previous_vec3)
+                            <= visibility_distance * visibility_distance
+                        {
                             Some(*entity_id)
                         } else {
                             None
@@ -674,7 +676,9 @@ impl Map {
                 in_range_now = in_range_all
                     .iter()
                     .filter_map(|(entity_id, vec3)| {
-                        if vec3.square_distance_3d(&new_vec3) <= visibility_distance {
+                        if vec3.square_distance_3d(&new_vec3)
+                            <= visibility_distance * visibility_distance
+                        {
                             Some(*entity_id)
                         } else {
                             None

@@ -116,4 +116,10 @@ impl Unit {
             .write()
             .set_flag_u32(UnitFields::UnitDynamicFlags.into(), flag as u32);
     }
+
+    pub fn set_unit_flag(&self, flag: UnitFlags) {
+        self.internal_values
+            .write()
+            .set_flag_u32(UnitFields::UnitFieldFlags.into(), flag as u32);
+    }
 }

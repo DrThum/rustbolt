@@ -1,5 +1,6 @@
 use rand::Rng;
 
+#[derive(Copy, Clone)]
 pub struct Loot {
     money: u32,
 }
@@ -24,6 +25,10 @@ impl Loot {
                 self.money = rand::thread_rng().gen_range(min..=max) * 256;
             }
         }
+    }
+
+    pub fn money(&self) -> u32 {
+        self.money
     }
 
     pub fn validate(self) -> Option<Self> {

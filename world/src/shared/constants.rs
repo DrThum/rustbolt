@@ -1635,10 +1635,12 @@ impl CreatureRank {
 pub const FRIENDLY_FACTION_TEMPLATE_ID: u32 = 35;
 
 #[allow(dead_code)]
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
+#[repr(u8)]
 pub enum LootType {
+    None = 0, // In case of error
     Corpse = 1,
-    PickPocketing = 2,
+    Pickpocketing = 2,
     Fishing = 3,
     Disenchanting = 4,
     // The next ones are ignored by the client
@@ -1647,4 +1649,33 @@ pub enum LootType {
     FishingHole = 20, // Unsupported by the client, send LOOT_FISHING instead
     FishingFail = 21, // Unsupported by the client, send LOOT_FISHING instead
     Insignia = 22,    // Unsupported by the client, send LOOT_CORPSE instead
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Copy, Clone)]
+#[repr(u8)]
+pub enum LootSlotType {
+    Normal = 0,              // can be looted
+    ViewOnly = 1,            // can only view (ignore any loot attempts)
+    MasterLooter = 2,        // can be looted only master looter (error message)
+    MissingRequirements = 3, // can't be looted (error message about missing reqs)
+    Owner = 4,               // ignore binding confirmation and etc, for single player looting
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Copy, Clone)]
+pub enum LootError {
+    DidntKill = 0,             // You don't have permission to loot that corpse.
+    TooFar = 4,                // You are too far away to loot that corpse.
+    BadFacing = 5,             // You must be facing the corpse to loot it.
+    Locked = 6,                // Someone is already looting that corpse.
+    NotStanding = 8,           // You need to be standing up to loot something!
+    Stunned = 9,               // You can't loot anything while stunned!
+    PlayerNotFound = 10,       // Player not found
+    PlayTimeExceeded = 11,     // Maximum play time exceeded
+    MasterInvFull = 12,        // That player's inventory is full
+    MasterUniqueItem = 13,     // Player has too many of that item already
+    MasterOther = 14,          // Can't assign item to that player
+    AlreadyPickpocketed = 15,  // Your target has already had its pockets picked
+    NotWhileShapeshifted = 16, // You can't do that while shapeshifted.
 }

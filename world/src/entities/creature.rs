@@ -224,4 +224,8 @@ impl Creature {
         *self.current_loot.write() = loot;
         has_loot
     }
+
+    pub fn current_loot(&self) -> Option<Loot> {
+        self.current_loot.read().map(|loot| loot.clone())
+    }
 }

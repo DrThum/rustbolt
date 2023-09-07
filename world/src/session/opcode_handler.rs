@@ -190,6 +190,7 @@ impl OpcodeHandler {
                     Opcode::CmsgQuestGiverRequestReward,
                     OpcodeHandler::handle_cmsg_quest_giver_request_reward
                 ),
+                define_handler!(Opcode::CmsgLoot, OpcodeHandler::handle_cmsg_loot),
             ]),
         }
     }

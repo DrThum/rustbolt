@@ -28,7 +28,7 @@ impl CreatureRepository {
         let count = count.next().unwrap().unwrap_or(0);
         let bar = ProgressBar::new(count);
 
-        let mut stmt = conn.prepare_cached("SELECT entry, name, sub_name, icon_name, expansion, unit_class, min_level, max_level, health_multiplier, power_multiplier, damage_multiplier, armor_multiplier, experience_multiplier, model_id1, model_id2, model_id3, model_id4, scale, family, type_id, racial_leader, type_flags, speed_walk, speed_run, rank, melee_base_attack_time_ms, ranged_base_attack_time_ms, base_damage_variance, pet_spell_data_id, faction_template_id, npc_flags, unit_flags, dynamic_flags, gossip_menu_id, movement_type FROM creature_templates ORDER BY entry").unwrap();
+        let mut stmt = conn.prepare_cached("SELECT entry, name, sub_name, icon_name, expansion, unit_class, min_level, max_level, health_multiplier, power_multiplier, damage_multiplier, armor_multiplier, experience_multiplier, model_id1, model_id2, model_id3, model_id4, scale, family, type_id, racial_leader, type_flags, speed_walk, speed_run, rank, melee_base_attack_time_ms, ranged_base_attack_time_ms, base_damage_variance, pet_spell_data_id, faction_template_id, npc_flags, unit_flags, dynamic_flags, gossip_menu_id, movement_type, min_money_loot, max_money_loot FROM creature_templates ORDER BY entry").unwrap();
 
         let result = stmt
             .query_map([], |row| {
@@ -86,6 +86,8 @@ impl CreatureRepository {
                     dynamic_flags: row.get(DynamicFlags as usize).unwrap(),
                     gossip_menu_id: row.get(GossipMenuId as usize).unwrap(),
                     movement_type: row.get(MovementType as usize).unwrap(),
+                    min_money_loot: row.get(MinMoneyLoot as usize).unwrap(),
+                    max_money_loot: row.get(MaxMoneyLoot as usize).unwrap(),
                 };
 
                 assert!(
@@ -219,6 +221,8 @@ enum CreatureTemplateColumnIndex {
     DynamicFlags,
     GossipMenuId,
     MovementType,
+    MinMoneyLoot,
+    MaxMoneyLoot,
 }
 
 enum CreatureSpawnColumnIndex {

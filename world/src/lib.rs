@@ -52,6 +52,7 @@ mod entities {
 pub mod game {
     pub mod experience;
     pub mod gossip;
+    pub mod loot;
     pub mod map;
     pub mod map_manager;
     pub mod movement_spline;

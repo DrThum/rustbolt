@@ -273,6 +273,7 @@ impl Melee {
                         }
                     } else {
                         if let Some(player) = player_attacker {
+                            let mut has_loot = false; // TODO: Handle player case (Insignia looting in PvP)
                             if let Ok(creature) = v_creature.get(target_id) {
                                 let xp_gain = Experience::xp_gain_against(
                                     &player,
@@ -285,10 +286,14 @@ impl Melee {
                                     creature.guid(),
                                     creature.template.entry,
                                 );
+
+                                has_loot = creature.generate_loot();
                             }
 
                             if let Ok(target_unit) = vm_unit.get(target_id) {
-                                target_unit.set_dynamic_flag(UnitDynamicFlag::Lootable);
+                                if has_loot {
+                                    target_unit.set_dynamic_flag(UnitDynamicFlag::Lootable);
+                                }
                             }
 
                             player.unset_in_combat_with(target_guid);

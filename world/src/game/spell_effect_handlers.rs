@@ -51,6 +51,7 @@ impl SpellEffectHandler {
                     }
                 } else if let Ok(mut player) = (&mut vm_player).get(spell.caster()) {
                     let target_guid = v_guid[spell.target()].0;
+                    let mut has_loot = false; // TODO: Handle player case (Insignia looting in PvP)
                     if let Ok(creature) = v_creature.get(spell.target()) {
                         let xp_gain = Experience::xp_gain_against(
                             &player,
@@ -60,10 +61,14 @@ impl SpellEffectHandler {
                         );
                         player.give_experience(xp_gain, Some(target_guid));
                         player.notify_killed_creature(creature.guid(), creature.template.entry);
+
+                        has_loot = creature.generate_loot();
                     }
 
                     if let Ok(target_unit) = (&mut vm_unit).get(spell.target()) {
-                        target_unit.set_dynamic_flag(UnitDynamicFlag::Lootable);
+                        if has_loot {
+                            target_unit.set_dynamic_flag(UnitDynamicFlag::Lootable);
+                        }
                     }
 
                     player.unset_in_combat_with(target_guid);

@@ -1633,3 +1633,18 @@ impl CreatureRank {
 
 // From DBC: "Friendly" faction template
 pub const FRIENDLY_FACTION_TEMPLATE_ID: u32 = 35;
+
+#[allow(dead_code)]
+#[derive(Debug)]
+pub enum LootType {
+    Corpse = 1,
+    PickPocketing = 2,
+    Fishing = 3,
+    Disenchanting = 4,
+    // The next ones are ignored by the client
+    Skinning = 6,     // Unsupported by the client, send LOOT_PICKPOCKETING instead
+    Prospecting = 7,  // Unsupported by the client, send LOOT_PICKPOCKETING instead
+    FishingHole = 20, // Unsupported by the client, send LOOT_FISHING instead
+    FishingFail = 21, // Unsupported by the client, send LOOT_FISHING instead
+    Insignia = 22,    // Unsupported by the client, send LOOT_CORPSE instead
+}

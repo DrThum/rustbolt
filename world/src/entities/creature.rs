@@ -9,7 +9,7 @@ use shipyard::Component;
 use crate::{
     datastore::data_types::CreatureTemplate,
     ecs::components::movement::MovementKind,
-    game::map_manager::MapKey,
+    game::{loot::Loot, map_manager::MapKey},
     protocol::packets::SmsgCreateObject,
     repositories::creature::CreatureSpawnDbRecord,
     shared::constants::{
@@ -39,6 +39,7 @@ pub struct Creature {
     pub wander_radius: Option<u32>,
     pub npc_flags: BitFlags<NpcFlags>,
     pub internal_values: Arc<RwLock<InternalValues>>, // TODO: Arc -> Rc everywhere in rustbolt-world
+    current_loot: Arc<RwLock<Option<Loot>>>,
 }
 
 impl Creature {
@@ -141,6 +142,7 @@ impl Creature {
                     internal_values: Arc::new(RwLock::new(values)),
                     default_movement_kind,
                     wander_radius,
+                    current_loot: Arc::new(RwLock::new(None)),
                 }
             })
     }
@@ -210,5 +212,16 @@ impl Creature {
 
     pub fn guid(&self) -> &ObjectGuid {
         &self.guid
+    }
+
+    // Returns whether we actually generated some loots
+    pub fn generate_loot(&self) -> bool {
+        let mut loot = Loot::new();
+        loot.add_money(self.template.min_money_loot, self.template.max_money_loot);
+
+        let loot = loot.validate();
+        let has_loot = loot.is_some();
+        *self.current_loot.write() = loot;
+        has_loot
     }
 }

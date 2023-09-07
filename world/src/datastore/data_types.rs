@@ -391,6 +391,8 @@ pub struct CreatureTemplate {
     pub dynamic_flags: u32,
     pub gossip_menu_id: Option<u32>,
     pub movement_type: MovementKind,
+    pub min_money_loot: u32,
+    pub max_money_loot: u32,
 }
 
 #[allow(dead_code)]

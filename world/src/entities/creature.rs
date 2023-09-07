@@ -39,7 +39,7 @@ pub struct Creature {
     pub wander_radius: Option<u32>,
     pub npc_flags: BitFlags<NpcFlags>,
     pub internal_values: Arc<RwLock<InternalValues>>, // TODO: Arc -> Rc everywhere in rustbolt-world
-    current_loot: Arc<RwLock<Option<Loot>>>,
+    loot: Arc<RwLock<Loot>>,                          // Reset on (re)spawn and generated on death
 }
 
 impl Creature {
@@ -142,7 +142,7 @@ impl Creature {
                     internal_values: Arc::new(RwLock::new(values)),
                     default_movement_kind,
                     wander_radius,
-                    current_loot: Arc::new(RwLock::new(None)),
+                    loot: Arc::new(RwLock::new(Loot::new())),
                 }
             })
     }
@@ -219,13 +219,25 @@ impl Creature {
         let mut loot = Loot::new();
         loot.add_money(self.template.min_money_loot, self.template.max_money_loot);
 
-        let loot = loot.validate();
-        let has_loot = loot.is_some();
-        *self.current_loot.write() = loot;
+        let has_loot = !loot.is_empty();
+        *self.loot.write() = loot;
         has_loot
     }
 
-    pub fn current_loot(&self) -> Option<Loot> {
-        self.current_loot.read().map(|loot| loot.clone())
+    pub fn loot(&self) -> Loot {
+        self.loot.read().clone()
+    }
+
+    pub fn remove_loot_money(&self) -> u32 {
+        let loot = &mut *self.loot.write();
+
+        if loot.money() > 0 {
+            let money = loot.money();
+            loot.remove_money();
+            money
+        } else {
+            warn!("attempt to remove loot money from a creature with generated loot but no money in it");
+            0
+        }
     }
 }

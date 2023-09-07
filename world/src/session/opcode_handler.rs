@@ -191,6 +191,11 @@ impl OpcodeHandler {
                     OpcodeHandler::handle_cmsg_quest_giver_request_reward
                 ),
                 define_handler!(Opcode::CmsgLoot, OpcodeHandler::handle_cmsg_loot),
+                define_handler!(Opcode::CmsgLootMoney, OpcodeHandler::handle_cmsg_loot_money),
+                define_handler!(
+                    Opcode::CmsgLootRelease,
+                    OpcodeHandler::handle_cmsg_loot_release
+                ),
             ]),
         }
     }

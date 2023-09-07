@@ -45,3 +45,34 @@ pub struct LootResponseItem {
     #[bw(map = |lst: &LootSlotType| *lst as u8)]
     pub slot_type: LootSlotType,
 }
+
+#[binwrite]
+#[server_opcode]
+pub struct SmsgLootMoneyNotify {
+    pub money: u32,
+}
+
+#[binwrite]
+#[server_opcode]
+pub struct SmsgLootClearMoney {}
+
+#[binread]
+pub struct CmsgLootRelease {
+    pub looted_guid: u64,
+}
+
+#[binwrite]
+#[server_opcode]
+pub struct SmsgLootReleaseResponse {
+    pub looted_guid: u64,
+    pub unk: u8, // Always 1
+}
+
+impl SmsgLootReleaseResponse {
+    pub fn build(looted_guid: u64) -> Self {
+        Self {
+            looted_guid,
+            unk: 1,
+        }
+    }
+}

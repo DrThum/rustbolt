@@ -31,15 +31,11 @@ impl Loot {
         self.money
     }
 
-    pub fn validate(self) -> Option<Self> {
-        let has_money = self.money > 0;
-        // let has_items
-        let is_valid = has_money /* || has_items */;
+    pub fn remove_money(&mut self) {
+        self.money = 0;
+    }
 
-        if is_valid {
-            Some(self)
-        } else {
-            None
-        }
+    pub fn is_empty(&self) -> bool {
+        self.money == 0
     }
 }

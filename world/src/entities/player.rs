@@ -10,7 +10,7 @@ use parking_lot::RwLock;
 use r2d2::PooledConnection;
 use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::Error;
-use shipyard::Component;
+use shipyard::{Component, EntityId};
 use strum::IntoEnumIterator;
 
 use crate::{
@@ -66,6 +66,7 @@ pub struct Player {
     faction_standings: HashMap<u32, FactionStanding>,
     quest_statuses: HashMap<u32, QuestLogContext>,
     in_combat_with: RwLock<HashSet<ObjectGuid>>,
+    currently_looting: Option<EntityId>,
 }
 
 impl Player {
@@ -611,6 +612,7 @@ impl Player {
             faction_standings,
             quest_statuses,
             in_combat_with: RwLock::new(HashSet::new()),
+            currently_looting: None,
         }
     }
 
@@ -1183,6 +1185,21 @@ impl Player {
                 );
             })
             .ok_or(ItemStorageError::InventoryFull)
+    }
+
+    pub fn set_looting(&mut self, entity_id: Option<EntityId>) {
+        match (self.currently_looting, entity_id) {
+            (Some(id1), Some(id2)) if id1 != id2 => {
+                warn!("Player::set_looting called but player is already looting another entity")
+            }
+            _ => (),
+        }
+
+        self.currently_looting = entity_id;
+    }
+
+    pub fn currently_looting(&self) -> Option<EntityId> {
+        self.currently_looting
     }
 }
 

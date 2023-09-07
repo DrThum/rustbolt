@@ -39,7 +39,7 @@ impl SpellEffectHandler {
              v_guid: View<Guid>,
              mut vm_player: ViewMut<Player>,
              v_creature: View<Creature>,
-             mut vm_unit: ViewMut<Unit>| {
+             v_unit: View<Unit>| {
                 let damage = spell_record.calc_simple_value(effect_index);
                 let target_health = &mut vm_health[spell.target()];
                 target_health.apply_damage(damage as u32);
@@ -65,7 +65,7 @@ impl SpellEffectHandler {
                         has_loot = creature.generate_loot();
                     }
 
-                    if let Ok(target_unit) = (&mut vm_unit).get(spell.target()) {
+                    if let Ok(target_unit) = v_unit.get(spell.target()) {
                         if has_loot {
                             target_unit.set_dynamic_flag(UnitDynamicFlag::Lootable);
                         }

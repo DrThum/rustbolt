@@ -175,13 +175,13 @@ impl Melee {
         v_wpos: &View<WorldPosition>,
         v_spell: &View<SpellCast>,
         v_creature: &View<Creature>,
-        vm_unit: &mut ViewMut<Unit>,
+        v_unit: &mut ViewMut<Unit>,
         vm_health: &mut ViewMut<Health>,
         vm_melee: &mut ViewMut<Melee>,
         vm_threat_list: &mut ViewMut<ThreatList>,
         player_attacker: Option<&mut Player>,
     ) -> Result<(), ()> {
-        let target_id = vm_unit[attacker_id].target();
+        let target_id = v_unit[attacker_id].target();
 
         if let Some(target_id) = target_id {
             if let Ok(target_guid) = v_guid.get(target_id).map(|g| g.0) {
@@ -290,7 +290,7 @@ impl Melee {
                                 has_loot = creature.generate_loot();
                             }
 
-                            if let Ok(target_unit) = vm_unit.get(target_id) {
+                            if let Ok(target_unit) = v_unit.get(target_id) {
                                 if has_loot {
                                     target_unit.set_dynamic_flag(UnitDynamicFlag::Lootable);
                                 }

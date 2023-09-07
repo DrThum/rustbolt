@@ -6,7 +6,7 @@ use shipyard::{Component, EntityId};
 
 use crate::{
     entities::{internal_values::InternalValues, update_fields::UnitFields},
-    shared::constants::{UnitFlags, UnitStandState},
+    shared::constants::{UnitDynamicFlag, UnitFlags, UnitStandState},
     DataStore,
 };
 
@@ -109,5 +109,11 @@ impl Unit {
 
         warn!("faction {} not found", self.faction_id());
         return false;
+    }
+
+    pub fn set_dynamic_flag(&self, flag: UnitDynamicFlag) {
+        self.internal_values
+            .write()
+            .set_flag_u32(UnitFields::UnitDynamicFlags.into(), flag as u32);
     }
 }

@@ -19,7 +19,7 @@ use crate::{
     },
     session::world_session::WorldSession,
     shared::constants::{
-        MeleeAttackError, SheathState, WeaponAttackType, ATTACK_DISPLAY_DELAY,
+        MeleeAttackError, SheathState, UnitDynamicFlag, WeaponAttackType, ATTACK_DISPLAY_DELAY,
         BASE_MELEE_RANGE_OFFSET, NUMBER_WEAPON_ATTACK_TYPES,
     },
     DataStore,
@@ -181,9 +181,9 @@ impl Melee {
         vm_threat_list: &mut ViewMut<ThreatList>,
         player_attacker: Option<&mut Player>,
     ) -> Result<(), ()> {
-        let attacker = &mut vm_unit[attacker_id];
+        let target_id = vm_unit[attacker_id].target();
 
-        if let Some(target_id) = attacker.target() {
+        if let Some(target_id) = target_id {
             if let Ok(target_guid) = v_guid.get(target_id).map(|g| g.0) {
                 let guid = v_guid[attacker_id].0;
                 let my_position = v_wpos[attacker_id];
@@ -222,7 +222,6 @@ impl Melee {
                     map.broadcast_packet(&guid, &packet, None, true);
 
                     melee.is_attacking = false;
-                    attacker.set_target(None, 0);
 
                     return Err(());
                 }
@@ -287,6 +286,11 @@ impl Melee {
                                     creature.template.entry,
                                 );
                             }
+
+                            if let Ok(target_unit) = vm_unit.get(target_id) {
+                                target_unit.set_dynamic_flag(UnitDynamicFlag::Lootable);
+                            }
+
                             player.unset_in_combat_with(target_guid);
                         } else if let Ok(mut threat_list) = vm_threat_list.get(attacker_id) {
                             threat_list.remove(&target_id);
@@ -297,8 +301,6 @@ impl Melee {
                 } else if melee.is_attack_ready(WeaponAttackType::OffHand) {
                     todo!();
                 }
-            } else {
-                attacker.set_target(None, 0);
             }
         }
 

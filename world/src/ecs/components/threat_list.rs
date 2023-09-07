@@ -33,6 +33,10 @@ impl ThreatList {
         self.threat_list.clone()
     }
 
+    pub fn threat_list_mut(&mut self) -> HashMap<EntityId, f32> {
+        self.threat_list.clone()
+    }
+
     pub fn reset(&mut self) {
         self.threat_list.retain(|_, _| false);
     }

@@ -4,8 +4,9 @@ use shipyard::{AllStoragesViewMut, Get, View, ViewMut};
 
 use crate::{
     datastore::data_types::SpellRecord,
-    ecs::components::{guid::Guid, health::Health, threat_list::ThreatList},
+    ecs::components::{guid::Guid, health::Health, threat_list::ThreatList, unit::Unit},
     entities::{creature::Creature, player::Player},
+    shared::constants::UnitDynamicFlag,
 };
 
 use super::{
@@ -37,7 +38,8 @@ impl SpellEffectHandler {
              mut vm_threat_list: ViewMut<ThreatList>,
              v_guid: View<Guid>,
              mut vm_player: ViewMut<Player>,
-             v_creature: View<Creature>| {
+             v_creature: View<Creature>,
+             mut vm_unit: ViewMut<Unit>| {
                 let damage = spell_record.calc_simple_value(effect_index);
                 let target_health = &mut vm_health[spell.target()];
                 target_health.apply_damage(damage as u32);
@@ -59,6 +61,11 @@ impl SpellEffectHandler {
                         player.give_experience(xp_gain, Some(target_guid));
                         player.notify_killed_creature(creature.guid(), creature.template.entry);
                     }
+
+                    if let Ok(target_unit) = (&mut vm_unit).get(spell.target()) {
+                        target_unit.set_dynamic_flag(UnitDynamicFlag::Lootable);
+                    }
+
                     player.unset_in_combat_with(target_guid);
                 }
             },

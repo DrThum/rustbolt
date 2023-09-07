@@ -1213,7 +1213,7 @@ pub enum LifeCycleStage {
 }
 
 #[allow(dead_code)]
-pub enum UnitDynamicFlags {
+pub enum UnitDynamicFlag {
     None = 0x0000,
     Lootable = 0x0001,
     TrackUnit = 0x0002,

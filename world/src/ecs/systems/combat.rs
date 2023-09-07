@@ -74,6 +74,14 @@ pub fn select_target(
             continue;
         }
 
+        // Remove dead entities from our threat list
+        threat_list.threat_list_mut().retain(|&entity_id, _| {
+            v_health
+                .get(entity_id)
+                .map(|h| h.is_alive())
+                .unwrap_or(false)
+        });
+
         threat_list
             .threat_list()
             .into_iter()

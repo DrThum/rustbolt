@@ -31,11 +31,11 @@ use crate::{
     session::world_session::WorldSession,
     shared::constants::{
         AbilityLearnType, CharacterClass, CharacterClassBit, CharacterRaceBit, Gender,
-        HighGuidType, InventorySlot, InventoryType, ItemClass, ItemSubclassConsumable,
-        ObjectTypeId, ObjectTypeMask, PlayerQuestStatus, PowerType, QuestSlotState,
-        QuestStartError, SkillRangeType, SpellSchool, UnitAttribute, UnitFlags, WeaponAttackType,
-        BASE_ATTACK_TIME, BASE_DAMAGE, MAX_QUESTS_IN_LOG, MAX_QUEST_OBJECTIVES_COUNT,
-        PLAYER_DEFAULT_BOUNDING_RADIUS, PLAYER_DEFAULT_COMBAT_REACH,
+        HighGuidType, InventorySlot, InventoryType, ItemClass, ItemStorageError,
+        ItemSubclassConsumable, ObjectTypeId, ObjectTypeMask, PlayerQuestStatus, PowerType,
+        QuestSlotState, QuestStartError, SkillRangeType, SpellSchool, UnitAttribute, UnitFlags,
+        WeaponAttackType, BASE_ATTACK_TIME, BASE_DAMAGE, MAX_QUESTS_IN_LOG,
+        MAX_QUEST_OBJECTIVES_COUNT, PLAYER_DEFAULT_BOUNDING_RADIUS, PLAYER_DEFAULT_COMBAT_REACH,
     },
 };
 
@@ -118,7 +118,6 @@ impl Player {
                     }
                     _ => template.buy_count,
                 };
-                let item_guid = ItemRepository::create(&transaction, start_item.id, stack_count);
 
                 // Note: this won't work for multiple rings or trinkets but it shouldn't happen with
                 // starting gear
@@ -160,6 +159,7 @@ impl Player {
                     InventoryType::Tabard => InventorySlot::EquipmentTabard as u32,
                 };
 
+                let item_guid = ItemRepository::create(&transaction, start_item.id, stack_count);
                 CharacterRepository::add_item_to_inventory(
                     &transaction,
                     character_guid,
@@ -872,8 +872,13 @@ impl Player {
         }
     }
 
-    pub fn reward_quest(&mut self, quest_id: u32, data_store: Arc<DataStore>) -> Option<u32> {
-        warn!("TODO: Implement Player::reward_quest");
+    pub fn reward_quest(
+        &mut self,
+        quest_id: u32,
+        chosen_reward_index: u32,
+        data_store: Arc<DataStore>,
+    ) -> Option<u32> {
+        warn!("TODO: Implement Player::reward_quest (reputation, ...)");
 
         if let Some(context) = self.quest_statuses.get_mut(&quest_id) {
             if let Some(quest_template) = data_store.get_quest_template(quest_id) {
@@ -900,6 +905,19 @@ impl Player {
                 context.slot = None;
 
                 self.modify_money(quest_template.required_or_reward_money);
+
+                match quest_template.reward_choice_items()[chosen_reward_index as usize] {
+                    (0, _) | (_, 0) => (),
+                    (id, count) => self.store_item(id, count).unwrap(),
+                }
+
+                for (id, count) in quest_template
+                    .reward_items()
+                    .into_iter()
+                    .filter(|(id, count)| *id != 0 && *count != 0)
+                {
+                    self.store_item(id, count).unwrap();
+                }
 
                 let xp = quest_template.experience_reward_at_level(self.level());
                 self.give_experience(xp, None);
@@ -1125,6 +1143,46 @@ impl Player {
         self.internal_values
             .write()
             .set_u32(UnitFields::PlayerFieldCoinage.into(), new_money);
+    }
+
+    // Assume that we store in bags for now (TODO bank later)
+    // TODO: Implement bags, we only check in the backpack for now
+    pub fn store_item(&self, item_id: u32, stack_count: u32) -> Result<(), ItemStorageError> {
+        let mut first_free_bag_slot: Option<u32> = None;
+        for slot in InventorySlot::BACKPACK_START..InventorySlot::BACKPACK_END {
+            if let None = self.inventory.get(&slot) {
+                first_free_bag_slot = Some(slot);
+                break;
+            }
+        }
+
+        first_free_bag_slot
+            .map(|slot| {
+                let item_guid = CharacterRepository::add_item(
+                    &self.guid,
+                    item_id,
+                    stack_count,
+                    slot,
+                    self.world_context.database.clone(),
+                )
+                .unwrap();
+
+                let item = Item::new(item_guid, item_id, self.guid.raw(), stack_count);
+
+                let packet = ServerMessage::new(SmsgCreateObject {
+                    updates_count: 1,
+                    has_transport: false,
+                    updates: vec![item.build_create_data()],
+                });
+
+                self.session.send(&packet).unwrap();
+
+                self.internal_values.write().set_u64(
+                    UnitFields::PlayerFieldInvSlotHead as usize + (2 * slot) as usize,
+                    item.guid().raw(),
+                );
+            })
+            .ok_or(ItemStorageError::InventoryFull)
     }
 }
 

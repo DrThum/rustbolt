@@ -5,12 +5,14 @@ use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::{named_params, Error, Transaction};
 
 use crate::{
+    database_context::DatabaseContext,
     datastore::{
         data_types::{ItemRecord, PlayerCreatePosition},
         DataStore,
     },
     ecs::components::health::Health,
     entities::{
+        object_guid::ObjectGuid,
         player::{
             player_data::{ActionButton, CharacterSkill, QuestLogContext},
             Player, PlayerVisualFeatures,
@@ -24,6 +26,8 @@ use crate::{
         PlayerQuestStatus, MAX_QUEST_OBJECTIVES_COUNT,
     },
 };
+
+use super::item::ItemRepository;
 
 pub struct CharacterRepository;
 
@@ -344,7 +348,7 @@ impl CharacterRepository {
     pub fn add_item_to_inventory(
         transaction: &Transaction,
         character_guid: u64,
-        item_guid: u64,
+        item_guid: u32,
         slot: u32,
     ) {
         let mut stmt = transaction.prepare_cached("INSERT INTO character_inventory(character_guid, item_guid, slot) VALUES (:character_guid, :item_guid, :slot)").unwrap();
@@ -508,6 +512,27 @@ impl CharacterRepository {
             });
 
         Ok(())
+    }
+
+    pub fn add_item(
+        character_guid: &ObjectGuid,
+        item_id: u32,
+        stack_count: u32,
+        inventory_slot: u32,
+        database: Arc<DatabaseContext>,
+    ) -> Result<u32, Error> {
+        let mut conn = database.characters.get().unwrap();
+        let transaction = conn.transaction().unwrap();
+
+        let item_guid = ItemRepository::create(&transaction, item_id, stack_count);
+        CharacterRepository::add_item_to_inventory(
+            &transaction,
+            character_guid.raw(),
+            item_guid,
+            inventory_slot,
+        );
+
+        transaction.commit().map(|_| item_guid)
     }
 }
 

@@ -241,9 +241,11 @@ impl OpcodeHandler {
                 let player = &mut vm_player[session.player_entity_id().unwrap()];
 
                 if player.can_turn_in_quest(&cmsg.quest_id) {
-                    if let Some(gained_xp) =
-                        player.reward_quest(cmsg.quest_id, world_context.data_store.clone())
-                    {
+                    if let Some(gained_xp) = player.reward_quest(
+                        cmsg.quest_id,
+                        cmsg.chosen_reward_index,
+                        world_context.data_store.clone(),
+                    ) {
                         let quest_template = world_context
                             .data_store
                             .get_quest_template(cmsg.quest_id)

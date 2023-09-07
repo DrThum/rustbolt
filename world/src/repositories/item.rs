@@ -17,7 +17,7 @@ use crate::{
 pub struct ItemRepository;
 
 impl ItemRepository {
-    pub fn create(transaction: &Transaction, entry: u32, stack_count: u32) -> u64 {
+    pub fn create(transaction: &Transaction, entry: u32, stack_count: u32) -> u32 {
         assert!(
             stack_count > 0,
             "Cannot create an item in DB with stack_count = 0"
@@ -34,7 +34,7 @@ impl ItemRepository {
         })
         .unwrap();
 
-        transaction.last_insert_rowid() as u64
+        transaction.last_insert_rowid() as u32
     }
 
     pub fn load_player_inventory(

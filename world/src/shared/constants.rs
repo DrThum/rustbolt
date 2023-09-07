@@ -259,6 +259,12 @@ impl InventorySlot {
 }
 
 #[allow(dead_code)]
+#[derive(Debug)]
+pub enum ItemStorageError {
+    InventoryFull,
+}
+
+#[allow(dead_code)]
 #[derive(Clone, Copy, N, PartialEq, Eq, Debug)]
 pub enum HighGuidType {
     ItemOrContainer = 0x4000,

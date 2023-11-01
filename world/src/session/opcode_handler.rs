@@ -1,5 +1,5 @@
 use log::{error, trace};
-use shipyard::View;
+use shipyard::{Get, View};
 use std::{collections::HashMap, sync::Arc};
 
 use crate::{
@@ -232,7 +232,6 @@ impl OpcodeHandler {
                     let player = &v_player[my_entity_id];
 
                     let quest_giver_entity_id = map.lookup_entity_ecs(&target_guid).unwrap();
-                    let quest_actor = &v_quest_actor[quest_giver_entity_id];
 
                     let creature = &v_creature[quest_giver_entity_id];
 
@@ -254,28 +253,30 @@ impl OpcodeHandler {
                         })
                         .unwrap_or_default();
 
-                    for quest_id in quest_actor.quests_started() {
-                        let quest_template = world_context
-                            .data_store
-                            .get_quest_template(*quest_id)
-                            .unwrap();
-                        match player.quest_status(quest_id).map(|ctx| ctx.status) {
-                            None if player.can_start_quest(quest_template) => {
-                                gossip_menu.add_quest(*quest_id, QuestGiverStatus::Available)
+                    if let Ok(quest_actor) = &v_quest_actor.get(quest_giver_entity_id) {
+                        for quest_id in quest_actor.quests_started() {
+                            let quest_template = world_context
+                                .data_store
+                                .get_quest_template(*quest_id)
+                                .unwrap();
+                            match player.quest_status(quest_id).map(|ctx| ctx.status) {
+                                None if player.can_start_quest(quest_template) => {
+                                    gossip_menu.add_quest(*quest_id, QuestGiverStatus::Available)
+                                }
+                                Some(_) | None => (),
                             }
-                            Some(_) | None => (),
                         }
-                    }
 
-                    for quest_id in quest_actor.quests_ended() {
-                        match player.quest_status(quest_id).map(|ctx| ctx.status) {
-                            Some(PlayerQuestStatus::InProgress) => {
-                                gossip_menu.add_quest(*quest_id, QuestGiverStatus::Incomplete);
+                        for quest_id in quest_actor.quests_ended() {
+                            match player.quest_status(quest_id).map(|ctx| ctx.status) {
+                                Some(PlayerQuestStatus::InProgress) => {
+                                    gossip_menu.add_quest(*quest_id, QuestGiverStatus::Incomplete);
+                                }
+                                Some(PlayerQuestStatus::ObjectivesCompleted) => {
+                                    gossip_menu.add_quest(*quest_id, QuestGiverStatus::Incomplete);
+                                }
+                                Some(_) | None => (),
                             }
-                            Some(PlayerQuestStatus::ObjectivesCompleted) => {
-                                gossip_menu.add_quest(*quest_id, QuestGiverStatus::Incomplete);
-                            }
-                            Some(_) | None => (),
                         }
                     }
 

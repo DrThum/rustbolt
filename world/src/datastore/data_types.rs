@@ -6,6 +6,7 @@ use enumn::N;
 
 use crate::{
     ecs::components::movement::MovementKind,
+    game::value_range::ValueRange,
     protocol::packets::{
         ItemTemplateDamage, ItemTemplateSocket, ItemTemplateSpell, ItemTemplateStat,
     },
@@ -1288,4 +1289,23 @@ pub struct GossipMenuOption {
     pub box_coded: bool,
     pub box_money: u32,
     pub box_text: Option<String>,
+}
+
+pub struct CreatureLootTable {
+    pub id: u32,
+    // description: Option<String>,
+    pub groups: Vec<CreatureLootGroup>,
+}
+
+pub struct CreatureLootGroup {
+    pub chance: f32, // TODO: Make it a type?
+    pub num_rolls: ValueRange<u8>,
+    pub items: Vec<CreatureLootItem>,
+    pub condition_id: Option<u32>,
+}
+
+pub struct CreatureLootItem {
+    pub item_id: u32, // creature_templates.entry
+    pub chance: f32,  // TODO: Make it a type?
+    pub condition_id: Option<u32>,
 }

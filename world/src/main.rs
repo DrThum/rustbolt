@@ -67,6 +67,7 @@ fn main() {
         }
         Ok(())
     });
+
     let db_pool_world = r2d2::Pool::new(sqlite_connection_manager_world)
         .expect("Failed to create r2d2 SQlite connection pool (World DB)");
     let db_pool_world = Arc::new(db_pool_world);

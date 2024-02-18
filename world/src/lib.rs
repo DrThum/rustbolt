@@ -77,6 +77,7 @@ mod repositories {
     pub mod creature_static_data;
     pub mod gossip;
     pub mod item;
+    pub mod loot;
     pub mod player_static_data;
     pub mod quest;
 }

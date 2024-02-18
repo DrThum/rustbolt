@@ -50,6 +50,7 @@ impl SpellEffectHandler {
                         threat_list.modify_threat(spell.caster(), damage as f32);
                     }
                 } else if let Ok(mut player) = (&mut vm_player).get(spell.caster()) {
+                    // FIXME: This logic is duplicated in melee.rs
                     let target_guid = v_guid[spell.target()].0;
                     let mut has_loot = false; // TODO: Handle player case (Insignia looting in PvP)
                     if let Ok(creature) = v_creature.get(spell.target()) {

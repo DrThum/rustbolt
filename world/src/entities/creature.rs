@@ -218,6 +218,8 @@ impl Creature {
     pub fn generate_loot(&self) -> bool {
         let mut loot = Loot::new();
         loot.add_money(self.template.min_money_loot, self.template.max_money_loot);
+        // FIXME: hardcoded value
+        loot.add_item(8932, 6);
 
         let has_loot = !loot.is_empty();
         *self.loot.write() = loot;

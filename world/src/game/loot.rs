@@ -1,13 +1,27 @@
 use rand::Rng;
 
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 pub struct Loot {
     money: u32,
+    items: Vec<LootItem>,
+}
+
+#[derive(Clone)]
+pub struct LootItem {
+    pub index: u32, // Index in the loot window when the loot is generated (doesn't change when items
+    // are looted)
+    pub item_id: u32,
+    pub count: u32,
+    pub random_suffix: u32,
+    pub random_property_id: u32,
 }
 
 impl Loot {
     pub fn new() -> Self {
-        Self { money: 0 }
+        Self {
+            money: 0,
+            items: vec![],
+        }
     }
 
     pub fn add_money(&mut self, min: u32, max: u32) {
@@ -33,6 +47,28 @@ impl Loot {
 
     pub fn remove_money(&mut self) {
         self.money = 0;
+    }
+
+    pub fn add_item(
+        &mut self,
+        item_id: u32,
+        count: u32, /*, random_suffix: u32, random_property_id: u32*/
+    ) {
+        self.items.push(LootItem {
+            index: self.items.len() as u32,
+            item_id,
+            count,
+            random_suffix: 0,
+            random_property_id: 0,
+        })
+    }
+
+    pub fn items(&self) -> &Vec<LootItem> {
+        &self.items
+    }
+
+    pub fn remove_item(&mut self, index: u32) {
+        self.items.retain(|item| item.index != index);
     }
 
     pub fn is_empty(&self) -> bool {

@@ -23,13 +23,18 @@ pub struct SmsgLootResponse {
 }
 
 impl SmsgLootResponse {
-    pub fn build(target_guid: &ObjectGuid, loot_type: LootType, money: u32) -> Self {
+    pub fn build(
+        target_guid: &ObjectGuid,
+        loot_type: LootType,
+        money: u32,
+        items: Vec<LootResponseItem>,
+    ) -> Self {
         Self {
             target_guid: target_guid.raw(),
             loot_type,
             money,
-            item_count: 0, // TODO
-            items: vec![],
+            item_count: items.len() as u8,
+            items,
         }
     }
 }

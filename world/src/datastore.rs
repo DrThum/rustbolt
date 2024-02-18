@@ -23,6 +23,7 @@ use crate::{
         },
         gossip::GossipRepository,
         item::ItemRepository,
+        loot::LootRepository,
         player_static_data::{
             PlayerBaseAttributesPerLevelDbRecord, PlayerBaseHealthManaPerLevelDbRecord,
             PlayerExperiencePerLevel, PlayerStaticDataRepository,
@@ -37,8 +38,8 @@ use crate::{
 };
 
 use self::data_types::{
-    CharStartOutfitRecord, ChrClassesRecord, ChrRacesRecord, EmotesTextRecord, FactionRecord,
-    FactionTemplateRecord, GossipMenuDbRecord, ItemRecord, ItemTemplate, MapRecord,
+    CharStartOutfitRecord, ChrClassesRecord, ChrRacesRecord, CreatureLootTable, EmotesTextRecord,
+    FactionRecord, FactionTemplateRecord, GossipMenuDbRecord, ItemRecord, ItemTemplate, MapRecord,
     PlayerCreateActionButton, QuestRelation, QuestTemplate, SkillLineAbilityRecord,
     SkillLineRecord, SpellCastTimeRecord, SpellDurationRecord, SpellRecord,
 };
@@ -80,6 +81,7 @@ pub struct DataStore {
     player_base_attributes: SqlStore<PlayerBaseAttributesPerLevelDbRecord>,
     creature_base_attributes: SqlStore<CreatureBaseAttributesPerLevelDbRecord>,
     player_experience_per_level: SqlStore<PlayerExperiencePerLevel>,
+    creature_loot_tables: SqlStore<CreatureLootTable>,
 }
 
 macro_rules! parse_dbc {
@@ -281,6 +283,16 @@ impl DataStore {
             player_experience_per_level
         };
 
+        let creature_loot_tables = {
+            info!("Loading creature loot tables...");
+            let creature_loot_tables = LootRepository::load_creature_loot_tables(conn);
+            let creature_loot_tables: SqlStore<CreatureLootTable> = creature_loot_tables
+                .into_iter()
+                .map(|clt| (clt.id, clt))
+                .collect();
+            creature_loot_tables
+        };
+
         Ok(DataStore {
             chr_races,
             chr_classes,
@@ -310,6 +322,7 @@ impl DataStore {
             player_base_attributes,
             creature_base_attributes,
             player_experience_per_level,
+            creature_loot_tables,
         })
     }
 
@@ -522,6 +535,10 @@ impl DataStore {
             .get(&level)
             .map(|pe| pe.required_experience)
             .unwrap_or(0)
+    }
+
+    pub fn get_creature_loot_table(&self, id: u32) -> Option<&CreatureLootTable> {
+        self.creature_loot_tables.get(&id)
     }
 }
 

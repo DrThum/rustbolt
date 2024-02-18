@@ -13,12 +13,12 @@ use crate::protocol::packets::*;
 use crate::protocol::server::ServerMessage;
 use crate::session::opcode_handler::OpcodeHandler;
 use crate::session::world_session::WorldSession;
-use crate::shared::constants::{LootType, UnitDynamicFlag, UnitFlags};
+use crate::shared::constants::{LootSlotType, LootType, UnitDynamicFlag, UnitFlags};
 
 impl OpcodeHandler {
     pub(crate) fn handle_cmsg_loot(
         session: Arc<WorldSession>,
-        _world_context: Arc<WorldContext>,
+        world_context: Arc<WorldContext>,
         data: Vec<u8>,
     ) {
         let cmsg: CmsgLoot = ClientMessage::read_as(data).unwrap();
@@ -43,10 +43,33 @@ impl OpcodeHandler {
                                     .set_looting(Some(looted_entity_id));
                             });
 
+                        let loot_items = loot
+                            .items()
+                            .iter()
+                            .map(|li| {
+                                if let Some(item_template) =
+                                    world_context.data_store.get_item_template(li.item_id)
+                                {
+                                    LootResponseItem {
+                                        index: li.index as u8,
+                                        id: li.item_id,
+                                        count: li.count,
+                                        display_info_id: item_template.display_id,
+                                        random_suffix: li.random_suffix,
+                                        random_property_id: li.random_property_id,
+                                        slot_type: LootSlotType::Normal,
+                                    }
+                                } else {
+                                    panic!("found non-existing item when generating creature loot");
+                                }
+                            })
+                            .collect();
+
                         let packet = ServerMessage::new(SmsgLootResponse::build(
                             &target_guid,
                             LootType::Corpse,
                             loot.money(),
+                            loot_items,
                         ));
                         session.send(&packet).unwrap();
                     }

@@ -38,8 +38,8 @@ use crate::{
 };
 
 use self::data_types::{
-    CharStartOutfitRecord, ChrClassesRecord, ChrRacesRecord, CreatureLootTable, EmotesTextRecord,
-    FactionRecord, FactionTemplateRecord, GossipMenuDbRecord, ItemRecord, ItemTemplate, MapRecord,
+    CharStartOutfitRecord, ChrClassesRecord, ChrRacesRecord, EmotesTextRecord, FactionRecord,
+    FactionTemplateRecord, GossipMenuDbRecord, ItemRecord, ItemTemplate, LootTable, MapRecord,
     PlayerCreateActionButton, QuestRelation, QuestTemplate, SkillLineAbilityRecord,
     SkillLineRecord, SpellCastTimeRecord, SpellDurationRecord, SpellRecord,
 };
@@ -81,7 +81,7 @@ pub struct DataStore {
     player_base_attributes: SqlStore<PlayerBaseAttributesPerLevelDbRecord>,
     creature_base_attributes: SqlStore<CreatureBaseAttributesPerLevelDbRecord>,
     player_experience_per_level: SqlStore<PlayerExperiencePerLevel>,
-    creature_loot_tables: SqlStore<CreatureLootTable>,
+    creature_loot_tables: SqlStore<LootTable>,
 }
 
 macro_rules! parse_dbc {
@@ -286,7 +286,7 @@ impl DataStore {
         let creature_loot_tables = {
             info!("Loading creature loot tables...");
             let creature_loot_tables = LootRepository::load_creature_loot_tables(conn);
-            let creature_loot_tables: SqlStore<CreatureLootTable> = creature_loot_tables
+            let creature_loot_tables: SqlStore<LootTable> = creature_loot_tables
                 .into_iter()
                 .map(|clt| (clt.id, clt))
                 .collect();
@@ -537,7 +537,7 @@ impl DataStore {
             .unwrap_or(0)
     }
 
-    pub fn get_creature_loot_table(&self, id: u32) -> Option<&CreatureLootTable> {
+    pub fn get_creature_loot_table(&self, id: u32) -> Option<&LootTable> {
         self.creature_loot_tables.get(&id)
     }
 }

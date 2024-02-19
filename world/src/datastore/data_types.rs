@@ -3,6 +3,7 @@ use std::{sync::Arc, time::Duration};
 use binrw::binwrite;
 use enumflags2::BitFlags;
 use enumn::N;
+use rand::distributions::WeightedIndex;
 
 use crate::{
     ecs::components::movement::MovementKind,
@@ -394,6 +395,7 @@ pub struct CreatureTemplate {
     pub movement_type: MovementKind,
     pub min_money_loot: u32,
     pub max_money_loot: u32,
+    pub loot_table_id: Option<u32>,
 }
 
 #[allow(dead_code)]
@@ -1291,21 +1293,24 @@ pub struct GossipMenuOption {
     pub box_text: Option<String>,
 }
 
-pub struct CreatureLootTable {
+pub struct LootTable {
     pub id: u32,
     // description: Option<String>,
-    pub groups: Vec<CreatureLootGroup>,
+    pub groups: Vec<LootGroup>,
 }
 
-pub struct CreatureLootGroup {
+pub struct LootGroup {
     pub chance: f32, // TODO: Make it a type?
     pub num_rolls: ValueRange<u8>,
-    pub items: Vec<CreatureLootItem>,
+    pub items: Vec<LootItem>,
     pub condition_id: Option<u32>,
+    pub distribution: WeightedIndex<f32>,
 }
 
-pub struct CreatureLootItem {
-    pub item_id: u32, // creature_templates.entry
+#[derive(Copy, Clone)]
+pub struct LootItem {
+    pub item_id: u32, // item_templates.entry
     pub chance: f32,  // TODO: Make it a type?
+    pub count: ValueRange<u8>,
     pub condition_id: Option<u32>,
 }

@@ -1,5 +1,6 @@
 use rand::{distributions::uniform::SampleUniform, Rng};
 
+#[derive(Copy, Clone)]
 pub struct ValueRange<T> {
     min: T,
     max: T,

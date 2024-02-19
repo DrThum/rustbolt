@@ -1,10 +1,11 @@
 use indicatif::ProgressBar;
 use r2d2::PooledConnection;
 use r2d2_sqlite::SqliteConnectionManager;
+use rand::distributions::WeightedIndex;
 use rusqlite::named_params;
 
 use crate::{
-    datastore::data_types::{CreatureLootGroup, CreatureLootItem, CreatureLootTable},
+    datastore::data_types::{LootGroup, LootItem, LootTable},
     game::value_range::ValueRange,
     repositories::creature::CreatureLootGroupColumnIndex,
 };
@@ -16,7 +17,7 @@ pub struct LootRepository;
 impl LootRepository {
     pub fn load_creature_loot_tables(
         conn: &PooledConnection<SqliteConnectionManager>,
-    ) -> Vec<CreatureLootTable> {
+    ) -> Vec<LootTable> {
         let mut stmt = conn
             .prepare_cached("SELECT COUNT(id) FROM creature_loot_tables")
             .unwrap();
@@ -34,20 +35,24 @@ impl LootRepository {
                 let loot_table_id: u32 = row.get(0).unwrap();
 
                 let mut stmt_groups = conn
-                    .prepare_cached("SELECT group_id, chance, num_rolls_min, num_rolls_max, condition_id FROM creature_loot_groups WHERE loot_table_id = :loot_table_id")
+                    .prepare_cached("SELECT id, chance, num_rolls_min, num_rolls_max, condition_id FROM creature_loot_table_groups JOIN loot_groups ON creature_loot_table_groups.loot_group_id = loot_groups.id WHERE creature_loot_table_id = :loot_table_id")
                     .unwrap();
 
                 let result_groups = stmt_groups.query_map(named_params! { ":loot_table_id": loot_table_id }, |row_group| {
-                    let group_id: u32 = row.get(CreatureLootGroupColumnIndex::GroupId as usize).unwrap();
+                    let group_id: u32 = row_group.get(CreatureLootGroupColumnIndex::Id as usize).unwrap();
 
                     let mut stmt_items = conn
-                        .prepare_cached("SELECT item_id, condition_id FROM creature_loot_items WHERE loot_table_id = :loot_table_id AND group_id = :group_id")
+                        .prepare_cached("SELECT item_id, chance, count_min, count_max, condition_id FROM loot_items WHERE group_id = :group_id")
                         .unwrap();
 
-                    let result_items = stmt_items.query_map(named_params! { ":loot_table_id": loot_table_id, ":group_id": group_id }, |row_item| {
-                        Ok(CreatureLootItem {
+                    let result_items: Vec<LootItem> = stmt_items.query_map(named_params! { ":group_id": group_id }, |row_item| {
+                        Ok(LootItem {
                             item_id: row_item.get(CreatureLootItemColumnIndex::ItemId as usize).unwrap(),
                             chance: row_item.get(CreatureLootItemColumnIndex::Chance as usize).unwrap(),
+                            count: ValueRange::new(
+                                row_item.get(CreatureLootItemColumnIndex::CountMin as usize).unwrap(),
+                                row_item.get(CreatureLootItemColumnIndex::CountMax as usize).unwrap(),
+                            ),
                             condition_id: row_item.get(CreatureLootItemColumnIndex::ConditionId as usize).unwrap(),
                         })
                     }).unwrap().filter_map(|res| res.ok()).into_iter().collect();
@@ -57,7 +62,11 @@ impl LootRepository {
                         bar.finish();
                     }
 
-                    Ok(CreatureLootGroup {
+                    assert!(result_items.len() > 0, "{}", format!("loot group {group_id} has no item"));
+
+                    let distribution = WeightedIndex::new(result_items.iter().map(|item| item.chance)).unwrap();
+
+                    Ok(LootGroup {
                         chance: row_group.get(CreatureLootGroupColumnIndex::Chance as usize).unwrap(),
                         num_rolls: ValueRange::new(
                             row_group.get(CreatureLootGroupColumnIndex::NumRollsMin as usize).unwrap(),
@@ -65,10 +74,11 @@ impl LootRepository {
                         ),
                         items: result_items,
                         condition_id: row_group.get(CreatureLootGroupColumnIndex::ConditionId as usize).unwrap(),
+                        distribution
                     })
                 }).unwrap().filter_map(|res| res.ok()).into_iter().collect();
 
-                Ok(CreatureLootTable { id: loot_table_id, groups: result_groups })
+                Ok(LootTable { id: loot_table_id, groups: result_groups })
             })
             .unwrap();
 

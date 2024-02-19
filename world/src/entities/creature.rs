@@ -30,6 +30,7 @@ use super::{
 
 #[derive(Component)]
 pub struct Creature {
+    data_store: Arc<DataStore>,
     guid: ObjectGuid,
     pub entry: u32,
     pub name: String,
@@ -126,6 +127,7 @@ impl Creature {
                 }
 
                 Creature {
+                    data_store: data_store.clone(),
                     guid,
                     entry: template.entry,
                     name: template.name.to_owned(),
@@ -218,8 +220,17 @@ impl Creature {
     pub fn generate_loot(&self) -> bool {
         let mut loot = Loot::new();
         loot.add_money(self.template.min_money_loot, self.template.max_money_loot);
-        // FIXME: hardcoded value
-        loot.add_item(8932, 6);
+
+        if let Some(loot_table) = self
+            .template
+            .loot_table_id
+            .and_then(|loot_table_id| self.data_store.get_creature_loot_table(loot_table_id))
+        {
+            let items = loot_table.generate_loots();
+            for item in items {
+                loot.add_item(item.item_id, item.count.random_value().into())
+            }
+        }
 
         let has_loot = !loot.is_empty();
         *self.loot.write() = loot;

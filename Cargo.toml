@@ -4,6 +4,7 @@ members = [
   "shared",
   "tools/cartographer",
   "tools/dbc_extractor",
+  "tools/minimap_extractor",
   "tools/terrain_extractor",
   "tools/tools_shared",
   "world",

@@ -7,6 +7,8 @@ edition = "2021"
 
 [dependencies]
 clap = { version = "4.2.0", features = ["derive"] }
+image = "0.24.9"
 image-blp = "1.2.0"
+regex = "1.10.3"
 tokio = { version = "1", features = ["full"] }
 tools_shared = { path = "../tools_shared" }

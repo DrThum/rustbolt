@@ -7,6 +7,16 @@ pub struct Bounds {
 }
 
 impl Bounds {
+    pub fn new() -> Self {
+        Self {
+            start_x: u32::MAX,
+            start_y: u32::MAX,
+            end_x: u32::MIN,
+            end_y: u32::MIN,
+        }
+    }
+
+    // TODO: remove this
     pub fn reset(&mut self) {
         self.start_x = u32::MAX;
         self.start_y = u32::MAX;

@@ -1,6 +1,9 @@
-use image::{DynamicImage, GenericImage};
+use image::DynamicImage;
 use image_blp::{convert::blp_to_image, parser::load_blp_from_buf};
-use minimap_extractor::{extract_tile_info_from_trs_line, get_trs_lines, Bounds};
+use minimap_extractor::{
+    extract_tile, extract_tile_info_from_trs_line, get_trs_lines, models::bounds::Bounds,
+    stitch_map_tiles,
+};
 use tools_shared::mpq_manager::MPQManager;
 
 use std::{io::BufRead, path::PathBuf};
@@ -38,37 +41,8 @@ async fn main() -> Result<(), std::io::Error> {
 
             // We start the processing of a new map
             if line.starts_with("dir:") {
-                if !tiles.is_empty() {
-                    if !args.skip_stitch_maps {
-                        println!("\tStitching map ({} tiles)...", tiles.len());
-                        // TODO: for non-WMO maps each tile is 256x256, but for WMOs we're gonna need
-                        // data from the MOGI header
-
-                        let stitched_width_px = (bounds.end_x - bounds.start_x + 1) * 256;
-                        let stitched_height_px = (bounds.end_y - bounds.start_y + 1) * 256;
-
-                        let mut stitched =
-                            DynamicImage::new_rgba16(stitched_width_px, stitched_height_px);
-
-                        for (_, x, y, tile) in &tiles {
-                            stitched
-                                .copy_from(
-                                    tile,
-                                    (*x - bounds.start_x) * 256,
-                                    (*y - bounds.start_y) * 256,
-                                )
-                                .unwrap();
-                        }
-
-                        stitched
-                            .save(format!(
-                                "{}/{}/{}_full.png",
-                                args.output_dir.to_str().unwrap(),
-                                &tiles.first().unwrap().0,
-                                &tiles.first().unwrap().0
-                            ))
-                            .unwrap();
-                    }
+                if !args.skip_stitch_maps {
+                    stitch_map_tiles(&tiles, &bounds, args.output_dir.to_str().unwrap());
                 }
 
                 current_map_name = line.replace("dir: ", "");
@@ -107,21 +81,7 @@ async fn main() -> Result<(), std::io::Error> {
                 let image = blp_to_image(&blp_image, 0).expect("BlpImage to DynamicImage failed");
 
                 if !args.skip_extract_tiles {
-                    std::fs::create_dir_all(format!(
-                        "{}/{}",
-                        args.output_dir.to_str().unwrap(),
-                        tile_info.map_name
-                    ))
-                    .expect("failed to create output dir");
-
-                    image
-                        .save(format!(
-                            "{}/{}/{}",
-                            args.output_dir.to_str().unwrap(),
-                            tile_info.map_name,
-                            tile_info.name.replace("\\", "_").replace(".blp", ".png")
-                        ))
-                        .unwrap();
+                    extract_tile(&tile_info, &image, args.output_dir.to_str().unwrap());
                 }
 
                 tiles.push((

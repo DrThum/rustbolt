@@ -1,5 +1,13 @@
+use image::{DynamicImage, GenericImage};
 use regex::Regex;
 use tools_shared::mpq_manager::MPQManager;
+
+pub mod models {
+    pub mod bounds;
+    pub mod tile_info;
+}
+
+use models::{bounds::Bounds, tile_info::TileInfo};
 
 pub async fn get_trs_lines(manager: &MPQManager) -> Vec<u8> {
     manager
@@ -31,37 +39,55 @@ pub fn extract_tile_info_from_trs_line(line: &str) -> Option<TileInfo> {
     None
 }
 
-pub struct TileInfo<'a> {
-    pub name: &'a str,
-    pub hashed_file_name: &'a str,
-    pub map_name: &'a str,
-    pub tile_x: u32,
-    pub tile_y: u32,
-}
-
-// Represents the min and max X and Y found for a given map (in mapXX_YY.blp)
-pub struct Bounds {
-    pub start_x: u32, // First tile
-    pub start_y: u32,
-    pub end_x: u32, // Last tile
-    pub end_y: u32,
-}
-
-impl Bounds {
-    pub fn reset(&mut self) {
-        self.start_x = u32::MAX;
-        self.start_y = u32::MAX;
-
-        self.end_x = u32::MIN;
-        self.end_y = u32::MIN;
+pub fn stitch_map_tiles(
+    tiles: &Vec<(String, u32, u32, DynamicImage)>,
+    bounds: &Bounds,
+    output_dir: &str,
+) {
+    if tiles.is_empty() {
+        return;
     }
 
-    // Enlarge bounds if needed
-    pub fn refresh(&mut self, candidate_x: u32, candidate_y: u32) {
-        self.start_x = candidate_x.min(self.start_x);
-        self.start_y = candidate_y.min(self.start_y);
+    println!("\tStitching map ({} tiles)...", tiles.len());
+    // TODO: for non-WMO maps each tile is 256x256, but for WMOs we're gonna need
+    // data from the MOGI header
 
-        self.end_x = candidate_x.max(self.end_x);
-        self.end_y = candidate_y.max(self.end_y);
+    let stitched_width_px = (bounds.end_x - bounds.start_x + 1) * 256;
+    let stitched_height_px = (bounds.end_y - bounds.start_y + 1) * 256;
+
+    let mut stitched = DynamicImage::new_rgba16(stitched_width_px, stitched_height_px);
+
+    for (_, x, y, tile) in tiles {
+        stitched
+            .copy_from(
+                tile,
+                (*x - bounds.start_x) * 256,
+                (*y - bounds.start_y) * 256,
+            )
+            .unwrap();
     }
+
+    stitched
+        .save(format!(
+            "{}/{}/{}_full.png",
+            output_dir,
+            &tiles.first().unwrap().0,
+            &tiles.first().unwrap().0
+        ))
+        .unwrap();
+}
+
+pub fn extract_tile(tile_info: &TileInfo, image: &DynamicImage, output_dir: &str) {
+    // TODO: Only do this once
+    std::fs::create_dir_all(format!("{}/{}", output_dir, tile_info.map_name))
+        .expect("failed to create output dir");
+
+    image
+        .save(format!(
+            "{}/{}/{}",
+            output_dir,
+            tile_info.map_name,
+            tile_info.name.replace("\\", "_").replace(".blp", ".png")
+        ))
+        .unwrap();
 }

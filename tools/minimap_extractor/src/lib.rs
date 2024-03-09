@@ -19,6 +19,7 @@ pub fn extract_tile_info_from_trs_line(line: &str) -> Option<TileInfo> {
     let re = Regex::new("(.*)\\\\map([0-9]+)_([0-9]+)\\.blp").unwrap();
     for (_, [map_name, tile_x, tile_y]) in re.captures_iter(tile_name).map(|c| c.extract()) {
         return Some(TileInfo {
+            name: tile_name,
             hashed_file_name,
             map_name,
             tile_x: tile_x.parse().unwrap(),
@@ -31,6 +32,7 @@ pub fn extract_tile_info_from_trs_line(line: &str) -> Option<TileInfo> {
 }
 
 pub struct TileInfo<'a> {
+    pub name: &'a str,
     pub hashed_file_name: &'a str,
     pub map_name: &'a str,
     pub tile_x: u32,

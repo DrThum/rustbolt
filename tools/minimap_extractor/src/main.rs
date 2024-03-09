@@ -28,6 +28,7 @@ async fn main() -> Result<(), std::io::Error> {
     bounds.reset();
 
     let mut tiles: Vec<(String, u32, u32, DynamicImage)> = vec![];
+    let mut current_map_name: String = "".to_string();
 
     while let Ok(_) = cursor.read_until(0x0A as u8, &mut buffer) {
         if let Ok(line) = std::str::from_utf8(&buffer) {
@@ -35,8 +36,47 @@ async fn main() -> Result<(), std::io::Error> {
                 break;
             }
 
-            // TEMP REMOVEME
-            if line.starts_with("WMO") {
+            // We start the processing of a new map
+            if line.starts_with("dir:") {
+                if !tiles.is_empty() {
+                    if !args.skip_stitch_maps {
+                        println!("\tStitching map ({} tiles)...", tiles.len());
+                        // TODO: for non-WMO maps each tile is 256x256, but for WMOs we're gonna need
+                        // data from the MOGI header
+
+                        let stitched_width_px = (bounds.end_x - bounds.start_x + 1) * 256;
+                        let stitched_height_px = (bounds.end_y - bounds.start_y + 1) * 256;
+
+                        let mut stitched =
+                            DynamicImage::new_rgba16(stitched_width_px, stitched_height_px);
+
+                        for (_, x, y, tile) in &tiles {
+                            stitched
+                                .copy_from(
+                                    tile,
+                                    (*x - bounds.start_x) * 256,
+                                    (*y - bounds.start_y) * 256,
+                                )
+                                .unwrap();
+                        }
+
+                        stitched
+                            .save(format!(
+                                "{}/{}/{}_full.png",
+                                args.output_dir.to_str().unwrap(),
+                                &tiles.first().unwrap().0,
+                                &tiles.first().unwrap().0
+                            ))
+                            .unwrap();
+                    }
+                }
+
+                current_map_name = line.replace("dir: ", "");
+                current_map_name.truncate(current_map_name.len() - 2);
+                if !args.specific_maps.is_empty() && args.specific_maps.contains(&current_map_name)
+                {
+                    println!("Processing Map {current_map_name}");
+                }
                 buffer.clear();
                 bounds.reset();
                 tiles.clear();
@@ -44,39 +84,8 @@ async fn main() -> Result<(), std::io::Error> {
                 continue;
             }
 
-            // We start the processing of a new map
-            if line.starts_with("dir:") {
-                if !tiles.is_empty() {
-                    println!("\tStitching map ({} tiles)...", tiles.len());
-                    // TODO: for non-WMO maps each tile is 256x256, but for WMOs we're gonna need
-                    // data from the MOGI header
-
-                    let stitched_width_px = (bounds.end_x - bounds.start_x + 1) * 256;
-                    let stitched_height_px = (bounds.end_y - bounds.start_y + 1) * 256;
-
-                    let mut stitched =
-                        DynamicImage::new_rgba16(stitched_width_px, stitched_height_px);
-
-                    for (_, x, y, tile) in &tiles {
-                        stitched
-                            .copy_from(
-                                tile,
-                                (*x - bounds.start_x) * 256,
-                                (*y - bounds.start_y) * 256,
-                            )
-                            .unwrap();
-                    }
-
-                    stitched
-                        .save(format!("out/{}_full.png", &tiles.first().unwrap().0))
-                        .unwrap();
-                }
-
-                print!("Processing Map {}", line.replace("dir: ", ""));
+            if !args.specific_maps.is_empty() && !args.specific_maps.contains(&current_map_name) {
                 buffer.clear();
-                bounds.reset();
-                tiles.clear();
-
                 continue;
             }
 
@@ -97,6 +106,24 @@ async fn main() -> Result<(), std::io::Error> {
                 let blp_image = load_blp_from_buf(&blp_data).unwrap();
                 let image = blp_to_image(&blp_image, 0).expect("BlpImage to DynamicImage failed");
 
+                if !args.skip_extract_tiles {
+                    std::fs::create_dir_all(format!(
+                        "{}/{}",
+                        args.output_dir.to_str().unwrap(),
+                        tile_info.map_name
+                    ))
+                    .expect("failed to create output dir");
+
+                    image
+                        .save(format!(
+                            "{}/{}/{}",
+                            args.output_dir.to_str().unwrap(),
+                            tile_info.map_name,
+                            tile_info.name.replace("\\", "_").replace(".blp", ".png")
+                        ))
+                        .unwrap();
+                }
+
                 tiles.push((
                     tile_info.map_name.to_string(),
                     tile_info.tile_x,
@@ -104,13 +131,6 @@ async fn main() -> Result<(), std::io::Error> {
                     image,
                 ));
             }
-            // image
-            //     .save(format!(
-            //         "{}/{}",
-            //         args.output_dir.to_str().unwrap(),
-            //         tile_name.replace("\\", "_").replace(".blp", ".png")
-            //     ))
-            //     .unwrap();
         }
 
         buffer.clear();
@@ -129,4 +149,13 @@ struct Cli {
     /// Where to extract the files to
     #[arg(short, long)]
     output_dir: PathBuf,
+    /// Whether to skip extracting independent tiles
+    #[arg(short = 't', long)]
+    skip_extract_tiles: bool,
+    /// Whether to skip extracting stitched map images
+    #[arg(short = 's', long)]
+    skip_stitch_maps: bool,
+    /// Specific maps to extract
+    #[arg(short = 'm', long)]
+    specific_maps: Vec<String>,
 }

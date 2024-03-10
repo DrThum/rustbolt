@@ -16,15 +16,6 @@ impl Bounds {
         }
     }
 
-    // TODO: remove this
-    pub fn reset(&mut self) {
-        self.start_x = u32::MAX;
-        self.start_y = u32::MAX;
-
-        self.end_x = u32::MIN;
-        self.end_y = u32::MIN;
-    }
-
     // Enlarge bounds if needed
     pub fn refresh(&mut self, candidate_x: u32, candidate_y: u32) {
         self.start_x = candidate_x.min(self.start_x);

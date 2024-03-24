@@ -73,11 +73,7 @@ impl Minimap {
                 image
                     .save(format!(
                         "{}/{}/{}_{}_{}.png",
-                        output_dir,
-                        tile.map_name,
-                        tile.map_name,
-                        32 - tile.tile_x as i32,
-                        32 - tile.tile_y as i32,
+                        output_dir, tile.map_name, tile.map_name, tile.tile_x, tile.tile_y,
                     ))
                     .unwrap();
 

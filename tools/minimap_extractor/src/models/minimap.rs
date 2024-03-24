@@ -1,3 +1,9 @@
+use std::{
+    collections::HashMap,
+    fs::File,
+    io::{BufWriter, Write},
+};
+
 use image::{DynamicImage, GenericImage};
 use image_blp::{convert::blp_to_image, parser::load_blp_from_buf};
 use tools_shared::mpq_manager::MPQManager;
@@ -17,6 +23,10 @@ impl Minimap {
         }
     }
 
+    // TODO: generate zoom levels -1 (x4), -2 (x16) and -3 (x64)
+    // Build tiles 4x4 recursively, 3 times
+    //  Use an empty image if one or more tiles is missing (because the starting image is not a
+    //  square)
     pub async fn extract_to_disk(
         &self,
         manager: &MPQManager,
@@ -44,6 +54,8 @@ impl Minimap {
 
         let mut stitched = DynamicImage::new_rgba16(stitched_width_px, stitched_height_px);
 
+        let mut metadata = HashMap::new();
+
         for tile in self.tiles.iter() {
             let full_path = format!("textures\\Minimap\\{}", tile.hashed_file_name);
 
@@ -63,12 +75,13 @@ impl Minimap {
                         "{}/{}/{}_{}_{}.png",
                         output_dir,
                         tile.map_name,
-                        // tile.name.replace("\\", "_").replace(".blp", ".png")
                         tile.map_name,
                         32 - tile.tile_x as i32,
                         32 - tile.tile_y as i32,
                     ))
                     .unwrap();
+
+                metadata.insert(format!("tile_{}_{}_exists", tile.tile_x, tile.tile_y), true);
             }
 
             if extract_stitched {
@@ -86,6 +99,19 @@ impl Minimap {
             stitched
                 .save(format!("{}/{}/{}_full.png", output_dir, map_name, map_name,))
                 .unwrap();
+        }
+
+        if !metadata.is_empty() {
+            let file = File::create(format!(
+                "{}/{}/{}.metadata.json",
+                output_dir, map_name, map_name
+            ))
+            .expect("failed to create metadata file");
+            let mut writer = BufWriter::new(file);
+            serde_json::to_writer(&mut writer, &metadata).expect("serde_json::to_writer failed");
+            writer
+                .flush()
+                .expect("failed to flush JSON metadata to file");
         }
 
         println!("\tDone");

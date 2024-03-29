@@ -7,6 +7,7 @@ members = [
   "tools/minimap_extractor",
   "tools/terrain_extractor",
   "tools/tools_shared",
+  "web_proxy",
   "world",
   "world/opcode_derive",
 ]

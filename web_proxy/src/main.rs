@@ -3,7 +3,7 @@ use actix_web::{
 };
 use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::named_params;
-use serde::Serialize;
+use serde::{Deserialize, Deserializer, Serialize};
 
 type DbPool = r2d2::Pool<SqliteConnectionManager>;
 
@@ -15,6 +15,7 @@ enum CreatureSpawnColumnIndex {
     PositionY,
     PositionZ,
     Orientation,
+    Name,
 }
 
 #[derive(Serialize)]
@@ -26,19 +27,55 @@ pub struct CreatureSpawnDbRecord {
     pub position_y: f32,
     pub position_z: f32,
     pub orientation: f32,
+    pub name: String,
+}
+
+#[derive(Debug)]
+#[allow(dead_code)]
+struct Point {
+    pub x: f32,
+    pub y: f32,
+}
+
+impl<'de> serde::Deserialize<'de> for Point {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        let raw = String::deserialize(d)?;
+        let parts: Vec<f32> = raw
+            .split(',')
+            .take(2)
+            .map(|p| p.parse::<f32>().expect("coord is not a float"))
+            .collect();
+
+        Ok(Point {
+            x: parts[0],
+            y: parts[1],
+        })
+    }
+}
+
+#[derive(Deserialize, Debug)]
+#[allow(dead_code)]
+struct Bounds {
+    pub south_west: Point,
+    pub north_east: Point,
 }
 
 #[get("/")]
-async fn hello(db_pool: web::Data<DbPool>) -> actix_web::Result<impl Responder> {
+async fn hello(
+    db_pool: web::Data<DbPool>,
+    bounds: web::Query<Bounds>,
+) -> actix_web::Result<impl Responder> {
     let spawns: Vec<CreatureSpawnDbRecord> = web::block(move || {
+        let bounds = bounds.0;
+
         // Obtaining a connection from the pool is also a potentially blocking operation.
         // So, it should be called within the `web::block` closure, as well.
         let conn = db_pool.get().expect("couldn't get db connection from pool");
 
-        let mut stmt = conn.prepare_cached("SELECT guid, entry, map, position_x, position_y, position_z, orientation FROM creature_spawns WHERE map = :map_id ORDER BY RANDOM() LIMIT 20").unwrap();
+        let mut stmt = conn.prepare_cached("SELECT guid, creature_spawns.entry, map, position_x, position_y, position_z, orientation, name FROM creature_spawns JOIN creature_templates ON creature_templates.entry = creature_spawns.entry WHERE map = 0 AND position_x >= :min_x AND position_x <= :max_x AND position_y >= :min_y AND position_y <= :max_y").unwrap();
 
         let result = stmt
-            .query_map(named_params! { ":map_id": 0 }, |row| {
+            .query_map(named_params! { ":min_x": bounds.south_west.x, ":max_x": bounds.north_east.x, ":min_y": bounds.north_east.y, ":max_y": bounds.south_west.y }, |row| {
                 use CreatureSpawnColumnIndex::*;
 
                 Ok(CreatureSpawnDbRecord {
@@ -49,6 +86,7 @@ async fn hello(db_pool: web::Data<DbPool>) -> actix_web::Result<impl Responder> 
                     position_y: row.get(PositionY as usize).unwrap(),
                     position_z: row.get(PositionZ as usize).unwrap(),
                     orientation: row.get(Orientation as usize).unwrap(),
+                    name: row.get(Name as usize).unwrap(),
                 })
             })
             .unwrap();

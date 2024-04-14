@@ -56,6 +56,7 @@ impl<'de> serde::Deserialize<'de> for Point {
 #[derive(Deserialize, Debug)]
 #[allow(dead_code)]
 struct Bounds {
+    pub map_id: u32,
     pub south_west: Point,
     pub north_east: Point,
 }
@@ -72,10 +73,10 @@ async fn hello(
         // So, it should be called within the `web::block` closure, as well.
         let conn = db_pool.get().expect("couldn't get db connection from pool");
 
-        let mut stmt = conn.prepare_cached("SELECT guid, creature_spawns.entry, map, position_x, position_y, position_z, orientation, name FROM creature_spawns JOIN creature_templates ON creature_templates.entry = creature_spawns.entry WHERE map = 0 AND position_x >= :min_x AND position_x <= :max_x AND position_y >= :min_y AND position_y <= :max_y").unwrap();
+        let mut stmt = conn.prepare_cached("SELECT guid, creature_spawns.entry, map, position_x, position_y, position_z, orientation, name FROM creature_spawns JOIN creature_templates ON creature_templates.entry = creature_spawns.entry WHERE map = :map_id AND position_x >= :min_x AND position_x <= :max_x AND position_y >= :min_y AND position_y <= :max_y").unwrap();
 
         let result = stmt
-            .query_map(named_params! { ":min_x": bounds.south_west.x, ":max_x": bounds.north_east.x, ":min_y": bounds.north_east.y, ":max_y": bounds.south_west.y }, |row| {
+            .query_map(named_params! { ":map_id": bounds.map_id, ":min_x": bounds.south_west.x, ":max_x": bounds.north_east.x, ":min_y": bounds.north_east.y, ":max_y": bounds.south_west.y }, |row| {
                 use CreatureSpawnColumnIndex::*;
 
                 Ok(CreatureSpawnDbRecord {

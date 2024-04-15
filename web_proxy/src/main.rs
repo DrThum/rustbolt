@@ -28,6 +28,17 @@ pub struct CreatureSpawnDbRecord {
     pub name: String,
 }
 
+enum CreatureTemplateColumnIndex {
+    Entry,
+    Name,
+}
+
+#[derive(Serialize)]
+pub struct CreatureTemplate {
+    pub entry: u32,
+    pub name: String,
+}
+
 #[derive(Debug)]
 #[allow(dead_code)]
 struct Point {
@@ -93,12 +104,50 @@ async fn get_spawns(
         result.filter_map(|res| res.ok()).collect()
     })
     .await?;
-    // .map_err(error::ErrorInternalServerError)?;
 
-    // Ok(HttpResponse::Ok().body("Hello world!"))
     Ok(HttpResponse::Ok()
         .content_type(ContentType::json())
         .body(serde_json::to_string(&spawns).unwrap()))
+}
+
+#[get("/spawn/{entry}")]
+async fn get_template(
+    db_pool: web::Data<DbPool>,
+    path: web::Path<u32>,
+) -> actix_web::Result<impl Responder> {
+    let template: Option<CreatureTemplate> = web::block(move || {
+        let conn = db_pool.get().expect("couldn't get db connection from pool");
+
+        let mut stmt = conn
+            .prepare_cached("SELECT entry, name FROM creature_templates WHERE entry = :entry")
+            .unwrap();
+
+        let mut result = stmt
+            .query_map(named_params! { ":entry": path.into_inner() }, |row| {
+                use CreatureTemplateColumnIndex::*;
+
+                Ok(CreatureTemplate {
+                    entry: row.get(Entry as usize).unwrap(),
+                    name: row.get(Name as usize).unwrap(),
+                })
+            })
+            .unwrap();
+
+        if let Ok(row) = result.next().unwrap() {
+            Some(row)
+        } else {
+            None
+        }
+    })
+    .await?;
+
+    if let Some(template) = template {
+        Ok(HttpResponse::Ok()
+            .content_type(ContentType::json())
+            .body(serde_json::to_string(&template).unwrap()))
+    } else {
+        Ok(HttpResponse::NotFound().into())
+    }
 }
 
 #[actix_web::main]
@@ -112,6 +161,7 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .app_data(web::Data::new(db_pool.clone()))
             .service(get_spawns)
+            .service(get_template)
     })
     .bind(("127.0.0.1", 8080))?
     .run()

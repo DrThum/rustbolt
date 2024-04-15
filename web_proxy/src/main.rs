@@ -1,6 +1,4 @@
-use actix_web::{
-    get, http::header::ContentType, post, web, App, HttpResponse, HttpServer, Responder,
-};
+use actix_web::{get, http::header::ContentType, web, App, HttpResponse, HttpServer, Responder};
 use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::named_params;
 use serde::{Deserialize, Deserializer, Serialize};
@@ -61,8 +59,8 @@ struct Bounds {
     pub north_east: Point,
 }
 
-#[get("/")]
-async fn hello(
+#[get("/spawns")]
+async fn get_spawns(
     db_pool: web::Data<DbPool>,
     bounds: web::Query<Bounds>,
 ) -> actix_web::Result<impl Responder> {
@@ -103,15 +101,6 @@ async fn hello(
         .body(serde_json::to_string(&spawns).unwrap()))
 }
 
-#[post("/echo")]
-async fn echo(req_body: String) -> impl Responder {
-    HttpResponse::Ok().body(req_body)
-}
-
-async fn manual_hello() -> impl Responder {
-    HttpResponse::Ok().body("Hey there!")
-}
-
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     // connect to SQLite DB
@@ -122,9 +111,7 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(move || {
         App::new()
             .app_data(web::Data::new(db_pool.clone()))
-            .service(hello)
-            .service(echo)
-            .route("/hey", web::get().to(manual_hello))
+            .service(get_spawns)
     })
     .bind(("127.0.0.1", 8080))?
     .run()

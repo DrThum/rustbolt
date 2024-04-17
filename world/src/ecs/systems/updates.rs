@@ -17,6 +17,10 @@ pub fn send_entity_update(
     v_int_vals: View<WrappedInternalValues>,
     v_wpos: View<WorldPosition>,
 ) {
+    if !map.0.has_players() {
+        return;
+    }
+
     for (guid, wrapped_int_vals, wpos) in (&v_guid, &v_int_vals, &v_wpos).iter() {
         let mut internal_values = wrapped_int_vals.0.write();
         if internal_values.has_dirty() {

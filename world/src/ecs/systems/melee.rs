@@ -22,6 +22,10 @@ pub fn attempt_melee_attack(
     v_spell: View<SpellCast>,
     v_creature: View<Creature>,
 ) {
+    if !map.0.has_players() {
+        return;
+    }
+
     for (my_id, mut player) in (&mut vm_player).iter().with_id() {
         match Melee::execute_attack(
             my_id,

@@ -36,6 +36,10 @@ pub fn tick(
     v_creature: View<Creature>,
     (mut vm_player, mut vm_health, v_spell): (ViewMut<Player>, ViewMut<Health>, View<SpellCast>),
 ) {
+    if !map.0.has_players() {
+        return;
+    }
+
     (&mut vm_behavior)
         .iter()
         .with_id()

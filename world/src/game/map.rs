@@ -207,6 +207,10 @@ impl Map {
         self.ecs_entities.read().get(guid).copied()
     }
 
+    pub fn has_players(&self) -> bool {
+        !self.sessions.read().is_empty()
+    }
+
     pub fn add_player_on_login(&self, session: Arc<WorldSession>, char_data: &CharacterRecord) {
         let player_guid = ObjectGuid::from_raw(char_data.guid).unwrap();
 

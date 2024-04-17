@@ -1,16 +1,22 @@
-use shipyard::{Get, IntoIter, View, ViewMut};
+use shipyard::{Get, IntoIter, UniqueView, View, ViewMut};
 
 use crate::{
     ecs::components::{guid::Guid, health::Health, threat_list::ThreatList, unit::Unit},
     entities::player::Player,
+    game::map::WrappedMap,
 };
 
 pub fn update_combat_state(
     v_player: View<Player>,
+    map: UniqueView<WrappedMap>,
     vm_unit: ViewMut<Unit>,
     v_threat_list: View<ThreatList>,
     v_health: View<Health>,
 ) {
+    if !map.0.has_players() {
+        return;
+    }
+
     for (player, unit, health) in (&v_player, &vm_unit, &v_health).iter() {
         if !health.is_alive() {
             if unit.combat_state() {
@@ -55,10 +61,15 @@ pub fn update_combat_state(
 // TODO: 130%/110% rule for taking aggro if there's already a target
 pub fn select_target(
     v_health: View<Health>,
+    map: UniqueView<WrappedMap>,
     mut vm_unit: ViewMut<Unit>,
     mut vm_threat_list: ViewMut<ThreatList>,
     v_guid: View<Guid>,
 ) {
+    if !map.0.has_players() {
+        return;
+    }
+
     for (mut unit, mut threat_list, health) in (&mut vm_unit, &mut vm_threat_list, &v_health).iter()
     {
         // Reset our target and threat list if we're dead

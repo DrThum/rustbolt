@@ -39,6 +39,10 @@ pub fn update_movement(
         ViewMut<Behavior>,
     ),
 ) {
+    if !map.0.has_players() {
+        return;
+    }
+
     let mut map_pending_updates: Vec<(&ObjectGuid, EntityId, Position)> = Vec::new();
 
     for (entity_id, (guid, mut movement, my_wpos, health)) in

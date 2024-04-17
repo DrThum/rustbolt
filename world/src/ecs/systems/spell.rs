@@ -22,6 +22,10 @@ pub fn update_spell(vm_all_storages: AllStoragesViewMut) {
          spell_effect_handler: UniqueView<WrappedSpellEffectHandler>,
          mut vm_spell: ViewMut<SpellCast>,
          v_guid: View<Guid>| {
+            if !map.0.has_players() {
+                return;
+            }
+
             for (mut spell, guid) in (&mut vm_spell, &v_guid).iter() {
                 if let Some((current_ranged, cast_end)) = spell.current_ranged() {
                     let now = Instant::now();

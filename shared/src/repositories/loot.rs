@@ -51,14 +51,14 @@ impl LootRepository {
                             ),
                             condition_id: row_item.get(CreatureLootItemColumnIndex::ConditionId as usize).unwrap(),
                         })
-                    }).unwrap().filter_map(|res| res.ok()).into_iter().collect();
+                    }).unwrap().filter_map(|res| res.ok()).collect();
 
                     bar.inc(1);
                     if bar.position() == count {
                         bar.finish();
                     }
 
-                    assert!(result_items.len() > 0, "{}", format!("loot group {group_id} has no item"));
+                    assert!(!result_items.is_empty(), "{}", format!("loot group {group_id} has no item"));
 
                     let distribution = WeightedIndex::new(result_items.iter().map(|item| item.chance)).unwrap();
 
@@ -72,13 +72,13 @@ impl LootRepository {
                         condition_id: row_group.get(CreatureLootGroupColumnIndex::ConditionId as usize).unwrap(),
                         distribution
                     })
-                }).unwrap().filter_map(|res| res.ok()).into_iter().collect();
+                }).unwrap().filter_map(|res| res.ok()).collect();
 
                 Ok(LootTable { id: loot_table_id, groups: result_groups })
             })
             .unwrap();
 
-        result.filter_map(|res| res.ok()).into_iter().collect()
+        result.filter_map(|res| res.ok()).collect()
     }
 }
 

@@ -10,6 +10,7 @@ use parking_lot::RwLock;
 use r2d2::PooledConnection;
 use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::Error;
+use shared::utils::value_range::ValueRange;
 use shipyard::{Component, EntityId};
 use strum::IntoEnumIterator;
 
@@ -19,7 +20,7 @@ use crate::{
         DataStore,
     },
     entities::player::player_data::FactionStanding,
-    game::{value_range::ValueRange, world_context::WorldContext},
+    game::world_context::WorldContext,
     protocol::{
         packets::{
             CmsgCharCreate, SmsgCreateObject, SmsgLevelUpInfo, SmsgLogXpGain,

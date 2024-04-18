@@ -3,11 +3,9 @@ use std::{sync::Arc, time::Duration};
 use binrw::binwrite;
 use enumflags2::BitFlags;
 use enumn::N;
-use rand::distributions::WeightedIndex;
 
 use crate::{
     ecs::components::movement::MovementKind,
-    game::value_range::ValueRange,
     protocol::packets::{
         ItemTemplateDamage, ItemTemplateSocket, ItemTemplateSpell, ItemTemplateStat,
     },
@@ -1291,26 +1289,4 @@ pub struct GossipMenuOption {
     pub box_coded: bool,
     pub box_money: u32,
     pub box_text: Option<String>,
-}
-
-pub struct LootTable {
-    pub id: u32,
-    // description: Option<String>,
-    pub groups: Vec<LootGroup>,
-}
-
-pub struct LootGroup {
-    pub chance: f32, // TODO: Make it a type?
-    pub num_rolls: ValueRange<u8>,
-    pub items: Vec<LootItem>,
-    pub condition_id: Option<u32>,
-    pub distribution: WeightedIndex<f32>,
-}
-
-#[derive(Copy, Clone)]
-pub struct LootItem {
-    pub item_id: u32, // item_templates.entry
-    pub chance: f32,  // TODO: Make it a type?
-    pub count: ValueRange<u8>,
-    pub condition_id: Option<u32>,
 }

@@ -5,6 +5,7 @@ use std::{
 
 use log::{error, warn};
 use parking_lot::RwLock;
+use shared::utils::value_range::ValueRange;
 use shipyard::{Component, EntityId, Get, View, ViewMut};
 
 use crate::{
@@ -12,7 +13,7 @@ use crate::{
         creature::Creature, internal_values::InternalValues, player::Player,
         position::WorldPosition, update_fields::UnitFields,
     },
-    game::{experience::Experience, map::Map, value_range::ValueRange},
+    game::{experience::Experience, map::Map},
     protocol::{
         packets::{SmsgAttackStop, SmsgAttackSwingNotInRange, SmsgAttackerStateUpdate},
         server::ServerMessage,

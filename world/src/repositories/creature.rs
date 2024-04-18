@@ -270,19 +270,3 @@ impl FromSql for CreatureRank {
         CreatureRank::n(value).map_or(Err(FromSqlError::Other("invalid creature rank".into())), Ok)
     }
 }
-
-pub enum CreatureLootGroupColumnIndex {
-    Id,
-    Chance,
-    NumRollsMin,
-    NumRollsMax,
-    ConditionId,
-}
-
-pub enum CreatureLootItemColumnIndex {
-    ItemId,
-    Chance,
-    CountMin,
-    CountMax,
-    ConditionId,
-}

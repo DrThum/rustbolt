@@ -60,7 +60,6 @@ pub mod game {
     pub mod spell;
     pub mod spell_effect_handler;
     mod spell_effect_handlers;
-    pub mod value_range;
     pub mod world_context;
 }
 mod protocol {
@@ -77,7 +76,6 @@ mod repositories {
     pub mod creature_static_data;
     pub mod gossip;
     pub mod item;
-    pub mod loot;
     pub mod player_static_data;
     pub mod quest;
 }

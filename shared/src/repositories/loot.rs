@@ -1,16 +1,12 @@
+use crate::models::loot::LootGroup;
+use crate::models::loot::LootTable;
 use indicatif::ProgressBar;
 use r2d2::PooledConnection;
 use r2d2_sqlite::SqliteConnectionManager;
 use rand::distributions::WeightedIndex;
 use rusqlite::named_params;
 
-use crate::{
-    datastore::data_types::{LootGroup, LootItem, LootTable},
-    game::value_range::ValueRange,
-    repositories::creature::CreatureLootGroupColumnIndex,
-};
-
-use super::creature::CreatureLootItemColumnIndex;
+use crate::{models::loot::LootItem, utils::value_range::ValueRange};
 
 pub struct LootRepository;
 
@@ -84,4 +80,20 @@ impl LootRepository {
 
         result.filter_map(|res| res.ok()).into_iter().collect()
     }
+}
+
+pub enum CreatureLootGroupColumnIndex {
+    Id,
+    Chance,
+    NumRollsMin,
+    NumRollsMax,
+    ConditionId,
+}
+
+pub enum CreatureLootItemColumnIndex {
+    ItemId,
+    Chance,
+    CountMin,
+    CountMax,
+    ConditionId,
 }

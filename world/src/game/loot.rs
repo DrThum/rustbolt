@@ -1,6 +1,4 @@
-use rand::{prelude::Distribution, Rng};
-
-use crate::datastore::data_types::{LootGroup, LootItem, LootTable};
+use rand::Rng;
 
 #[derive(Clone)]
 pub struct Loot {
@@ -75,38 +73,5 @@ impl Loot {
 
     pub fn is_empty(&self) -> bool {
         self.money == 0
-    }
-}
-
-impl LootTable {
-    pub fn generate_loots(&self) -> Vec<LootItem> {
-        let mut rng = rand::thread_rng();
-
-        self.groups
-            .iter()
-            .filter(|group| {
-                let rolled_chance: f32 = rng.gen_range(0.0..100.0);
-
-                group.chance >= rolled_chance
-            })
-            .map(|group| {
-                let num_rolls = group.num_rolls.random_value();
-
-                let mut items: Vec<LootItem> = Vec::new();
-                for _ in 0..num_rolls {
-                    items.push(group.generate_loot());
-                }
-
-                items
-            })
-            .flatten()
-            .collect()
-    }
-}
-
-impl LootGroup {
-    pub fn generate_loot(&self) -> LootItem {
-        let mut rng = rand::thread_rng();
-        self.items[self.distribution.sample(&mut rng)]
     }
 }

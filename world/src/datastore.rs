@@ -1,6 +1,7 @@
 use indicatif::ProgressBar;
 use log::info;
 use multimap::MultiMap;
+use shared::{models::loot::LootTable, repositories::loot::LootRepository};
 use shipyard::Unique;
 use std::{
     collections::{hash_map::Values, HashMap},
@@ -23,7 +24,6 @@ use crate::{
         },
         gossip::GossipRepository,
         item::ItemRepository,
-        loot::LootRepository,
         player_static_data::{
             PlayerBaseAttributesPerLevelDbRecord, PlayerBaseHealthManaPerLevelDbRecord,
             PlayerExperiencePerLevel, PlayerStaticDataRepository,
@@ -39,7 +39,7 @@ use crate::{
 
 use self::data_types::{
     CharStartOutfitRecord, ChrClassesRecord, ChrRacesRecord, EmotesTextRecord, FactionRecord,
-    FactionTemplateRecord, GossipMenuDbRecord, ItemRecord, ItemTemplate, LootTable, MapRecord,
+    FactionTemplateRecord, GossipMenuDbRecord, ItemRecord, ItemTemplate, MapRecord,
     PlayerCreateActionButton, QuestRelation, QuestTemplate, SkillLineAbilityRecord,
     SkillLineRecord, SpellCastTimeRecord, SpellDurationRecord, SpellRecord,
 };

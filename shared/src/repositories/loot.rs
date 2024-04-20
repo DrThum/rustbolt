@@ -8,15 +8,15 @@ use rusqlite::named_params;
 
 use crate::{models::loot::LootItem, utils::value_range::ValueRange};
 
+use super::error::RResult;
+
 pub struct LootRepository;
 
 impl LootRepository {
     pub fn load_creature_loot_tables(
         conn: &PooledConnection<SqliteConnectionManager>,
-    ) -> Vec<LootTable> {
-        let mut stmt = conn
-            .prepare_cached("SELECT COUNT(id) FROM creature_loot_tables")
-            .unwrap();
+    ) -> RResult<Vec<LootTable>> {
+        let mut stmt = conn.prepare_cached("SELECT COUNT(id) FROM creature_loot_tables")?;
         let mut group_count = stmt.query_map([], |row| row.get::<usize, u64>(0)).unwrap();
 
         let count = group_count.next().unwrap().unwrap_or(0);
@@ -29,116 +29,110 @@ impl LootRepository {
         let result = stmt
             .query_map([], |row| {
                 let loot_table_id: u32 = row.get(0).unwrap();
+                let groups = Self::fetch_loot_groups(conn, loot_table_id).unwrap_or_default();
 
-                let mut stmt_groups = conn
-                    .prepare_cached("SELECT id, chance, num_rolls_min, num_rolls_max, condition_id FROM creature_loot_table_groups JOIN loot_groups ON creature_loot_table_groups.loot_group_id = loot_groups.id WHERE creature_loot_table_id = :loot_table_id")
-                    .unwrap();
+                bar.inc(1);
+                if bar.position() == count {
+                    bar.finish();
+                }
 
-                let result_groups = stmt_groups.query_map(named_params! { ":loot_table_id": loot_table_id }, |row_group| {
-                    let group_id: u32 = row_group.get(CreatureLootGroupColumnIndex::Id as usize).unwrap();
-
-                    let mut stmt_items = conn
-                        .prepare_cached("SELECT item_id, chance, count_min, count_max, condition_id FROM loot_items WHERE group_id = :group_id")
-                        .unwrap();
-
-                    let result_items: Vec<LootItem> = stmt_items.query_map(named_params! { ":group_id": group_id }, |row_item| {
-                        Ok(LootItem {
-                            item_id: row_item.get(CreatureLootItemColumnIndex::ItemId as usize).unwrap(),
-                            chance: row_item.get(CreatureLootItemColumnIndex::Chance as usize).unwrap(),
-                            count: ValueRange::new(
-                                row_item.get(CreatureLootItemColumnIndex::CountMin as usize).unwrap(),
-                                row_item.get(CreatureLootItemColumnIndex::CountMax as usize).unwrap(),
-                            ),
-                            condition_id: row_item.get(CreatureLootItemColumnIndex::ConditionId as usize).unwrap(),
-                        })
-                    }).unwrap().filter_map(|res| res.ok()).collect();
-
-                    bar.inc(1);
-                    if bar.position() == count {
-                        bar.finish();
-                    }
-
-                    assert!(!result_items.is_empty(), "{}", format!("loot group {group_id} has no item"));
-
-                    let distribution = WeightedIndex::new(result_items.iter().map(|item| item.chance)).unwrap();
-
-                    Ok(LootGroup {
-                        chance: row_group.get(CreatureLootGroupColumnIndex::Chance as usize).unwrap(),
-                        num_rolls: ValueRange::new(
-                            row_group.get(CreatureLootGroupColumnIndex::NumRollsMin as usize).unwrap(),
-                            row_group.get(CreatureLootGroupColumnIndex::NumRollsMax as usize).unwrap(),
-                        ),
-                        items: result_items,
-                        condition_id: row_group.get(CreatureLootGroupColumnIndex::ConditionId as usize).unwrap(),
-                        distribution
-                    })
-                }).unwrap().filter_map(|res| res.ok()).collect();
-
-                Ok(LootTable { id: loot_table_id, groups: result_groups })
+                Ok(LootTable {
+                    id: loot_table_id,
+                    groups,
+                })
             })
             .unwrap();
 
-        result.filter_map(|res| res.ok()).collect()
+        Ok(result.filter_map(Result::ok).collect())
     }
 
     pub fn fetch_loot_table_by_id(
         conn: &PooledConnection<SqliteConnectionManager>,
         id: u32,
-    ) -> Option<LootTable> {
-        let mut stmt = conn
-            .prepare_cached("SELECT id FROM creature_loot_tables WHERE id = :id")
-            .unwrap();
-        let table_count = stmt
-            .query_map(named_params! { ":id": id}, |row| row.get::<usize, u64>(0))
-            .unwrap()
-            .count();
+    ) -> RResult<Option<LootTable>> {
+        let mut stmt = conn.prepare_cached("SELECT id FROM creature_loot_tables WHERE id = :id")?;
+        let loot_table_exists = stmt
+            .query_map(named_params! { ":id": id }, |row| row.get::<usize, u64>(0))?
+            .filter_map(Result::ok)
+            .any(|count| count > 0);
 
-        if table_count == 0 {
-            return None;
+        if !loot_table_exists {
+            return Ok(None);
         }
 
+        let groups = Self::fetch_loot_groups(conn, id).unwrap_or_default();
+
+        Ok(Some(LootTable { id, groups }))
+    }
+
+    fn fetch_loot_groups(
+        conn: &PooledConnection<SqliteConnectionManager>,
+        loot_table_id: u32,
+    ) -> RResult<Vec<LootGroup>> {
         let mut stmt_groups = conn
-                    .prepare_cached("SELECT id, chance, num_rolls_min, num_rolls_max, condition_id FROM creature_loot_table_groups JOIN loot_groups ON creature_loot_table_groups.loot_group_id = loot_groups.id WHERE creature_loot_table_id = :loot_table_id")
-                    .unwrap();
+                    .prepare_cached("
+                        SELECT id, chance, num_rolls_min, num_rolls_max, condition_id
+                        FROM creature_loot_table_groups
+                        JOIN loot_groups ON creature_loot_table_groups.loot_group_id = loot_groups.id
+                        WHERE creature_loot_table_id = :loot_table_id")?;
 
-        // FIXME: duplicated code with load_creature_loot_tables
-        let result_groups = stmt_groups.query_map(named_params! { ":loot_table_id": id }, |row_group| {
-                    let group_id: u32 = row_group.get(CreatureLootGroupColumnIndex::Id as usize).unwrap();
+        let result_groups = stmt_groups
+            .query_map(
+                named_params! { ":loot_table_id": loot_table_id },
+                |row_group| {
+                    use CreatureLootGroupColumnIndex::*;
 
-                    let mut stmt_items = conn
-                        .prepare_cached("SELECT item_id, chance, count_min, count_max, condition_id FROM loot_items WHERE group_id = :group_id")
-                        .unwrap();
+                    let group_id: u32 = row_group.get(Id as usize)?;
 
-                    let result_items: Vec<LootItem> = stmt_items.query_map(named_params! { ":group_id": group_id }, |row_item| {
-                        Ok(LootItem {
-                            item_id: row_item.get(CreatureLootItemColumnIndex::ItemId as usize).unwrap(),
-                            chance: row_item.get(CreatureLootItemColumnIndex::Chance as usize).unwrap(),
-                            count: ValueRange::new(
-                                row_item.get(CreatureLootItemColumnIndex::CountMin as usize).unwrap(),
-                                row_item.get(CreatureLootItemColumnIndex::CountMax as usize).unwrap(),
-                            ),
-                            condition_id: row_item.get(CreatureLootItemColumnIndex::ConditionId as usize).unwrap(),
-                        })
-                    }).unwrap().filter_map(|res| res.ok()).collect();
+                    let mut stmt_items = conn.prepare_cached(
+                        "
+                    SELECT item_id, chance, count_min, count_max, condition_id
+                    FROM loot_items
+                    WHERE group_id = :group_id",
+                    )?;
 
-                    let distribution = WeightedIndex::new(result_items.iter().map(|item| item.chance)).unwrap();
+                    let result_items: Vec<LootItem> = stmt_items
+                        .query_map(named_params! { ":group_id": group_id }, |row_item| {
+                            use CreatureLootItemColumnIndex::*;
+
+                            Ok(LootItem {
+                                item_id: row_item.get(ItemId as usize)?,
+                                chance: row_item.get(Chance as usize)?,
+                                count: ValueRange::new(
+                                    row_item.get(CountMin as usize)?,
+                                    row_item.get(CountMax as usize)?,
+                                ),
+                                condition_id: row_item.get(ConditionId as usize)?,
+                            })
+                        })?
+                        .filter_map(Result::ok)
+                        .collect();
+
+                    assert!(
+                        !result_items.is_empty(),
+                        "{}",
+                        format!("loot group {group_id} has no item")
+                    );
+
+                    let distribution =
+                        WeightedIndex::new(result_items.iter().map(|item| item.chance)).unwrap();
 
                     Ok(LootGroup {
-                        chance: row_group.get(CreatureLootGroupColumnIndex::Chance as usize).unwrap(),
+                        chance: row_group.get(Chance as usize)?,
                         num_rolls: ValueRange::new(
-                            row_group.get(CreatureLootGroupColumnIndex::NumRollsMin as usize).unwrap(),
-                            row_group.get(CreatureLootGroupColumnIndex::NumRollsMax as usize).unwrap(),
+                            row_group.get(NumRollsMin as usize)?,
+                            row_group.get(NumRollsMax as usize)?,
                         ),
                         items: result_items,
-                        condition_id: row_group.get(CreatureLootGroupColumnIndex::ConditionId as usize).unwrap(),
-                        distribution
+                        condition_id: row_group.get(ConditionId as usize)?,
+                        distribution,
                     })
-                }).unwrap().filter_map(|res| res.ok()).collect();
+                },
+            )?
+            .filter_map(Result::ok)
+            .collect();
 
-        Some(LootTable {
-            id,
-            groups: result_groups,
-        })
+        Ok(result_groups)
     }
 }
 

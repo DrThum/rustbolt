@@ -287,6 +287,7 @@ impl DataStore {
             info!("Loading creature loot tables...");
             let creature_loot_tables = LootRepository::load_creature_loot_tables(conn);
             let creature_loot_tables: SqlStore<LootTable> = creature_loot_tables
+                .unwrap()
                 .into_iter()
                 .map(|clt| (clt.id, clt))
                 .collect();

@@ -144,7 +144,9 @@ async fn get_template(
         if let Ok(mut template) = result.next().unwrap() {
             let loot_table = template
                 .loot_table_id
-                .map(|loot_table_id| LootRepository::fetch_loot_table_by_id(&conn, loot_table_id))
+                .map(|loot_table_id| {
+                    LootRepository::fetch_loot_table_by_id(&conn, loot_table_id).unwrap()
+                })
                 .flatten();
 
             template.loot_table = loot_table;

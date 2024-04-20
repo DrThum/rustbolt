@@ -9,7 +9,7 @@ use crate::utils::value_range::ValueRange;
 #[derive(Serialize)]
 pub struct LootTable {
     pub id: u32,
-    pub description: Option<String>,
+    // pub description: Option<String>,
     pub groups: Vec<LootGroup>,
 }
 

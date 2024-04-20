@@ -2,6 +2,7 @@ use actix_web::{get, http::header::ContentType, web, App, HttpResponse, HttpServ
 use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::named_params;
 use serde::{Deserialize, Deserializer, Serialize};
+use shared::{models::loot::LootTable, repositories::loot::LootRepository};
 
 type DbPool = r2d2::Pool<SqliteConnectionManager>;
 
@@ -31,12 +32,15 @@ pub struct CreatureSpawnDbRecord {
 enum CreatureTemplateColumnIndex {
     Entry,
     Name,
+    LootTableId,
 }
 
 #[derive(Serialize)]
 pub struct CreatureTemplate {
     pub entry: u32,
     pub name: String,
+    pub loot_table_id: Option<u32>,
+    pub loot_table: Option<LootTable>,
 }
 
 #[derive(Debug)]
@@ -119,7 +123,9 @@ async fn get_template(
         let conn = db_pool.get().expect("couldn't get db connection from pool");
 
         let mut stmt = conn
-            .prepare_cached("SELECT entry, name FROM creature_templates WHERE entry = :entry")
+            .prepare_cached(
+                "SELECT entry, name, loot_table_id FROM creature_templates WHERE entry = :entry",
+            )
             .unwrap();
 
         let mut result = stmt
@@ -129,12 +135,20 @@ async fn get_template(
                 Ok(CreatureTemplate {
                     entry: row.get(Entry as usize).unwrap(),
                     name: row.get(Name as usize).unwrap(),
+                    loot_table_id: row.get(LootTableId as usize).unwrap(),
+                    loot_table: None,
                 })
             })
             .unwrap();
 
-        if let Ok(row) = result.next().unwrap() {
-            Some(row)
+        if let Ok(mut template) = result.next().unwrap() {
+            let loot_table = template
+                .loot_table_id
+                .map(|loot_table_id| LootRepository::fetch_loot_table_by_id(&conn, loot_table_id))
+                .flatten();
+
+            template.loot_table = loot_table;
+            Some(template)
         } else {
             None
         }

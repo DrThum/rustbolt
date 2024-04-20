@@ -1,6 +1,7 @@
 use rand::{distributions::uniform::SampleUniform, Rng};
+use serde::Serialize;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Serialize)]
 pub struct ValueRange<T> {
     min: T,
     max: T,

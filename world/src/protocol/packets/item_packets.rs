@@ -1,10 +1,17 @@
 use binrw::{binread, binwrite, NullString};
+use opcode_derive::server_opcode;
 
 use crate::protocol::{opcodes::Opcode, server::ServerMessagePayload};
 
 #[binread]
 pub struct CmsgItemQuerySingle {
     pub item_id: u32,
+}
+
+#[binread]
+pub struct CmsgItemNameQuery {
+    pub item_id: u32,
+    pub item_guid: u64,
 }
 
 #[binwrite]
@@ -116,4 +123,12 @@ pub struct SmsgItemQuerySingleResponse<'a> {
 impl ServerMessagePayload<{ Opcode::SmsgItemQuerySingleResponse as u16 }>
     for SmsgItemQuerySingleResponse<'_>
 {
+}
+
+#[binwrite]
+#[server_opcode]
+pub struct SmsgItemNameQueryResponse {
+    pub item_id: u32,
+    pub name: NullString,
+    pub inventory_type: u32,
 }

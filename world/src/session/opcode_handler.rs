@@ -196,6 +196,10 @@ impl OpcodeHandler {
                     Opcode::CmsgLootRelease,
                     OpcodeHandler::handle_cmsg_loot_release
                 ),
+                define_handler!(
+                    Opcode::CmsgItemNameQuery,
+                    OpcodeHandler::handle_cmsg_item_name_query
+                ),
             ]),
         }
     }

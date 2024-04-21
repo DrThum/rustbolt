@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+use binrw::NullString;
+
 use crate::game::world_context::WorldContext;
 use crate::protocol::client::ClientMessage;
 use crate::protocol::packets::*;
@@ -97,5 +99,26 @@ impl OpcodeHandler {
         };
 
         session.send(&packet).unwrap();
+    }
+
+    pub(crate) fn handle_cmsg_item_name_query(
+        session: Arc<WorldSession>,
+        world_context: Arc<WorldContext>,
+        data: Vec<u8>,
+    ) {
+        let cmsg_item_name_query: CmsgItemNameQuery = ClientMessage::read_as(data).unwrap();
+
+        if let Some(item) = world_context
+            .data_store
+            .get_item_template(cmsg_item_name_query.item_id)
+        {
+            let packet = ServerMessage::new(SmsgItemNameQueryResponse {
+                item_id: item.entry,
+                name: NullString::from(item.name.clone()),
+                inventory_type: item.inventory_type,
+            });
+
+            session.send(&packet).unwrap();
+        }
     }
 }

@@ -742,7 +742,7 @@ impl Player {
         // (8)
         if let Some(previous_quest) = quest_template.previous_quest_id() {
             match self.quest_statuses.get(&previous_quest) {
-                Some(context) if context.status == PlayerQuestStatus::TurnedIn => return None,
+                Some(context) if context.status == PlayerQuestStatus::TurnedIn => (),
                 _ => return Some(QuestStartError::FailedRequirement),
             }
         }

@@ -261,7 +261,7 @@ impl InventorySlot {
 #[allow(dead_code)]
 #[derive(Debug)]
 pub enum ItemStorageError {
-    InventoryFull,
+    InventoryFull = 50,
 }
 
 #[allow(dead_code)]

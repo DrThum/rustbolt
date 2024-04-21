@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use crate::entities::{item::Item, update::CreateData};
 
+// FIXME: Store &Item instead
 pub struct PlayerInventory {
     items: HashMap<u32, Item>, // Key is slot
 }
@@ -20,5 +21,9 @@ impl PlayerInventory {
 
     pub fn get(&self, slot: u32) -> Option<&Item> {
         self.items.get(&slot)
+    }
+
+    pub fn set(&mut self, slot: u32, item: Item) {
+        self.items.insert(slot, item);
     }
 }

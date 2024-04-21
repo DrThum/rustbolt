@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use enumflags2::{make_bitflags, BitFlags};
 use log::warn;
-use parking_lot::RwLock;
+use parking_lot::{RwLock, RwLockWriteGuard};
 use rand::{seq::SliceRandom, Rng};
 use shipyard::Component;
 
@@ -239,6 +239,10 @@ impl Creature {
 
     pub fn loot(&self) -> Loot {
         self.loot.read().clone()
+    }
+
+    pub fn loot_mut(&self) -> RwLockWriteGuard<Loot> {
+        self.loot.write()
     }
 
     pub fn remove_loot_money(&self) -> u32 {

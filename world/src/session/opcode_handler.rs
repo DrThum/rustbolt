@@ -200,6 +200,10 @@ impl OpcodeHandler {
                     Opcode::CmsgItemNameQuery,
                     OpcodeHandler::handle_cmsg_item_name_query
                 ),
+                define_handler!(
+                    Opcode::CmsgAutostoreLootItem,
+                    OpcodeHandler::handle_cmsg_autostore_loot_item
+                ),
             ]),
         }
     }

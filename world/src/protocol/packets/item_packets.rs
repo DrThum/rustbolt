@@ -132,3 +132,20 @@ pub struct SmsgItemNameQueryResponse {
     pub name: NullString,
     pub inventory_type: u32,
 }
+
+#[binwrite]
+#[server_opcode]
+pub struct SmsgItemPushResult {
+    pub player_guid: u64,
+    pub loot_source: u32,        // 0 = looted, 1 = received from NPC
+    pub is_created: u32,         // 0 = received, 1 = created
+    pub is_visible_in_chat: u32, // boolean
+    pub bag_slot: u8,
+    // item slot or 0xFFFFFFFF if the item is added to an existing stack
+    pub item_slot: u32,
+    pub item_id: u32,
+    pub item_suffix_factor: u32,      // SuffixFactor (?)
+    pub item_random_property_id: u32, // TODO
+    pub count: u32,
+    pub total_count_of_this_item_in_inventory: u32,
+}

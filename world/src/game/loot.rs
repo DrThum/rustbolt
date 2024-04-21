@@ -8,7 +8,7 @@ pub struct Loot {
 
 #[derive(Clone)]
 pub struct ItemInLoot {
-    pub index: u32, // Index in the loot window when the loot is generated (doesn't change when items
+    pub index: u8, // Index in the loot window when the loot is generated (doesn't change when items
     // are looted)
     pub item_id: u32,
     pub count: u32,
@@ -55,7 +55,7 @@ impl Loot {
         count: u32, /*, random_suffix: u32, random_property_id: u32*/
     ) {
         self.items.push(ItemInLoot {
-            index: self.items.len() as u32,
+            index: self.items.len() as u8,
             item_id,
             count,
             random_suffix: 0,
@@ -67,11 +67,15 @@ impl Loot {
         &self.items
     }
 
-    pub fn remove_item(&mut self, index: u32) {
+    pub fn remove_item(&mut self, index: u8) {
         self.items.retain(|item| item.index != index);
     }
 
     pub fn is_empty(&self) -> bool {
         self.money == 0
+    }
+
+    pub fn get_item(&self, index: u8) -> Option<ItemInLoot> {
+        self.items.iter().find(|item| item.index == index).cloned()
     }
 }

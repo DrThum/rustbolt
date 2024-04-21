@@ -910,7 +910,10 @@ impl Player {
 
                 match quest_template.reward_choice_items()[chosen_reward_index as usize] {
                     (0, _) | (_, 0) => (),
-                    (id, count) => self.store_item(id, count).unwrap(),
+                    (id, count) => {
+                        self.store_item(id, count).unwrap();
+                        ()
+                    }
                 }
 
                 for (id, count) in quest_template
@@ -1149,7 +1152,7 @@ impl Player {
 
     // Assume that we store in bags for now (TODO bank later)
     // TODO: Implement bags, we only check in the backpack for now
-    pub fn store_item(&self, item_id: u32, stack_count: u32) -> Result<(), ItemStorageError> {
+    pub fn store_item(&mut self, item_id: u32, stack_count: u32) -> Result<u32, ItemStorageError> {
         let mut first_free_bag_slot: Option<u32> = None;
         for slot in InventorySlot::BACKPACK_START..InventorySlot::BACKPACK_END {
             if let None = self.inventory.get(slot) {
@@ -1177,12 +1180,15 @@ impl Player {
                     updates: vec![item.build_create_data()],
                 });
 
-                self.session.send(&packet).unwrap();
-
                 self.internal_values.write().set_u64(
                     UnitFields::PlayerFieldInvSlotHead as usize + (2 * slot) as usize,
                     item.guid().raw(),
                 );
+
+                self.inventory.set(slot, item);
+                self.session.send(&packet).unwrap();
+
+                slot
             })
             .ok_or(ItemStorageError::InventoryFull)
     }

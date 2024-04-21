@@ -151,4 +151,66 @@ impl OpcodeHandler {
             }
         }
     }
+
+    pub(crate) fn handle_cmsg_autostore_loot_item(
+        session: Arc<WorldSession>,
+        _world_context: Arc<WorldContext>,
+        data: Vec<u8>,
+    ) {
+        let cmsg: CmsgAutostoreLootItem = ClientMessage::read_as(data).unwrap();
+
+        if let Some(map) = session.current_map() {
+            map.world().run(
+                |mut vm_player: ViewMut<Player>, v_creature: View<Creature>| {
+                    let player_entity_id = session.player_entity_id().unwrap();
+                    let player = &mut vm_player[player_entity_id];
+
+                    if let Some(looted_entity_id) = player.currently_looting() {
+                        if let Ok(creature) = v_creature.get(looted_entity_id) {
+                            let mut loot = creature.loot_mut();
+                            if let Some(loot_item) = loot.get_item(cmsg.loot_index) {
+                                match player.store_item(loot_item.item_id, loot_item.count) {
+                                    Ok(item_slot) => {
+                                        loot.remove_item(cmsg.loot_index);
+
+                                        let packet = ServerMessage::new(SmsgLootRemoved {
+                                            loot_index: cmsg.loot_index,
+                                        });
+                                        session.send(&packet).unwrap();
+
+                                        let packet = ServerMessage::new(SmsgItemPushResult {
+                                            player_guid: player.guid().raw(),
+                                            loot_source: 0,
+                                            is_created: 0,
+                                            is_visible_in_chat: 1,
+                                            bag_slot: 255, // FIXME: INVENTORY_SLOT_BAG_0
+                                            item_slot,
+                                            item_id: loot_item.item_id,
+                                            item_suffix_factor: 0,      // FIXME
+                                            item_random_property_id: 0, // FIXME
+                                            count: loot_item.count,
+                                            total_count_of_this_item_in_inventory: loot_item.count, // FIXME
+                                        });
+                                        session.send(&packet).unwrap();
+                                    }
+                                    Err(item_storage_error) => {
+                                        let packet =
+                                            ServerMessage::new(SmsgInventoryChangeFailure {
+                                                message: item_storage_error as u8,
+                                                required_level: None,
+                                                item_1_guid: 0,
+                                                item_2_guid: 0,
+                                                bag_type_subclass: 0,
+                                            });
+
+                                        session.send(&packet).unwrap();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+            );
+        }
+    }
 }

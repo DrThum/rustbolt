@@ -81,3 +81,24 @@ impl SmsgLootReleaseResponse {
         }
     }
 }
+
+#[binread]
+pub struct CmsgAutostoreLootItem {
+    pub loot_index: u8,
+}
+
+#[binwrite]
+#[server_opcode]
+pub struct SmsgLootRemoved {
+    pub loot_index: u8,
+}
+
+#[binwrite]
+#[server_opcode]
+pub struct SmsgInventoryChangeFailure {
+    pub message: u8,                 // ItemStorageError
+    pub required_level: Option<u32>, // Only if error is EQUIP_ERR_CANT_EQUIP_LEVEL_I
+    pub item_1_guid: u64,            // TODO
+    pub item_2_guid: u64,            // TODO
+    pub bag_type_subclass: u8,       // In practice, always 0
+}

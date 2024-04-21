@@ -40,7 +40,10 @@ use crate::{
     },
 };
 
-use self::player_data::{ActionButton, QuestLogContext};
+use self::{
+    player_data::{ActionButton, QuestLogContext},
+    player_inventory::PlayerInventory,
+};
 
 use super::{
     internal_values::{InternalValues, QuestSlotOffset, QUEST_SLOT_OFFSETS_COUNT},
@@ -51,8 +54,7 @@ use super::{
 };
 
 pub mod player_data;
-
-pub type PlayerInventory = HashMap<u32, Item>; // Key is slot
+pub mod player_inventory;
 
 #[derive(Component)]
 pub struct Player {
@@ -510,7 +512,7 @@ impl Player {
             result
         };
 
-        let inventory: HashMap<u32, Item> =
+        let items: HashMap<u32, Item> =
             ItemRepository::load_player_inventory(&conn, guid.raw() as u32)
                 .into_iter()
                 .map(|record| {
@@ -539,6 +541,8 @@ impl Player {
                     (record.slot, item)
                 })
                 .collect();
+
+        let inventory = PlayerInventory::new(items);
 
         let mut quest_statuses = CharacterRepository::load_quest_statuses(&conn, guid.raw());
         for (slot, (quest_id, context)) in quest_statuses.iter_mut().enumerate() {
@@ -667,12 +671,7 @@ impl Player {
         }];
 
         if for_self {
-            let inventory_updates: Vec<CreateData> = self
-                .inventory
-                .iter()
-                .map(|item| item.1.build_create_data())
-                .collect();
-
+            let inventory_updates: Vec<CreateData> = self.inventory.build_create_data();
             update_data.extend(inventory_updates);
         }
 
@@ -977,7 +976,7 @@ impl Player {
         } as u32;
 
         self.inventory
-            .get(&slot)
+            .get(slot)
             .and_then(|item| {
                 data_store
                     .get_item_template(item.entry())
@@ -998,7 +997,7 @@ impl Player {
         } as u32;
 
         self.inventory
-            .get(&slot)
+            .get(slot)
             .and_then(|item| {
                 data_store.get_item_template(item.entry()).map(|template| {
                     let min = template
@@ -1153,7 +1152,7 @@ impl Player {
     pub fn store_item(&self, item_id: u32, stack_count: u32) -> Result<(), ItemStorageError> {
         let mut first_free_bag_slot: Option<u32> = None;
         for slot in InventorySlot::BACKPACK_START..InventorySlot::BACKPACK_END {
-            if let None = self.inventory.get(&slot) {
+            if let None = self.inventory.get(slot) {
                 first_free_bag_slot = Some(slot);
                 break;
             }

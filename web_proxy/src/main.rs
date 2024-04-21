@@ -1,8 +1,13 @@
-use actix_web::{get, http::header::ContentType, web, App, HttpResponse, HttpServer, Responder};
+use actix_web::{
+    get, http::header::ContentType, put, web, App, HttpResponse, HttpServer, Responder,
+};
 use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::named_params;
 use serde::{Deserialize, Deserializer, Serialize};
-use shared::{models::loot::LootTable, repositories::loot::LootRepository};
+use shared::{
+    models::loot::{LootTable, UpdateLootTable},
+    repositories::loot::LootRepository,
+};
 
 type DbPool = r2d2::Pool<SqliteConnectionManager>;
 
@@ -166,6 +171,28 @@ async fn get_template(
     }
 }
 
+#[put("/spawn/{entry}/lootTable")]
+async fn update_loot_table(
+    db_pool: web::Data<DbPool>,
+    path: web::Path<u32>,
+    loot_table: web::Json<UpdateLootTable>,
+) -> actix_web::Result<impl Responder> {
+    let template_id = path.into_inner();
+    let updated_loot_table: LootTable = web::block(move || {
+        let mut conn = db_pool.get().expect("couldn't get db connection from pool");
+        let loot_table_id = loot_table.0.id;
+
+        LootRepository::update_loot_table(&mut conn, template_id, loot_table.0);
+        LootRepository::fetch_loot_table_by_id(&conn, loot_table_id).unwrap()
+    })
+    .await?
+    .expect("cannot find the loot table that we just updated");
+
+    Ok(HttpResponse::Ok()
+        .content_type(ContentType::json())
+        .body(serde_json::to_string(&updated_loot_table).unwrap()))
+}
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     // connect to SQLite DB
@@ -178,6 +205,7 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::Data::new(db_pool.clone()))
             .service(get_spawns)
             .service(get_template)
+            .service(update_loot_table)
     })
     .bind(("127.0.0.1", 8080))?
     .run()

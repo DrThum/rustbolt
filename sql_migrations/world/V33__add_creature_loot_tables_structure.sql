@@ -39,6 +39,6 @@ CREATE TABLE IF NOT EXISTS loot_items(
   count_max INTEGER NOT NULL DEFAULT 1,
   condition_id INTEGER,
   PRIMARY KEY (group_id, item_id),
-  FOREIGN KEY (group_id) REFERENCES loot_groups(group_id) ON DELETE CASCADE,
+  FOREIGN KEY (group_id) REFERENCES loot_groups(id) ON DELETE CASCADE,
   CHECK (chance > 0 AND chance <= 100)
 );

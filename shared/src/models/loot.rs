@@ -2,7 +2,7 @@ use rand::{
     distributions::{Distribution, WeightedIndex},
     Rng,
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::utils::value_range::ValueRange;
 
@@ -40,6 +40,7 @@ impl LootTable {
 
 #[derive(Serialize)]
 pub struct LootGroup {
+    pub id: u32,
     pub chance: f32, // TODO: Make it a type?
     pub num_rolls: ValueRange<u8>,
     pub items: Vec<LootItem>,
@@ -61,4 +62,25 @@ pub struct LootItem {
     pub chance: f32,  // TODO: Make it a type?
     pub count: ValueRange<u8>,
     pub condition_id: Option<u32>,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct UpdateLootItem {
+    pub item_id: u32,
+    pub chance: f32,
+    pub count: ValueRange<u32>,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct UpdateLootGroup {
+    pub id: Option<u32>,
+    pub chance: f32,
+    pub items: Vec<UpdateLootItem>,
+    pub num_rolls: ValueRange<u32>,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct UpdateLootTable {
+    pub id: u32,
+    pub groups: Vec<UpdateLootGroup>,
 }

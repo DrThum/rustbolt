@@ -1194,22 +1194,41 @@ impl Player {
     }
 
     pub fn remove_item(&mut self, slot: u32) -> Option<Item> {
-        self.inventory.remove(slot).map(|item| {
-            CharacterRepository::remove_item(
-                &self.guid,
-                item.guid().counter(),
-                slot,
-                self.world_context.database.clone(),
-            )
-            .unwrap();
+        match self.inventory.remove(slot) {
+            Some(item) => {
+                CharacterRepository::remove_item(
+                    &self.guid,
+                    item.guid().counter(),
+                    slot,
+                    self.world_context.database.clone(),
+                )
+                .unwrap();
 
-            self.internal_values.write().set_u64(
-                UnitFields::PlayerFieldInvSlotHead as usize + (2 * slot) as usize,
-                0,
-            );
+                {
+                    let mut values = self.internal_values.write();
+                    values.set_u64(
+                        UnitFields::PlayerFieldInvSlotHead as usize + (2 * slot) as usize,
+                        0,
+                    );
 
-            item
-        })
+                    // Visible bits
+                    if slot >= InventorySlot::EQUIPMENT_START && slot < InventorySlot::EQUIPMENT_END
+                    {
+                        values.set_u32(
+                            UnitFields::PlayerVisibleItem1_0 as usize
+                                + (slot * MAX_PLAYER_VISIBLE_ITEM_OFFSET) as usize,
+                            0,
+                        );
+                    }
+                }
+
+                Some(item)
+            }
+            None => {
+                error!("Player::remove_item: no item found in slot {slot}");
+                None
+            }
+        }
     }
 
     pub fn set_looting(&mut self, entity_id: Option<EntityId>) {

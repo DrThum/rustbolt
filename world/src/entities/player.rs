@@ -1193,6 +1193,25 @@ impl Player {
             .ok_or(ItemStorageError::InventoryFull)
     }
 
+    pub fn remove_item(&mut self, slot: u32) -> Option<Item> {
+        self.inventory.remove(slot).map(|item| {
+            CharacterRepository::remove_item(
+                &self.guid,
+                item.guid().counter(),
+                slot,
+                self.world_context.database.clone(),
+            )
+            .unwrap();
+
+            self.internal_values.write().set_u64(
+                UnitFields::PlayerFieldInvSlotHead as usize + (2 * slot) as usize,
+                0,
+            );
+
+            item
+        })
+    }
+
     pub fn set_looting(&mut self, entity_id: Option<EntityId>) {
         match (self.currently_looting, entity_id) {
             (Some(id1), Some(id2)) if id1 != id2 => {

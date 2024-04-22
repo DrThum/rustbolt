@@ -1,7 +1,9 @@
 use std::sync::Arc;
 
 use binrw::NullString;
+use shipyard::ViewMut;
 
+use crate::entities::player::Player;
 use crate::game::world_context::WorldContext;
 use crate::protocol::client::ClientMessage;
 use crate::protocol::packets::*;
@@ -119,6 +121,25 @@ impl OpcodeHandler {
             });
 
             session.send(&packet).unwrap();
+        }
+    }
+
+    pub(crate) fn handle_cmsg_destroy_item(
+        session: Arc<WorldSession>,
+        _world_context: Arc<WorldContext>,
+        data: Vec<u8>,
+    ) {
+        let cmsg_destroy_item: CmsgDestroyItem = ClientMessage::read_as(data).unwrap();
+
+        if let Some(map) = session.current_map() {
+            map.world().run(|mut vm_player: ViewMut<Player>| {
+                let player_entity_id = session.player_entity_id().unwrap();
+                let player = &mut vm_player[player_entity_id];
+
+                if let Some(removed_item) = player.remove_item(cmsg_destroy_item.slot.into()) {
+                    session.destroy_entity(removed_item.guid());
+                }
+            });
         }
     }
 }

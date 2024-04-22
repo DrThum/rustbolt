@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use binrw::BinWriterExt;
-use log::{error, info, trace};
+use log::{error, trace};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt, ReadHalf, WriteHalf},
     net::TcpStream,
@@ -15,7 +15,6 @@ use wow_srp::tbc_header::HeaderCrypto;
 use crate::{
     protocol::{
         client::{ClientMessage, ClientMessageHeader},
-        opcodes::Opcode,
         server::ServerMessageHeader,
     },
     WorldSocketError,
@@ -43,11 +42,11 @@ impl WorldSocket {
                 let mut socket = write_half.lock().await;
                 let mut encryption = encryption_clone.lock().await;
 
-                info!(
-                    "Sending {:?} ({:#X})",
-                    Opcode::n(header.opcode).unwrap(),
-                    header.opcode
-                );
+                // info!(
+                //     "Sending {:?} ({:#X})",
+                //     Opcode::n(header.opcode).unwrap(),
+                //     header.opcode
+                // );
                 let mut encrypted_header: Vec<u8> = Vec::new();
                 encryption
                     .write_encrypted_server_header(

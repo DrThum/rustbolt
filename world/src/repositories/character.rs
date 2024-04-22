@@ -360,6 +360,26 @@ impl CharacterRepository {
         .unwrap();
     }
 
+    pub fn remove_item_from_inventory(
+        transaction: &Transaction,
+        character_guid: u64,
+        item_guid: u32,
+        slot: u32,
+    ) {
+        let mut stmt = transaction
+            .prepare_cached(
+                "DELETE FROM character_inventory
+            WHERE character_guid = :character_guid AND item_guid = :item_guid AND slot = :slot",
+            )
+            .unwrap();
+        stmt.execute(named_params! {
+            ":character_guid": character_guid,
+            ":item_guid": item_guid,
+            ":slot": slot,
+        })
+        .unwrap();
+    }
+
     pub fn add_spell_offline(transaction: &Transaction, character_guid: u64, spell_id: u32) {
         let mut stmt = transaction.prepare_cached("INSERT INTO character_spells(character_guid, spell_id) VALUES (:character_guid, :spell_id)").unwrap();
         stmt.execute(named_params! {
@@ -533,6 +553,25 @@ impl CharacterRepository {
         );
 
         transaction.commit().map(|_| item_guid)
+    }
+
+    pub fn remove_item(
+        character_guid: &ObjectGuid,
+        item_guid: u32,
+        slot: u32,
+        database: Arc<DatabaseContext>,
+    ) -> Result<(), Error> {
+        let mut conn = database.characters.get().unwrap();
+        let transaction = conn.transaction().unwrap();
+
+        CharacterRepository::remove_item_from_inventory(
+            &transaction,
+            character_guid.raw(),
+            item_guid,
+            slot,
+        );
+
+        transaction.commit()
     }
 }
 

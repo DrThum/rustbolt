@@ -204,6 +204,10 @@ impl OpcodeHandler {
                     Opcode::CmsgAutostoreLootItem,
                     OpcodeHandler::handle_cmsg_autostore_loot_item
                 ),
+                define_handler!(
+                    Opcode::CmsgDestroyItem,
+                    OpcodeHandler::handle_cmsg_destroy_item
+                ),
             ]),
         }
     }

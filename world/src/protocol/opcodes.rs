@@ -276,7 +276,7 @@ pub enum Opcode {
     CmsgSplitItem = 0x10E,
     CmsgAutoequipItemSlot = 0x10F,
     ObsoleteDropItem = 0x110,
-    CmsgDestroyitem = 0x111,
+    CmsgDestroyItem = 0x111,
     SmsgInventoryChangeFailure = 0x112,
     SmsgOpenContainer = 0x113,
     CmsgInspect = 0x114,

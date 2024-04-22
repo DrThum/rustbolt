@@ -149,3 +149,13 @@ pub struct SmsgItemPushResult {
     pub count: u32,
     pub total_count_of_this_item_in_inventory: u32,
 }
+
+#[binread]
+pub struct CmsgDestroyItem {
+    pub bag: u8,
+    pub slot: u8,
+    pub amount: u8,
+    pub unk1: u8,
+    pub unk2: u8,
+    pub unk3: u8,
+}

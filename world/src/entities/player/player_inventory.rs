@@ -26,4 +26,8 @@ impl PlayerInventory {
     pub fn set(&mut self, slot: u32, item: Item) {
         self.items.insert(slot, item);
     }
+
+    pub fn remove(&mut self, slot: u32) -> Option<Item> {
+        self.items.remove(&slot)
+    }
 }

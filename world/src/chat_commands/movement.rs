@@ -30,6 +30,6 @@ fn handle_fly(ctx: CommandContext) -> ChatCommandResult {
             }
         }
 
-        ChatCommandResult::HandledOk
+        ChatCommandResult::ok()
     })
 }

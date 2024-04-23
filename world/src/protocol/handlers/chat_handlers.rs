@@ -4,7 +4,6 @@ use log::error;
 use shipyard::{Get, View};
 
 use crate::{
-    chat_commands::ChatCommandResult,
     entities::{creature::Creature, object_guid::ObjectGuid, player::Player},
     game::world_context::WorldContext,
     protocol::{
@@ -30,10 +29,10 @@ impl OpcodeHandler {
         if cmsg_message_chat.msg.to_string().starts_with(".") {
             let mut command = cmsg_message_chat.msg.to_string();
             command.drain(0..1);
-            let result = world_context
+            if world_context
                 .chat_commands
-                .try_process(&command, session.clone());
-            if result != ChatCommandResult::Unhandled {
+                .try_process(&command, session.clone())
+            {
                 return;
             }
         }
@@ -54,6 +53,7 @@ impl OpcodeHandler {
                 };
 
                 // Broadcast to nearby players
+                // TODO: Implement WorldSession::broadcast_packet
                 session.current_map().unwrap().broadcast_packet(
                     &session.player_guid().unwrap(),
                     &smsg_message_chat,

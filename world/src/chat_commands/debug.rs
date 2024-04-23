@@ -16,6 +16,7 @@ pub(super) fn commands() -> CommandMap {
         (COMMAND_GPS, handle_gps as CommandHandler),
         (COMMAND_COME, handle_come as CommandHandler),
         (COMMAND_THREAT, handle_threat as CommandHandler),
+        (COMMAND_ITEM, handle_item as CommandHandler),
     ])
 }
 
@@ -47,7 +48,7 @@ fn handle_gps(ctx: CommandContext) -> ChatCommandResult {
             }
         }
 
-        ChatCommandResult::HandledOk
+        ChatCommandResult::ok()
     })
 }
 
@@ -68,7 +69,7 @@ fn handle_come(ctx: CommandContext) -> ChatCommandResult {
                         if player_target.is_none() {
                             ctx.session
                                 .send_error_system_message("You must select a target");
-                            return ChatCommandResult::HandledWithError;
+                            return ChatCommandResult::error();
                         }
 
                         let target_entity_id = player_target.unwrap();
@@ -87,13 +88,13 @@ fn handle_come(ctx: CommandContext) -> ChatCommandResult {
                             true,
                         );
 
-                        return ChatCommandResult::HandledOk;
+                        ChatCommandResult::ok()
                     },
                 );
             }
         }
 
-        ChatCommandResult::HandledWithError
+        ChatCommandResult::error()
     })
 }
 
@@ -133,19 +134,71 @@ fn handle_threat(ctx: CommandContext) -> ChatCommandResult {
                                         );
                                     }
 
-                                    return ChatCommandResult::HandledOk;
+                                    return ChatCommandResult::ok();
                                 }
                             }
                         }
 
                         ctx.session
                             .send_error_system_message("You must select a creature target");
-                        return ChatCommandResult::HandledWithError;
+                        ChatCommandResult::error()
                     },
-                );
+                )
+            } else {
+                ChatCommandResult::error()
+            }
+        } else {
+            ChatCommandResult::error()
+        }
+    })
+}
+
+// TODO: Move to item.rs ?
+static COMMAND_ITEM: &str = "item";
+fn handle_item(ctx: CommandContext) -> ChatCommandResult {
+    let command: Command = Command::new(COMMAND_ITEM)
+        .subcommand_required(true)
+        .subcommand(
+            Command::new("add").args([
+                Arg::new("id")
+                    .short('i')
+                    .long("id")
+                    .required(true)
+                    .value_parser(clap::value_parser!(u32)),
+                Arg::new("count")
+                    .short('c')
+                    .long("count")
+                    .value_parser(clap::value_parser!(u32))
+                    .default_value("1"),
+            ]),
+        );
+
+    ChatCommands::process(command.clone(), &ctx, &|matches| {
+        if let Some(subcommand_add) = matches.subcommand_matches("add") {
+            if let Some(ref map) = ctx.session.current_map() {
+                if let Some(player_ecs_entity) = ctx.session.player_entity_id() {
+                    return map.world().run(|mut vm_player: ViewMut<Player>| {
+                        if let Ok(mut player) = (&mut vm_player).get(player_ecs_entity) {
+                            let item_id: &u32 = subcommand_add.get_one("id").unwrap();
+                            let count: &u32 = subcommand_add.get_one("count").unwrap();
+
+                            match player.store_item(*item_id, *count) {
+                                Ok(_) => ChatCommandResult::HandledOk,
+                                Err(err) => {
+                                    ctx.session.send_error_system_message(
+                                        format!("unable to add item ({err:?})").as_str(),
+                                    );
+                                    ChatCommandResult::error()
+                                }
+                            }
+                        } else {
+                            ChatCommandResult::error()
+                        }
+                    });
+                }
             }
         }
 
-        ChatCommandResult::HandledWithError
+        ChatCommandResult::error()
     })
 }

@@ -27,16 +27,17 @@ impl ChatCommands {
         Self { commands }
     }
 
-    pub fn try_process(&self, input: &str, session: Arc<WorldSession>) -> ChatCommandResult {
+    pub fn try_process(&self, input: &str, session: Arc<WorldSession>) -> bool {
         let input = shell_words::split(input).unwrap();
         if input.is_empty() {
-            return ChatCommandResult::Unhandled;
-        }
-        if let Some(handler) = self.commands.get(input[0].as_str()) {
-            return handler(CommandContext { input, session });
+            return false;
         }
 
-        ChatCommandResult::Unhandled
+        if let Some(handler) = self.commands.get(input[0].as_str()) {
+            handler(CommandContext { input, session }) != ChatCommandResult::Unhandled
+        } else {
+            false
+        }
     }
 
     fn replace_ansi_escape_sequences(input: String) -> String {
@@ -77,7 +78,7 @@ impl ChatCommands {
                 let error_message = ChatCommands::replace_ansi_escape_sequences(error_message);
                 ctx.session.send_system_message(error_message.as_str());
 
-                ChatCommandResult::HandledWithError
+                ChatCommandResult::error()
             }
         }
     }
@@ -88,6 +89,20 @@ pub enum ChatCommandResult {
     HandledOk,
     HandledWithError,
     Unhandled,
+}
+
+impl ChatCommandResult {
+    pub fn ok() -> Self {
+        Self::HandledOk
+    }
+
+    pub fn error() -> Self {
+        Self::HandledWithError
+    }
+
+    pub fn unhandled() -> Self {
+        Self::Unhandled
+    }
 }
 
 struct CommandContext {

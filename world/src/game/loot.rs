@@ -72,7 +72,7 @@ impl Loot {
     }
 
     pub fn is_empty(&self) -> bool {
-        self.money == 0
+        self.money == 0 && self.items.is_empty()
     }
 
     pub fn get_item(&self, index: u8) -> Option<ItemInLoot> {

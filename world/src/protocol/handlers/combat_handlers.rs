@@ -20,24 +20,20 @@ impl OpcodeHandler {
         data: Vec<u8>,
     ) {
         let cmsg: CmsgAttackSwing = ClientMessage::read_as(data).unwrap();
-        if let Some(_target_guid) = ObjectGuid::from_raw(cmsg.guid) {
-            if let Some(ref map) = session.current_map() {
-                if let Some(player_ecs_entity) = session.player_entity_id() {
-                    map.world().run(|mut vm_melee: ViewMut<Melee>| {
-                        vm_melee[player_ecs_entity].is_attacking = true;
-                    });
-                }
-
-                let player_guid = session.player_guid().unwrap();
-                let packet = ServerMessage::new(SmsgAttackStart {
-                    attacker_guid: player_guid.raw(),
-                    target_guid: cmsg.guid,
+        if let Some(ref map) = session.current_map() {
+            if let Some(player_ecs_entity) = session.player_entity_id() {
+                map.world().run(|mut vm_melee: ViewMut<Melee>| {
+                    vm_melee[player_ecs_entity].is_attacking = true;
                 });
-
-                map.broadcast_packet(&player_guid, &packet, None, true);
             }
-        } else {
-            session.send_attack_stop(None);
+
+            let player_guid = session.player_guid().unwrap();
+            let packet = ServerMessage::new(SmsgAttackStart {
+                attacker_guid: player_guid,
+                target_guid: cmsg.guid,
+            });
+
+            map.broadcast_packet(&player_guid, &packet, None, true);
         }
     }
 

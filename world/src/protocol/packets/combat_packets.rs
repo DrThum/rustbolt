@@ -1,13 +1,13 @@
 use binrw::{binread, binwrite};
 use opcode_derive::server_opcode;
 
-use crate::entities::object_guid::PackedObjectGuid;
+use crate::entities::object_guid::{ObjectGuid, PackedObjectGuid};
 use crate::protocol::opcodes::Opcode;
 use crate::protocol::server::ServerMessagePayload;
 
 #[binread]
 pub struct CmsgAttackSwing {
-    pub guid: u64,
+    pub guid: ObjectGuid,
 }
 
 #[binwrite]
@@ -21,8 +21,8 @@ pub struct SmsgAttackStop {
 #[binwrite]
 #[server_opcode]
 pub struct SmsgAttackStart {
-    pub attacker_guid: u64,
-    pub target_guid: u64,
+    pub attacker_guid: ObjectGuid,
+    pub target_guid: ObjectGuid,
 }
 
 #[binwrite]

@@ -1,6 +1,6 @@
 use std::hash::Hasher;
 
-use binrw::binwrite;
+use binrw::{binwrite, BinRead, BinWrite};
 use fixedbitset::FixedBitSet;
 
 use crate::shared::constants::HighGuidType;
@@ -138,4 +138,34 @@ impl std::hash::Hash for ObjectGuid {
 pub struct PackedObjectGuid {
     mask: u8,
     bytes: Vec<u8>,
+}
+
+impl BinRead for ObjectGuid {
+    type Args<'a> = ();
+
+    fn read_options<R: std::io::prelude::Read + std::io::prelude::Seek>(
+        reader: &mut R,
+        endian: binrw::Endian,
+        _args: Self::Args<'_>,
+    ) -> binrw::prelude::BinResult<Self> {
+        let raw = <u64>::read_options(reader, endian, ())?;
+
+        ObjectGuid::from_raw(raw).ok_or(binrw::Error::Custom {
+            pos: reader.stream_position().unwrap(),
+            err: Box::new("received a packet with an invalid ObjectGuid"),
+        })
+    }
+}
+
+impl BinWrite for ObjectGuid {
+    type Args<'a> = ();
+
+    fn write_options<W: std::io::prelude::Write + std::io::prelude::Seek>(
+        &self,
+        writer: &mut W,
+        endian: binrw::Endian,
+        args: Self::Args<'_>,
+    ) -> binrw::prelude::BinResult<()> {
+        <u64>::write_options(&self.raw, writer, endian, args)
+    }
 }

@@ -477,6 +477,19 @@ impl WorldSession {
     pub fn send_error_system_message(&self, message: &str) {
         self.send_system_message(format!("|cffff0000Error:|r {message}").as_str())
     }
+
+    pub fn run<T>(&self, f: &dyn Fn(WSRunnableArgs) -> T) -> Option<T> {
+        if let Some(map) = self.current_map() {
+            if let Some(player_entity_id) = self.player_entity_id() {
+                return Some(f(WSRunnableArgs {
+                    map,
+                    player_entity_id,
+                }));
+            }
+        }
+
+        None
+    }
 }
 
 impl PartialEq for WorldSession {
@@ -507,4 +520,9 @@ impl TimeSync {
         self.client_counter = 0;
         self.client_last_sync_ticks = 0;
     }
+}
+
+pub struct WSRunnableArgs {
+    pub map: Arc<Map>,
+    pub player_entity_id: EntityId,
 }

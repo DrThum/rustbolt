@@ -12,7 +12,7 @@ use crate::protocol::client::ClientMessage;
 use crate::protocol::packets::*;
 use crate::protocol::server::ServerMessage;
 use crate::session::opcode_handler::OpcodeHandler;
-use crate::session::world_session::WorldSession;
+use crate::session::world_session::{WSRunnableArgs, WorldSession};
 use crate::shared::constants::{LootSlotType, LootType, UnitDynamicFlag, UnitFlags};
 
 impl OpcodeHandler {
@@ -83,31 +83,32 @@ impl OpcodeHandler {
         _world_context: Arc<WorldContext>,
         _data: Vec<u8>,
     ) {
-        // This CMSG has no attribute
-        if let Some(map) = session.current_map() {
-            if let Some(player_entity_id) = session.player_entity_id() {
-                map.world()
-                    .run(|v_player: View<Player>, v_creature: View<Creature>| {
-                        let player = &v_player[player_entity_id];
+        session.run(&|WSRunnableArgs {
+                          map,
+                          player_entity_id,
+                          ..
+                      }| {
+            map.world()
+                .run(|v_player: View<Player>, v_creature: View<Creature>| {
+                    let player = &v_player[player_entity_id];
 
-                        if let Some(looted_entity_id) = player.currently_looting() {
-                            if let Ok(creature) = v_creature.get(looted_entity_id) {
-                                let loot_money = creature.remove_loot_money();
-                                player.modify_money(loot_money as i32);
+                    if let Some(looted_entity_id) = player.currently_looting() {
+                        if let Ok(creature) = v_creature.get(looted_entity_id) {
+                            let loot_money = creature.remove_loot_money();
+                            player.modify_money(loot_money as i32);
 
-                                let packet =
-                                    ServerMessage::new(SmsgLootMoneyNotify { money: loot_money });
-                                session.send(&packet).unwrap();
+                            let packet =
+                                ServerMessage::new(SmsgLootMoneyNotify { money: loot_money });
+                            session.send(&packet).unwrap();
 
-                                let packet = ServerMessage::new(SmsgLootClearMoney {});
-                                session.send(&packet).unwrap();
-                            }
-                        } else {
-                            warn!("received CMSG_LOOT_MONEY but player is not looting");
+                            let packet = ServerMessage::new(SmsgLootClearMoney {});
+                            session.send(&packet).unwrap();
                         }
-                    });
-            }
-        }
+                    } else {
+                        warn!("received CMSG_LOOT_MONEY but player is not looting");
+                    }
+                });
+        });
     }
 
     pub(crate) fn handle_cmsg_loot_release(

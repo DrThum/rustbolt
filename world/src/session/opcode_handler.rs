@@ -208,6 +208,10 @@ impl OpcodeHandler {
                     Opcode::CmsgDestroyItem,
                     OpcodeHandler::handle_cmsg_destroy_item
                 ),
+                define_handler!(
+                    Opcode::CmsgAutoEquipItem,
+                    OpcodeHandler::handle_cmsg_auto_equip_item
+                ),
             ]),
         }
     }

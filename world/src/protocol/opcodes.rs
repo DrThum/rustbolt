@@ -269,7 +269,7 @@ pub enum Opcode {
     CmsgAutostoreGroundItem = 0x107,
     CmsgAutostoreLootItem = 0x108,
     CmsgStoreLootInSlot = 0x109,
-    CmsgAutoequipItem = 0x10A,
+    CmsgAutoEquipItem = 0x10A,
     CmsgAutostoreBagItem = 0x10B,
     CmsgSwapItem = 0x10C,
     CmsgSwapInvItem = 0x10D,

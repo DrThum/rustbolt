@@ -1,6 +1,12 @@
 use std::collections::HashMap;
 
-use crate::entities::{item::Item, update::CreateData};
+use log::warn;
+
+use crate::{
+    datastore::data_types::ItemTemplate,
+    entities::{item::Item, update::CreateData},
+    shared::constants::{InventorySlot, InventoryType},
+};
 
 // FIXME: Store &Item instead
 pub struct PlayerInventory {
@@ -29,5 +35,65 @@ impl PlayerInventory {
 
     pub fn remove(&mut self, slot: u32) -> Option<Item> {
         self.items.remove(&slot)
+    }
+
+    pub fn swap(&mut self, slot1: u32, slot2: u32) {
+        let item1 = self.items.get_mut(&slot1).unwrap() as *mut Item;
+        let item2 = self.items.get_mut(&slot2).unwrap() as *mut Item;
+
+        unsafe {
+            std::ptr::swap(item1, item2);
+        }
+    }
+
+    pub fn move_item(&mut self, from_slot: u32, to_slot: u32) {
+        if let Some(item) = self.items.remove(&from_slot) {
+            self.items.insert(to_slot, item);
+        } else {
+            warn!("attempt to move an item in inventory but item is not there");
+        }
+    }
+
+    pub fn equipment_slot_for(item_template: &ItemTemplate) -> Option<InventorySlot> {
+        // FIXME: It's more complex than that
+        fn calculate_weapon_slot() -> Option<InventorySlot> {
+            Some(InventorySlot::EquipmentMainHand)
+        }
+
+        if let Some(inventory_type) = InventoryType::n(item_template.inventory_type) {
+            return match inventory_type {
+                InventoryType::NonEquip => None,
+                InventoryType::Head => Some(InventorySlot::EquipmentHead),
+                InventoryType::Neck => Some(InventorySlot::EquipmentNeck),
+                InventoryType::Shoulders => Some(InventorySlot::EquipmentShoulders),
+                InventoryType::Body => Some(InventorySlot::EquipmentBody),
+                InventoryType::Chest => Some(InventorySlot::EquipmentChest),
+                InventoryType::Waist => Some(InventorySlot::EquipmentWaist),
+                InventoryType::Legs => Some(InventorySlot::EquipmentLegs),
+                InventoryType::Feet => Some(InventorySlot::EquipmentFeet),
+                InventoryType::Wrists => Some(InventorySlot::EquipmentWrists),
+                InventoryType::Hands => Some(InventorySlot::EquipmentHands),
+                InventoryType::Finger => Some(InventorySlot::EquipmentFinger1), // FIXME: possibly return several?
+                InventoryType::Trinket => Some(InventorySlot::EquipmentTrinket1), // FIXME: same
+                InventoryType::Weapon => calculate_weapon_slot(),
+                InventoryType::Shield => Some(InventorySlot::EquipmentOffHand),
+                InventoryType::Ranged => Some(InventorySlot::EquipmentRanged),
+                InventoryType::Cloak => Some(InventorySlot::EquipmentBack),
+                InventoryType::TwoHandWeapon => calculate_weapon_slot(),
+                InventoryType::Bag => todo!(),
+                InventoryType::Tabard => Some(InventorySlot::EquipmentTabard),
+                InventoryType::Robe => Some(InventorySlot::EquipmentChest),
+                InventoryType::WeaponMainHand => Some(InventorySlot::EquipmentMainHand),
+                InventoryType::WeaponOffHand => Some(InventorySlot::EquipmentOffHand),
+                InventoryType::Holdable => Some(InventorySlot::EquipmentOffHand),
+                InventoryType::Ammo => todo!(),
+                InventoryType::Thrown => Some(InventorySlot::EquipmentRanged),
+                InventoryType::RangedRight => Some(InventorySlot::EquipmentRanged),
+                InventoryType::Quiver => todo!(),
+                InventoryType::Relic => todo!(),
+            };
+        }
+
+        None
     }
 }

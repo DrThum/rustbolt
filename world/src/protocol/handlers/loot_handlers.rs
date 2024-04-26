@@ -170,7 +170,8 @@ impl OpcodeHandler {
                         if let Ok(creature) = v_creature.get(looted_entity_id) {
                             let mut loot = creature.loot_mut();
                             if let Some(loot_item) = loot.get_item(cmsg.loot_index) {
-                                match player.store_item(loot_item.item_id, loot_item.count) {
+                                match player.auto_store_new_item(loot_item.item_id, loot_item.count)
+                                {
                                     Ok(item_slot) => {
                                         loot.remove_item(cmsg.loot_index);
 

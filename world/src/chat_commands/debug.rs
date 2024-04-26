@@ -182,7 +182,7 @@ fn handle_item(ctx: CommandContext) -> ChatCommandResult {
                             let item_id: &u32 = subcommand_add.get_one("id").unwrap();
                             let count: &u32 = subcommand_add.get_one("count").unwrap();
 
-                            match player.store_item(*item_id, *count) {
+                            match player.auto_store_new_item(*item_id, *count) {
                                 Ok(_) => ChatCommandResult::HandledOk,
                                 Err(err) => {
                                     ctx.session.send_error_system_message(

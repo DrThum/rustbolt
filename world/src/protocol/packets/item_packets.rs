@@ -159,3 +159,9 @@ pub struct CmsgDestroyItem {
     pub unk2: u8,
     pub unk3: u8,
 }
+
+#[binread]
+pub struct CmsgAutoEquipItem {
+    pub bag: u8,
+    pub slot: u8,
+}

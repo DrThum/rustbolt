@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use binrw::NullString;
-use shipyard::ViewMut;
+use shipyard::{Get, ViewMut};
 
 use crate::entities::player::Player;
 use crate::game::world_context::WorldContext;
@@ -9,7 +9,7 @@ use crate::protocol::client::ClientMessage;
 use crate::protocol::packets::*;
 use crate::protocol::server::ServerMessage;
 use crate::session::opcode_handler::OpcodeHandler;
-use crate::session::world_session::WorldSession;
+use crate::session::world_session::{WSRunnableArgs, WorldSession};
 
 impl OpcodeHandler {
     pub(crate) fn handle_cmsg_item_query_single(
@@ -141,5 +141,27 @@ impl OpcodeHandler {
                 }
             });
         }
+    }
+
+    pub(crate) fn handle_cmsg_auto_equip_item(
+        session: Arc<WorldSession>,
+        _world_context: Arc<WorldContext>,
+        data: Vec<u8>,
+    ) {
+        let cmsg_auto_equip_item: CmsgAutoEquipItem = ClientMessage::read_as(data).unwrap();
+        let slot = cmsg_auto_equip_item.slot as u32;
+
+        session.run(&|WSRunnableArgs {
+                          map,
+                          player_entity_id,
+                          ..
+                      }| {
+            map.world().run(|mut vm_player: ViewMut<Player>| {
+                if let Ok(mut player) = (&mut vm_player).get(player_entity_id) {
+                    let inventory_result = player.try_equip_item_from_inventory(slot);
+                    println!("{inventory_result:?}");
+                }
+            });
+        });
     }
 }

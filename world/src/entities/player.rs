@@ -32,7 +32,7 @@ use crate::{
     session::world_session::WorldSession,
     shared::constants::{
         AbilityLearnType, CharacterClass, CharacterClassBit, CharacterRaceBit, Gender,
-        HighGuidType, InventorySlot, InventoryType, ItemClass, ItemStorageError,
+        HighGuidType, InventoryResult, InventorySlot, InventoryType, ItemClass, ItemStorageError,
         ItemSubclassConsumable, ObjectTypeId, ObjectTypeMask, PlayerQuestStatus, PowerType,
         QuestSlotState, QuestStartError, SkillRangeType, SpellSchool, UnitAttribute, UnitFlags,
         WeaponAttackType, BASE_ATTACK_TIME, BASE_DAMAGE, MAX_QUESTS_IN_LOG,
@@ -911,7 +911,7 @@ impl Player {
                 match quest_template.reward_choice_items()[chosen_reward_index as usize] {
                     (0, _) | (_, 0) => (),
                     (id, count) => {
-                        self.store_item(id, count).unwrap();
+                        self.auto_store_new_item(id, count).unwrap();
                         ()
                     }
                 }
@@ -921,7 +921,7 @@ impl Player {
                     .into_iter()
                     .filter(|(id, count)| *id != 0 && *count != 0)
                 {
-                    self.store_item(id, count).unwrap();
+                    self.auto_store_new_item(id, count).unwrap();
                 }
 
                 let xp = quest_template.experience_reward_at_level(self.level());
@@ -1152,7 +1152,11 @@ impl Player {
 
     // Assume that we store in bags for now (TODO bank later)
     // TODO: Implement bags, we only check in the backpack for now
-    pub fn store_item(&mut self, item_id: u32, stack_count: u32) -> Result<u32, ItemStorageError> {
+    pub fn auto_store_new_item(
+        &mut self,
+        item_id: u32,
+        stack_count: u32,
+    ) -> Result<u32, ItemStorageError> {
         let mut first_free_bag_slot: Option<u32> = None;
         for slot in InventorySlot::BACKPACK_START..InventorySlot::BACKPACK_END {
             if let None = self.inventory.get(slot) {
@@ -1231,6 +1235,80 @@ impl Player {
         }
     }
 
+    pub fn try_equip_item_from_inventory(&mut self, from_slot: u32) -> Result<(), InventoryResult> {
+        let Some(item_to_equip) = self.inventory().get(from_slot) else {
+            return Err(InventoryResult::SlotIsEmpty);
+        };
+
+        let item_to_equip_guid = item_to_equip.guid().raw();
+        let item_to_equip_entry = item_to_equip.entry();
+
+        let Some(item_template) = self
+            .world_context
+            .data_store
+            .get_item_template(item_to_equip.entry())
+        else {
+            return Err(InventoryResult::ItemNotFound);
+        };
+
+        let Some(destination_slot) = PlayerInventory::equipment_slot_for(item_template) else {
+            return Err(InventoryResult::ItemCantBeEquipped);
+        };
+        let destination_slot = destination_slot as u32;
+
+        match self.inventory().get(destination_slot) {
+            Some(already_equipped_item) => {
+                let already_equipped_item_guid = already_equipped_item.guid().raw();
+                self.inventory_mut().swap(from_slot, destination_slot);
+
+                {
+                    let mut values = self.internal_values.write();
+                    values.set_u64(
+                        UnitFields::PlayerFieldInvSlotHead as usize + (2 * from_slot) as usize,
+                        already_equipped_item_guid,
+                    );
+
+                    values.set_u64(
+                        UnitFields::PlayerFieldInvSlotHead as usize
+                            + (2 * destination_slot) as usize,
+                        item_to_equip_guid,
+                    );
+
+                    values.set_u32(
+                        UnitFields::PlayerVisibleItem1_0 as usize
+                            + (destination_slot * MAX_PLAYER_VISIBLE_ITEM_OFFSET) as usize,
+                        item_to_equip_entry,
+                    );
+                }
+            }
+            None => {
+                self.inventory_mut().move_item(from_slot, destination_slot);
+
+                {
+                    let mut values = self.internal_values.write();
+                    values.set_u64(
+                        UnitFields::PlayerFieldInvSlotHead as usize + (2 * from_slot) as usize,
+                        0,
+                    );
+
+                    values.set_u64(
+                        UnitFields::PlayerFieldInvSlotHead as usize
+                            + (2 * destination_slot) as usize,
+                        item_to_equip_guid,
+                    );
+
+                    values.set_u32(
+                        UnitFields::PlayerVisibleItem1_0 as usize
+                            + (destination_slot * MAX_PLAYER_VISIBLE_ITEM_OFFSET) as usize,
+                        item_to_equip_entry,
+                    );
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     pub fn set_looting(&mut self, entity_id: Option<EntityId>) {
         match (self.currently_looting, entity_id) {
             (Some(id1), Some(id2)) if id1 != id2 => {
@@ -1244,6 +1322,14 @@ impl Player {
 
     pub fn currently_looting(&self) -> Option<EntityId> {
         self.currently_looting
+    }
+
+    pub fn inventory(&self) -> &PlayerInventory {
+        &self.inventory
+    }
+
+    pub fn inventory_mut(&mut self) -> &mut PlayerInventory {
+        &mut self.inventory
     }
 }
 

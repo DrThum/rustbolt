@@ -1158,6 +1158,12 @@ impl Player {
         item_id: u32,
         stack_count: u32,
     ) -> Result<u32, InventoryResult> {
+        let item_template = self
+            .world_context
+            .data_store
+            .get_item_template(item_id)
+            .expect("unknown item found in inventory");
+
         let mut remaining_stack_count = stack_count;
         let mut first_free_bag_slot: Option<u32> = None;
 
@@ -1170,11 +1176,6 @@ impl Player {
 
             if let Some(item) = self.inventory.get_mut(slot) {
                 if item.entry() == item_id {
-                    let item_template = self
-                        .world_context
-                        .data_store
-                        .get_item_template(item.entry())
-                        .expect("unknown item found in inventory");
                     let current_stack_count = item.stack_count();
                     if current_stack_count < item_template.max_stack_count {
                         let available_stack_count =
@@ -1195,37 +1196,56 @@ impl Player {
             return Ok(u32::MAX); // This means "added to an existing stack"
         }
 
-        // Drop the leftover in the first empty slot
-        first_free_bag_slot
-            .map(|slot| {
-                let item_guid = CharacterRepository::add_item(
-                    &self.guid,
-                    item_id,
-                    stack_count,
-                    slot,
-                    self.world_context.database.clone(),
-                )
-                .unwrap();
+        // Drop the leftover in empty slots
+        let mut chosen_slot = u32::MAX;
+        while remaining_stack_count > 0 {
+            match first_free_bag_slot {
+                Some(slot) => {
+                    let item_guid = CharacterRepository::add_item(
+                        &self.guid,
+                        item_id,
+                        stack_count,
+                        slot,
+                        self.world_context.database.clone(),
+                    )
+                    .unwrap();
 
-                let item = Item::new(item_guid, item_id, self.guid.raw(), remaining_stack_count);
+                    let stack_count_to_add =
+                        remaining_stack_count.min(item_template.max_stack_count);
+                    let item = Item::new(item_guid, item_id, self.guid.raw(), stack_count_to_add);
+                    remaining_stack_count = remaining_stack_count - stack_count_to_add;
 
-                let packet = ServerMessage::new(SmsgCreateObject {
-                    updates_count: 1,
-                    has_transport: false,
-                    updates: vec![item.build_create_data()],
-                });
+                    let packet = ServerMessage::new(SmsgCreateObject {
+                        updates_count: 1,
+                        has_transport: false,
+                        updates: vec![item.build_create_data()],
+                    });
 
-                self.internal_values.write().set_u64(
-                    UnitFields::PlayerFieldInvSlotHead as usize + (2 * slot) as usize,
-                    item.guid().raw(),
-                );
+                    self.internal_values.write().set_u64(
+                        UnitFields::PlayerFieldInvSlotHead as usize + (2 * slot) as usize,
+                        item.guid().raw(),
+                    );
 
-                self.inventory.set(slot, item);
-                self.session.send(&packet).unwrap();
+                    self.inventory.set(slot, item);
+                    self.session.send(&packet).unwrap();
 
-                slot
-            })
-            .ok_or(InventoryResult::InventoryFull)
+                    chosen_slot = slot;
+
+                    if remaining_stack_count > 0 {
+                        first_free_bag_slot = None;
+                        for slot in InventorySlot::BACKPACK_START..InventorySlot::BACKPACK_END {
+                            if self.inventory.get(slot).is_none() {
+                                first_free_bag_slot = Some(slot);
+                                break;
+                            }
+                        }
+                    }
+                }
+                None => return Err(InventoryResult::InventoryFull),
+            }
+        }
+
+        Ok(chosen_slot)
     }
 
     pub fn remove_item(&mut self, slot: u32) -> Option<Item> {

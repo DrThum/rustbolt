@@ -511,7 +511,7 @@ impl CharacterRepository {
         let mut stmt = transaction
             .prepare_cached("DELETE FROM character_quests WHERE character_guid = :guid")
             .unwrap();
-        stmt.execute(named_params! { ":guid": player.guid().counter() })?;
+        stmt.execute(named_params! { ":guid": guid })?;
 
         // TODO: Save the current timer here
         let mut stmt = transaction.prepare_cached("INSERT INTO character_quests (character_guid, quest_id, status, entity_count1, entity_count2, entity_count3, entity_count4) VALUES (:guid, :quest_id, :status, :entity_count1, :entity_count2, :entity_count3, :entity_count4)").unwrap();
@@ -530,6 +530,22 @@ impl CharacterRepository {
                 })
                 .unwrap();
             });
+
+        // Save inventory data
+        let mut stmt = transaction
+            .prepare_cached("DELETE FROM character_inventory WHERE character_guid = :guid")
+            .unwrap();
+        stmt.execute(named_params! {":guid": guid})?;
+
+        for (slot, item) in player.inventory().list() {
+            let mut stmt = transaction.prepare_cached("INSERT INTO character_inventory(character_guid, item_guid, slot) VALUES (:character_guid, :item_guid, :slot)").unwrap();
+            stmt.execute(named_params! {
+                ":character_guid": guid,
+                ":item_guid": item.guid().counter(),
+                ":slot": slot,
+            })
+            .unwrap();
+        }
 
         Ok(())
     }

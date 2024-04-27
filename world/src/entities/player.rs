@@ -1430,6 +1430,10 @@ impl Player {
         }
     }
 
+    pub fn inventory(&self) -> &PlayerInventory {
+        &self.inventory
+    }
+
     pub fn set_looting(&mut self, entity_id: Option<EntityId>) {
         match (self.currently_looting, entity_id) {
             (Some(id1), Some(id2)) if id1 != id2 => {

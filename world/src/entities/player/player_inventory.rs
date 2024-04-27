@@ -37,6 +37,10 @@ impl PlayerInventory {
         self.items.remove(&slot)
     }
 
+    pub fn list(&self) -> &HashMap<u32, Item> {
+        &self.items
+    }
+
     pub fn swap(&mut self, slot1: u32, slot2: u32) {
         let item1 = self.items.get_mut(&slot1).unwrap() as *mut Item;
         let item2 = self.items.get_mut(&slot2).unwrap() as *mut Item;

@@ -1244,7 +1244,7 @@ impl Player {
             return InventoryResult::ItemNotFound;
         };
 
-        let Some(destination_slot) = PlayerInventory::equipment_slot_for(item_template) else {
+        let Some(destination_slot) = self.inventory.equipment_slot_for(item_template) else {
             return InventoryResult::ItemCantBeEquipped;
         };
         let destination_slot = destination_slot as u32;
@@ -1319,7 +1319,7 @@ impl Player {
         };
 
         let maybe_moved_item_equipment_slot =
-            PlayerInventory::equipment_slot_for(&moved_item_template);
+            self.inventory.equipment_slot_for(&moved_item_template);
         let is_destination_gear_slot =
             to_slot >= InventorySlot::EQUIPMENT_START && to_slot < InventorySlot::EQUIPMENT_END;
         let is_origin_gear_slot =
@@ -1327,7 +1327,9 @@ impl Player {
 
         // Equipment is dragged over an invalid gear slot
         if let Some(moved_item_equipment_slot) = maybe_moved_item_equipment_slot {
-            if is_destination_gear_slot && moved_item_equipment_slot as u32 != to_slot {
+            if is_destination_gear_slot
+                && Some(moved_item_equipment_slot) != InventorySlot::n(to_slot)
+            {
                 return InventoryResult::ItemDoesntGoToSlot;
             }
         }
@@ -1342,7 +1344,7 @@ impl Player {
                 .get_item_template(target_item.entry());
             let maybe_target_equipment_slot =
                 maybe_target_item_template.and_then(|target_item_template| {
-                    PlayerInventory::equipment_slot_for(target_item_template)
+                    self.inventory.equipment_slot_for(target_item_template)
                 });
             let is_same_equipment_slot = maybe_moved_item_equipment_slot
                 .zip(maybe_target_equipment_slot)

@@ -58,7 +58,7 @@ impl PlayerInventory {
         }
     }
 
-    pub fn equipment_slot_for(item_template: &ItemTemplate) -> Option<InventorySlot> {
+    pub fn equipment_slot_for(&self, item_template: &ItemTemplate) -> Option<InventorySlot> {
         // FIXME: It's more complex than that
         fn calculate_weapon_slot() -> Option<InventorySlot> {
             Some(InventorySlot::EquipmentMainHand)
@@ -77,8 +77,34 @@ impl PlayerInventory {
                 InventoryType::Feet => Some(InventorySlot::EquipmentFeet),
                 InventoryType::Wrists => Some(InventorySlot::EquipmentWrists),
                 InventoryType::Hands => Some(InventorySlot::EquipmentHands),
-                InventoryType::Finger => Some(InventorySlot::EquipmentFinger1), // FIXME: possibly return several?
-                InventoryType::Trinket => Some(InventorySlot::EquipmentTrinket1), // FIXME: same
+                InventoryType::Finger => {
+                    let player_has_finger1 = self
+                        .items
+                        .contains_key(&(InventorySlot::EquipmentFinger1 as u32));
+                    let player_has_finger2 = self
+                        .items
+                        .contains_key(&(InventorySlot::EquipmentFinger2 as u32));
+
+                    if player_has_finger1 && !player_has_finger2 {
+                        return Some(InventorySlot::EquipmentFinger2);
+                    }
+
+                    return Some(InventorySlot::EquipmentFinger1);
+                }
+                InventoryType::Trinket => {
+                    let player_has_trinket1 = self
+                        .items
+                        .contains_key(&(InventorySlot::EquipmentTrinket1 as u32));
+                    let player_has_trinket2 = self
+                        .items
+                        .contains_key(&(InventorySlot::EquipmentTrinket2 as u32));
+
+                    if player_has_trinket1 && !player_has_trinket2 {
+                        return Some(InventorySlot::EquipmentTrinket2);
+                    }
+
+                    return Some(InventorySlot::EquipmentTrinket1);
+                }
                 InventoryType::Weapon => calculate_weapon_slot(),
                 InventoryType::Shield => Some(InventorySlot::EquipmentOffHand),
                 InventoryType::Ranged => Some(InventorySlot::EquipmentRanged),

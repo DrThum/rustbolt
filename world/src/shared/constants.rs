@@ -204,7 +204,7 @@ pub enum InventoryType {
 }
 
 #[allow(dead_code)]
-#[derive(Clone, Copy, N, Debug, PartialEq)]
+#[derive(Clone, Copy, N, Debug)]
 pub enum InventorySlot {
     EquipmentHead = 0,
     EquipmentNeck = 1,
@@ -225,6 +225,18 @@ pub enum InventorySlot {
     EquipmentOffHand = 16,
     EquipmentRanged = 17,
     EquipmentTabard = 18,
+}
+
+impl PartialEq for InventorySlot {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::EquipmentFinger1, Self::EquipmentFinger2) => true,
+            (Self::EquipmentFinger2, Self::EquipmentFinger1) => true,
+            (Self::EquipmentTrinket1, Self::EquipmentTrinket2) => true,
+            (Self::EquipmentTrinket2, Self::EquipmentTrinket1) => true,
+            _ => *self as u32 == *other as u32,
+        }
+    }
 }
 
 #[allow(dead_code)]

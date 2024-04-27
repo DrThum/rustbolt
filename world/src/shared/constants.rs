@@ -204,7 +204,7 @@ pub enum InventoryType {
 }
 
 #[allow(dead_code)]
-#[derive(Clone, Copy, N, Debug)]
+#[derive(Clone, Copy, N, Debug, PartialEq)]
 pub enum InventorySlot {
     EquipmentHead = 0,
     EquipmentNeck = 1,
@@ -259,12 +259,6 @@ impl InventorySlot {
 
     // Backpack
     pub const INVENTORY_SLOT_BAG_0: u32 = 255;
-}
-
-#[allow(dead_code)]
-#[derive(Debug)]
-pub enum ItemStorageError {
-    InventoryFull = 50,
 }
 
 #[allow(dead_code)]
@@ -521,7 +515,7 @@ pub enum ItemSubclassJunk {
 }
 
 #[allow(dead_code)]
-#[derive(N, Debug)]
+#[derive(N, Debug, PartialEq)]
 pub enum InventoryResult {
     Ok = 0,
     CantEquipLevelI = 1,

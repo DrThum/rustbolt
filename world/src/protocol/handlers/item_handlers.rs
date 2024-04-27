@@ -145,7 +145,7 @@ impl OpcodeHandler {
 
     pub(crate) fn handle_cmsg_auto_equip_item(
         session: Arc<WorldSession>,
-        _world_context: Arc<WorldContext>,
+        world_context: Arc<WorldContext>,
         data: Vec<u8>,
     ) {
         let cmsg_auto_equip_item: CmsgAutoEquipItem = ClientMessage::read_as(data).unwrap();
@@ -159,7 +159,60 @@ impl OpcodeHandler {
             map.world().run(|mut vm_player: ViewMut<Player>| {
                 if let Ok(mut player) = (&mut vm_player).get(player_entity_id) {
                     let inventory_result = player.try_equip_item_from_inventory(slot);
-                    println!("{inventory_result:?}");
+                    if let Some(moved_item) = player.get_inventory_item(slot) {
+                        let moved_item_template = world_context
+                            .data_store
+                            .get_item_template(moved_item.entry());
+                        let packet = ServerMessage::new(SmsgInventoryChangeFailure::build(
+                            inventory_result,
+                            Some(moved_item.guid()).copied(),
+                            moved_item_template,
+                            None,
+                        ));
+                        session.send(&packet).unwrap();
+                    }
+                }
+            });
+        });
+    }
+
+    pub(crate) fn handle_cmsg_swap_inv_item(
+        session: Arc<WorldSession>,
+        world_context: Arc<WorldContext>,
+        data: Vec<u8>,
+    ) {
+        let cmsg_swap_inv_item: CmsgSwapInvItem = ClientMessage::read_as(data).unwrap();
+
+        session.run(&|WSRunnableArgs {
+                          map,
+                          player_entity_id,
+                          ..
+                      }| {
+            map.world().run(|mut vm_player: ViewMut<Player>| {
+                if let Ok(mut player) = (&mut vm_player).get(player_entity_id) {
+                    let inventory_result = player.try_swap_inventory_item(
+                        cmsg_swap_inv_item.from_slot.into(),
+                        cmsg_swap_inv_item.to_slot.into(),
+                    );
+
+                    let maybe_moved_item =
+                        player.get_inventory_item(cmsg_swap_inv_item.from_slot.into());
+                    let maybe_target_item =
+                        player.get_inventory_item(cmsg_swap_inv_item.to_slot.into());
+
+                    let moved_item_template = maybe_moved_item.and_then(|moved_item| {
+                        world_context
+                            .data_store
+                            .get_item_template(moved_item.entry())
+                    });
+
+                    let packet = ServerMessage::new(SmsgInventoryChangeFailure::build(
+                        inventory_result,
+                        maybe_moved_item.map(|item| item.guid()).copied(),
+                        moved_item_template,
+                        maybe_target_item.map(|item| item.guid()).copied(),
+                    ));
+                    session.send(&packet).unwrap();
                 }
             });
         });

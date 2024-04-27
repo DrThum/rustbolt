@@ -197,13 +197,12 @@ impl OpcodeHandler {
                                     }
                                     Err(item_storage_error) => {
                                         let packet =
-                                            ServerMessage::new(SmsgInventoryChangeFailure {
-                                                message: item_storage_error as u8,
-                                                required_level: None,
-                                                item_1_guid: 0,
-                                                item_2_guid: 0,
-                                                bag_type_subclass: 0,
-                                            });
+                                            ServerMessage::new(SmsgInventoryChangeFailure::build(
+                                                item_storage_error,
+                                                None,
+                                                None,
+                                                None,
+                                            ));
 
                                         session.send(&packet).unwrap();
                                     }

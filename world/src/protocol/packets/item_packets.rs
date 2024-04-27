@@ -1,7 +1,12 @@
 use binrw::{binread, binwrite, NullString};
 use opcode_derive::server_opcode;
 
-use crate::protocol::{opcodes::Opcode, server::ServerMessagePayload};
+use crate::{
+    datastore::data_types::ItemTemplate,
+    entities::object_guid::ObjectGuid,
+    protocol::{opcodes::Opcode, server::ServerMessagePayload},
+    shared::constants::InventoryResult,
+};
 
 #[binread]
 pub struct CmsgItemQuerySingle {
@@ -164,4 +169,46 @@ pub struct CmsgDestroyItem {
 pub struct CmsgAutoEquipItem {
     pub bag: u8,
     pub slot: u8,
+}
+
+#[binread]
+pub struct CmsgSwapInvItem {
+    pub from_slot: u8,
+    pub to_slot: u8,
+}
+
+#[binwrite]
+#[server_opcode]
+pub struct SmsgInventoryChangeFailure {
+    result: u8,
+    required_level: Option<u32>, // Only if InventoryResult::CantEquipLevelI
+    moved_item_guid: Option<ObjectGuid>,
+    target_item_guid: Option<ObjectGuid>,
+    bag_type_subclass: Option<u8>, // 0 unless AutoequipBindConfirm or ItemDoesntGoIntoBag2
+}
+
+impl SmsgInventoryChangeFailure {
+    pub fn build(
+        result: InventoryResult,
+        moved_item_guid: Option<ObjectGuid>,
+        moved_item_template: Option<&ItemTemplate>,
+        target_item_guid: Option<ObjectGuid>,
+    ) -> Self {
+        let required_level = if result == InventoryResult::CantEquipLevelI {
+            moved_item_template.map(|template| template.required_level)
+        } else {
+            None
+        };
+
+        let moved_item_guid = moved_item_guid.filter(|_| result != InventoryResult::Ok);
+        let target_item_guid = target_item_guid.filter(|_| result != InventoryResult::Ok);
+
+        Self {
+            result: result as u8,
+            required_level,
+            moved_item_guid,
+            target_item_guid,
+            bag_type_subclass: Some(0),
+        }
+    }
 }

@@ -212,6 +212,10 @@ impl OpcodeHandler {
                     Opcode::CmsgAutoEquipItem,
                     OpcodeHandler::handle_cmsg_auto_equip_item
                 ),
+                define_handler!(
+                    Opcode::CmsgSwapInvItem,
+                    OpcodeHandler::handle_cmsg_swap_inv_item
+                ),
             ]),
         }
     }

@@ -32,7 +32,7 @@ use crate::{
     session::world_session::WorldSession,
     shared::constants::{
         AbilityLearnType, CharacterClass, CharacterClassBit, CharacterRaceBit, Gender,
-        HighGuidType, InventoryResult, InventorySlot, InventoryType, ItemClass, ItemStorageError,
+        HighGuidType, InventoryResult, InventorySlot, InventoryType, ItemClass,
         ItemSubclassConsumable, ObjectTypeId, ObjectTypeMask, PlayerQuestStatus, PowerType,
         QuestSlotState, QuestStartError, SkillRangeType, SpellSchool, UnitAttribute, UnitFlags,
         WeaponAttackType, BASE_ATTACK_TIME, BASE_DAMAGE, MAX_QUESTS_IN_LOG,
@@ -1156,7 +1156,7 @@ impl Player {
         &mut self,
         item_id: u32,
         stack_count: u32,
-    ) -> Result<u32, ItemStorageError> {
+    ) -> Result<u32, InventoryResult> {
         let mut first_free_bag_slot: Option<u32> = None;
         for slot in InventorySlot::BACKPACK_START..InventorySlot::BACKPACK_END {
             if let None = self.inventory.get(slot) {
@@ -1194,7 +1194,7 @@ impl Player {
 
                 slot
             })
-            .ok_or(ItemStorageError::InventoryFull)
+            .ok_or(InventoryResult::InventoryFull)
     }
 
     pub fn remove_item(&mut self, slot: u32) -> Option<Item> {
@@ -1235,9 +1235,13 @@ impl Player {
         }
     }
 
-    pub fn try_equip_item_from_inventory(&mut self, from_slot: u32) -> Result<(), InventoryResult> {
-        let Some(item_to_equip) = self.inventory().get(from_slot) else {
-            return Err(InventoryResult::SlotIsEmpty);
+    pub fn get_inventory_item(&self, slot: u32) -> Option<&Item> {
+        self.inventory.get(slot)
+    }
+
+    pub fn try_equip_item_from_inventory(&mut self, from_slot: u32) -> InventoryResult {
+        let Some(item_to_equip) = self.inventory.get(from_slot) else {
+            return InventoryResult::SlotIsEmpty;
         };
 
         let item_to_equip_guid = item_to_equip.guid().raw();
@@ -1248,18 +1252,18 @@ impl Player {
             .data_store
             .get_item_template(item_to_equip.entry())
         else {
-            return Err(InventoryResult::ItemNotFound);
+            return InventoryResult::ItemNotFound;
         };
 
         let Some(destination_slot) = PlayerInventory::equipment_slot_for(item_template) else {
-            return Err(InventoryResult::ItemCantBeEquipped);
+            return InventoryResult::ItemCantBeEquipped;
         };
         let destination_slot = destination_slot as u32;
 
-        match self.inventory().get(destination_slot) {
+        match self.inventory.get(destination_slot) {
             Some(already_equipped_item) => {
                 let already_equipped_item_guid = already_equipped_item.guid().raw();
-                self.inventory_mut().swap(from_slot, destination_slot);
+                self.inventory.swap(from_slot, destination_slot);
 
                 {
                     let mut values = self.internal_values.write();
@@ -1282,7 +1286,7 @@ impl Player {
                 }
             }
             None => {
-                self.inventory_mut().move_item(from_slot, destination_slot);
+                self.inventory.move_item(from_slot, destination_slot);
 
                 {
                     let mut values = self.internal_values.write();
@@ -1306,7 +1310,124 @@ impl Player {
             }
         }
 
-        Ok(())
+        InventoryResult::Ok
+    }
+
+    pub fn try_swap_inventory_item(&mut self, from_slot: u32, to_slot: u32) -> InventoryResult {
+        // There's no item in from_slot (cheating player?)
+        let Some(moved_item) = self.inventory.get(from_slot) else {
+            return InventoryResult::SlotIsEmpty;
+        };
+        let moved_item_guid = moved_item.guid().raw();
+        let moved_item_entry = moved_item.entry();
+
+        let Some(moved_item_template) = self
+            .world_context
+            .data_store
+            .get_item_template(moved_item.entry())
+        else {
+            return InventoryResult::ItemNotFound;
+        };
+
+        let maybe_moved_item_equipment_slot =
+            PlayerInventory::equipment_slot_for(&moved_item_template);
+        let is_destination_gear_slot =
+            to_slot >= InventorySlot::EQUIPMENT_START && to_slot < InventorySlot::EQUIPMENT_END;
+        let is_origin_gear_slot =
+            from_slot >= InventorySlot::EQUIPMENT_START && from_slot < InventorySlot::EQUIPMENT_END;
+
+        // Equipment is dragged over an invalid gear slot
+        if let Some(moved_item_equipment_slot) = maybe_moved_item_equipment_slot {
+            if is_destination_gear_slot && moved_item_equipment_slot as u32 != to_slot {
+                return InventoryResult::ItemDoesntGoToSlot;
+            }
+        }
+
+        if let Some(target_item) = self.inventory.get(to_slot) {
+            let target_item_guid = target_item.guid().raw();
+            let target_item_entry = target_item.entry();
+
+            let maybe_target_item_template = self
+                .world_context
+                .data_store
+                .get_item_template(target_item.entry());
+            let maybe_target_equipment_slot =
+                maybe_target_item_template.and_then(|target_item_template| {
+                    PlayerInventory::equipment_slot_for(target_item_template)
+                });
+            let is_same_equipment_slot = maybe_moved_item_equipment_slot
+                .zip(maybe_target_equipment_slot)
+                .map(|(equip_slot_from, equip_slot_to)| equip_slot_from == equip_slot_to)
+                .unwrap_or(true); // We're okay if at least one item is not gear
+
+            if !is_same_equipment_slot && (is_origin_gear_slot || is_destination_gear_slot) {
+                return InventoryResult::ItemDoesntGoToSlot;
+            }
+
+            self.inventory.swap(from_slot, to_slot);
+
+            {
+                let mut values = self.internal_values.write();
+                values.set_u64(
+                    UnitFields::PlayerFieldInvSlotHead as usize + (2 * from_slot) as usize,
+                    target_item_guid,
+                );
+
+                values.set_u64(
+                    UnitFields::PlayerFieldInvSlotHead as usize + (2 * to_slot) as usize,
+                    moved_item_guid,
+                );
+
+                // If moved_item was equipped, now target_item is equipped instead
+                if is_origin_gear_slot {
+                    // Dragged from gear to bag
+                    values.set_u32(
+                        UnitFields::PlayerVisibleItem1_0 as usize
+                            + (from_slot * MAX_PLAYER_VISIBLE_ITEM_OFFSET) as usize,
+                        target_item_entry,
+                    );
+                } else if is_destination_gear_slot {
+                    // Dragged from bag to gear
+                    values.set_u32(
+                        UnitFields::PlayerVisibleItem1_0 as usize
+                            + (to_slot * MAX_PLAYER_VISIBLE_ITEM_OFFSET) as usize,
+                        moved_item_entry,
+                    );
+                }
+            }
+
+            InventoryResult::Ok
+        } else {
+            if is_destination_gear_slot {
+                // Moving the item from a bag to gear: equip it
+                self.try_equip_item_from_inventory(from_slot)
+            } else {
+                // Moving the item to a bag (from gear or a bag): just move it
+                self.inventory.move_item(from_slot, to_slot);
+                {
+                    let mut values = self.internal_values.write();
+                    values.set_u64(
+                        UnitFields::PlayerFieldInvSlotHead as usize + (2 * from_slot) as usize,
+                        0,
+                    );
+
+                    values.set_u64(
+                        UnitFields::PlayerFieldInvSlotHead as usize + (2 * to_slot) as usize,
+                        moved_item_guid,
+                    );
+
+                    if is_origin_gear_slot {
+                        values.set_u32(
+                            UnitFields::PlayerVisibleItem1_0 as usize
+                                + (from_slot * MAX_PLAYER_VISIBLE_ITEM_OFFSET) as usize,
+                            0,
+                        );
+                    }
+                }
+
+                InventoryResult::Ok
+            }
+        }
     }
 
     pub fn set_looting(&mut self, entity_id: Option<EntityId>) {
@@ -1322,14 +1443,6 @@ impl Player {
 
     pub fn currently_looting(&self) -> Option<EntityId> {
         self.currently_looting
-    }
-
-    pub fn inventory(&self) -> &PlayerInventory {
-        &self.inventory
-    }
-
-    pub fn inventory_mut(&mut self) -> &mut PlayerInventory {
-        &mut self.inventory
     }
 }
 

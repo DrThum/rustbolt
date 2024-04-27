@@ -4,7 +4,10 @@ use log::warn;
 
 use crate::{
     datastore::data_types::ItemTemplate,
-    entities::{item::Item, update::CreateData},
+    entities::{
+        item::Item,
+        update::{CreateData, UpdateData},
+    },
     shared::constants::{InventorySlot, InventoryType},
 };
 
@@ -29,6 +32,10 @@ impl PlayerInventory {
         self.items.get(&slot)
     }
 
+    pub fn get_mut(&mut self, slot: u32) -> Option<&mut Item> {
+        self.items.get_mut(&slot)
+    }
+
     pub fn set(&mut self, slot: u32, item: Item) {
         self.items.insert(slot, item);
     }
@@ -39,6 +46,16 @@ impl PlayerInventory {
 
     pub fn list(&self) -> &HashMap<u32, Item> {
         &self.items
+    }
+
+    pub fn list_updated_and_reset(&mut self) -> Vec<UpdateData> {
+        let mut all_update_data = Vec::new();
+        for (_, item) in self.items.iter_mut() {
+            if let Some(item_update_data) = item.build_update_data_and_reset() {
+                all_update_data.push(item_update_data);
+            }
+        }
+        all_update_data
     }
 
     pub fn swap(&mut self, slot1: u32, slot2: u32) {

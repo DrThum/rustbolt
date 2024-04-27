@@ -5,13 +5,14 @@ use crate::shared::constants::{HighGuidType, ObjectTypeId, ObjectTypeMask};
 use super::{
     internal_values::InternalValues,
     object_guid::ObjectGuid,
-    update::{CreateData, UpdateBlockBuilder, UpdateFlag, UpdateType},
+    update::{CreateData, UpdateBlockBuilder, UpdateData, UpdateFlag, UpdateType},
     update_fields::{ItemFields, ObjectFields, ITEM_END},
 };
 
 pub struct Item {
     guid: ObjectGuid,
     values: InternalValues,
+    needs_db_save: bool,
 }
 
 impl Item {
@@ -29,7 +30,12 @@ impl Item {
         values.set_u64(ItemFields::ItemFieldContained.into(), owner_guid); // Not in all cases
         values.set_u32(ItemFields::ItemFieldStackCount.into(), stack_count);
 
-        Item { guid, values }
+        Item {
+            guid,
+            values,
+            needs_db_save: false, // FIXME: it depends if the item is instantiated from DB or from
+                                  // code
+        }
     }
 
     pub fn guid(&self) -> &ObjectGuid {
@@ -38,6 +44,23 @@ impl Item {
 
     pub fn entry(&self) -> u32 {
         self.values.get_u32(ObjectFields::ObjectFieldEntry.into())
+    }
+
+    pub fn stack_count(&self) -> u32 {
+        self.values.get_u32(ItemFields::ItemFieldStackCount.into())
+    }
+
+    pub fn add_to_stack_count(&mut self, value: u32) {
+        self.values.set_u32(
+            ItemFields::ItemFieldStackCount.into(),
+            self.stack_count() + value,
+        );
+
+        self.needs_db_save = true;
+    }
+
+    pub fn needs_db_save(&self) -> bool {
+        self.needs_db_save
     }
 
     pub fn build_create_data(&self) -> CreateData {
@@ -62,5 +85,28 @@ impl Item {
             high_guid_part: Some(HighGuidType::ItemOrContainer as u32),
             blocks,
         }
+    }
+
+    pub fn build_update_data_and_reset(&mut self) -> Option<UpdateData> {
+        if !self.values.has_dirty() {
+            return None;
+        }
+
+        let mut update_builder = UpdateBlockBuilder::new();
+
+        for index in self.values.get_dirty_indexes() {
+            let value = self.values.get_u32(index as usize);
+            update_builder.add(index as usize, value);
+        }
+
+        let blocks = update_builder.build();
+
+        self.values.reset_dirty();
+
+        Some(UpdateData {
+            update_type: UpdateType::Values,
+            packed_guid: self.guid.as_packed(),
+            blocks,
+        })
     }
 }

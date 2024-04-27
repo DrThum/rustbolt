@@ -34,7 +34,7 @@ use crate::{
             unit::Unit,
         },
         resources::DeltaTime,
-        systems::{behavior, combat, melee, movement, spell, updates},
+        systems::{behavior, combat, inventory, melee, movement, spell, updates},
     },
     entities::{
         creature::Creature,
@@ -105,6 +105,7 @@ impl Map {
                 melee::attempt_melee_attack,
                 spell::update_spell,
                 updates::send_entity_update,
+                inventory::send_inventory_update,
             )
                 .into_workload()
         };

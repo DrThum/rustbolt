@@ -527,6 +527,10 @@ impl CharacterRepository {
                 ":slot": slot,
             })
             .unwrap();
+
+            if item.needs_db_save() {
+                ItemRepository::update(transaction, item);
+            }
         }
 
         Ok(())

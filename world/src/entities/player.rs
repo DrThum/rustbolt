@@ -49,7 +49,9 @@ use super::{
     internal_values::{InternalValues, QuestSlotOffset, QUEST_SLOT_OFFSETS_COUNT},
     item::Item,
     object_guid::ObjectGuid,
-    update::{CreateData, MovementUpdateData, UpdateBlockBuilder, UpdateFlag, UpdateType},
+    update::{
+        CreateData, MovementUpdateData, UpdateBlockBuilder, UpdateData, UpdateFlag, UpdateType,
+    },
     update_fields::*,
 };
 
@@ -1151,20 +1153,49 @@ impl Player {
     }
 
     // Assume that we store in bags for now (TODO bank later)
-    // TODO: Implement bags, we only check in the backpack for now
     pub fn auto_store_new_item(
         &mut self,
         item_id: u32,
         stack_count: u32,
     ) -> Result<u32, InventoryResult> {
+        let mut remaining_stack_count = stack_count;
         let mut first_free_bag_slot: Option<u32> = None;
+
+        // Attempt to distribute the new stacks over existing incomplete stacks
+        // TODO: Implement bags, we only check in the backpack for now
         for slot in InventorySlot::BACKPACK_START..InventorySlot::BACKPACK_END {
-            if let None = self.inventory.get(slot) {
-                first_free_bag_slot = Some(slot);
+            if remaining_stack_count == 0 {
                 break;
+            }
+
+            if let Some(item) = self.inventory.get_mut(slot) {
+                if item.entry() == item_id {
+                    let item_template = self
+                        .world_context
+                        .data_store
+                        .get_item_template(item.entry())
+                        .expect("unknown item found in inventory");
+                    let current_stack_count = item.stack_count();
+                    if current_stack_count < item_template.max_stack_count {
+                        let available_stack_count =
+                            item_template.max_stack_count - current_stack_count;
+                        let stack_count_to_add = remaining_stack_count.min(available_stack_count);
+                        item.add_to_stack_count(stack_count_to_add);
+                        remaining_stack_count = remaining_stack_count - stack_count_to_add;
+                    }
+                }
+            }
+
+            if first_free_bag_slot.is_none() && self.inventory.get(slot).is_none() {
+                first_free_bag_slot = Some(slot);
             }
         }
 
+        if remaining_stack_count == 0 {
+            return Ok(u32::MAX); // This means "added to an existing stack"
+        }
+
+        // Drop the leftover in the first empty slot
         first_free_bag_slot
             .map(|slot| {
                 let item_guid = CharacterRepository::add_item(
@@ -1176,7 +1207,7 @@ impl Player {
                 )
                 .unwrap();
 
-                let item = Item::new(item_guid, item_id, self.guid.raw(), stack_count);
+                let item = Item::new(item_guid, item_id, self.guid.raw(), remaining_stack_count);
 
                 let packet = ServerMessage::new(SmsgCreateObject {
                     updates_count: 1,
@@ -1423,6 +1454,10 @@ impl Player {
 
     pub fn inventory(&self) -> &PlayerInventory {
         &self.inventory
+    }
+
+    pub fn get_inventory_updates_and_reset(&mut self) -> Vec<UpdateData> {
+        self.inventory.list_updated_and_reset()
     }
 
     pub fn set_looting(&mut self, entity_id: Option<EntityId>) {

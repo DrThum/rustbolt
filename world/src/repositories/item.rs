@@ -5,6 +5,7 @@ use rusqlite::{named_params, Transaction};
 
 use crate::{
     datastore::data_types::ItemTemplate,
+    entities::item::Item,
     protocol::packets::{
         ItemTemplateDamage, ItemTemplateSocket, ItemTemplateSpell, ItemTemplateStat,
     },
@@ -35,6 +36,17 @@ impl ItemRepository {
         .unwrap();
 
         transaction.last_insert_rowid() as u32
+    }
+
+    pub fn update(transaction: &Transaction, item: &Item) {
+        let mut stmt = transaction
+            .prepare_cached("UPDATE items SET stack_count = :stack_count WHERE guid = :guid")
+            .unwrap();
+        stmt.execute(named_params! {
+            ":stack_count": item.stack_count(),
+            ":guid": item.guid().counter(),
+        })
+        .unwrap();
     }
 
     pub fn load_player_inventory(

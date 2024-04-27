@@ -512,6 +512,8 @@ impl CharacterRepository {
             });
 
         // Save inventory data
+        // FIXME: We're creating orphaned items in table `items` with the current implementation
+        // because we don't DELETE FROM items for deleted items
         let mut stmt = transaction
             .prepare_cached("DELETE FROM character_inventory WHERE character_guid = :guid")
             .unwrap();

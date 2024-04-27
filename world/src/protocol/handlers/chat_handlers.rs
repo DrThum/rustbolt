@@ -29,10 +29,11 @@ impl OpcodeHandler {
         if cmsg_message_chat.msg.to_string().starts_with(".") {
             let mut command = cmsg_message_chat.msg.to_string();
             command.drain(0..1);
-            if world_context
-                .chat_commands
-                .try_process(&command, session.clone())
-            {
+            if world_context.chat_commands.try_process(
+                &command,
+                session.clone(),
+                world_context.clone(),
+            ) {
                 return;
             }
         }

@@ -182,6 +182,18 @@ fn handle_item(ctx: CommandContext) -> ChatCommandResult {
                             let item_id: &u32 = subcommand_add.get_one("id").unwrap();
                             let count: &u32 = subcommand_add.get_one("count").unwrap();
 
+                            if ctx
+                                .world_context
+                                .data_store
+                                .get_item_template(*item_id)
+                                .is_none()
+                            {
+                                ctx.session.send_error_system_message(
+                                    format!("item template {item_id} does not exist").as_str(),
+                                );
+                                return ChatCommandResult::error();
+                            }
+
                             match player.auto_store_new_item(*item_id, *count) {
                                 Ok(_) => ChatCommandResult::HandledOk,
                                 Err(err) => {

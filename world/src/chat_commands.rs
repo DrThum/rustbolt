@@ -5,7 +5,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use regex::Regex;
 
-use crate::session::world_session::WorldSession;
+use crate::{game::world_context::WorldContext, session::world_session::WorldSession};
 
 mod debug;
 mod movement;
@@ -27,14 +27,23 @@ impl ChatCommands {
         Self { commands }
     }
 
-    pub fn try_process(&self, input: &str, session: Arc<WorldSession>) -> bool {
+    pub fn try_process(
+        &self,
+        input: &str,
+        session: Arc<WorldSession>,
+        world_context: Arc<WorldContext>,
+    ) -> bool {
         let input = shell_words::split(input).unwrap();
         if input.is_empty() {
             return false;
         }
 
         if let Some(handler) = self.commands.get(input[0].as_str()) {
-            handler(CommandContext { input, session }) != ChatCommandResult::Unhandled
+            handler(CommandContext {
+                input,
+                session,
+                world_context,
+            }) != ChatCommandResult::Unhandled
         } else {
             false
         }
@@ -108,6 +117,7 @@ impl ChatCommandResult {
 struct CommandContext {
     pub input: Vec<String>,
     pub session: Arc<WorldSession>,
+    pub world_context: Arc<WorldContext>,
 }
 
 type CommandHandler = fn(CommandContext) -> ChatCommandResult;

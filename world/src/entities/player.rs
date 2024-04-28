@@ -1170,37 +1170,33 @@ impl Player {
         // Attempt to distribute the new stacks over existing incomplete stacks
         // TODO: Implement bags, we only check in the backpack for now
         for slot in InventorySlot::BACKPACK_START..InventorySlot::BACKPACK_END {
-            if remaining_stack_count == 0 {
-                break;
-            }
-
             if let Some(item) = self.inventory.get_mut(slot) {
-                if item.entry() == item_id {
-                    let current_stack_count = item.stack_count();
-                    if current_stack_count < item_template.max_stack_count {
-                        let available_stack_count =
-                            item_template.max_stack_count - current_stack_count;
-                        let stack_count_to_add = remaining_stack_count.min(available_stack_count);
-                        item.add_to_stack_count(stack_count_to_add);
-                        remaining_stack_count = remaining_stack_count - stack_count_to_add;
-                    }
+                if item.entry() == item_id && item.stack_count() < item_template.max_stack_count {
+                    let available_stack_count = item_template.max_stack_count - item.stack_count();
+                    let stack_count_to_add = remaining_stack_count.min(available_stack_count);
+                    item.add_to_stack_count(stack_count_to_add);
+                    remaining_stack_count = remaining_stack_count - stack_count_to_add;
                 }
             }
 
-            if first_free_bag_slot.is_none() && self.inventory.get(slot).is_none() {
-                first_free_bag_slot = Some(slot);
+            if remaining_stack_count == 0 {
+                return Ok(u32::MAX); // This means "added to an existing stack"
             }
-        }
-
-        if remaining_stack_count == 0 {
-            return Ok(u32::MAX); // This means "added to an existing stack"
         }
 
         // Drop the leftover in empty slots
         let mut chosen_slot = u32::MAX;
         while remaining_stack_count > 0 {
+            for slot in InventorySlot::BACKPACK_START..InventorySlot::BACKPACK_END {
+                if self.inventory.get(slot).is_none() {
+                    first_free_bag_slot = Some(slot);
+                    break;
+                }
+            }
+
             match first_free_bag_slot {
                 Some(slot) => {
+                    // TODO: Use ItemRepository::create instead and UPSERT in player save
                     let item_guid = CharacterRepository::add_item(
                         &self.guid,
                         item_id,
@@ -1221,6 +1217,7 @@ impl Player {
                         updates: vec![item.build_create_data()],
                     });
 
+                    // TODO: internal values should be handled directly in PlayerInventory
                     self.internal_values.write().set_u64(
                         UnitFields::PlayerFieldInvSlotHead as usize + (2 * slot) as usize,
                         item.guid().raw(),
@@ -1231,15 +1228,7 @@ impl Player {
 
                     chosen_slot = slot;
 
-                    if remaining_stack_count > 0 {
-                        first_free_bag_slot = None;
-                        for slot in InventorySlot::BACKPACK_START..InventorySlot::BACKPACK_END {
-                            if self.inventory.get(slot).is_none() {
-                                first_free_bag_slot = Some(slot);
-                                break;
-                            }
-                        }
-                    }
+                    first_free_bag_slot = None;
                 }
                 None => return Err(InventoryResult::InventoryFull),
             }

@@ -18,7 +18,14 @@ use crate::{
 pub struct ItemRepository;
 
 impl ItemRepository {
-    pub fn create(transaction: &Transaction, entry: u32, stack_count: u32) -> u32 {
+    pub fn get_first_available_guid(conn: &PooledConnection<SqliteConnectionManager>) -> u32 {
+        let mut stmt = conn.prepare_cached("SELECT MAX(guid) FROM items").unwrap();
+        let mut guid = stmt.query_map([], |row| row.get::<usize, u32>(0)).unwrap();
+
+        guid.next().unwrap().unwrap_or(0) + 1
+    }
+
+    pub fn create(transaction: &Transaction, guid: u32, entry: u32, stack_count: u32) -> u32 {
         assert!(
             stack_count > 0,
             "Cannot create an item in DB with stack_count = 0"
@@ -26,10 +33,11 @@ impl ItemRepository {
 
         let mut stmt = transaction
             .prepare_cached(
-                "INSERT INTO items(guid, entry, stack_count) VALUES (NULL, :entry, :stack_count)",
+                "INSERT INTO items(guid, entry, stack_count) VALUES (:guid, :entry, :stack_count)",
             )
             .unwrap();
         stmt.execute(named_params! {
+            ":guid": guid,
             ":entry": entry,
             ":stack_count": stack_count,
         })

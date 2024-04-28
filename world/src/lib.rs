@@ -69,7 +69,7 @@ mod protocol {
     pub mod packets;
     pub mod server;
 }
-mod repositories {
+pub mod repositories {
     pub mod account;
     pub mod character;
     pub mod creature;

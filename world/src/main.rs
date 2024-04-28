@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use atomic_counter::RelaxedCounter;
 use env_logger::Env;
 use log::info;
 use r2d2_sqlite::SqliteConnectionManager;
@@ -11,6 +12,7 @@ use rustbolt_world::{
         map_manager::MapManager, spell_effect_handler::SpellEffectHandler,
         world_context::WorldContext,
     },
+    repositories::item::ItemRepository,
     session::opcode_handler::OpcodeHandler,
     DataStore, SessionHolder,
 };
@@ -85,6 +87,11 @@ fn main() {
         world: db_pool_world.clone(),
     });
 
+    let first_available_item_guid = {
+        let characters_conn = db_pool_char.get().unwrap();
+        ItemRepository::get_first_available_guid(&characters_conn)
+    };
+
     let start_time = Instant::now();
 
     let session_holder = Arc::new(SessionHolder::new());
@@ -100,6 +107,7 @@ fn main() {
         session_holder: session_holder.clone(),
         map_manager: map_manager.clone(),
         chat_commands: ChatCommands::build(),
+        next_item_guid_counter: RelaxedCounter::new(first_available_item_guid as usize),
     });
 
     map_manager.clone().instantiate_continents(

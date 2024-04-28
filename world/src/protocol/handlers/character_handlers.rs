@@ -32,7 +32,7 @@ impl OpcodeHandler {
                 &mut conn,
                 &cmsg_char_create,
                 session.account_id,
-                world_context.data_store.clone(),
+                world_context.clone(),
             ) {
                 Ok(_) => ResponseCodes::CharCreateSuccess,
                 Err(_) => ResponseCodes::CharCreateFailed,

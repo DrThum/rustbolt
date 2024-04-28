@@ -79,8 +79,9 @@ impl Player {
         conn: &mut PooledConnection<SqliteConnectionManager>,
         creation_payload: &CmsgCharCreate,
         account_id: u32,
-        data_store: Arc<DataStore>,
+        world_context: Arc<WorldContext>,
     ) -> Result<(), Error> {
+        let data_store = world_context.data_store.clone();
         let transaction = conn.transaction()?;
 
         let create_position: &PlayerCreatePosition = data_store
@@ -165,7 +166,8 @@ impl Player {
                     InventoryType::Tabard => InventorySlot::EquipmentTabard as u32,
                 };
 
-                let item_guid = ItemRepository::create(&transaction, start_item.id, stack_count);
+                let item_guid = world_context.next_item_guid();
+                ItemRepository::create(&transaction, item_guid, start_item.id, stack_count);
                 CharacterRepository::add_item_to_inventory(
                     &transaction,
                     character_guid,
@@ -1196,18 +1198,13 @@ impl Player {
 
             match first_free_bag_slot {
                 Some(slot) => {
-                    // TODO: Use ItemRepository::create instead and UPSERT in player save
-                    let item_guid = CharacterRepository::add_item(
-                        &self.guid,
-                        item_id,
-                        stack_count,
-                        slot,
-                        self.world_context.database.clone(),
-                    )
-                    .unwrap();
-
+                    let item_guid: u32 = self.world_context.next_item_guid();
                     let stack_count_to_add =
                         remaining_stack_count.min(item_template.max_stack_count);
+                    let mut conn = self.world_context.database.characters.get().unwrap();
+                    let transaction = conn.transaction().unwrap();
+                    ItemRepository::create(&transaction, item_guid, item_id, remaining_stack_count);
+                    transaction.commit().unwrap();
                     let item = Item::new(item_guid, item_id, self.guid.raw(), stack_count_to_add);
                     remaining_stack_count = remaining_stack_count - stack_count_to_add;
 

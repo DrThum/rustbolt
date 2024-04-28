@@ -1,5 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
+use atomic_counter::{AtomicCounter, RelaxedCounter};
 use shipyard::Unique;
 use tokio::time::Instant;
 
@@ -20,12 +21,17 @@ pub struct WorldContext {
     pub session_holder: Arc<SessionHolder>,
     pub map_manager: Arc<MapManager>,
     pub chat_commands: ChatCommands,
+    pub next_item_guid_counter: RelaxedCounter,
 }
 
 impl WorldContext {
     // Return the elapsed time since the World started
     pub fn game_time(&self) -> Duration {
         self.start_time.elapsed()
+    }
+
+    pub fn next_item_guid(&self) -> u32 {
+        self.next_item_guid_counter.inc().try_into().unwrap()
     }
 }
 

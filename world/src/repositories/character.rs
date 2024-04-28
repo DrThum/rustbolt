@@ -538,6 +538,7 @@ impl CharacterRepository {
 
     pub fn add_item(
         character_guid: &ObjectGuid,
+        item_guid: u32,
         item_id: u32,
         stack_count: u32,
         inventory_slot: u32,
@@ -546,7 +547,7 @@ impl CharacterRepository {
         let mut conn = database.characters.get().unwrap();
         let transaction = conn.transaction().unwrap();
 
-        let item_guid = ItemRepository::create(&transaction, item_id, stack_count);
+        let item_guid = ItemRepository::create(&transaction, item_guid, item_id, stack_count);
         CharacterRepository::add_item_to_inventory(
             &transaction,
             character_guid.raw(),

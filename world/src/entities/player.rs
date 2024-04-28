@@ -525,6 +525,7 @@ impl Player {
                         record.entry,
                         record.owner_guid.unwrap(),
                         record.stack_count,
+                        true,
                     );
                     values.set_u64(
                         UnitFields::PlayerFieldInvSlotHead as usize + (2 * record.slot) as usize,
@@ -1201,11 +1202,13 @@ impl Player {
                     let item_guid: u32 = self.world_context.next_item_guid();
                     let stack_count_to_add =
                         remaining_stack_count.min(item_template.max_stack_count);
-                    let mut conn = self.world_context.database.characters.get().unwrap();
-                    let transaction = conn.transaction().unwrap();
-                    ItemRepository::create(&transaction, item_guid, item_id, remaining_stack_count);
-                    transaction.commit().unwrap();
-                    let item = Item::new(item_guid, item_id, self.guid.raw(), stack_count_to_add);
+                    let item = Item::new(
+                        item_guid,
+                        item_id,
+                        self.guid.raw(),
+                        stack_count_to_add,
+                        false,
+                    );
                     remaining_stack_count = remaining_stack_count - stack_count_to_add;
 
                     let packet = ServerMessage::new(SmsgCreateObject {
@@ -1460,6 +1463,10 @@ impl Player {
 
     pub fn inventory(&self) -> &PlayerInventory {
         &self.inventory
+    }
+
+    pub fn inventory_mut(&mut self) -> &mut PlayerInventory {
+        &mut self.inventory
     }
 
     pub fn get_inventory_updates_and_reset(&mut self) -> Vec<UpdateData> {

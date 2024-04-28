@@ -5,14 +5,12 @@ use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::{named_params, Error, Transaction};
 
 use crate::{
-    database_context::DatabaseContext,
     datastore::{
         data_types::{ItemRecord, PlayerCreatePosition},
         DataStore,
     },
     ecs::components::health::Health,
     entities::{
-        object_guid::ObjectGuid,
         player::{
             player_data::{ActionButton, CharacterSkill, QuestLogContext},
             Player, PlayerVisualFeatures,
@@ -460,7 +458,7 @@ impl CharacterRepository {
 
     pub fn save_to_db(
         transaction: &Transaction,
-        player: &Player,
+        player: &mut Player,
         health: &Health,
         position: &WorldPosition,
     ) -> Result<(), Error> {
@@ -520,6 +518,10 @@ impl CharacterRepository {
         stmt.execute(named_params! {":guid": guid})?;
 
         for (slot, item) in player.inventory().list() {
+            if item.needs_db_save() {
+                ItemRepository::upsert(transaction, item);
+            }
+
             let mut stmt = transaction.prepare_cached("INSERT INTO character_inventory(character_guid, item_guid, slot) VALUES (:character_guid, :item_guid, :slot)").unwrap();
             stmt.execute(named_params! {
                 ":character_guid": guid,
@@ -527,35 +529,11 @@ impl CharacterRepository {
                 ":slot": slot,
             })
             .unwrap();
-
-            if item.needs_db_save() {
-                ItemRepository::update(transaction, item);
-            }
         }
 
+        player.inventory_mut().mark_saved();
+
         Ok(())
-    }
-
-    pub fn add_item(
-        character_guid: &ObjectGuid,
-        item_guid: u32,
-        item_id: u32,
-        stack_count: u32,
-        inventory_slot: u32,
-        database: Arc<DatabaseContext>,
-    ) -> Result<u32, Error> {
-        let mut conn = database.characters.get().unwrap();
-        let transaction = conn.transaction().unwrap();
-
-        let item_guid = ItemRepository::create(&transaction, item_guid, item_id, stack_count);
-        CharacterRepository::add_item_to_inventory(
-            &transaction,
-            character_guid.raw(),
-            item_guid,
-            inventory_slot,
-        );
-
-        transaction.commit().map(|_| item_guid)
     }
 }
 

@@ -46,13 +46,18 @@ impl ItemRepository {
         transaction.last_insert_rowid() as u32
     }
 
-    pub fn update(transaction: &Transaction, item: &Item) {
+    pub fn upsert(transaction: &Transaction, item: &Item) {
         let mut stmt = transaction
-            .prepare_cached("UPDATE items SET stack_count = :stack_count WHERE guid = :guid")
+            .prepare_cached(
+                "INSERT INTO items (guid, entry, stack_count)
+                VALUES (:guid, :entry, :stack_count)
+                ON CONFLICT DO UPDATE SET stack_count = :stack_count",
+            )
             .unwrap();
         stmt.execute(named_params! {
-            ":stack_count": item.stack_count(),
             ":guid": item.guid().counter(),
+            ":entry": item.entry(),
+            ":stack_count": item.stack_count(),
         })
         .unwrap();
     }

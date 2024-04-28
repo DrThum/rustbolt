@@ -48,6 +48,12 @@ impl PlayerInventory {
         &self.items
     }
 
+    pub fn mark_saved(&mut self) {
+        for (_, item) in &mut self.items {
+            item.mark_saved();
+        }
+    }
+
     pub fn list_updated_and_reset(&mut self) -> Vec<UpdateData> {
         let mut all_update_data = Vec::new();
         for (_, item) in self.items.iter_mut() {

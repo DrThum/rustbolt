@@ -4,7 +4,7 @@ use miniz_oxide::deflate::CompressionLevel;
 use parking_lot::RwLock;
 use r2d2::PooledConnection;
 use r2d2_sqlite::SqliteConnectionManager;
-use shipyard::{EntityId, View};
+use shipyard::{EntityId, View, ViewMut};
 use std::{
     sync::{atomic::AtomicU32, Arc},
     time::Duration,
@@ -151,14 +151,14 @@ impl WorldSession {
         if let Some(map) = self.current_map() {
             if let Some(entity_id) = self.player_entity_id() {
                 map.world().run(
-                    |v_player: View<Player>,
+                    |mut vm_player: ViewMut<Player>,
                      v_wpos: View<WorldPosition>,
                      v_health: View<Health>| {
                         let transaction = conn.transaction().unwrap();
 
                         CharacterRepository::save_to_db(
                             &transaction,
-                            &v_player[entity_id],
+                            &mut vm_player[entity_id],
                             &v_health[entity_id],
                             &v_wpos[entity_id],
                         )

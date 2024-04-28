@@ -16,7 +16,13 @@ pub struct Item {
 }
 
 impl Item {
-    pub fn new(guid: u32, entry: u32, owner_guid: u64, stack_count: u32) -> Item {
+    pub fn new(
+        guid: u32,
+        entry: u32,
+        owner_guid: u64,
+        stack_count: u32,
+        loaded_from_db: bool,
+    ) -> Item {
         let guid = ObjectGuid::new(HighGuidType::ItemOrContainer, guid);
         let object_type = make_bitflags!(ObjectTypeMask::{Object | Item}).bits();
 
@@ -33,8 +39,7 @@ impl Item {
         Item {
             guid,
             values,
-            needs_db_save: false, // FIXME: it depends if the item is instantiated from DB or from
-                                  // code
+            needs_db_save: !loaded_from_db,
         }
     }
 
@@ -61,6 +66,10 @@ impl Item {
 
     pub fn needs_db_save(&self) -> bool {
         self.needs_db_save
+    }
+
+    pub fn mark_saved(&mut self) {
+        self.needs_db_save = false;
     }
 
     pub fn build_create_data(&self) -> CreateData {

@@ -283,12 +283,33 @@ impl Player {
         let character = CharacterRepository::fetch_basic_character_data(&conn, guid)
             .expect("Failed to load character from DB");
 
-        let mut values = InternalValues::new(PLAYER_END as usize);
-
         assert!(
             character.account_id == account_id,
             "Attempt to load a character belonging to another account"
         );
+
+        let guid = ObjectGuid::new(HighGuidType::Player, guid as u32);
+
+        let internal_values = Arc::new(RwLock::new(InternalValues::new(PLAYER_END as usize)));
+
+        // Load inventory BEFORE acquiring internal_values.write() otherwise we deadlock because
+        // PlayerInventory::set calls internal_values.write() too
+        let mut inventory = PlayerInventory::new(internal_values.clone());
+        ItemRepository::load_player_inventory(&conn, guid.raw() as u32)
+            .into_iter()
+            .for_each(|record| {
+                let item = Item::new(
+                    record.guid,
+                    record.entry,
+                    record.owner_guid.unwrap(),
+                    record.stack_count,
+                    true,
+                );
+
+                inventory.set(record.slot, item);
+            });
+
+        let mut values = internal_values.write();
 
         let chr_races_record = world_context
             .data_store
@@ -307,10 +328,9 @@ impl Player {
             .map(|cl| PowerType::n(cl.power_type).unwrap())
             .expect("Cannot load character because it has an invalid class id in DB");
 
-        let spells = CharacterRepository::fetch_character_spells(&conn, guid);
+        let spells = CharacterRepository::fetch_character_spells(&conn, guid.raw());
 
-        let guid = ObjectGuid::new(HighGuidType::Player, guid as u32);
-        values.set_u64(ObjectFields::ObjectFieldGuid.into(), guid.raw());
+        values.set_guid(ObjectFields::ObjectFieldGuid.into(), &guid);
 
         let object_type = make_bitflags!(ObjectTypeMask::{Object | Unit | Player}).bits();
         values.set_u32(ObjectFields::ObjectFieldType.into(), object_type);
@@ -516,39 +536,6 @@ impl Player {
             result
         };
 
-        let items: HashMap<u32, Item> =
-            ItemRepository::load_player_inventory(&conn, guid.raw() as u32)
-                .into_iter()
-                .map(|record| {
-                    let item = Item::new(
-                        record.guid,
-                        record.entry,
-                        record.owner_guid.unwrap(),
-                        record.stack_count,
-                        true,
-                    );
-                    values.set_u64(
-                        UnitFields::PlayerFieldInvSlotHead as usize + (2 * record.slot) as usize,
-                        item.guid().raw(),
-                    );
-
-                    // Visible bits
-                    if record.slot >= InventorySlot::EQUIPMENT_START
-                        && record.slot < InventorySlot::EQUIPMENT_END
-                    {
-                        values.set_u32(
-                            UnitFields::PlayerVisibleItem1_0 as usize
-                                + (record.slot * MAX_PLAYER_VISIBLE_ITEM_OFFSET) as usize,
-                            item.entry(),
-                        );
-                    }
-
-                    (record.slot, item)
-                })
-                .collect();
-
-        let inventory = PlayerInventory::new(items);
-
         let mut quest_statuses = CharacterRepository::load_quest_statuses(&conn, guid.raw());
         for (slot, (quest_id, context)) in quest_statuses.iter_mut().enumerate() {
             if context.status == PlayerQuestStatus::TurnedIn {
@@ -615,7 +602,7 @@ impl Player {
             world_context: world_context.clone(),
             guid,
             name: character.name,
-            internal_values: Arc::new(RwLock::new(values)),
+            internal_values: internal_values.clone(),
             inventory,
             spells,
             action_buttons,
@@ -1217,12 +1204,6 @@ impl Player {
                         updates: vec![item.build_create_data()],
                     });
 
-                    // TODO: internal values should be handled directly in PlayerInventory
-                    self.internal_values.write().set_u64(
-                        UnitFields::PlayerFieldInvSlotHead as usize + (2 * slot) as usize,
-                        item.guid().raw(),
-                    );
-
                     self.inventory.set(slot, item);
                     self.session.send(&packet).unwrap();
 
@@ -1238,30 +1219,10 @@ impl Player {
     }
 
     pub fn remove_item(&mut self, slot: u32) -> Option<Item> {
-        match self.inventory.remove(slot) {
-            Some(item) => {
-                let mut values = self.internal_values.write();
-                values.set_u64(
-                    UnitFields::PlayerFieldInvSlotHead as usize + (2 * slot) as usize,
-                    0,
-                );
-
-                // Visible bits
-                if slot >= InventorySlot::EQUIPMENT_START && slot < InventorySlot::EQUIPMENT_END {
-                    values.set_u32(
-                        UnitFields::PlayerVisibleItem1_0 as usize
-                            + (slot * MAX_PLAYER_VISIBLE_ITEM_OFFSET) as usize,
-                        0,
-                    );
-                }
-
-                Some(item)
-            }
-            None => {
-                error!("Player::remove_item: no item found in slot {slot}");
-                None
-            }
-        }
+        self.inventory.remove(slot).or({
+            error!("Player::remove_item: no item found in slot {slot}");
+            None
+        })
     }
 
     pub fn get_inventory_item(&self, slot: u32) -> Option<&Item> {
@@ -1272,9 +1233,6 @@ impl Player {
         let Some(item_to_equip) = self.inventory.get(from_slot) else {
             return InventoryResult::SlotIsEmpty;
         };
-
-        let item_to_equip_guid = item_to_equip.guid().raw();
-        let item_to_equip_entry = item_to_equip.entry();
 
         let Some(item_template) = self
             .world_context
@@ -1289,54 +1247,10 @@ impl Player {
         };
         let destination_slot = destination_slot as u32;
 
-        match self.inventory.get(destination_slot) {
-            Some(already_equipped_item) => {
-                let already_equipped_item_guid = already_equipped_item.guid().raw();
-                self.inventory.swap(from_slot, destination_slot);
-
-                {
-                    let mut values = self.internal_values.write();
-                    values.set_u64(
-                        UnitFields::PlayerFieldInvSlotHead as usize + (2 * from_slot) as usize,
-                        already_equipped_item_guid,
-                    );
-
-                    values.set_u64(
-                        UnitFields::PlayerFieldInvSlotHead as usize
-                            + (2 * destination_slot) as usize,
-                        item_to_equip_guid,
-                    );
-
-                    values.set_u32(
-                        UnitFields::PlayerVisibleItem1_0 as usize
-                            + (destination_slot * MAX_PLAYER_VISIBLE_ITEM_OFFSET) as usize,
-                        item_to_equip_entry,
-                    );
-                }
-            }
-            None => {
-                self.inventory.move_item(from_slot, destination_slot);
-
-                {
-                    let mut values = self.internal_values.write();
-                    values.set_u64(
-                        UnitFields::PlayerFieldInvSlotHead as usize + (2 * from_slot) as usize,
-                        0,
-                    );
-
-                    values.set_u64(
-                        UnitFields::PlayerFieldInvSlotHead as usize
-                            + (2 * destination_slot) as usize,
-                        item_to_equip_guid,
-                    );
-
-                    values.set_u32(
-                        UnitFields::PlayerVisibleItem1_0 as usize
-                            + (destination_slot * MAX_PLAYER_VISIBLE_ITEM_OFFSET) as usize,
-                        item_to_equip_entry,
-                    );
-                }
-            }
+        if self.inventory.has_item_in_slot(destination_slot) {
+            self.inventory.swap(from_slot, destination_slot);
+        } else {
+            self.inventory.move_item(from_slot, destination_slot);
         }
 
         InventoryResult::Ok
@@ -1347,8 +1261,6 @@ impl Player {
         let Some(moved_item) = self.inventory.get(from_slot) else {
             return InventoryResult::SlotIsEmpty;
         };
-        let moved_item_guid = moved_item.guid().raw();
-        let moved_item_entry = moved_item.entry();
 
         let Some(moved_item_template) = self
             .world_context
@@ -1375,9 +1287,6 @@ impl Player {
         }
 
         if let Some(target_item) = self.inventory.get(to_slot) {
-            let target_item_guid = target_item.guid().raw();
-            let target_item_entry = target_item.entry();
-
             let maybe_target_item_template = self
                 .world_context
                 .data_store
@@ -1396,37 +1305,6 @@ impl Player {
             }
 
             self.inventory.swap(from_slot, to_slot);
-
-            {
-                let mut values = self.internal_values.write();
-                values.set_u64(
-                    UnitFields::PlayerFieldInvSlotHead as usize + (2 * from_slot) as usize,
-                    target_item_guid,
-                );
-
-                values.set_u64(
-                    UnitFields::PlayerFieldInvSlotHead as usize + (2 * to_slot) as usize,
-                    moved_item_guid,
-                );
-
-                // If moved_item was equipped, now target_item is equipped instead
-                if is_origin_gear_slot {
-                    // Dragged from gear to bag
-                    values.set_u32(
-                        UnitFields::PlayerVisibleItem1_0 as usize
-                            + (from_slot * MAX_PLAYER_VISIBLE_ITEM_OFFSET) as usize,
-                        target_item_entry,
-                    );
-                } else if is_destination_gear_slot {
-                    // Dragged from bag to gear
-                    values.set_u32(
-                        UnitFields::PlayerVisibleItem1_0 as usize
-                            + (to_slot * MAX_PLAYER_VISIBLE_ITEM_OFFSET) as usize,
-                        moved_item_entry,
-                    );
-                }
-            }
-
             InventoryResult::Ok
         } else {
             if is_destination_gear_slot {
@@ -1435,27 +1313,6 @@ impl Player {
             } else {
                 // Moving the item to a bag (from gear or a bag): just move it
                 self.inventory.move_item(from_slot, to_slot);
-                {
-                    let mut values = self.internal_values.write();
-                    values.set_u64(
-                        UnitFields::PlayerFieldInvSlotHead as usize + (2 * from_slot) as usize,
-                        0,
-                    );
-
-                    values.set_u64(
-                        UnitFields::PlayerFieldInvSlotHead as usize + (2 * to_slot) as usize,
-                        moved_item_guid,
-                    );
-
-                    if is_origin_gear_slot {
-                        values.set_u32(
-                            UnitFields::PlayerVisibleItem1_0 as usize
-                                + (from_slot * MAX_PLAYER_VISIBLE_ITEM_OFFSET) as usize,
-                            0,
-                        );
-                    }
-                }
-
                 InventoryResult::Ok
             }
         }

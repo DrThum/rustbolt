@@ -1,24 +1,32 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use log::warn;
+use parking_lot::RwLock;
 
 use crate::{
     datastore::data_types::ItemTemplate,
     entities::{
+        internal_values::InternalValues,
         item::Item,
         update::{CreateData, UpdateData},
     },
     shared::constants::{InventorySlot, InventoryType},
 };
 
+use super::{UnitFields, MAX_PLAYER_VISIBLE_ITEM_OFFSET};
+
 // FIXME: Store &Item instead
 pub struct PlayerInventory {
     items: HashMap<u32, Item>, // Key is slot
+    internal_values: Arc<RwLock<InternalValues>>,
 }
 
 impl PlayerInventory {
-    pub fn new(items: HashMap<u32, Item>) -> Self {
-        Self { items }
+    pub fn new(internal_values: Arc<RwLock<InternalValues>>) -> Self {
+        Self {
+            items: HashMap::new(),
+            internal_values,
+        }
     }
 
     pub fn build_create_data(&self) -> Vec<CreateData> {
@@ -28,8 +36,16 @@ impl PlayerInventory {
             .collect()
     }
 
+    pub fn list(&self) -> &HashMap<u32, Item> {
+        &self.items
+    }
+
     pub fn get(&self, slot: u32) -> Option<&Item> {
         self.items.get(&slot)
+    }
+
+    pub fn has_item_in_slot(&self, slot: u32) -> bool {
+        self.items.contains_key(&slot)
     }
 
     pub fn get_mut(&mut self, slot: u32) -> Option<&mut Item> {
@@ -37,15 +53,74 @@ impl PlayerInventory {
     }
 
     pub fn set(&mut self, slot: u32, item: Item) {
+        self.internal_values.write().set_guid(
+            UnitFields::PlayerFieldInvSlotHead as usize + (2 * slot) as usize,
+            item.guid(),
+        );
+
+        self.update_visible_bits(slot, item.entry());
+
         self.items.insert(slot, item);
     }
 
     pub fn remove(&mut self, slot: u32) -> Option<Item> {
+        self.internal_values.write().set_u64(
+            UnitFields::PlayerFieldInvSlotHead as usize + (2 * slot) as usize,
+            0,
+        );
+
+        self.update_visible_bits(slot, 0);
+
         self.items.remove(&slot)
     }
 
-    pub fn list(&self) -> &HashMap<u32, Item> {
-        &self.items
+    pub fn swap(&mut self, source_slot: u32, destination_slot: u32) {
+        let source_item = self.items.get_mut(&source_slot).unwrap() as *mut Item;
+        let target_item = self.items.get_mut(&destination_slot).unwrap() as *mut Item;
+
+        unsafe {
+            {
+                let mut values = self.internal_values.write();
+                values.set_guid(
+                    UnitFields::PlayerFieldInvSlotHead as usize + (2 * source_slot) as usize,
+                    target_item.as_ref().unwrap().guid(),
+                );
+
+                values.set_guid(
+                    UnitFields::PlayerFieldInvSlotHead as usize + (2 * destination_slot) as usize,
+                    source_item.as_ref().unwrap().guid(),
+                );
+            }
+
+            self.update_visible_bits(destination_slot, source_item.as_ref().unwrap().entry());
+            self.update_visible_bits(source_slot, target_item.as_ref().unwrap().entry());
+
+            std::ptr::swap(source_item, target_item);
+        }
+    }
+
+    pub fn move_item(&mut self, source_slot: u32, destination_slot: u32) {
+        if let Some(item) = self.items.remove(&source_slot) {
+            {
+                let mut values = self.internal_values.write();
+                values.set_u64(
+                    UnitFields::PlayerFieldInvSlotHead as usize + (2 * source_slot) as usize,
+                    0,
+                );
+
+                values.set_guid(
+                    UnitFields::PlayerFieldInvSlotHead as usize + (2 * destination_slot) as usize,
+                    item.guid(),
+                );
+            }
+
+            self.update_visible_bits(source_slot, 0);
+            self.update_visible_bits(destination_slot, item.entry());
+
+            self.items.insert(destination_slot, item);
+        } else {
+            warn!("attempt to move an item in inventory but item is not there");
+        }
     }
 
     pub fn mark_saved(&mut self) {
@@ -62,23 +137,6 @@ impl PlayerInventory {
             }
         }
         all_update_data
-    }
-
-    pub fn swap(&mut self, slot1: u32, slot2: u32) {
-        let item1 = self.items.get_mut(&slot1).unwrap() as *mut Item;
-        let item2 = self.items.get_mut(&slot2).unwrap() as *mut Item;
-
-        unsafe {
-            std::ptr::swap(item1, item2);
-        }
-    }
-
-    pub fn move_item(&mut self, from_slot: u32, to_slot: u32) {
-        if let Some(item) = self.items.remove(&from_slot) {
-            self.items.insert(to_slot, item);
-        } else {
-            warn!("attempt to move an item in inventory but item is not there");
-        }
     }
 
     pub fn equipment_slot_for(&self, item_template: &ItemTemplate) -> Option<InventorySlot> {
@@ -148,5 +206,17 @@ impl PlayerInventory {
         }
 
         None
+    }
+
+    fn update_visible_bits(&self, slot: u32, item_entry: u32) {
+        let mut values = self.internal_values.write();
+
+        if slot >= InventorySlot::EQUIPMENT_START && slot < InventorySlot::EQUIPMENT_END {
+            values.set_u32(
+                UnitFields::PlayerVisibleItem1_0 as usize
+                    + (slot * MAX_PLAYER_VISIBLE_ITEM_OFFSET) as usize,
+                item_entry,
+            );
+        }
     }
 }

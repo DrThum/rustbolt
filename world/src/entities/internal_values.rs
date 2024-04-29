@@ -4,6 +4,8 @@ use fixedbitset::{FixedBitSet, Ones};
 use parking_lot::RwLock;
 use shipyard::Component;
 
+use super::object_guid::ObjectGuid;
+
 pub struct InternalValues {
     size: usize,
     values: Vec<Value>,
@@ -126,6 +128,15 @@ impl InternalValues {
         assert!(index < (self.size - 1), "index is too high");
 
         self.get_u32(index) as u64 | (self.get_u32(index + 1) as u64) << 32
+    }
+
+    #[allow(dead_code)]
+    pub fn set_guid(&mut self, index: usize, value: &ObjectGuid) {
+        assert!(index < (self.size - 1), "index is too high");
+
+        let value = value.raw();
+        self.set_u32(index, (value & 0xFFFFFFFF) as u32);
+        self.set_u32(index + 1, ((value >> 32) & 0xFFFFFFFF) as u32);
     }
 
     pub fn set_f32(&mut self, index: usize, value: f32) {

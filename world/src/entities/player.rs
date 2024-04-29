@@ -1155,7 +1155,6 @@ impl Player {
             .expect("unknown item found in inventory");
 
         let mut remaining_stack_count = stack_count;
-        let mut first_free_bag_slot: Option<u32> = None;
 
         // Attempt to distribute the new stacks over existing incomplete stacks
         // TODO: Implement bags, we only check in the backpack for now
@@ -1164,7 +1163,7 @@ impl Player {
                 if item.entry() == item_id && item.stack_count() < item_template.max_stack_count {
                     let available_stack_count = item_template.max_stack_count - item.stack_count();
                     let stack_count_to_add = remaining_stack_count.min(available_stack_count);
-                    item.add_to_stack_count(stack_count_to_add);
+                    item.change_stack_count(stack_count_to_add.try_into().unwrap());
                     remaining_stack_count = remaining_stack_count - stack_count_to_add;
                 }
             }
@@ -1177,14 +1176,7 @@ impl Player {
         // Drop the leftover in empty slots
         let mut chosen_slot = u32::MAX;
         while remaining_stack_count > 0 {
-            for slot in InventorySlot::BACKPACK_START..InventorySlot::BACKPACK_END {
-                if self.inventory.get(slot).is_none() {
-                    first_free_bag_slot = Some(slot);
-                    break;
-                }
-            }
-
-            match first_free_bag_slot {
+            match self.inventory.find_first_free_slot() {
                 Some(slot) => {
                     let item_guid: u32 = self.world_context.next_item_guid();
                     let stack_count_to_add =
@@ -1208,8 +1200,6 @@ impl Player {
                     self.session.send(&packet).unwrap();
 
                     chosen_slot = slot;
-
-                    first_free_bag_slot = None;
                 }
                 None => return Err(InventoryResult::InventoryFull),
             }
@@ -1219,7 +1209,7 @@ impl Player {
     }
 
     pub fn remove_item(&mut self, slot: u32) -> Option<Item> {
-        self.inventory.remove(slot).or({
+        self.inventory.remove(slot).or_else(|| {
             error!("Player::remove_item: no item found in slot {slot}");
             None
         })
@@ -1316,6 +1306,43 @@ impl Player {
                 InventoryResult::Ok
             }
         }
+    }
+
+    pub fn try_split_item(
+        &mut self,
+        from_slot: u32,
+        destination_slot: u32,
+        count: u8,
+    ) -> InventoryResult {
+        // There's no item in from_slot (cheating player?)
+        let Some(moved_item) = self.inventory.get_mut(from_slot) else {
+            return InventoryResult::SlotIsEmpty;
+        };
+
+        // Source item has not enough stack (cheating player?)
+        if moved_item.stack_count() <= count.into() {
+            return InventoryResult::CouldntSplitItems;
+        }
+
+        moved_item.change_stack_count(count as i32 * -1);
+        let new_item_guid: u32 = self.world_context.next_item_guid();
+        let new_item = Item::new(
+            new_item_guid,
+            moved_item.entry(),
+            self.guid.raw(),
+            count.into(),
+            false,
+        );
+        let packet = ServerMessage::new(SmsgCreateObject {
+            updates_count: 1,
+            has_transport: false,
+            updates: vec![new_item.build_create_data()],
+        });
+
+        self.inventory.set(destination_slot, new_item);
+        self.session.send(&packet).unwrap();
+
+        InventoryResult::Ok
     }
 
     pub fn inventory(&self) -> &PlayerInventory {

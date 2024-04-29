@@ -212,3 +212,12 @@ impl SmsgInventoryChangeFailure {
         }
     }
 }
+
+#[binread]
+pub struct CmsgSplitItem {
+    pub source_bag: u8,
+    pub source_slot: u8,
+    pub destination_bag: u8,
+    pub destination_slot: u8,
+    pub count: u8,
+}

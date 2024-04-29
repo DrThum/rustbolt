@@ -217,4 +217,47 @@ impl OpcodeHandler {
             });
         });
     }
+
+    pub(crate) fn handle_cmsg_split_item(
+        session: Arc<WorldSession>,
+        world_context: Arc<WorldContext>,
+        data: Vec<u8>,
+    ) {
+        let cmsg_split_item: CmsgSplitItem = ClientMessage::read_as(data).unwrap();
+
+        session.run(&|WSRunnableArgs {
+                          map,
+                          player_entity_id,
+                          ..
+                      }| {
+            map.world().run(|mut vm_player: ViewMut<Player>| {
+                if let Ok(mut player) = (&mut vm_player).get(player_entity_id) {
+                    let inventory_result = player.try_split_item(
+                        cmsg_split_item.source_slot.into(),
+                        cmsg_split_item.destination_slot.into(),
+                        cmsg_split_item.count,
+                    );
+
+                    let maybe_source_item =
+                        player.get_inventory_item(cmsg_split_item.source_slot.into());
+                    let maybe_new_item =
+                        player.get_inventory_item(cmsg_split_item.destination_slot.into());
+
+                    let source_item_template = maybe_source_item.and_then(|moved_item| {
+                        world_context
+                            .data_store
+                            .get_item_template(moved_item.entry())
+                    });
+
+                    let packet = ServerMessage::new(SmsgInventoryChangeFailure::build(
+                        inventory_result,
+                        maybe_source_item.map(|item| item.guid()).copied(),
+                        source_item_template,
+                        maybe_new_item.map(|item| item.guid()).copied(),
+                    ));
+                    session.send(&packet).unwrap();
+                }
+            });
+        });
+    }
 }

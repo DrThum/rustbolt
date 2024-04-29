@@ -216,6 +216,7 @@ impl OpcodeHandler {
                     Opcode::CmsgSwapInvItem,
                     OpcodeHandler::handle_cmsg_swap_inv_item
                 ),
+                define_handler!(Opcode::CmsgSplitItem, OpcodeHandler::handle_cmsg_split_item),
             ]),
         }
     }

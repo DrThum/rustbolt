@@ -208,6 +208,16 @@ impl PlayerInventory {
         None
     }
 
+    pub fn find_first_free_slot(&self) -> Option<u32> {
+        for slot in InventorySlot::BACKPACK_START..InventorySlot::BACKPACK_END {
+            if !self.items.contains_key(&slot) {
+                return Some(slot);
+            }
+        }
+
+        None
+    }
+
     fn update_visible_bits(&self, slot: u32, item_entry: u32) {
         let mut values = self.internal_values.write();
 

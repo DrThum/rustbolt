@@ -1,4 +1,5 @@
 use enumflags2::make_bitflags;
+use log::warn;
 
 use crate::shared::constants::{HighGuidType, ObjectTypeId, ObjectTypeMask};
 
@@ -55,11 +56,18 @@ impl Item {
         self.values.get_u32(ItemFields::ItemFieldStackCount.into())
     }
 
-    pub fn add_to_stack_count(&mut self, value: u32) {
-        self.values.set_u32(
-            ItemFields::ItemFieldStackCount.into(),
-            self.stack_count() + value,
-        );
+    pub fn change_stack_count(&mut self, diff: i32) {
+        let new_stack_count = self
+            .stack_count()
+            .checked_add_signed(diff)
+            .unwrap_or_else(|| {
+                warn!(
+                "[BUG] attempt to set item stack count to a negative amount, setting to 0 instead"
+            );
+                0
+            });
+        self.values
+            .set_u32(ItemFields::ItemFieldStackCount.into(), new_stack_count);
 
         self.needs_db_save = true;
     }

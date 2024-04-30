@@ -250,21 +250,29 @@ impl TerrainBlock {
                     + (bottom_left - top_left) * normalized_chunk_offset_x
                     + (center - top_left) * (2.0 * normalized_chunk_offset_y);
             }
+        } else if x_offset_in_chunk < y_offset_in_chunk {
+            // Triangle 3
+            height = top_right
+                + (bottom_right - top_right) * normalized_chunk_offset_x
+                + (center - top_right) * 2.0 * (1.0 - normalized_chunk_offset_y);
         } else {
-            if x_offset_in_chunk < y_offset_in_chunk {
-                // Triangle 3
-                height = top_right
-                    + (bottom_right - top_right) * normalized_chunk_offset_x
-                    + (center - top_right) * 2.0 * (1.0 - normalized_chunk_offset_y);
-            } else {
-                // Triangle 4
-                height = bottom_left
-                    + (bottom_right - bottom_left) * normalized_chunk_offset_y
-                    + (center - bottom_left) * (2.0 * (1.0 - normalized_chunk_offset_x));
-            }
+            // Triangle 4
+            height = bottom_left
+                + (bottom_right - bottom_left) * normalized_chunk_offset_y
+                + (center - bottom_left) * (2.0 * (1.0 - normalized_chunk_offset_x));
         }
 
         Some(height + chunk.base_height)
+    }
+
+    pub fn get_area_id(&self, position_x: f32, position_y: f32) -> u32 {
+        let chunk_row =
+            ((512.0 - (position_x / CHUNK_WIDTH)) % BLOCK_WIDTH_IN_CHUNKS as f32).floor() as usize;
+        let chunk_col =
+            ((512.0 - (position_y / CHUNK_WIDTH)) % BLOCK_WIDTH_IN_CHUNKS as f32).floor() as usize;
+
+        let chunk = self.get_chunk(chunk_row, chunk_col);
+        chunk.area_id
     }
 
     fn get_chunk(&self, row: usize, col: usize) -> &TerrainChunk {
@@ -283,7 +291,7 @@ impl TerrainBlock {
 pub struct TerrainChunk {
     row: u32, // index_x in MCNK
     col: u32, // index_y in MCNK
-    area_id: u32,
+    pub area_id: u32,
     pub base_height: f32,
     #[bw(map = |bs: &FixedBitSet| bs.as_slice()[0])]
     #[br(map = |bits: u32| FixedBitSet::with_capacity_and_blocks(16, vec![bits]))]

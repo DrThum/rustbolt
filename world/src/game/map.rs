@@ -307,7 +307,9 @@ impl Map {
                         ),
                         WorldPosition {
                             map_key: self.key,
-                            zone: 0, /* TODO */
+                            zone: self
+                                .get_area_id(char_data.position.x, char_data.position.y)
+                                .unwrap_or(0),
                             x: char_data.position.x,
                             y: char_data.position.y,
                             z: char_data.position.z,
@@ -937,6 +939,21 @@ impl Map {
                 (Some(_), None) => wmo_height,
                 (Some(wmo), Some(ground)) => Some(wmo.max(ground)),
             }
+        })
+    }
+
+    pub fn get_area_id(&self, position_x: f32, position_y: f32) -> Option<u32> {
+        let offset: f32 = MAP_WIDTH_IN_BLOCKS as f32 / 2.0;
+        let block_row = (offset - (position_x / BLOCK_WIDTH)).floor() as usize;
+        let block_col = (offset - (position_y / BLOCK_WIDTH)).floor() as usize;
+        let terrain_block_coords = TerrainBlockCoords {
+            row: block_row,
+            col: block_col,
+        };
+
+        self.terrain.get(&terrain_block_coords).map(|terrain| {
+            // TODO: Area ID might come from the WMO
+            terrain.ground.get_area_id(position_x, position_y)
         })
     }
 

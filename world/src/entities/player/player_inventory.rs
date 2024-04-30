@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
-use log::warn;
+use log::{error, warn};
 use parking_lot::RwLock;
 
 use crate::{
@@ -50,6 +50,35 @@ impl PlayerInventory {
 
     pub fn get_mut(&mut self, slot: u32) -> Option<&mut Item> {
         self.items.get_mut(&slot)
+    }
+
+    pub fn get2_mut(&mut self, slot1: u32, slot2: u32) -> (Option<&mut Item>, Option<&mut Item>) {
+        if slot1 == slot2 {
+            error!("PlayerInventory::get2_mut called with slot1 == slot2");
+            return (None, None);
+        }
+
+        let has_slot1 = self.items.contains_key(&slot1);
+        let has_slot2 = self.items.contains_key(&slot2);
+
+        unsafe {
+            match (has_slot1, has_slot2) {
+                (false, false) => (None, None),
+                (true, false) => {
+                    let item1 = self.items.get_mut(&slot1).unwrap() as *mut _;
+                    (Some(&mut *item1), None)
+                }
+                (true, true) => {
+                    let item1 = self.items.get_mut(&slot1).unwrap() as *mut _;
+                    let item2 = self.items.get_mut(&slot2).unwrap() as *mut _;
+                    (Some(&mut *item1), Some(&mut *item2))
+                }
+                (false, true) => {
+                    let item2 = self.items.get_mut(&slot2).unwrap() as *mut _;
+                    (None, Some(&mut *item2))
+                }
+            }
+        }
     }
 
     pub fn set(&mut self, slot: u32, item: Item) {

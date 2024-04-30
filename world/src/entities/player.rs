@@ -1247,10 +1247,14 @@ impl Player {
     }
 
     pub fn try_swap_inventory_item(&mut self, from_slot: u32, to_slot: u32) -> InventoryResult {
+        let (maybe_moved_item, maybe_target_item) = self.inventory.get2_mut(from_slot, to_slot);
+
         // There's no item in from_slot (cheating player?)
-        let Some(moved_item) = self.inventory.get(from_slot) else {
+        let Some(moved_item) = maybe_moved_item else {
             return InventoryResult::SlotIsEmpty;
         };
+        let moved_item_entry = moved_item.entry();
+        let moved_item_stack_count = moved_item.stack_count();
 
         let Some(moved_item_template) = self
             .world_context
@@ -1260,38 +1264,61 @@ impl Player {
             return InventoryResult::ItemNotFound;
         };
 
-        let maybe_moved_item_equipment_slot =
-            self.inventory.equipment_slot_for(&moved_item_template);
+        // let maybe_moved_item_equipment_slot =
+        //     self.inventory.equipment_slot_for(&moved_item_template);
         let is_destination_gear_slot =
             to_slot >= InventorySlot::EQUIPMENT_START && to_slot < InventorySlot::EQUIPMENT_END;
         let is_origin_gear_slot =
             from_slot >= InventorySlot::EQUIPMENT_START && from_slot < InventorySlot::EQUIPMENT_END;
 
         // Equipment is dragged over an invalid gear slot
-        if let Some(moved_item_equipment_slot) = maybe_moved_item_equipment_slot {
-            if is_destination_gear_slot
-                && Some(moved_item_equipment_slot) != InventorySlot::n(to_slot)
-            {
-                return InventoryResult::ItemDoesntGoToSlot;
-            }
-        }
+        // if let Some(moved_item_equipment_slot) = maybe_moved_item_equipment_slot {
+        //     if is_destination_gear_slot
+        //         && Some(moved_item_equipment_slot) != InventorySlot::n(to_slot)
+        //     {
+        //         return InventoryResult::ItemDoesntGoToSlot;
+        //     }
+        // }
 
-        if let Some(target_item) = self.inventory.get(to_slot) {
-            let maybe_target_item_template = self
+        if let Some(target_item) = maybe_target_item {
+            let target_item_entry = target_item.entry();
+            let target_item_stack_count = target_item.stack_count();
+            let Some(target_item_template) = self
                 .world_context
                 .data_store
-                .get_item_template(target_item.entry());
-            let maybe_target_equipment_slot =
-                maybe_target_item_template.and_then(|target_item_template| {
-                    self.inventory.equipment_slot_for(target_item_template)
-                });
-            let is_same_equipment_slot = maybe_moved_item_equipment_slot
-                .zip(maybe_target_equipment_slot)
-                .map(|(equip_slot_from, equip_slot_to)| equip_slot_from == equip_slot_to)
-                .unwrap_or(true); // We're okay if at least one item is not gear
+                .get_item_template(target_item.entry())
+            else {
+                return InventoryResult::ItemNotFound;
+            };
 
-            if !is_same_equipment_slot && (is_origin_gear_slot || is_destination_gear_slot) {
-                return InventoryResult::ItemDoesntGoToSlot;
+            // let maybe_target_equipment_slot =
+            //     self.inventory.equipment_slot_for(target_item_template);
+            // let is_same_equipment_slot = maybe_moved_item_equipment_slot
+            //     .zip(maybe_target_equipment_slot)
+            //     .map(|(equip_slot_from, equip_slot_to)| equip_slot_from == equip_slot_to)
+            //     .unwrap_or(true); // We're okay if at least one item is not gear
+            //
+            // if !is_same_equipment_slot && (is_origin_gear_slot || is_destination_gear_slot) {
+            //     return InventoryResult::ItemDoesntGoToSlot;
+            // }
+
+            // If both items are the same template and target still has available stack space,
+            // recalculate both stacks
+            if moved_item_entry == target_item_entry
+                && target_item_stack_count < target_item_template.max_stack_count
+            {
+                let stack_diff = (target_item_template.max_stack_count - target_item_stack_count)
+                    .min(moved_item_stack_count) as i32;
+
+                target_item.change_stack_count(stack_diff);
+                if stack_diff < moved_item_stack_count as i32 {
+                    moved_item.change_stack_count(stack_diff as i32 * -1);
+                } else {
+                    // If the moved item has no stack after the transfer, delete it
+                    self.remove_item(from_slot);
+                }
+
+                return InventoryResult::Ok;
             }
 
             self.inventory.swap(from_slot, to_slot);

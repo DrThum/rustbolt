@@ -11,8 +11,8 @@ use crate::{
     },
     shared::constants::{
         AbilityLearnType, ActionButtonType, CharacterClass, CharacterClassBit, CharacterRaceBit,
-        CreatureRank, Expansion, InventoryType, MapType, QuestFlag, SkillCategory, SkillRangeType,
-        SkillType, SpellEffect, FACTION_NUMBER_BASE_REPUTATION_MASKS,
+        CreatureRank, Expansion, InventorySlot, InventoryType, MapType, QuestFlag, SkillCategory,
+        SkillRangeType, SkillType, SpellEffect, FACTION_NUMBER_BASE_REPUTATION_MASKS,
         MAX_QUEST_CHOICE_REWARDS_COUNT, MAX_QUEST_OBJECTIVES_COUNT, MAX_QUEST_REWARDS_COUNT,
         MAX_QUEST_REWARDS_REPUT_COUNT, MAX_SPELL_EFFECTS, MAX_SPELL_REAGENTS, MAX_SPELL_TOTEMS,
         NPC_TEXT_EMOTE_COUNT, NPC_TEXT_TEXT_COUNT,
@@ -237,6 +237,52 @@ pub struct ItemTemplate {
     pub min_money_loot: u32,
     pub max_money_loot: u32,
     pub duration: u32,
+}
+
+impl ItemTemplate {
+    pub fn allowed_gear_slots(&self) -> Vec<InventorySlot> {
+        if let Some(inventory_type) = InventoryType::n(self.inventory_type) {
+            return match inventory_type {
+                InventoryType::NonEquip => vec![],
+                InventoryType::Head => vec![InventorySlot::EquipmentHead],
+                InventoryType::Neck => vec![InventorySlot::EquipmentNeck],
+                InventoryType::Shoulders => vec![InventorySlot::EquipmentShoulders],
+                InventoryType::Body => vec![InventorySlot::EquipmentBody],
+                InventoryType::Chest => vec![InventorySlot::EquipmentChest],
+                InventoryType::Waist => vec![InventorySlot::EquipmentWaist],
+                InventoryType::Legs => vec![InventorySlot::EquipmentLegs],
+                InventoryType::Feet => vec![InventorySlot::EquipmentFeet],
+                InventoryType::Wrists => vec![InventorySlot::EquipmentWrists],
+                InventoryType::Hands => vec![InventorySlot::EquipmentHands],
+                InventoryType::Finger => vec![
+                    InventorySlot::EquipmentFinger1,
+                    InventorySlot::EquipmentFinger2,
+                ],
+                InventoryType::Trinket => vec![
+                    InventorySlot::EquipmentTrinket1,
+                    InventorySlot::EquipmentTrinket2,
+                ],
+                InventoryType::Weapon => vec![InventorySlot::EquipmentMainHand], // FIXME: Also OffHand if player has dual wield
+                InventoryType::Shield => vec![InventorySlot::EquipmentOffHand],
+                InventoryType::Ranged => vec![InventorySlot::EquipmentRanged],
+                InventoryType::Cloak => vec![InventorySlot::EquipmentBack],
+                InventoryType::TwoHandWeapon => vec![InventorySlot::EquipmentMainHand], // FIXME: Only if player can wield two handers
+                InventoryType::Bag => todo!(),
+                InventoryType::Tabard => vec![InventorySlot::EquipmentTabard],
+                InventoryType::Robe => vec![InventorySlot::EquipmentChest],
+                InventoryType::WeaponMainHand => vec![InventorySlot::EquipmentMainHand],
+                InventoryType::WeaponOffHand => vec![InventorySlot::EquipmentOffHand],
+                InventoryType::Holdable => vec![InventorySlot::EquipmentOffHand],
+                InventoryType::Ammo => todo!(),
+                InventoryType::Thrown => vec![InventorySlot::EquipmentRanged],
+                InventoryType::RangedRight => vec![InventorySlot::EquipmentRanged],
+                InventoryType::Quiver => todo!(),
+                InventoryType::Relic => todo!(),
+            };
+        }
+
+        vec![]
+    }
 }
 
 pub struct PlayerCreatePosition {

@@ -1264,21 +1264,23 @@ impl Player {
             return InventoryResult::ItemNotFound;
         };
 
-        // let maybe_moved_item_equipment_slot =
-        //     self.inventory.equipment_slot_for(&moved_item_template);
         let is_destination_gear_slot =
             to_slot >= InventorySlot::EQUIPMENT_START && to_slot < InventorySlot::EQUIPMENT_END;
         let is_origin_gear_slot =
             from_slot >= InventorySlot::EQUIPMENT_START && from_slot < InventorySlot::EQUIPMENT_END;
 
-        // Equipment is dragged over an invalid gear slot
-        // if let Some(moved_item_equipment_slot) = maybe_moved_item_equipment_slot {
-        //     if is_destination_gear_slot
-        //         && Some(moved_item_equipment_slot) != InventorySlot::n(to_slot)
-        //     {
-        //         return InventoryResult::ItemDoesntGoToSlot;
-        //     }
-        // }
+        // Equipment is dragged over a gear slot
+        // => Check that moved_item can go in to_slot
+        if is_destination_gear_slot {
+            let allowed_gear_slots: Vec<u32> = moved_item_template
+                .allowed_gear_slots()
+                .into_iter()
+                .map(|slot| slot as u32)
+                .collect();
+            if !allowed_gear_slots.contains(&to_slot) {
+                return InventoryResult::ItemDoesntGoToSlot;
+            }
+        }
 
         if let Some(target_item) = maybe_target_item {
             let target_item_entry = target_item.entry();
@@ -1291,16 +1293,18 @@ impl Player {
                 return InventoryResult::ItemNotFound;
             };
 
-            // let maybe_target_equipment_slot =
-            //     self.inventory.equipment_slot_for(target_item_template);
-            // let is_same_equipment_slot = maybe_moved_item_equipment_slot
-            //     .zip(maybe_target_equipment_slot)
-            //     .map(|(equip_slot_from, equip_slot_to)| equip_slot_from == equip_slot_to)
-            //     .unwrap_or(true); // We're okay if at least one item is not gear
-            //
-            // if !is_same_equipment_slot && (is_origin_gear_slot || is_destination_gear_slot) {
-            //     return InventoryResult::ItemDoesntGoToSlot;
-            // }
+            // Equipment is dragged from gear onto another gear piece in a bag
+            // => Check that target_item can go in from_slot
+            if is_origin_gear_slot {
+                let allowed_gear_slots: Vec<u32> = target_item_template
+                    .allowed_gear_slots()
+                    .into_iter()
+                    .map(|slot| slot as u32)
+                    .collect();
+                if !allowed_gear_slots.contains(&from_slot) {
+                    return InventoryResult::ItemDoesntGoToSlot;
+                }
+            }
 
             // If both items are the same template and target still has available stack space,
             // recalculate both stacks

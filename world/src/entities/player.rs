@@ -1345,35 +1345,58 @@ impl Player {
         destination_slot: u32,
         count: u8,
     ) -> InventoryResult {
-        // There's no item in from_slot (cheating player?)
-        let Some(moved_item) = self.inventory.get_mut(from_slot) else {
-            return InventoryResult::SlotIsEmpty;
-        };
+        match self.inventory.get2_mut(from_slot, destination_slot) {
+            (None, _) => {
+                // There's no item in from_slot (cheating player?)
+                InventoryResult::SlotIsEmpty
+            }
+            (Some(moved_item), _) if moved_item.stack_count() <= count.into() => {
+                InventoryResult::CouldntSplitItems
+            }
+            (Some(moved_item), None) => {
+                // Dropping the extra stacks on an empty slot
+                moved_item.change_stack_count(count as i32 * -1);
+                let new_item_guid: u32 = self.world_context.next_item_guid();
+                let new_item = Item::new(
+                    new_item_guid,
+                    moved_item.entry(),
+                    self.guid.raw(),
+                    count.into(),
+                    false,
+                );
+                let packet = ServerMessage::new(SmsgCreateObject {
+                    updates_count: 1,
+                    has_transport: false,
+                    updates: vec![new_item.build_create_data()],
+                });
 
-        // Source item has not enough stack (cheating player?)
-        if moved_item.stack_count() <= count.into() {
-            return InventoryResult::CouldntSplitItems;
+                self.inventory.set(destination_slot, new_item);
+                self.session.send(&packet).unwrap();
+
+                InventoryResult::Ok
+            }
+            (Some(moved_item), Some(target_item)) if moved_item.entry() != target_item.entry() => {
+                // Dropping the extra stacks on another item
+                InventoryResult::CouldntSplitItems
+            }
+            (Some(moved_item), Some(target_item)) => {
+                // Dropping the extra stacks on the same item
+                let Some(target_item_template) = self
+                    .world_context
+                    .data_store
+                    .get_item_template(target_item.entry())
+                else {
+                    return InventoryResult::ItemNotFound;
+                };
+                let available_stack_count =
+                    target_item_template.max_stack_count - target_item.stack_count();
+                let stacks_to_move = available_stack_count.min(count.into()) as i32;
+
+                moved_item.change_stack_count(stacks_to_move * -1);
+                target_item.change_stack_count(stacks_to_move);
+                InventoryResult::Ok
+            }
         }
-
-        moved_item.change_stack_count(count as i32 * -1);
-        let new_item_guid: u32 = self.world_context.next_item_guid();
-        let new_item = Item::new(
-            new_item_guid,
-            moved_item.entry(),
-            self.guid.raw(),
-            count.into(),
-            false,
-        );
-        let packet = ServerMessage::new(SmsgCreateObject {
-            updates_count: 1,
-            has_transport: false,
-            updates: vec![new_item.build_create_data()],
-        });
-
-        self.inventory.set(destination_slot, new_item);
-        self.session.send(&packet).unwrap();
-
-        InventoryResult::Ok
     }
 
     pub fn inventory(&self) -> &PlayerInventory {

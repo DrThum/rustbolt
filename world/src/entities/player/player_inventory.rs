@@ -82,6 +82,11 @@ impl PlayerInventory {
     }
 
     pub fn set(&mut self, slot: u32, item: Item) {
+        if self.items.contains_key(&slot) {
+            error!("PlayerInventory: attempt to overwrite slot {slot}");
+            return;
+        }
+
         self.internal_values.write().set_guid(
             UnitFields::PlayerFieldInvSlotHead as usize + (2 * slot) as usize,
             item.guid(),

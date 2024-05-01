@@ -34,7 +34,7 @@ use crate::{
             unit::Unit,
         },
         resources::DeltaTime,
-        systems::{behavior, combat, inventory, melee, movement, spell, updates},
+        systems::{behavior, combat, inventory, melee, movement, powers, spell, updates},
     },
     entities::{
         creature::Creature,
@@ -99,8 +99,9 @@ impl Map {
         let workload = || {
             (
                 movement::update_movement,
-                behavior::tick,
                 combat::update_combat_state,
+                behavior::tick,
+                powers::regenerate_powers,
                 combat::select_target,
                 melee::attempt_melee_attack,
                 spell::update_spell,

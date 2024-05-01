@@ -1,13 +1,18 @@
-use std::sync::Arc;
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 use parking_lot::RwLock;
 use shipyard::Component;
 
 use crate::entities::{internal_values::InternalValues, update_fields::UnitFields};
 
+// Note: "Powers" includes health
 #[derive(Component)]
 pub struct Powers {
     internal_values: Arc<RwLock<InternalValues>>,
+    next_regen_time: Instant,
 }
 
 impl Powers {
@@ -23,7 +28,10 @@ impl Powers {
             guard.set_u32(UnitFields::UnitFieldBaseHealth.into(), max_health);
         }
 
-        Self { internal_values }
+        Self {
+            internal_values,
+            next_regen_time: Instant::now(),
+        }
     }
 
     pub fn max_health(&self) -> u32 {
@@ -57,5 +65,13 @@ impl Powers {
 
     pub fn is_alive(&self) -> bool {
         self.current_health() > 0
+    }
+
+    pub fn reset_next_regen_time(&mut self) {
+        self.next_regen_time = Instant::now() + Duration::from_secs(2);
+    }
+
+    pub fn is_past_next_regen_time(&self) -> bool {
+        self.next_regen_time <= Instant::now()
     }
 }

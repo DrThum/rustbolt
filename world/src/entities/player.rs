@@ -1425,6 +1425,11 @@ impl Player {
     pub fn currently_looting(&self) -> Option<EntityId> {
         self.currently_looting
     }
+
+    pub fn health_regen_per_tick(&self) -> f32 {
+        // TODO: See float Player::OCTRegenHPPerSpirit() in MaNGOS
+        1.0
+    }
 }
 
 pub struct PlayerVisualFeatures {

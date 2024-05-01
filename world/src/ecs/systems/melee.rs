@@ -2,7 +2,7 @@ use shipyard::{IntoIter, IntoWithId, UniqueView, View, ViewMut};
 
 use crate::{
     ecs::components::{
-        guid::Guid, health::Health, melee::Melee, spell_cast::SpellCast, threat_list::ThreatList,
+        guid::Guid, health::Powers, melee::Melee, spell_cast::SpellCast, threat_list::ThreatList,
         unit::Unit,
     },
     entities::{creature::Creature, player::Player, position::WorldPosition},
@@ -13,7 +13,7 @@ use crate::{
 pub fn attempt_melee_attack(
     (map, world_context): (UniqueView<WrappedMap>, UniqueView<WrappedWorldContext>),
     v_guid: View<Guid>,
-    mut vm_health: ViewMut<Health>,
+    mut vm_powers: ViewMut<Powers>,
     mut vm_melee: ViewMut<Melee>,
     mut vm_unit: ViewMut<Unit>,
     mut vm_threat_list: ViewMut<ThreatList>,
@@ -36,7 +36,7 @@ pub fn attempt_melee_attack(
             &v_spell,
             &v_creature,
             &mut vm_unit,
-            &mut vm_health,
+            &mut vm_powers,
             &mut vm_melee,
             &mut vm_threat_list,
             Some(&mut player),

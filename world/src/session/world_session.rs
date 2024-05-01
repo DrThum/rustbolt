@@ -22,7 +22,7 @@ use tokio::{
 use wow_srp::tbc_header::HeaderCrypto;
 
 use crate::{
-    ecs::components::health::Health,
+    ecs::components::health::Powers,
     entities::{object_guid::ObjectGuid, player::Player, position::WorldPosition},
     game::{map::Map, world_context::WorldContext},
     protocol::{
@@ -153,13 +153,13 @@ impl WorldSession {
                 map.world().run(
                     |mut vm_player: ViewMut<Player>,
                      v_wpos: View<WorldPosition>,
-                     v_health: View<Health>| {
+                     v_powers: View<Powers>| {
                         let transaction = conn.transaction().unwrap();
 
                         CharacterRepository::save_to_db(
                             &transaction,
                             &mut vm_player[entity_id],
-                            &v_health[entity_id],
+                            &v_powers[entity_id],
                             &v_wpos[entity_id],
                         )
                         .unwrap();

@@ -9,7 +9,7 @@ use crate::{
         data_types::{ItemRecord, PlayerCreatePosition},
         DataStore,
     },
-    ecs::components::health::Health,
+    ecs::components::health::Powers,
     entities::{
         player::{
             player_data::{ActionButton, CharacterSkill, QuestLogContext},
@@ -459,7 +459,7 @@ impl CharacterRepository {
     pub fn save_to_db(
         transaction: &Transaction,
         player: &mut Player,
-        health: &Health,
+        health: &Powers,
         position: &WorldPosition,
     ) -> Result<(), Error> {
         let guid = player.guid().counter();
@@ -479,7 +479,7 @@ impl CharacterRepository {
             ":y": position.y,
             ":z": position.z,
             ":o": position.o,
-            ":current_health": health.current(),
+            ":current_health": health.current_health(),
             ":experience": player.experience(),
             ":money": player.money(),
             ":guid": guid,

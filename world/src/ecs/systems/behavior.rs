@@ -5,7 +5,7 @@ use crate::{
         components::{
             behavior::{Action, Behavior},
             guid::Guid,
-            health::Health,
+            health::Powers,
             melee::Melee,
             movement::{Movement, MovementKind},
             spell_cast::SpellCast,
@@ -34,7 +34,7 @@ pub fn tick(
     v_guid: View<Guid>,
     v_wpos: View<WorldPosition>,
     v_creature: View<Creature>,
-    (mut vm_player, mut vm_health, v_spell): (ViewMut<Player>, ViewMut<Health>, View<SpellCast>),
+    (mut vm_player, mut vm_powers, v_spell): (ViewMut<Player>, ViewMut<Powers>, View<SpellCast>),
 ) {
     if !map.0.has_players() {
         return;
@@ -53,7 +53,7 @@ pub fn tick(
                 vm_movement: &mut vm_movement,
                 vm_unit: &mut vm_unit,
                 vm_threat_list: &mut vm_threat_list,
-                vm_health: &mut vm_health,
+                vm_powers: &mut vm_powers,
                 vm_melee: &mut vm_melee,
                 vm_player: &mut vm_player,
                 v_guid: &v_guid,
@@ -85,7 +85,7 @@ fn action_aggro(ctx: &mut BTContext) -> NodeStatus {
         .neighbors
         .iter()
         .filter_map(|&neighbor_entity_id| {
-            let neighbor_health = &ctx.vm_health[neighbor_entity_id];
+            let neighbor_powers = &ctx.vm_powers[neighbor_entity_id];
             let neighbor_position = &ctx.v_wpos[neighbor_entity_id];
             let neighbor_unit = &ctx.vm_unit[neighbor_entity_id];
             let neighbor_level = if let Ok(player) = ctx.vm_player.get(neighbor_entity_id) {
@@ -98,7 +98,7 @@ fn action_aggro(ctx: &mut BTContext) -> NodeStatus {
 
             let neighbor_distance = my_position.distance_to(&neighbor_position, true);
 
-            if neighbor_health.is_alive()
+            if neighbor_powers.is_alive()
                 && unit_me.is_hostile_to(&neighbor_unit)
                 && my_position.distance_to(&neighbor_position, true)
                     <= creature.aggro_distance(neighbor_level)
@@ -139,7 +139,7 @@ fn action_attack_in_melee(ctx: &mut BTContext) -> NodeStatus {
         ctx.v_spell,
         ctx.v_creature,
         ctx.vm_unit,
-        ctx.vm_health,
+        ctx.vm_powers,
         ctx.vm_melee,
         ctx.vm_threat_list,
         None,

@@ -51,7 +51,7 @@ impl Behavior {
 
         let alive_behavior =
             BehaviorNode::Condition(Box::new(BehaviorNode::Selector(alive_actions)), |ctx| {
-                ctx.vm_health[ctx.entity_id].is_alive()
+                ctx.vm_powers[ctx.entity_id].is_alive()
             });
 
         let bt = BehaviorTree::new(alive_behavior);

@@ -7,7 +7,7 @@ use crate::{
         components::{
             behavior::Behavior,
             guid::Guid,
-            health::Health,
+            health::Powers,
             movement::{Movement, MovementKind},
             threat_list::ThreatList,
             unit::Unit,
@@ -30,7 +30,7 @@ pub fn update_movement(
     v_guid: View<Guid>,
     v_player: View<Player>,
     v_creature: View<Creature>,
-    v_health: View<Health>,
+    v_powers: View<Powers>,
     (mut vm_unit, mut vm_movement, mut vm_wpos, mut vm_threat_list, mut vm_behavior): (
         ViewMut<Unit>,
         ViewMut<Movement>,
@@ -45,15 +45,15 @@ pub fn update_movement(
 
     let mut map_pending_updates: Vec<(&ObjectGuid, EntityId, Position)> = Vec::new();
 
-    for (entity_id, (guid, mut movement, my_wpos, health)) in
-        (&v_guid, &mut vm_movement, &vm_wpos, &v_health)
+    for (entity_id, (guid, mut movement, my_wpos, powers)) in
+        (&v_guid, &mut vm_movement, &vm_wpos, &v_powers)
             .iter()
             .with_id()
     {
         // Reset expired movements after one tick
         movement.recently_expired_movement_kinds.clear();
 
-        if !health.is_alive() {
+        if !powers.is_alive() {
             continue;
         }
 
@@ -115,8 +115,8 @@ pub fn update_movement(
                         should_stop_chasing = true;
                     }
 
-                    if let Ok(health) = v_health.get(target_entity_id) {
-                        if !health.is_alive() {
+                    if let Ok(powers) = v_powers.get(target_entity_id) {
+                        if !powers.is_alive() {
                             should_stop_chasing = true;
                         }
                     }

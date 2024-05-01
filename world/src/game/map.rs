@@ -25,7 +25,7 @@ use crate::{
         components::{
             behavior::Behavior,
             guid::Guid,
-            health::Health,
+            health::Powers,
             melee::Melee,
             movement::{Movement, MovementKind},
             quest_actor::QuestActor,
@@ -228,7 +228,7 @@ impl Map {
         let player_entity_id = self.world.lock().run(
             |mut entities: EntitiesViewMut,
              mut vm_guid: ViewMut<Guid>,
-             mut vm_health: ViewMut<Health>,
+             mut vm_powers: ViewMut<Powers>,
              mut vm_melee: ViewMut<Melee>,
              mut vm_unit: ViewMut<Unit>,
              mut vm_wpos: ViewMut<WorldPosition>,
@@ -274,7 +274,7 @@ impl Map {
                 let entity_id = entities.add_entity(
                     (
                         &mut vm_guid,
-                        &mut vm_health,
+                        &mut vm_powers,
                         &mut vm_melee,
                         &mut vm_unit,
                         &mut vm_wpos,
@@ -285,7 +285,7 @@ impl Map {
                     ),
                     (
                         Guid::new(player_guid.clone(), player.internal_values.clone()),
-                        Health::new(
+                        Powers::new(
                             char_data.current_health,
                             base_health_mana_record.base_health, // FIXME: calculate max from base + modifiers
                             player.internal_values.clone(),
@@ -506,7 +506,7 @@ impl Map {
         let creature_entity_id = self.world.lock().run(
             |mut entities: EntitiesViewMut,
              mut vm_guid: ViewMut<Guid>,
-             mut vm_health: ViewMut<Health>,
+             mut vm_powers: ViewMut<Powers>,
              mut vm_melee: ViewMut<Melee>,
              mut vm_unit: ViewMut<Unit>,
              mut vm_wpos: ViewMut<WorldPosition>,
@@ -522,7 +522,7 @@ impl Map {
                 let entity_id = entities.add_entity(
                     (
                         &mut vm_guid,
-                        &mut vm_health,
+                        &mut vm_powers,
                         &mut vm_melee,
                         &mut vm_unit,
                         &mut vm_wpos,
@@ -534,7 +534,7 @@ impl Map {
                     ),
                     (
                         Guid::new(creature_guid.clone(), creature.internal_values.clone()),
-                        Health::new(
+                        Powers::new(
                             creature_health,
                             creature_health,
                             creature.internal_values.clone(),

@@ -6,7 +6,7 @@ use shipyard::{EntityId, UniqueView, View, ViewMut};
 use crate::{
     ecs::{
         components::{
-            guid::Guid, health::Health, melee::Melee, movement::Movement, spell_cast::SpellCast,
+            guid::Guid, health::Powers, melee::Melee, movement::Movement, spell_cast::SpellCast,
             threat_list::ThreatList, unit::Unit,
         },
         resources::DeltaTime,
@@ -203,7 +203,7 @@ pub struct BTContext<'a, 'b, 'c, 'd, 'e, 'f, 'g> {
     pub vm_movement: &'a mut ViewMut<'b, Movement>,
     pub vm_unit: &'a mut ViewMut<'c, Unit>,
     pub vm_threat_list: &'a mut ViewMut<'d, ThreatList>,
-    pub vm_health: &'a mut ViewMut<'e, Health>,
+    pub vm_powers: &'a mut ViewMut<'e, Powers>,
     pub vm_melee: &'a mut ViewMut<'f, Melee>,
     pub vm_player: &'a mut ViewMut<'g, Player>,
     pub v_guid: &'a View<'a, Guid>,

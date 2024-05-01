@@ -27,7 +27,7 @@ use crate::{
 };
 
 use super::{
-    guid::Guid, health::Health, spell_cast::SpellCast, threat_list::ThreatList, unit::Unit,
+    guid::Guid, health::Powers, spell_cast::SpellCast, threat_list::ThreatList, unit::Unit,
 };
 
 #[derive(Component)]
@@ -177,7 +177,7 @@ impl Melee {
         v_spell: &View<SpellCast>,
         v_creature: &View<Creature>,
         v_unit: &mut ViewMut<Unit>,
-        vm_health: &mut ViewMut<Health>,
+        vm_powers: &mut ViewMut<Powers>,
         vm_melee: &mut ViewMut<Melee>,
         vm_threat_list: &mut ViewMut<ThreatList>,
         player_attacker: Option<&mut Player>,
@@ -189,7 +189,7 @@ impl Melee {
                 let guid = v_guid[attacker_id].0;
                 let my_position = v_wpos[attacker_id];
 
-                let mut target_health = vm_health
+                let mut target_powers = vm_powers
                     .get(target_id)
                     .expect("target has no Health component");
                 let target_position = v_wpos
@@ -211,7 +211,7 @@ impl Melee {
                     return Err(());
                 }
 
-                if !target_health.is_alive() {
+                if !target_powers.is_alive() {
                     let packet = {
                         ServerMessage::new(SmsgAttackStop {
                             attacker_guid: guid.as_packed(),
@@ -243,7 +243,7 @@ impl Melee {
 
                 if melee.is_attack_ready(WeaponAttackType::MainHand) {
                     let damage = melee.calc_damage();
-                    target_health.apply_damage(damage as u32);
+                    target_powers.apply_damage(damage as u32);
 
                     let packet = ServerMessage::new(SmsgAttackerStateUpdate {
                         hit_info: 2, // TODO enum HitInfo
@@ -268,7 +268,7 @@ impl Melee {
                     melee.ensure_attack_time(WeaponAttackType::OffHand, ATTACK_DISPLAY_DELAY);
                     melee.set_error(MeleeAttackError::None, None);
 
-                    if target_health.is_alive() {
+                    if target_powers.is_alive() {
                         if let Ok(mut tl) = vm_threat_list.get(target_id) {
                             tl.modify_threat(attacker_id, damage as f32);
                         }

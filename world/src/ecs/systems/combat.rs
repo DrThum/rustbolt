@@ -1,7 +1,7 @@
 use shipyard::{Get, IntoIter, UniqueView, View, ViewMut};
 
 use crate::{
-    ecs::components::{guid::Guid, health::Health, threat_list::ThreatList, unit::Unit},
+    ecs::components::{guid::Guid, health::Powers, threat_list::ThreatList, unit::Unit},
     entities::player::Player,
     game::map::WrappedMap,
 };
@@ -11,14 +11,14 @@ pub fn update_combat_state(
     map: UniqueView<WrappedMap>,
     vm_unit: ViewMut<Unit>,
     v_threat_list: View<ThreatList>,
-    v_health: View<Health>,
+    v_powers: View<Powers>,
 ) {
     if !map.0.has_players() {
         return;
     }
 
-    for (player, unit, health) in (&v_player, &vm_unit, &v_health).iter() {
-        if !health.is_alive() {
+    for (player, unit, powers) in (&v_player, &vm_unit, &v_powers).iter() {
+        if !powers.is_alive() {
             if unit.combat_state() {
                 unit.set_combat_state(false);
             }
@@ -38,8 +38,8 @@ pub fn update_combat_state(
         }
     }
 
-    for (unit, threat_list, health) in (&vm_unit, &v_threat_list, &v_health).iter() {
-        if !health.is_alive() {
+    for (unit, threat_list, powers) in (&vm_unit, &v_threat_list, &v_powers).iter() {
+        if !powers.is_alive() {
             if unit.combat_state() {
                 unit.set_combat_state(false);
             }
@@ -60,7 +60,7 @@ pub fn update_combat_state(
 // Select the target with the highest threat level
 // TODO: 130%/110% rule for taking aggro if there's already a target
 pub fn select_target(
-    v_health: View<Health>,
+    v_powers: View<Powers>,
     map: UniqueView<WrappedMap>,
     mut vm_unit: ViewMut<Unit>,
     mut vm_threat_list: ViewMut<ThreatList>,
@@ -70,10 +70,10 @@ pub fn select_target(
         return;
     }
 
-    for (mut unit, mut threat_list, health) in (&mut vm_unit, &mut vm_threat_list, &v_health).iter()
+    for (mut unit, mut threat_list, powers) in (&mut vm_unit, &mut vm_threat_list, &v_powers).iter()
     {
         // Reset our target and threat list if we're dead
-        if !health.is_alive() {
+        if !powers.is_alive() {
             if unit.target().is_some() {
                 unit.set_target(None, 0);
             }
@@ -87,7 +87,7 @@ pub fn select_target(
 
         // Remove dead entities from our threat list
         threat_list.threat_list_mut().retain(|&entity_id, _| {
-            v_health
+            v_powers
                 .get(entity_id)
                 .map(|h| h.is_alive())
                 .unwrap_or(false)

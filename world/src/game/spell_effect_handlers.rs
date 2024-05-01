@@ -4,7 +4,7 @@ use shipyard::{AllStoragesViewMut, Get, View, ViewMut};
 
 use crate::{
     datastore::data_types::SpellRecord,
-    ecs::components::{guid::Guid, health::Health, threat_list::ThreatList, unit::Unit},
+    ecs::components::{guid::Guid, health::Powers, threat_list::ThreatList, unit::Unit},
     entities::{creature::Creature, player::Player},
     shared::constants::UnitDynamicFlag,
 };
@@ -34,18 +34,18 @@ impl SpellEffectHandler {
         all_storages: &AllStoragesViewMut,
     ) {
         all_storages.run(
-            |mut vm_health: ViewMut<Health>,
+            |mut vm_powers: ViewMut<Powers>,
              mut vm_threat_list: ViewMut<ThreatList>,
              v_guid: View<Guid>,
              mut vm_player: ViewMut<Player>,
              v_creature: View<Creature>,
              v_unit: View<Unit>| {
                 let damage = spell_record.calc_simple_value(effect_index);
-                let target_health = &mut vm_health[spell.target()];
-                target_health.apply_damage(damage as u32);
+                let target_powers = &mut vm_powers[spell.target()];
+                target_powers.apply_damage(damage as u32);
                 // TODO: Log damage somehow
 
-                if target_health.is_alive() {
+                if target_powers.is_alive() {
                     if let Ok(mut threat_list) = (&mut vm_threat_list).get(spell.target()) {
                         threat_list.modify_threat(spell.caster(), damage as f32);
                     }
@@ -86,9 +86,9 @@ impl SpellEffectHandler {
         effect_index: usize,
         all_storages: &AllStoragesViewMut,
     ) {
-        all_storages.run(|mut vm_health: ViewMut<Health>| {
+        all_storages.run(|mut vm_powers: ViewMut<Powers>| {
             let damage = _spell_record.calc_simple_value(effect_index);
-            vm_health[_spell.target()].apply_healing(damage as u32);
+            vm_powers[_spell.target()].apply_healing(damage as u32);
         });
     }
 }

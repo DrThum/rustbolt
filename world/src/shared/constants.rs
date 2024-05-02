@@ -2,6 +2,7 @@ use std::time::Duration;
 
 use enumflags2::bitflags;
 use enumn::N;
+use log::warn;
 use rusqlite::types::{FromSql, FromSqlError};
 use strum::EnumIter;
 
@@ -1006,6 +1007,23 @@ pub enum SpellEffect {
     TriggerSpell2 = 151,
     SummonReferAFriend = 152,
     CreateTamedPet = 153,
+}
+
+impl SpellEffect {
+    pub fn is_positive(&self) -> bool {
+        match self {
+            Self::SchoolDamage => false,
+            Self::Heal => true,
+            _ => {
+                warn!("implement whether spell effect {self:?} is positive or negative");
+                true
+            }
+        }
+    }
+
+    pub fn is_negative(&self) -> bool {
+        !self.is_positive()
+    }
 }
 
 #[allow(dead_code)]

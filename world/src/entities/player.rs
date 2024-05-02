@@ -942,6 +942,10 @@ impl Player {
         self.in_combat_with.read().clone()
     }
 
+    pub fn is_in_combat_with(&self, other: &ObjectGuid) -> bool {
+        self.in_combat_with.read().contains(other)
+    }
+
     // NOTE: MaNGOS uses f32 for internal calculation but client expects u32
     pub fn attribute(&self, attr: UnitAttribute) -> u32 {
         self.internal_values

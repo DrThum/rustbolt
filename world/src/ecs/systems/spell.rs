@@ -1,10 +1,11 @@
 use std::{sync::Arc, time::Instant};
 
-use shipyard::{AllStoragesViewMut, IntoIter, UniqueView, View, ViewMut};
+use shipyard::{AllStoragesViewMut, Get, IntoIter, UniqueView, View, ViewMut};
 
 use crate::{
     datastore::data_types::SpellRecord,
     ecs::components::{guid::Guid, spell_cast::SpellCast},
+    entities::player::Player,
     game::{
         map::{Map, WrappedMap},
         spell::Spell,
@@ -88,6 +89,19 @@ fn handle_effects(
                 effect_index,
                 vm_all_storages,
             );
+
+            // Set player in combat with target if needed
+            if effect.is_negative() {
+                vm_all_storages.run(|mut vm_player: ViewMut<Player>, guid: View<Guid>| {
+                    if let Ok(player) = (&mut vm_player).get(spell.caster()) {
+                        if let Ok(target_guid) = guid.get(spell.target()) {
+                            if !player.is_in_combat_with(&target_guid.0) {
+                                player.set_in_combat_with(target_guid.0);
+                            }
+                        }
+                    }
+                });
+            }
         }
     }
 }

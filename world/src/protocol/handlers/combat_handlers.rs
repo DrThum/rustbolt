@@ -6,6 +6,7 @@ use crate::ecs::components::guid::Guid;
 use crate::ecs::components::melee::Melee;
 use crate::ecs::components::unit::Unit;
 use crate::entities::object_guid::ObjectGuid;
+use crate::entities::player::Player;
 use crate::game::world_context::WorldContext;
 use crate::protocol::client::ClientMessage;
 use crate::protocol::packets::*;
@@ -22,9 +23,15 @@ impl OpcodeHandler {
         let cmsg: CmsgAttackSwing = ClientMessage::read_as(data).unwrap();
         if let Some(ref map) = session.current_map() {
             if let Some(player_ecs_entity) = session.player_entity_id() {
-                map.world().run(|mut vm_melee: ViewMut<Melee>| {
-                    vm_melee[player_ecs_entity].is_attacking = true;
-                });
+                map.world()
+                    .run(|mut vm_melee: ViewMut<Melee>, vm_player: ViewMut<Player>| {
+                        vm_melee[player_ecs_entity].is_attacking = true;
+
+                        let player = &vm_player[player_ecs_entity];
+                        if !player.is_in_combat_with(&cmsg.guid) {
+                            player.set_in_combat_with(cmsg.guid);
+                        }
+                    });
             }
 
             let player_guid = session.player_guid().unwrap();

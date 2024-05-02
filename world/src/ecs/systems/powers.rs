@@ -21,10 +21,13 @@ pub fn regenerate_powers(
         // TODO: SPELL_AURA_MOD_REGEN_DURING_COMBAT or SPELL_AURA_MOD_HEALTH_REGEN_IN_COMBAT or
         // Polymorph allow to regen health in combat
         // Creatures have special rules too
-        let can_regen_health = v_unit
+        let combat_state_allows_health_regen = v_unit
             .get(entity_id)
             .map(|unit| !unit.combat_state())
             .unwrap_or(true);
+
+        let can_regen_health =
+            combat_state_allows_health_regen && powers.current_health() < powers.max_health();
 
         if can_regen_health {
             // Player case

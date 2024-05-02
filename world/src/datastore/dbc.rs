@@ -7,7 +7,10 @@ use std::{
 use bytemuck::cast_slice;
 use indicatif::ProgressBar;
 
-use super::{data_types::DbcTypedRecord, DbcStore};
+use super::{
+    data_types::{DbcTypedRecord, GameTableTypedRecord},
+    DbcStore, GameTableStore,
+};
 
 pub struct Dbc {
     header: DbcHeader,
@@ -35,6 +38,17 @@ impl Dbc {
             .iter()
             .map(|dbc_record| {
                 let res = T::from_record(dbc_record, &self.strings);
+                bar.inc(1);
+                res
+            })
+            .collect()
+    }
+
+    pub fn as_gt_store<T: GameTableTypedRecord>(&self, bar: &ProgressBar) -> GameTableStore<T> {
+        self.records
+            .iter()
+            .map(|dbc_record| {
+                let res = T::from_record(dbc_record);
                 bar.inc(1);
                 res
             })

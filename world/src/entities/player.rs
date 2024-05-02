@@ -16,7 +16,7 @@ use strum::IntoEnumIterator;
 
 use crate::{
     datastore::{
-        data_types::{PlayerCreatePosition, QuestTemplate},
+        data_types::{PlayerCreatePosition, QuestTemplate, GAME_TABLE_MAX_LEVEL},
         DataStore,
     },
     entities::player::player_data::FactionStanding,
@@ -1427,8 +1427,33 @@ impl Player {
     }
 
     pub fn health_regen_per_tick(&self) -> f32 {
-        // TODO: See float Player::OCTRegenHPPerSpirit() in MaNGOS
-        1.0
+        let level = self.level().min(GAME_TABLE_MAX_LEVEL);
+        let class = self
+            .internal_values
+            .read()
+            .get_u8(UnitFields::UnitFieldBytes0.into(), 0) as u32;
+        let spirit_stat = self
+            .internal_values
+            .read()
+            .get_u32(UnitFields::UnitFieldStat0 as usize + UnitAttribute::Spirit as usize)
+            as f32;
+        let base_spirit = spirit_stat.min(50.0);
+        let extra_spirit = spirit_stat - base_spirit;
+
+        let index = ((class - 1) * GAME_TABLE_MAX_LEVEL + level - 1) as usize;
+        let maybe_base_regen_hp_record = self.world_context.data_store.get_gtOCTRegenHP(index);
+        let maybe_regen_hp_from_spirit_record =
+            self.world_context.data_store.get_gtRegenHPPerSpt(index);
+
+        match (
+            maybe_base_regen_hp_record,
+            maybe_regen_hp_from_spirit_record,
+        ) {
+            (None, _) | (_, None) => 0.0,
+            (Some(base_record), Some(from_spirit_record)) => {
+                base_spirit * base_record.ratio + extra_spirit * from_spirit_record.ratio
+            }
+        }
     }
 }
 

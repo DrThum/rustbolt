@@ -20,10 +20,19 @@ use crate::{
     DataStore,
 };
 
+pub const GAME_TABLE_MAX_LEVEL: u32 = 100;
+
 use super::dbc::{DbcRecord, DbcStringBlock};
 
 pub trait DbcTypedRecord {
     fn from_record(record: &DbcRecord, strings: &DbcStringBlock) -> (u32, Self);
+}
+
+// Special DBC files with name starting with gtXXX
+// These records have no key and are indexed by an external value (for example player class id and
+// level)
+pub trait GameTableTypedRecord {
+    fn from_record(record: &DbcRecord) -> Self;
 }
 
 #[derive(Debug)]
@@ -164,6 +173,36 @@ impl DbcTypedRecord for ItemRecord {
             };
 
             (key, record)
+        }
+    }
+}
+
+// Out of combat health regen
+pub struct GameTableOCTRegenHPRecord {
+    pub ratio: f32,
+}
+
+impl GameTableTypedRecord for GameTableOCTRegenHPRecord {
+    fn from_record(record: &DbcRecord) -> Self {
+        unsafe {
+            Self {
+                ratio: record.fields[0].as_f32,
+            }
+        }
+    }
+}
+
+// Health regen per spirit point
+pub struct GameTableRegenHPPerSptRecord {
+    pub ratio: f32,
+}
+
+impl GameTableTypedRecord for GameTableRegenHPPerSptRecord {
+    fn from_record(record: &DbcRecord) -> Self {
+        unsafe {
+            Self {
+                ratio: record.fields[0].as_f32,
+            }
         }
     }
 }

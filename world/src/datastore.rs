@@ -1,3 +1,5 @@
+#![allow(non_snake_case)]
+
 use indicatif::ProgressBar;
 use log::info;
 use multimap::MultiMap;
@@ -39,9 +41,10 @@ use crate::{
 
 use self::data_types::{
     CharStartOutfitRecord, ChrClassesRecord, ChrRacesRecord, EmotesTextRecord, FactionRecord,
-    FactionTemplateRecord, GossipMenuDbRecord, ItemRecord, ItemTemplate, MapRecord,
-    PlayerCreateActionButton, QuestRelation, QuestTemplate, SkillLineAbilityRecord,
-    SkillLineRecord, SpellCastTimeRecord, SpellDurationRecord, SpellRecord,
+    FactionTemplateRecord, GameTableOCTRegenHPRecord, GameTableRegenHPPerSptRecord,
+    GossipMenuDbRecord, ItemRecord, ItemTemplate, MapRecord, PlayerCreateActionButton,
+    QuestRelation, QuestTemplate, SkillLineAbilityRecord, SkillLineRecord, SpellCastTimeRecord,
+    SpellDurationRecord, SpellRecord,
 };
 
 pub mod data_types;
@@ -49,6 +52,7 @@ pub mod dbc;
 
 pub type DbcStore<T> = HashMap<u32, T>;
 pub type DbcMultiStore<T> = MultiMap<u32, T>;
+pub type GameTableStore<T> = Vec<T>;
 pub type SqlStore<T> = HashMap<u32, T>;
 pub type SqlMultiStore<T> = MultiMap<u32, T>;
 
@@ -82,6 +86,9 @@ pub struct DataStore {
     creature_base_attributes: SqlStore<CreatureBaseAttributesPerLevelDbRecord>,
     player_experience_per_level: SqlStore<PlayerExperiencePerLevel>,
     creature_loot_tables: SqlStore<LootTable>,
+    // GameTables (DBC files with name starting with gtXXX)
+    gt_OCTRegenHP: GameTableStore<GameTableOCTRegenHPRecord>,
+    gt_RegenHPPerSpt: GameTableStore<GameTableRegenHPPerSptRecord>,
 }
 
 macro_rules! parse_dbc {
@@ -90,6 +97,17 @@ macro_rules! parse_dbc {
         let dbc = Dbc::parse(format!("{}/dbcs/{}.dbc", $config_dir, $dbc_name))?;
         let bar = ProgressBar::new(dbc.length() as u64);
         let store = dbc.as_store(&bar);
+        bar.finish();
+        store
+    }};
+}
+
+macro_rules! parse_game_table {
+    ($config_dir:expr, $dbc_name:expr) => {{
+        info!("{}", format!("Loading GameTable {}.dbc...", $dbc_name));
+        let dbc = Dbc::parse(format!("{}/dbcs/{}.dbc", $config_dir, $dbc_name))?;
+        let bar = ProgressBar::new(dbc.length() as u64);
+        let store = dbc.as_gt_store(&bar);
         bar.finish();
         store
     }};
@@ -123,6 +141,10 @@ impl DataStore {
         };
         let faction = parse_dbc!(config.common.data.directory, "Faction");
         let faction_template = parse_dbc!(config.common.data.directory, "FactionTemplate");
+
+        // GameTable stores
+        let gt_OCTRegenHP = parse_game_table!(config.common.data.directory, "gtOCTRegenHP");
+        let gt_RegenHPPerSpt = parse_game_table!(config.common.data.directory, "gtRegenHPPerSpt");
 
         // SQL stores
         let item_templates = {
@@ -324,6 +346,8 @@ impl DataStore {
             creature_base_attributes,
             player_experience_per_level,
             creature_loot_tables,
+            gt_OCTRegenHP,
+            gt_RegenHPPerSpt,
         })
     }
 
@@ -540,6 +564,14 @@ impl DataStore {
 
     pub fn get_creature_loot_table(&self, id: u32) -> Option<&LootTable> {
         self.creature_loot_tables.get(&id)
+    }
+
+    pub fn get_gtOCTRegenHP(&self, index: usize) -> Option<&GameTableOCTRegenHPRecord> {
+        self.gt_OCTRegenHP.get(index)
+    }
+
+    pub fn get_gtRegenHPPerSpt(&self, index: usize) -> Option<&GameTableRegenHPPerSptRecord> {
+        self.gt_RegenHPPerSpt.get(index)
     }
 }
 

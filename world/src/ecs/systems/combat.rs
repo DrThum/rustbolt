@@ -1,7 +1,7 @@
 use shipyard::{Get, IntoIter, UniqueView, View, ViewMut};
 
 use crate::{
-    ecs::components::{guid::Guid, health::Powers, threat_list::ThreatList, unit::Unit},
+    ecs::components::{guid::Guid, powers::Powers, threat_list::ThreatList, unit::Unit},
     entities::player::Player,
     game::map::WrappedMap,
 };

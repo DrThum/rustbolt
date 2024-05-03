@@ -22,7 +22,7 @@ use tokio::{
 use wow_srp::tbc_header::HeaderCrypto;
 
 use crate::{
-    ecs::components::health::Powers,
+    ecs::components::powers::Powers,
     entities::{object_guid::ObjectGuid, player::Player, position::WorldPosition},
     game::{map::Map, world_context::WorldContext},
     protocol::{

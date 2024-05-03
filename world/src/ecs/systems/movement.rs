@@ -7,8 +7,8 @@ use crate::{
         components::{
             behavior::Behavior,
             guid::Guid,
-            health::Powers,
             movement::{Movement, MovementKind},
+            powers::Powers,
             threat_list::ThreatList,
             unit::Unit,
         },

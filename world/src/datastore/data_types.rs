@@ -5,7 +5,7 @@ use enumflags2::BitFlags;
 use enumn::N;
 
 use crate::{
-    ecs::components::{health::PowersSnapshot, movement::MovementKind},
+    ecs::components::{movement::MovementKind, powers::PowersSnapshot},
     protocol::packets::{
         ItemTemplateDamage, ItemTemplateSocket, ItemTemplateSpell, ItemTemplateStat,
     },

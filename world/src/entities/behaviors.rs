@@ -6,7 +6,7 @@ use shipyard::{EntityId, UniqueView, View, ViewMut};
 use crate::{
     ecs::{
         components::{
-            guid::Guid, health::Powers, melee::Melee, movement::Movement, spell_cast::SpellCast,
+            guid::Guid, melee::Melee, movement::Movement, powers::Powers, spell_cast::SpellCast,
             threat_list::ThreatList, unit::Unit,
         },
         resources::DeltaTime,

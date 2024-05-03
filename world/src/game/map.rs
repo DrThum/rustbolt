@@ -25,9 +25,9 @@ use crate::{
         components::{
             behavior::Behavior,
             guid::Guid,
-            health::Powers,
             melee::Melee,
             movement::{Movement, MovementKind},
+            powers::Powers,
             quest_actor::QuestActor,
             spell_cast::SpellCast,
             threat_list::ThreatList,

@@ -5,9 +5,9 @@ use crate::{
         components::{
             behavior::{Action, Behavior},
             guid::Guid,
-            health::Powers,
             melee::Melee,
             movement::{Movement, MovementKind},
+            powers::Powers,
             spell_cast::SpellCast,
             threat_list::ThreatList,
             unit::Unit,

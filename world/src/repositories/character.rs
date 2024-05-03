@@ -9,7 +9,7 @@ use crate::{
         data_types::{ItemRecord, PlayerCreatePosition},
         DataStore,
     },
-    ecs::components::health::Powers,
+    ecs::components::powers::Powers,
     entities::{
         player::{
             player_data::{ActionButton, CharacterSkill, QuestLogContext},

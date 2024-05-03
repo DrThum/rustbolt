@@ -4,7 +4,7 @@ use shipyard::{AllStoragesViewMut, Get, IntoIter, IntoWithId, UniqueView, View, 
 
 use crate::{
     datastore::data_types::SpellRecord,
-    ecs::components::{guid::Guid, health::Powers, spell_cast::SpellCast},
+    ecs::components::{guid::Guid, powers::Powers, spell_cast::SpellCast},
     entities::player::Player,
     game::{
         map::{Map, WrappedMap},

@@ -3,7 +3,7 @@ use std::sync::Arc;
 use log::{error, warn};
 use shipyard::{View, ViewMut};
 
-use crate::ecs::components::health::Powers;
+use crate::ecs::components::powers::Powers;
 use crate::ecs::components::spell_cast::SpellCast;
 use crate::ecs::components::unit::Unit;
 use crate::game::world_context::WorldContext;

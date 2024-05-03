@@ -1,8 +1,8 @@
 pub mod behavior;
 pub mod guid;
-pub mod health;
 pub mod melee;
 pub mod movement;
+pub mod powers;
 pub mod quest_actor;
 pub mod spell_cast;
 pub mod threat_list;

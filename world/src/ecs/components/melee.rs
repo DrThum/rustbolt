@@ -27,7 +27,7 @@ use crate::{
 };
 
 use super::{
-    guid::Guid, health::Powers, spell_cast::SpellCast, threat_list::ThreatList, unit::Unit,
+    guid::Guid, powers::Powers, spell_cast::SpellCast, threat_list::ThreatList, unit::Unit,
 };
 
 #[derive(Component)]

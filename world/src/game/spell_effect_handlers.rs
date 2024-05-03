@@ -4,7 +4,7 @@ use shipyard::{AllStoragesViewMut, Get, View, ViewMut};
 
 use crate::{
     datastore::data_types::SpellRecord,
-    ecs::components::{guid::Guid, health::Powers, threat_list::ThreatList, unit::Unit},
+    ecs::components::{guid::Guid, powers::Powers, threat_list::ThreatList, unit::Unit},
     entities::{creature::Creature, player::Player},
     shared::constants::UnitDynamicFlag,
 };

@@ -1,7 +1,7 @@
 use shipyard::{Get, IntoIter, IntoWithId, View, ViewMut};
 
 use crate::{
-    ecs::components::{health::Powers, unit::Unit},
+    ecs::components::{powers::Powers, unit::Unit},
     entities::{creature::Creature, player::Player},
 };
 

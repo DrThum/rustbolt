@@ -2,7 +2,7 @@ use shipyard::{IntoIter, IntoWithId, UniqueView, View, ViewMut};
 
 use crate::{
     ecs::components::{
-        guid::Guid, health::Powers, melee::Melee, spell_cast::SpellCast, threat_list::ThreatList,
+        guid::Guid, melee::Melee, powers::Powers, spell_cast::SpellCast, threat_list::ThreatList,
         unit::Unit,
     },
     entities::{creature::Creature, player::Player, position::WorldPosition},

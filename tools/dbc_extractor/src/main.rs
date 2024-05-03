@@ -24,6 +24,7 @@ fn main() -> Result<(), std::io::Error> {
         // Game Tables
         "DBFilesClient\\gtOCTRegenHP.dbc",
         "DBFilesClient\\gtRegenHPPerSpt.dbc",
+        "DBFilesClient\\gtRegenMPPerSpt.dbc",
     ]
     .into_iter()
     .map(|f| f.to_owned())

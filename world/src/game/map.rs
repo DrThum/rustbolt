@@ -270,6 +270,8 @@ impl Map {
                     self.world_context.data_store.clone(),
                 );
 
+                player.calculate_mana_regen();
+
                 let entity_id = entities.add_entity(
                     (
                         &mut vm_guid,

@@ -42,9 +42,9 @@ use crate::{
 use self::data_types::{
     CharStartOutfitRecord, ChrClassesRecord, ChrRacesRecord, EmotesTextRecord, FactionRecord,
     FactionTemplateRecord, GameTableOCTRegenHPRecord, GameTableRegenHPPerSptRecord,
-    GossipMenuDbRecord, ItemRecord, ItemTemplate, MapRecord, PlayerCreateActionButton,
-    QuestRelation, QuestTemplate, SkillLineAbilityRecord, SkillLineRecord, SpellCastTimeRecord,
-    SpellDurationRecord, SpellRecord,
+    GameTableRegenMPPerSptRecord, GossipMenuDbRecord, ItemRecord, ItemTemplate, MapRecord,
+    PlayerCreateActionButton, QuestRelation, QuestTemplate, SkillLineAbilityRecord,
+    SkillLineRecord, SpellCastTimeRecord, SpellDurationRecord, SpellRecord,
 };
 
 pub mod data_types;
@@ -89,6 +89,7 @@ pub struct DataStore {
     // GameTables (DBC files with name starting with gtXXX)
     gt_OCTRegenHP: GameTableStore<GameTableOCTRegenHPRecord>,
     gt_RegenHPPerSpt: GameTableStore<GameTableRegenHPPerSptRecord>,
+    gt_RegenMPPerSpt: GameTableStore<GameTableRegenMPPerSptRecord>,
 }
 
 macro_rules! parse_dbc {
@@ -145,6 +146,7 @@ impl DataStore {
         // GameTable stores
         let gt_OCTRegenHP = parse_game_table!(config.common.data.directory, "gtOCTRegenHP");
         let gt_RegenHPPerSpt = parse_game_table!(config.common.data.directory, "gtRegenHPPerSpt");
+        let gt_RegenMPPerSpt = parse_game_table!(config.common.data.directory, "gtRegenMPPerSpt");
 
         // SQL stores
         let item_templates = {
@@ -348,6 +350,7 @@ impl DataStore {
             creature_loot_tables,
             gt_OCTRegenHP,
             gt_RegenHPPerSpt,
+            gt_RegenMPPerSpt,
         })
     }
 
@@ -572,6 +575,10 @@ impl DataStore {
 
     pub fn get_gtRegenHPPerSpt(&self, index: usize) -> Option<&GameTableRegenHPPerSptRecord> {
         self.gt_RegenHPPerSpt.get(index)
+    }
+
+    pub fn get_gtRegenMPPerSpt(&self, index: usize) -> Option<&GameTableRegenMPPerSptRecord> {
+        self.gt_RegenMPPerSpt.get(index)
     }
 }
 

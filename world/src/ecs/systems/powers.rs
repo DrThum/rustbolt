@@ -3,6 +3,7 @@ use shipyard::{Get, IntoIter, IntoWithId, View, ViewMut};
 use crate::{
     ecs::components::{powers::Powers, unit::Unit},
     entities::{creature::Creature, player::Player},
+    shared::constants::PowerType,
 };
 
 // Note: "Powers" includes health
@@ -42,6 +43,19 @@ pub fn regenerate_powers(
 
             powers.apply_healing(health_to_regen as u32);
         }
+
+        // Regen mana
+        let mana_to_regen = if let Ok(player) = v_player.get(entity_id) {
+            let res = player.mana_regen_per_tick();
+            res
+        } else if let Ok(_creature) = v_creature.get(entity_id) {
+            // TODO: Creature case
+            0.0
+        } else {
+            0.0
+        };
+
+        powers.modify_power(&PowerType::Mana, mana_to_regen as i32);
 
         powers.reset_next_regen_time();
     }

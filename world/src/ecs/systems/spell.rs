@@ -39,14 +39,27 @@ pub fn update_spell(vm_all_storages: AllStoragesViewMut) {
                             .expect("unknown spell at end of cast?!");
 
                         // Take power
-                        if let Ok(v_powers) = vm_all_storages.borrow::<View<Powers>>() {
-                            if let Ok(powers) = v_powers.get(caster_entity_id) {
-                                match spell_record.power_type {
-                                    PowerType::Health => todo!(),
-                                    power_type => {
-                                        powers.modify_power(
-                                            &power_type,
-                                            current_ranged.power_cost() as i32 * -1,
+                        if current_ranged.power_cost() > 0 {
+                            if let Ok((v_powers, mut vm_player)) =
+                                vm_all_storages.borrow::<(View<Powers>, ViewMut<Player>)>()
+                            {
+                                if let Ok(powers) = v_powers.get(caster_entity_id) {
+                                    match spell_record.power_type {
+                                        PowerType::Health => todo!(),
+                                        power_type => {
+                                            powers.modify_power(
+                                                &power_type,
+                                                current_ranged.power_cost() as i32 * -1,
+                                            );
+                                        }
+                                    }
+
+                                    // Five Seconds Rule (FSR)
+                                    if spell_record.power_type == PowerType::Mana {
+                                        let _ = (&mut vm_player).get(caster_entity_id).map(
+                                            |mut player| {
+                                                player.set_has_cast_recently();
+                                            },
                                         );
                                     }
                                 }

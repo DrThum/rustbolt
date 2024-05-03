@@ -1,7 +1,7 @@
 use std::{
     collections::{HashMap, HashSet},
     sync::Arc,
-    time::{Duration, SystemTime, UNIX_EPOCH},
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
 use enumflags2::make_bitflags;
@@ -72,6 +72,7 @@ pub struct Player {
     quest_statuses: HashMap<u32, QuestLogContext>,
     in_combat_with: RwLock<HashSet<ObjectGuid>>,
     currently_looting: Option<EntityId>,
+    partial_regen_period_end: Instant, // "Five Seconds Rule", partial mana regen before, full regen after
 }
 
 impl Player {
@@ -627,6 +628,7 @@ impl Player {
             quest_statuses,
             in_combat_with: RwLock::new(HashSet::new()),
             currently_looting: None,
+            partial_regen_period_end: Instant::now(),
         }
     }
 
@@ -1163,6 +1165,10 @@ impl Player {
             .set_u32(UnitFields::PlayerFieldCoinage.into(), new_money);
     }
 
+    pub fn set_has_cast_recently(&mut self) {
+        self.partial_regen_period_end = Instant::now() + Duration::from_secs(5);
+    }
+
     // Assume that we store in bags for now (TODO bank later)
     pub fn auto_store_new_item(
         &mut self,
@@ -1474,6 +1480,48 @@ impl Player {
             (Some(base_record), Some(from_spirit_record)) => {
                 base_spirit * base_record.ratio + extra_spirit * from_spirit_record.ratio
             }
+        }
+    }
+
+    pub fn mana_regen_per_tick(&self) -> f32 {
+        let has_cast_recently = Instant::now() >= self.partial_regen_period_end;
+        let values_index = if has_cast_recently {
+            UnitFields::PlayerFieldModManaRegenInterrupt
+        } else {
+            UnitFields::PlayerFieldModManaRegen
+        };
+        let mana_regen = self.internal_values.read().get_f32(values_index as usize);
+
+        mana_regen * 2.
+    }
+
+    pub fn calculate_mana_regen(&self) {
+        // TODO: Incomplete, see Player::UpdateManaRegen() in MaNGOS
+        let intellect = self.attribute(UnitAttribute::Intellect) as f32;
+
+        let level = self.level().min(GAME_TABLE_MAX_LEVEL);
+        let class = self
+            .internal_values
+            .read()
+            .get_u8(UnitFields::UnitFieldBytes0.into(), 0) as u32;
+        let index = ((class - 1) * GAME_TABLE_MAX_LEVEL + level - 1) as usize;
+
+        let regen_per_spirit = self
+            .world_context
+            .data_store
+            .get_gtRegenHPPerSpt(index)
+            .map(|record| self.attribute(UnitAttribute::Spirit) as f32 * record.ratio)
+            .unwrap_or(0.);
+        let regen_from_stats = intellect.sqrt() * regen_per_spirit;
+        let regen_under_fsr = 100.; // TODO: Implement Auras
+
+        {
+            let mut values = self.internal_values.write();
+            values.set_f32(
+                UnitFields::PlayerFieldModManaRegenInterrupt.into(),
+                regen_from_stats * regen_under_fsr / 100.,
+            );
+            values.set_f32(UnitFields::PlayerFieldModManaRegen.into(), regen_from_stats);
         }
     }
 }

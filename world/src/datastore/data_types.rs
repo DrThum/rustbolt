@@ -208,6 +208,21 @@ impl GameTableTypedRecord for GameTableRegenHPPerSptRecord {
     }
 }
 
+// Mana regen per spirit point
+pub struct GameTableRegenMPPerSptRecord {
+    pub ratio: f32,
+}
+
+impl GameTableTypedRecord for GameTableRegenMPPerSptRecord {
+    fn from_record(record: &DbcRecord) -> Self {
+        unsafe {
+            Self {
+                ratio: record.fields[0].as_f32,
+            }
+        }
+    }
+}
+
 #[allow(dead_code)]
 pub struct ItemTemplate {
     pub entry: u32,

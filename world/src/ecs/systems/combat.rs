@@ -31,9 +31,7 @@ pub fn update_combat_state(
         let in_combat_with = player.in_combat_with();
         // We need to update the combat state if we have opponents and are not in combat, or the
         // opposite
-        // println!("in combat with {} entities", in_combat_with.len());
         let should_update_combat_state = in_combat_with.is_empty() == unit.combat_state();
-        // println!("should update combat state {should_update_combat_state}");
 
         if should_update_combat_state {
             unit.set_combat_state(!unit.combat_state());

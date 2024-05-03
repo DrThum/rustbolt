@@ -132,11 +132,7 @@ impl InternalValues {
 
     #[allow(dead_code)]
     pub fn set_guid(&mut self, index: usize, value: &ObjectGuid) {
-        assert!(index < (self.size - 1), "index is too high");
-
-        let value = value.raw();
-        self.set_u32(index, (value & 0xFFFFFFFF) as u32);
-        self.set_u32(index + 1, ((value >> 32) & 0xFFFFFFFF) as u32);
+        self.set_u64(index, value.raw());
     }
 
     pub fn set_f32(&mut self, index: usize, value: f32) {

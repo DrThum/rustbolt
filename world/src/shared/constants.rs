@@ -155,7 +155,7 @@ impl From<u8> for CharacterClassBit {
 }
 
 #[allow(dead_code)]
-#[derive(Clone, Copy, N, EnumIter, Debug)]
+#[derive(Clone, Copy, N, EnumIter, Debug, PartialEq)]
 pub enum PowerType {
     Health = -2,
     Mana = 0,

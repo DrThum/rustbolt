@@ -52,7 +52,6 @@ use crate::{
     repositories::{character::CharacterRecord, creature::CreatureSpawnDbRecord},
     session::world_session::WorldSession,
     shared::constants::{HighGuidType, NpcFlags, WeaponAttackType},
-    DataStore,
 };
 
 use super::{
@@ -85,7 +84,6 @@ impl Map {
         world_context: Arc<WorldContext>,
         terrain: Arc<HashMap<TerrainBlockCoords, Terrain>>,
         spawns: Vec<CreatureSpawnDbRecord>,
-        data_store: Arc<DataStore>,
         config: Arc<WorldConfig>,
     ) -> Arc<Map> {
         let world = World::new();
@@ -117,7 +115,7 @@ impl Map {
         let map = Map {
             key,
             world: world.clone(),
-            world_context,
+            world_context: world_context.clone(),
             sessions: RwLock::new(HashMap::new()),
             ecs_entities: RwLock::new(HashMap::new()),
             terrain,
@@ -139,7 +137,7 @@ impl Map {
                 o: spawn.orientation,
             };
 
-            let creature = Creature::from_spawn(&spawn, data_store.clone())
+            let creature = Creature::from_spawn(&spawn, world_context.clone())
                 .expect("unable to build InternalValues for creature from DB spawn");
 
             map.add_creature(&guid, creature, &position);
@@ -288,9 +286,6 @@ impl Map {
                         Guid::new(player_guid.clone(), player.internal_values.clone()),
                         Powers::new(
                             player.internal_values.clone(),
-                            base_health_mana_record.base_health,
-                            char_data.current_health,
-                            base_health_mana_record.base_health, // FIXME: calculate max from base + modifiers
                             base_health_mana_record.base_mana,
                         ),
                         Melee::new(
@@ -483,20 +478,14 @@ impl Map {
             .get_creature_template(creature.entry)
             .expect("creature template not found when adding to map");
 
-        let (creature_health, creature_base_damage) = self
+        let creature_base_damage = self
             .world_context
             .data_store
             .get_creature_base_attributes(creature_template.unit_class, creature.real_level())
             .map(|attrs| {
-                (
-                    attrs.health(
-                        creature_template.expansion,
-                        creature_template.health_multiplier,
-                    ),
-                    attrs.damage(
-                        creature_template.expansion,
-                        creature_template.damage_multiplier,
-                    ),
+                attrs.damage(
+                    creature_template.expansion,
+                    creature_template.damage_multiplier,
                 )
             })
             .expect("creature base attributes not found");
@@ -539,9 +528,6 @@ impl Map {
                         Guid::new(creature_guid.clone(), creature.internal_values.clone()),
                         Powers::new(
                             creature.internal_values.clone(),
-                            creature_health,
-                            creature_health,
-                            creature_health,
                             0, // TODO: creature base mana
                         ),
                         Melee::new(

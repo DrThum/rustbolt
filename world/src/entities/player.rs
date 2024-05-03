@@ -435,7 +435,24 @@ impl Player {
             base_attributes_record.agility * 2,
         );
 
-        // Skip health
+        let base_health_mana_record = world_context
+            .data_store
+            .get_player_base_health_mana(character.class, character.level as u32)
+            .expect("unable to retrieve base health/mana for this class/level combination");
+
+        // Set health
+        values.set_u32(UnitFields::UnitFieldHealth.into(), character.current_health);
+        values.set_u32(
+            UnitFields::UnitFieldBaseHealth.into(),
+            base_health_mana_record.base_health,
+        );
+        // FIXME: calculate max from base + modifiers
+        values.set_u32(
+            UnitFields::UnitFieldMaxHealth.into(),
+            base_health_mana_record.base_health,
+        );
+
+        // Set other powers
         for (index, power_type) in PowerType::iter().enumerate().skip(1) {
             // TODO: Save powers in characters table
             values.set_u32(

@@ -9,7 +9,7 @@ use shipyard::Component;
 use crate::{
     datastore::data_types::CreatureTemplate,
     ecs::components::movement::MovementKind,
-    game::{loot::Loot, map_manager::MapKey},
+    game::{loot::Loot, map_manager::MapKey, world_context::WorldContext},
     protocol::packets::SmsgCreateObject,
     repositories::creature::CreatureSpawnDbRecord,
     shared::constants::{
@@ -46,8 +46,9 @@ pub struct Creature {
 impl Creature {
     pub fn from_spawn(
         creature_spawn: &CreatureSpawnDbRecord,
-        data_store: Arc<DataStore>,
+        world_context: Arc<WorldContext>,
     ) -> Option<Self> {
+        let data_store = world_context.data_store.clone();
         data_store
             .get_creature_template(creature_spawn.entry)
             .map(|template| {
@@ -71,6 +72,29 @@ impl Creature {
                 values.set_u8(UnitFields::UnitFieldBytes0.into(), 1, template.unit_class as u8);
 
                 let selected_level = rng.gen_range(template.min_level..=template.max_level);
+
+                let creature_health = world_context
+                    .data_store
+                    .get_creature_base_attributes(template.unit_class, selected_level)
+                    .map(|attrs| {
+                            attrs.health(
+                                template.expansion,
+                                template.health_multiplier,
+                            )
+                    })
+                    .expect("creature base attributes not found");
+
+                // Set health
+                values.set_u32(UnitFields::UnitFieldHealth.into(), creature_health);
+                values.set_u32(
+                    UnitFields::UnitFieldBaseHealth.into(),
+                            creature_health
+                );
+                // FIXME: calculate max from base + modifiers
+                values.set_u32(
+                    UnitFields::UnitFieldMaxHealth.into(),
+                            creature_health
+                );
 
                 // Set power type based on unit class
                 match template.unit_class {

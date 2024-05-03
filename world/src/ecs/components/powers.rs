@@ -1,4 +1,3 @@
-// TODO: Rename this file "powers.rs"
 use std::{
     sync::Arc,
     time::{Duration, Instant},
@@ -36,20 +35,7 @@ pub struct PowersSnapshot {
 
 impl Powers {
     // Calculate all base/max power types
-    pub fn new(
-        internal_values: Arc<RwLock<InternalValues>>,
-        base_health: u32,
-        current_health: u32,
-        max_health: u32,
-        base_mana: u32,
-    ) -> Self {
-        {
-            let mut guard = internal_values.write();
-            guard.set_u32(UnitFields::UnitFieldHealth.into(), current_health);
-            guard.set_u32(UnitFields::UnitFieldMaxHealth.into(), max_health);
-            guard.set_u32(UnitFields::UnitFieldBaseHealth.into(), base_health);
-        }
-
+    pub fn new(internal_values: Arc<RwLock<InternalValues>>, base_mana: u32) -> Self {
         Self {
             internal_values,
             next_regen_time: Instant::now(),

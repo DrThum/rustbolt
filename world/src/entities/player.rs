@@ -453,10 +453,10 @@ impl Player {
         );
 
         // Set other powers
-        for (index, power_type) in PowerType::iter().enumerate().skip(1) {
+        for power_type in PowerType::iter().skip(1) {
             // TODO: Save powers in characters table
             values.set_u32(
-                UnitFields::UnitFieldPower1 as usize + index - 1,
+                UnitFields::UnitFieldPower1 as usize + power_type as usize,
                 world_context.data_store.get_player_max_base_power(
                     power_type,
                     character.class,
@@ -465,7 +465,7 @@ impl Player {
                 ),
             );
             values.set_u32(
-                UnitFields::UnitFieldMaxPower1 as usize + index - 1,
+                UnitFields::UnitFieldMaxPower1 as usize + power_type as usize,
                 world_context.data_store.get_player_max_base_power(
                     power_type,
                     character.class,

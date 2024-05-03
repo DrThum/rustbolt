@@ -3,8 +3,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use log::warn;
-use parking_lot::RwLock;
+use parking_lot::{RwLock, RwLockReadGuard};
 use shipyard::Component;
 
 use crate::{
@@ -108,27 +107,39 @@ impl Powers {
     }
 
     pub fn snapshot(&self) -> PowersSnapshot {
-        warn!("implement Powers::snapshot");
+        let values = self.internal_values.read();
+
+        fn get_current_power(
+            power_type: &PowerType,
+            values: &RwLockReadGuard<InternalValues>,
+        ) -> u32 {
+            values.get_u32(UnitFields::UnitFieldPower1 as usize + *power_type as usize)
+        }
+
+        fn get_max_power(power_type: &PowerType, values: &RwLockReadGuard<InternalValues>) -> u32 {
+            values.get_u32(UnitFields::UnitFieldMaxPower1 as usize + *power_type as usize)
+        }
+
         PowersSnapshot {
             mana: PowerSnapshot {
-                current: 100,
-                max: 100,
+                current: get_current_power(&PowerType::Mana, &values),
+                max: get_max_power(&PowerType::Mana, &values),
             },
             rage: PowerSnapshot {
-                current: 100,
-                max: 100,
+                current: get_current_power(&PowerType::Rage, &values),
+                max: get_max_power(&PowerType::Rage, &values),
             },
             focus: PowerSnapshot {
-                current: 100,
-                max: 100,
+                current: get_current_power(&PowerType::Focus, &values),
+                max: get_max_power(&PowerType::Focus, &values),
             },
             energy: PowerSnapshot {
-                current: 100,
-                max: 100,
+                current: get_current_power(&PowerType::Energy, &values),
+                max: get_max_power(&PowerType::Energy, &values),
             },
             happiness: PowerSnapshot {
-                current: 100,
-                max: 100,
+                current: get_current_power(&PowerType::PetHappiness, &values),
+                max: get_max_power(&PowerType::PetHappiness, &values),
             },
         }
     }

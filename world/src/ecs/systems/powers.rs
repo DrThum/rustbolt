@@ -70,6 +70,19 @@ pub fn regenerate_powers(
 
         powers.modify_power(&PowerType::Energy, energy_to_regen as i32);
 
+        // "Regen" rage
+        let rage_to_degen = if let Ok(player) = v_player.get(entity_id) {
+            let res = player.rage_degen_per_tick();
+            res
+        } else if let Ok(_creature) = v_creature.get(entity_id) {
+            // TODO: Creature case
+            0.0
+        } else {
+            0.0
+        };
+
+        powers.modify_power(&PowerType::Rage, rage_to_degen as i32 * -1);
+
         powers.reset_next_regen_time();
     }
 }

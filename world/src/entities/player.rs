@@ -1500,6 +1500,11 @@ impl Player {
         20.
     }
 
+    pub fn rage_degen_per_tick(&self) -> f32 {
+        // TODO: Use SPELL_AURA_MOD_POWER_REGEN_PERCENT
+        20.
+    }
+
     pub fn calculate_mana_regen(&self) {
         // TODO: Incomplete, see Player::UpdateManaRegen() in MaNGOS
         let intellect = self.attribute(UnitAttribute::Intellect) as f32;

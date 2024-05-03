@@ -57,6 +57,19 @@ pub fn regenerate_powers(
 
         powers.modify_power(&PowerType::Mana, mana_to_regen as i32);
 
+        // Regen energy
+        let energy_to_regen = if let Ok(player) = v_player.get(entity_id) {
+            let res = player.energy_regen_per_tick();
+            res
+        } else if let Ok(_creature) = v_creature.get(entity_id) {
+            // TODO: Creature case
+            0.0
+        } else {
+            0.0
+        };
+
+        powers.modify_power(&PowerType::Energy, energy_to_regen as i32);
+
         powers.reset_next_regen_time();
     }
 }

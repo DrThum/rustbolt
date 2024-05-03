@@ -40,8 +40,9 @@ impl SpellCast {
         duration: Duration,
         caster: EntityId,
         target: EntityId,
+        power_cost: u32,
     ) {
-        self.current_ranged = Some(Arc::new(Spell::new(spell_id, caster, target)));
+        self.current_ranged = Some(Arc::new(Spell::new(spell_id, caster, target, power_cost)));
         self.ranged_cast_end = Some(Instant::now() + duration)
     }
 

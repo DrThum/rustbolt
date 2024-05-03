@@ -1,36 +1,59 @@
+// TODO: Rename this file "powers.rs"
 use std::{
     sync::Arc,
     time::{Duration, Instant},
 };
 
+use log::warn;
 use parking_lot::RwLock;
 use shipyard::Component;
 
-use crate::entities::{internal_values::InternalValues, update_fields::UnitFields};
+use crate::{
+    entities::{internal_values::InternalValues, update_fields::UnitFields},
+    shared::constants::PowerType,
+};
 
 // Note: "Powers" includes health
 #[derive(Component)]
 pub struct Powers {
     internal_values: Arc<RwLock<InternalValues>>,
     next_regen_time: Instant,
+    base_mana: u32,
+}
+
+pub struct PowerSnapshot {
+    pub current: u32,
+    pub max: u32,
+}
+
+pub struct PowersSnapshot {
+    pub mana: PowerSnapshot,
+    pub rage: PowerSnapshot,
+    pub focus: PowerSnapshot,
+    pub energy: PowerSnapshot,
+    pub happiness: PowerSnapshot,
 }
 
 impl Powers {
+    // Calculate all base/max power types
     pub fn new(
+        internal_values: Arc<RwLock<InternalValues>>,
+        base_health: u32,
         current_health: u32,
         max_health: u32,
-        internal_values: Arc<RwLock<InternalValues>>,
+        base_mana: u32,
     ) -> Self {
         {
             let mut guard = internal_values.write();
             guard.set_u32(UnitFields::UnitFieldHealth.into(), current_health);
             guard.set_u32(UnitFields::UnitFieldMaxHealth.into(), max_health);
-            guard.set_u32(UnitFields::UnitFieldBaseHealth.into(), max_health);
+            guard.set_u32(UnitFields::UnitFieldBaseHealth.into(), base_health);
         }
 
         Self {
             internal_values,
             next_regen_time: Instant::now(),
+            base_mana,
         }
     }
 
@@ -38,6 +61,12 @@ impl Powers {
         self.internal_values
             .read()
             .get_u32(UnitFields::UnitFieldMaxHealth.into())
+    }
+
+    pub fn base_health(&self) -> u32 {
+        self.internal_values
+            .read()
+            .get_u32(UnitFields::UnitFieldBaseHealth.into())
     }
 
     pub fn current_health(&self) -> u32 {
@@ -63,6 +92,19 @@ impl Powers {
             .set_u32(UnitFields::UnitFieldHealth.into(), new_health);
     }
 
+    pub fn modify_power(&self, power_type: &PowerType, diff: i32) {
+        let index_current = UnitFields::UnitFieldPower1 as usize + *power_type as usize;
+        let current_power = self.internal_values.read().get_u32(index_current);
+        let max_power = self
+            .internal_values
+            .read()
+            .get_u32(UnitFields::UnitFieldMaxPower1 as usize + *power_type as usize);
+        let new_value = current_power.saturating_add_signed(diff).min(max_power);
+        self.internal_values
+            .write()
+            .set_u32(index_current, new_value);
+    }
+
     pub fn is_alive(&self) -> bool {
         self.current_health() > 0
     }
@@ -73,5 +115,35 @@ impl Powers {
 
     pub fn is_past_next_regen_time(&self) -> bool {
         self.next_regen_time <= Instant::now()
+    }
+
+    pub fn base_mana(&self) -> u32 {
+        self.base_mana
+    }
+
+    pub fn snapshot(&self) -> PowersSnapshot {
+        warn!("implement Powers::snapshot");
+        PowersSnapshot {
+            mana: PowerSnapshot {
+                current: 100,
+                max: 100,
+            },
+            rage: PowerSnapshot {
+                current: 100,
+                max: 100,
+            },
+            focus: PowerSnapshot {
+                current: 100,
+                max: 100,
+            },
+            energy: PowerSnapshot {
+                current: 100,
+                max: 100,
+            },
+            happiness: PowerSnapshot {
+                current: 100,
+                max: 100,
+            },
+        }
     }
 }

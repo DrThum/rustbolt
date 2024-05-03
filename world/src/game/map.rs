@@ -287,9 +287,11 @@ impl Map {
                     (
                         Guid::new(player_guid.clone(), player.internal_values.clone()),
                         Powers::new(
+                            player.internal_values.clone(),
+                            base_health_mana_record.base_health,
                             char_data.current_health,
                             base_health_mana_record.base_health, // FIXME: calculate max from base + modifiers
-                            player.internal_values.clone(),
+                            base_health_mana_record.base_mana,
                         ),
                         Melee::new(
                             player.internal_values.clone(),
@@ -536,9 +538,11 @@ impl Map {
                     (
                         Guid::new(creature_guid.clone(), creature.internal_values.clone()),
                         Powers::new(
-                            creature_health,
-                            creature_health,
                             creature.internal_values.clone(),
+                            creature_health,
+                            creature_health,
+                            creature_health,
+                            0, // TODO: creature base mana
                         ),
                         Melee::new(
                             creature.internal_values.clone(),

@@ -5,17 +5,18 @@ use enumflags2::BitFlags;
 use enumn::N;
 
 use crate::{
-    ecs::components::movement::MovementKind,
+    ecs::components::{health::PowersSnapshot, movement::MovementKind},
     protocol::packets::{
         ItemTemplateDamage, ItemTemplateSocket, ItemTemplateSpell, ItemTemplateStat,
     },
     shared::constants::{
         AbilityLearnType, ActionButtonType, CharacterClass, CharacterClassBit, CharacterRaceBit,
-        CreatureRank, Expansion, InventorySlot, InventoryType, MapType, QuestFlag, SkillCategory,
-        SkillRangeType, SkillType, SpellEffect, FACTION_NUMBER_BASE_REPUTATION_MASKS,
-        MAX_QUEST_CHOICE_REWARDS_COUNT, MAX_QUEST_OBJECTIVES_COUNT, MAX_QUEST_REWARDS_COUNT,
-        MAX_QUEST_REWARDS_REPUT_COUNT, MAX_SPELL_EFFECTS, MAX_SPELL_REAGENTS, MAX_SPELL_TOTEMS,
-        NPC_TEXT_EMOTE_COUNT, NPC_TEXT_TEXT_COUNT,
+        CreatureRank, Expansion, InventorySlot, InventoryType, MapType, PowerType, QuestFlag,
+        SkillCategory, SkillRangeType, SkillType, SpellEffect,
+        FACTION_NUMBER_BASE_REPUTATION_MASKS, MAX_QUEST_CHOICE_REWARDS_COUNT,
+        MAX_QUEST_OBJECTIVES_COUNT, MAX_QUEST_REWARDS_COUNT, MAX_QUEST_REWARDS_REPUT_COUNT,
+        MAX_SPELL_EFFECTS, MAX_SPELL_REAGENTS, MAX_SPELL_TOTEMS, NPC_TEXT_EMOTE_COUNT,
+        NPC_TEXT_TEXT_COUNT,
     },
     DataStore,
 };
@@ -519,7 +520,7 @@ pub struct SpellRecord {
     base_level: u32,
     spell_level: u32,
     duration_index: u32, // SpellDuration.dbc
-    power_type: u32,
+    pub power_type: PowerType,
     mana_cost: u32,
     mana_cost_perlevel: u32,
     mana_per_second: u32,
@@ -629,6 +630,33 @@ impl SpellRecord {
             .get_spell_cast_times(self.casting_time_index)
             .map(|rec| rec.base)
     }
+
+    pub fn calculate_power_cost(
+        &self,
+        caster_base_health: u32,
+        caster_base_mana: u32,
+        caster_powers_snapshot: PowersSnapshot,
+    ) -> u32 {
+        // TODO: Still wildy incomplete, see Spell::CalculatePowerCost in MaNGOS
+        let mut power_cost = self.mana_cost;
+
+        if self.mana_cost_percentage > 0 {
+            let relevant_value = match self.power_type {
+                PowerType::Health => caster_base_health,
+
+                PowerType::Mana => caster_base_mana,
+                PowerType::Rage => caster_powers_snapshot.mana.max,
+
+                PowerType::Focus => caster_powers_snapshot.focus.max,
+                PowerType::Energy => caster_powers_snapshot.energy.max,
+                PowerType::PetHappiness => caster_powers_snapshot.happiness.max,
+            };
+
+            power_cost += self.mana_cost_percentage * relevant_value / 100;
+        }
+
+        power_cost
+    }
 }
 
 impl DbcTypedRecord for SpellRecord {
@@ -670,7 +698,13 @@ impl DbcTypedRecord for SpellRecord {
                 base_level: record.fields[32].as_u32,
                 spell_level: record.fields[33].as_u32,
                 duration_index: record.fields[34].as_u32,
-                power_type: record.fields[35].as_u32,
+                power_type: PowerType::n(record.fields[35].as_i32).expect(
+                    format!(
+                        "unknown power type {} for spell {}",
+                        record.fields[35].as_u32, key
+                    )
+                    .as_str(),
+                ),
                 mana_cost: record.fields[36].as_u32,
                 mana_cost_perlevel: record.fields[37].as_u32,
                 mana_per_second: record.fields[38].as_u32,

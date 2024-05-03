@@ -1,10 +1,10 @@
 use std::{sync::Arc, time::Instant};
 
-use shipyard::{AllStoragesViewMut, Get, IntoIter, UniqueView, View, ViewMut};
+use shipyard::{AllStoragesViewMut, Get, IntoIter, IntoWithId, UniqueView, View, ViewMut};
 
 use crate::{
     datastore::data_types::SpellRecord,
-    ecs::components::{guid::Guid, spell_cast::SpellCast},
+    ecs::components::{guid::Guid, health::Powers, spell_cast::SpellCast},
     entities::player::Player,
     game::{
         map::{Map, WrappedMap},
@@ -13,7 +13,7 @@ use crate::{
         world_context::{WorldContext, WrappedWorldContext},
     },
     protocol::{packets::SmsgSpellGo, server::ServerMessage},
-    shared::constants::{SpellEffect, MAX_SPELL_EFFECTS},
+    shared::constants::{PowerType, SpellEffect, MAX_SPELL_EFFECTS},
 };
 
 pub fn update_spell(vm_all_storages: AllStoragesViewMut) {
@@ -27,11 +27,32 @@ pub fn update_spell(vm_all_storages: AllStoragesViewMut) {
                 return;
             }
 
-            for (mut spell, guid) in (&mut vm_spell, &v_guid).iter() {
+            for (caster_entity_id, (mut spell, guid)) in (&mut vm_spell, &v_guid).iter().with_id() {
                 if let Some((current_ranged, cast_end)) = spell.current_ranged() {
                     let now = Instant::now();
 
                     if cast_end <= now {
+                        let spell_record = world_context
+                            .0
+                            .data_store
+                            .get_spell_record(current_ranged.id())
+                            .expect("unknown spell at end of cast?!");
+
+                        // Take power
+                        if let Ok(v_powers) = vm_all_storages.borrow::<View<Powers>>() {
+                            if let Ok(powers) = v_powers.get(caster_entity_id) {
+                                match spell_record.power_type {
+                                    PowerType::Health => todo!(),
+                                    power_type => {
+                                        powers.modify_power(
+                                            &power_type,
+                                            current_ranged.power_cost() as i32 * -1,
+                                        );
+                                    }
+                                }
+                            }
+                        }
+
                         let packet = ServerMessage::new(SmsgSpellGo {
                             caster_entity_guid: guid.0.as_packed(),
                             caster_unit_guid: guid.0.as_packed(),
@@ -92,15 +113,28 @@ fn handle_effects(
 
             // Set player in combat with target if needed
             if effect.is_negative() {
-                vm_all_storages.run(|mut vm_player: ViewMut<Player>, guid: View<Guid>| {
-                    if let Ok(player) = (&mut vm_player).get(spell.caster()) {
-                        if let Ok(target_guid) = guid.get(spell.target()) {
-                            if !player.is_in_combat_with(&target_guid.0) {
-                                player.set_in_combat_with(target_guid.0);
-                            }
+                vm_all_storages.run(
+                    |mut vm_player: ViewMut<Player>, v_guid: View<Guid>, v_powers: View<Powers>| {
+                        let Ok(target_powers) = v_powers.get(spell.target()) else {
+                            return;
+                        };
+
+                        if !target_powers.is_alive() {
+                            return;
                         }
-                    }
-                });
+
+                        let Ok(player) = (&mut vm_player).get(spell.caster()) else {
+                            return;
+                        };
+                        let Ok(target_guid) = v_guid.get(spell.target()) else {
+                            return;
+                        };
+
+                        if !player.is_in_combat_with(&target_guid.0) {
+                            player.set_in_combat_with(target_guid.0);
+                        }
+                    },
+                );
             }
         }
     }

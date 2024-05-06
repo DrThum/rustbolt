@@ -413,7 +413,7 @@ pub enum Opcode {
     SmsgQuestUpdateFailedtimer = 0x197,
     SmsgQuestUpdateComplete = 0x198,
     SmsgQuestUpdateAddKill = 0x199,
-    SmsgQuestUpdateAddItem = 0x19A,
+    SmsgQuestUpdateAddItem = 0x19A, // Deprecated (client uses SMSG_PUSH_RESULT to update quests)
     CmsgQuestConfirmAccept = 0x19B,
     SmsgQuestConfirmAccept = 0x19C,
     CmsgPushquesttoparty = 0x19D,

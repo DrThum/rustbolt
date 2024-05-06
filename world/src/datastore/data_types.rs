@@ -1353,7 +1353,17 @@ impl QuestTemplate {
             }
         }
 
-        return None;
+        None
+    }
+
+    pub fn item_requirements(&self, item_id: u32) -> Option<u32> {
+        for (index, req_item_id) in self.required_item_ids.iter().enumerate() {
+            if *req_item_id == item_id {
+                return Some(self.required_item_counts[index]);
+            }
+        }
+
+        None
     }
 }
 

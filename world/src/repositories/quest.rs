@@ -20,7 +20,32 @@ impl QuestRepository {
         let count = count.next().unwrap().unwrap_or(0);
         let bar = ProgressBar::new(count);
 
-        let mut stmt = conn.prepare_cached("SELECT entry, method, zone_or_sort, min_level, level, type, required_classes, required_races, required_skill, required_skill_value, rep_objective_faction, rep_objective_value, required_min_rep_faction, required_min_rep_value, required_max_rep_faction, required_max_rep_value, suggested_players, time_limit, flags, special_flags, character_title, previous_quest_id, next_quest_id, exclusive_group, next_quest_in_chain, source_item_id, source_item_count, source_spell, title, details, objectives, offer_reward_text, request_items_text, end_text, objective_text1, objective_text2, objective_text3, objective_text4, required_item_id1, required_item_id2, required_item_id3, required_item_id4, required_item_count1, required_item_count2, required_item_count3, required_item_count4, required_source_item_id1, required_source_item_id2, required_source_item_id3, required_source_item_id4, required_source_item_count1, required_source_item_count2, required_source_item_count3, required_source_item_count4, required_entity_id1, required_entity_id2, required_entity_id3, required_entity_id4, required_entity_count1, required_entity_count2, required_entity_count3, required_entity_count4, required_spell_cast1, required_spell_cast2, required_spell_cast3, required_spell_cast4, reward_choice_item_id1, reward_choice_item_id2, reward_choice_item_id3, reward_choice_item_id4, reward_choice_item_id5, reward_choice_item_id6, reward_choice_item_count1, reward_choice_item_count2, reward_choice_item_count3, reward_choice_item_count4, reward_choice_item_count5, reward_choice_item_count6, reward_item_id1, reward_item_id2, reward_item_id3, reward_item_id4, reward_item_count1, reward_item_count2, reward_item_count3, reward_item_count4, reward_rep_faction1, reward_rep_faction2, reward_rep_faction3, reward_rep_faction4, reward_rep_faction5, reward_rep_value1, reward_rep_value2, reward_rep_value3, reward_rep_value4, reward_rep_value5, reward_honorable_kills, required_or_reward_money, reward_money_max_level, reward_spell, reward_spell_cast, reward_mail_template_id, reward_mail_delay_seconds, point_map_id, point_x, point_y, point_opt, details_emote1, details_emote2, details_emote3, details_emote4, details_emote_delay1, details_emote_delay2, details_emote_delay3, details_emote_delay4, incomplete_emote, complete_emote, offer_reward_emote1, offer_reward_emote2, offer_reward_emote3, offer_reward_emote4, offer_reward_emote_delay1, offer_reward_emote_delay2, offer_reward_emote_delay3, offer_reward_emote_delay4 FROM quest_templates ORDER BY entry").unwrap();
+        let mut stmt = conn.prepare_cached(
+            "SELECT entry, method, zone_or_sort, min_level, level, type, required_classes, required_races,
+            required_skill, required_skill_value, rep_objective_faction, rep_objective_value,
+            required_min_rep_faction, required_min_rep_value, required_max_rep_faction, required_max_rep_value,
+            suggested_players, time_limit, flags, special_flags, character_title, previous_quest_id, next_quest_id,
+            exclusive_group, next_quest_in_chain, source_item_id, source_item_count, source_spell, title, details,
+            objectives, offer_reward_text, request_items_text, end_text, objective_text1, objective_text2,
+            objective_text3, objective_text4, required_item_id1, required_item_id2, required_item_id3,
+            required_item_id4, required_item_count1, required_item_count2, required_item_count3, required_item_count4,
+            required_source_item_id1, required_source_item_id2, required_source_item_id3, required_source_item_id4,
+            required_source_item_count1, required_source_item_count2, required_source_item_count3, required_source_item_count4,
+            required_entity_id1, required_entity_id2, required_entity_id3, required_entity_id4,
+            required_entity_count1, required_entity_count2, required_entity_count3, required_entity_count4,
+            required_spell_cast1, required_spell_cast2, required_spell_cast3, required_spell_cast4, reward_choice_item_id1,
+            reward_choice_item_id2, reward_choice_item_id3, reward_choice_item_id4, reward_choice_item_id5, reward_choice_item_id6,
+            reward_choice_item_count1, reward_choice_item_count2, reward_choice_item_count3, reward_choice_item_count4,
+            reward_choice_item_count5, reward_choice_item_count6, reward_item_id1, reward_item_id2, reward_item_id3, reward_item_id4,
+            reward_item_count1, reward_item_count2, reward_item_count3, reward_item_count4,
+            reward_rep_faction1, reward_rep_faction2, reward_rep_faction3, reward_rep_faction4, reward_rep_faction5,
+            reward_rep_value1, reward_rep_value2, reward_rep_value3, reward_rep_value4, reward_rep_value5,
+            reward_honorable_kills, required_or_reward_money, reward_money_max_level, reward_spell, reward_spell_cast,
+            reward_mail_template_id, reward_mail_delay_seconds, point_map_id, point_x, point_y, point_opt, details_emote1,
+            details_emote2, details_emote3, details_emote4, details_emote_delay1, details_emote_delay2, details_emote_delay3,
+            details_emote_delay4, incomplete_emote, complete_emote, offer_reward_emote1, offer_reward_emote2, offer_reward_emote3,
+            offer_reward_emote4, offer_reward_emote_delay1, offer_reward_emote_delay2, offer_reward_emote_delay3, offer_reward_emote_delay4
+            FROM quest_templates ORDER BY entry").unwrap();
 
         use QuestTemplateColumnIndex::*;
 

@@ -23,7 +23,7 @@ use crate::{
     game::world_context::WorldContext,
     protocol::{
         packets::{
-            CmsgCharCreate, SmsgCreateObject, SmsgLevelUpInfo, SmsgLogXpGain,
+            CmsgCharCreate, SmsgCreateObject, SmsgItemPushResult, SmsgLevelUpInfo, SmsgLogXpGain,
             SmsgQuestUpdateAddKill,
         },
         server::ServerMessage,
@@ -869,7 +869,12 @@ impl Player {
                     return;
                 }
 
-                // TODO: Check items too
+                let required_item_id = quest_template.required_item_ids[index];
+                let required_item_count = quest_template.required_item_counts[index];
+
+                if self.inventory.get_item_count(required_item_id) < required_item_count {
+                    return;
+                }
             }
 
             // TODO: Check exploration etc
@@ -1196,7 +1201,7 @@ impl Player {
             }
 
             if remaining_stack_count == 0 {
-                return Ok(u32::MAX); // This means "added to an existing stack"
+                break;
             }
         }
 
@@ -1232,6 +1237,46 @@ impl Player {
             }
         }
 
+        let total_count = self.inventory.get_item_count(item_id);
+        let packet = ServerMessage::new(SmsgItemPushResult {
+            player_guid: self.guid.clone(),
+            loot_source: 0,
+            is_created: 0,
+            is_visible_in_chat: 1,
+            bag_slot: 255, // FIXME: INVENTORY_SLOT_BAG_0
+            item_slot: chosen_slot,
+            item_id,
+            item_suffix_factor: 0,      // FIXME
+            item_random_property_id: 0, // FIXME
+            count: stack_count,
+            total_count_of_this_item_in_inventory: total_count,
+        });
+        self.session.send(&packet).unwrap();
+
+        // Try to complete in-progress quests
+        let quest_ids: Vec<u32> = self
+            .quest_statuses
+            .iter()
+            .filter_map(|(&quest_id, context)| {
+                if context.status == PlayerQuestStatus::InProgress {
+                    Some(quest_id)
+                } else {
+                    None
+                }
+            })
+            .collect();
+        let world_context_local_clone = self.world_context.clone();
+        for quest_id in quest_ids {
+            let Some(&ref quest_template) = world_context_local_clone
+                .data_store
+                .get_quest_template(quest_id)
+            else {
+                continue;
+            };
+
+            self.try_complete_quest(&quest_template);
+        }
+
         Ok(chosen_slot)
     }
 
@@ -1240,6 +1285,8 @@ impl Player {
             error!("Player::remove_item: no item found in slot {slot}");
             None
         })
+
+        // TODO: recalculate quest status (potentially back from ObjectivesCompleted to InProgress)
     }
 
     pub fn get_inventory_item(&self, slot: u32) -> Option<&Item> {

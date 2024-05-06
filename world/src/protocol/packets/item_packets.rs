@@ -141,7 +141,7 @@ pub struct SmsgItemNameQueryResponse {
 #[binwrite]
 #[server_opcode]
 pub struct SmsgItemPushResult {
-    pub player_guid: u64,
+    pub player_guid: ObjectGuid,
     pub loot_source: u32,        // 0 = looted, 1 = received from NPC
     pub is_created: u32,         // 0 = received, 1 = created
     pub is_visible_in_chat: u32, // boolean

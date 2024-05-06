@@ -172,26 +172,11 @@ impl OpcodeHandler {
                             if let Some(loot_item) = loot.get_item(cmsg.loot_index) {
                                 match player.auto_store_new_item(loot_item.item_id, loot_item.count)
                                 {
-                                    Ok(item_slot) => {
+                                    Ok(_) => {
                                         loot.remove_item(cmsg.loot_index);
 
                                         let packet = ServerMessage::new(SmsgLootRemoved {
                                             loot_index: cmsg.loot_index,
-                                        });
-                                        session.send(&packet).unwrap();
-
-                                        let packet = ServerMessage::new(SmsgItemPushResult {
-                                            player_guid: player.guid().raw(),
-                                            loot_source: 0,
-                                            is_created: 0,
-                                            is_visible_in_chat: 1,
-                                            bag_slot: 255, // FIXME: INVENTORY_SLOT_BAG_0
-                                            item_slot,
-                                            item_id: loot_item.item_id,
-                                            item_suffix_factor: 0,      // FIXME
-                                            item_random_property_id: 0, // FIXME
-                                            count: loot_item.count,
-                                            total_count_of_this_item_in_inventory: loot_item.count, // FIXME
                                         });
                                         session.send(&packet).unwrap();
                                     }

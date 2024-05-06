@@ -263,4 +263,17 @@ impl PlayerInventory {
             );
         }
     }
+
+    pub fn get_item_count(&self, item_id: u32) -> u32 {
+        self.items
+            .values()
+            .filter_map(|item| {
+                if item.entry() == item_id {
+                    Some(item.stack_count())
+                } else {
+                    None
+                }
+            })
+            .sum()
+    }
 }

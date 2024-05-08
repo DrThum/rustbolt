@@ -21,11 +21,11 @@ use crate::{
     repositories::{character::CharacterRepository, item::ItemRepository},
     session::world_session::WorldSession,
     shared::constants::{
-        AbilityLearnType, CharacterClass, CharacterClassBit, CharacterRaceBit, Gender,
-        HighGuidType, InventorySlot, InventoryType, ItemClass, ItemSubclassConsumable,
-        ObjectTypeId, ObjectTypeMask, PlayerQuestStatus, PowerType, QuestSlotState, SkillRangeType,
-        SpellSchool, UnitAttribute, UnitFlags, MAX_QUESTS_IN_LOG, MAX_QUEST_OBJECTIVES_COUNT,
-        PLAYER_DEFAULT_BOUNDING_RADIUS, PLAYER_DEFAULT_COMBAT_REACH,
+        AbilityLearnType, AttributeModifier, AttributeModifierType, CharacterClass,
+        CharacterClassBit, CharacterRaceBit, Gender, HighGuidType, InventorySlot, InventoryType,
+        ItemClass, ItemSubclassConsumable, ObjectTypeId, ObjectTypeMask, PlayerQuestStatus,
+        PowerType, QuestSlotState, SkillRangeType, SpellSchool, UnitFlags, MAX_QUESTS_IN_LOG,
+        MAX_QUEST_OBJECTIVES_COUNT, PLAYER_DEFAULT_BOUNDING_RADIUS, PLAYER_DEFAULT_COMBAT_REACH,
     },
 };
 
@@ -35,6 +35,7 @@ use self::{
 };
 
 use super::{
+    attribute_modifiers::AttributeModifiers,
     internal_values::{InternalValues, QuestSlotOffset, QUEST_SLOT_OFFSETS_COUNT},
     item::Item,
     object_guid::ObjectGuid,
@@ -66,6 +67,8 @@ pub struct Player {
     in_combat_with: RwLock<HashSet<ObjectGuid>>,
     currently_looting: Option<EntityId>,
     partial_regen_period_end: Instant, // "Five Seconds Rule", partial mana regen before, full regen after
+    #[allow(dead_code)]
+    pub attribute_modifiers: Arc<RwLock<AttributeModifiers>>,
 }
 
 impl Player {
@@ -286,9 +289,15 @@ impl Player {
 
         let internal_values = Arc::new(RwLock::new(InternalValues::new(PLAYER_END as usize)));
 
+        let attribute_modifiers = Arc::new(RwLock::new(AttributeModifiers::new()));
+
         // Load inventory BEFORE acquiring internal_values.write() otherwise we deadlock because
         // PlayerInventory::set calls internal_values.write() too
-        let mut inventory = PlayerInventory::new(internal_values.clone());
+        let mut inventory = PlayerInventory::new(
+            internal_values.clone(),
+            attribute_modifiers.clone(),
+            world_context.data_store.clone(),
+        );
         ItemRepository::load_player_inventory(&conn, guid.raw() as u32)
             .into_iter()
             .for_each(|record| {
@@ -402,26 +411,34 @@ impl Player {
             .data_store
             .get_player_base_attributes(character.race, character.class, character.level as u32)
             .expect("unable to retrieve base attributes for this race/class/level combination");
-        values.set_u32(
-            UnitFields::UnitFieldStat0 as usize + UnitAttribute::Strength as usize,
-            base_attributes_record.strength,
-        );
-        values.set_u32(
-            UnitFields::UnitFieldStat0 as usize + UnitAttribute::Agility as usize,
-            base_attributes_record.agility,
-        );
-        values.set_u32(
-            UnitFields::UnitFieldStat0 as usize + UnitAttribute::Stamina as usize,
-            base_attributes_record.stamina,
-        );
-        values.set_u32(
-            UnitFields::UnitFieldStat0 as usize + UnitAttribute::Intellect as usize,
-            base_attributes_record.intellect,
-        );
-        values.set_u32(
-            UnitFields::UnitFieldStat0 as usize + UnitAttribute::Spirit as usize,
-            base_attributes_record.spirit,
-        );
+        {
+            let mut attr_mods = attribute_modifiers.write();
+            attr_mods.add_modifier(
+                AttributeModifier::StatStrength,
+                AttributeModifierType::BaseValue,
+                base_attributes_record.strength as f32,
+            );
+            attr_mods.add_modifier(
+                AttributeModifier::StatAgility,
+                AttributeModifierType::BaseValue,
+                base_attributes_record.agility as f32,
+            );
+            attr_mods.add_modifier(
+                AttributeModifier::StatStamina,
+                AttributeModifierType::BaseValue,
+                base_attributes_record.stamina as f32,
+            );
+            attr_mods.add_modifier(
+                AttributeModifier::StatIntellect,
+                AttributeModifierType::BaseValue,
+                base_attributes_record.intellect as f32,
+            );
+            attr_mods.add_modifier(
+                AttributeModifier::StatSpirit,
+                AttributeModifierType::BaseValue,
+                base_attributes_record.spirit as f32,
+            );
+        }
 
         // Armor is SpellSchool::Normal resistance
         values.set_u32(
@@ -622,6 +639,7 @@ impl Player {
             in_combat_with: RwLock::new(HashSet::new()),
             currently_looting: None,
             partial_regen_period_end: Instant::now(),
+            attribute_modifiers,
         }
     }
 

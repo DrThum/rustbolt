@@ -6,26 +6,35 @@ use parking_lot::RwLock;
 use crate::{
     datastore::data_types::ItemTemplate,
     entities::{
+        attribute_modifiers::AttributeModifiers,
         internal_values::InternalValues,
         item::Item,
         update::{CreateData, UpdateData},
     },
-    shared::constants::{InventorySlot, InventoryType},
+    shared::constants::{AttributeModifierType, InventorySlot, InventoryType},
+    DataStore,
 };
 
 use super::{UnitFields, MAX_PLAYER_VISIBLE_ITEM_OFFSET};
 
-// FIXME: Store &Item instead
 pub struct PlayerInventory {
     items: HashMap<u32, Item>, // Key is slot
     internal_values: Arc<RwLock<InternalValues>>,
+    attribute_modifiers: Arc<RwLock<AttributeModifiers>>,
+    data_store: Arc<DataStore>,
 }
 
 impl PlayerInventory {
-    pub fn new(internal_values: Arc<RwLock<InternalValues>>) -> Self {
+    pub fn new(
+        internal_values: Arc<RwLock<InternalValues>>,
+        attribute_modifiers: Arc<RwLock<AttributeModifiers>>,
+        data_store: Arc<DataStore>,
+    ) -> Self {
         Self {
             items: HashMap::new(),
             internal_values,
+            attribute_modifiers,
+            data_store,
         }
     }
 
@@ -94,7 +103,12 @@ impl PlayerInventory {
 
         self.update_visible_bits(slot, item.entry());
 
+        let item_entry = item.entry();
         self.items.insert(slot, item);
+
+        if Self::is_gear_slot(slot) {
+            self.toggle_stats_from_item(item_entry, true);
+        }
     }
 
     pub fn remove(&mut self, slot: u32) -> Option<Item> {
@@ -105,32 +119,22 @@ impl PlayerInventory {
 
         self.update_visible_bits(slot, 0);
 
-        self.items.remove(&slot)
+        self.items.remove(&slot).map(|removed_item| {
+            if Self::is_gear_slot(slot) {
+                self.toggle_stats_from_item(removed_item.entry(), false);
+            }
+
+            removed_item
+        })
     }
 
     pub fn swap(&mut self, source_slot: u32, destination_slot: u32) {
-        let source_item = self.items.get_mut(&source_slot).unwrap() as *mut Item;
-        let target_item = self.items.get_mut(&destination_slot).unwrap() as *mut Item;
+        let destination_item = self.remove(destination_slot);
 
-        unsafe {
-            {
-                let mut values = self.internal_values.write();
-                values.set_guid(
-                    UnitFields::PlayerFieldInvSlotHead as usize + (2 * source_slot) as usize,
-                    target_item.as_ref().unwrap().guid(),
-                );
-
-                values.set_guid(
-                    UnitFields::PlayerFieldInvSlotHead as usize + (2 * destination_slot) as usize,
-                    source_item.as_ref().unwrap().guid(),
-                );
-            }
-
-            self.update_visible_bits(destination_slot, source_item.as_ref().unwrap().entry());
-            self.update_visible_bits(source_slot, target_item.as_ref().unwrap().entry());
-
-            std::ptr::swap(source_item, target_item);
-        }
+        self.move_item(source_slot, destination_slot);
+        destination_item.map(|destination_item| {
+            self.set(source_slot, destination_item);
+        });
     }
 
     pub fn move_item(&mut self, source_slot: u32, destination_slot: u32) {
@@ -148,10 +152,22 @@ impl PlayerInventory {
                 );
             }
 
+            let item_entry = item.entry();
             self.update_visible_bits(source_slot, 0);
-            self.update_visible_bits(destination_slot, item.entry());
+            self.update_visible_bits(destination_slot, item_entry);
 
             self.items.insert(destination_slot, item);
+
+            let is_moved_from_gear = Self::is_gear_slot(source_slot);
+            let is_moved_to_gear = Self::is_gear_slot(destination_slot);
+
+            // Remove stats from the item if source is gear and destination is not (item unequipped)
+            // Add stats from the item if destination is gear and source is not (item equipped)
+            if is_moved_from_gear && !is_moved_to_gear {
+                self.toggle_stats_from_item(item_entry, false);
+            } else if is_moved_to_gear && !is_moved_from_gear {
+                self.toggle_stats_from_item(item_entry, true);
+            }
         } else {
             warn!("attempt to move an item in inventory but item is not there");
         }
@@ -275,5 +291,29 @@ impl PlayerInventory {
                 }
             })
             .sum()
+    }
+
+    fn is_gear_slot(slot: u32) -> bool {
+        slot >= InventorySlot::EQUIPMENT_START && slot < InventorySlot::EQUIPMENT_END
+    }
+
+    fn toggle_stats_from_item(&self, item_entry: u32, is_equipping_item: bool) {
+        // If we are unequipping the item, we want to _remove_ the stats
+        let factor = if is_equipping_item { 1.0 } else { -1.0 };
+
+        if let Some(item_template) = self.data_store.get_item_template(item_entry) {
+            let mut attr_mod = self.attribute_modifiers.write();
+            for stat in &item_template.stats {
+                stat.stat_type
+                    .as_attribute_modifier()
+                    .map(|attribute_modifier| {
+                        attr_mod.add_modifier(
+                            attribute_modifier,
+                            AttributeModifierType::BaseValue,
+                            stat.stat_value as f32 * factor,
+                        );
+                    });
+            }
+        }
     }
 }

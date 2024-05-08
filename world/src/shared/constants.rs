@@ -1792,3 +1792,43 @@ pub enum LootError {
     AlreadyPickpocketed = 15,  // Your target has already had its pockets picked
     NotWhileShapeshifted = 16, // You can't do that while shapeshifted.
 }
+
+#[allow(dead_code)]
+#[derive(Eq, Hash, PartialEq, Clone, Copy)]
+pub enum AttributeModifier {
+    StatStrength,
+    StatAgility,
+    StatStamina,
+    StatIntellect,
+    StatSpirit,
+    Health,
+    Mana,
+    Rage,
+    Focus,
+    Energy,
+    Happiness,
+    Armor,
+    ResistanceHoly,
+    ResistanceFire,
+    ResistanceNature,
+    ResistanceFrost,
+    ResistanceShadow,
+    ResistanceArcane,
+    AttackPower,
+    AttackPowerRanged,
+    DamageMainHand,
+    DamageOffHand,
+    DamageRanged,
+    Max,
+}
+
+// An attribute total value is calculated from the following formula:
+// ((BaseValue * BasePercent) + totalValue) * TotalPercent
+#[allow(dead_code)]
+pub enum AttributeModifierType {
+    BaseValue,
+    BasePercent,
+    TotalValue,
+    TotalPercent,
+    Max,
+}

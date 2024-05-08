@@ -233,11 +233,10 @@ impl Player {
                     // If the moved item has no stack after the transfer, delete it
                     self.remove_item(from_slot);
                 }
-
-                return InventoryResult::Ok;
+            } else {
+                self.inventory.swap(from_slot, to_slot);
             }
 
-            self.inventory.swap(from_slot, to_slot);
             InventoryResult::Ok
         } else {
             if is_destination_gear_slot {

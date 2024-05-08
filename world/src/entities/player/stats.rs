@@ -10,6 +10,12 @@ impl Player {
             .get_u32(UnitFields::UnitFieldStat0 as usize + attr as usize)
     }
 
+    pub fn set_attribute(&mut self, attr: UnitAttribute, value: u32) {
+        self.internal_values
+            .write()
+            .set_u32(UnitFields::UnitFieldStat0 as usize + attr as usize, value);
+    }
+
     pub fn resistance(&self, spell_school: SpellSchool) -> u32 {
         self.internal_values
             .read()
@@ -18,5 +24,9 @@ impl Player {
 
     pub fn armor(&self) -> u32 {
         self.resistance(SpellSchool::Normal)
+    }
+
+    pub fn recalculate_armor(&self) {
+        println!("updating armor");
     }
 }

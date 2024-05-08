@@ -1,11 +1,13 @@
-use binrw::{binread, binwrite, NullString};
+use binrw::{binread, binwrite, BinWrite, NullString};
+use enumn::N;
 use opcode_derive::server_opcode;
+use rusqlite::types::{FromSql, FromSqlError};
 
 use crate::{
     datastore::data_types::ItemTemplate,
     entities::object_guid::ObjectGuid,
     protocol::{opcodes::Opcode, server::ServerMessagePayload},
-    shared::constants::InventoryResult,
+    shared::constants::{AttributeModifier, InventoryResult},
 };
 
 #[binread]
@@ -21,8 +23,87 @@ pub struct CmsgItemNameQuery {
 
 #[binwrite]
 pub struct ItemTemplateStat {
-    pub stat_type: u32,
+    pub stat_type: ItemTemplateStatType,
     pub stat_value: i32,
+}
+
+#[derive(N, Clone, Copy)]
+pub enum ItemTemplateStatType {
+    NoStat = 0,
+    Health = 1,
+    Agility = 3,
+    Strength = 4,
+    Intellect = 5,
+    Spirit = 6,
+    Stamina = 7,
+    DefenseSkillRating = 12,
+    DodgeRating = 13,
+    ParryRating = 14,
+    BlockRating = 15,
+    HitMeleeRating = 16,
+    HitRangedRating = 17,
+    HitSpellRating = 18,
+    CritMeleeRating = 19,
+    CritRangedRating = 20,
+    CritSpellRating = 21,
+    HitTakenMeleeRating = 22,
+    HitTakenRangedRating = 23,
+    HitTakenSpellRating = 24,
+    CritTakenMeleeRating = 25,
+    CritTakenRangedRating = 26,
+    CritTakenSpellRating = 27,
+    HasteMeleeRating = 28,
+    HasteRangedRating = 29,
+    HasteSpellRating = 30,
+    HitRating = 31,
+    CritRating = 32,
+    HitTakenRating = 33,
+    CritTakenRating = 34,
+    ResilienceRating = 35,
+    HasteRating = 36,
+    ExpertiseRating = 37,
+}
+
+impl ItemTemplateStatType {
+    pub fn as_attribute_modifier(&self) -> Option<AttributeModifier> {
+        use AttributeModifier::*;
+
+        match self {
+            ItemTemplateStatType::Health => Some(Health),
+            ItemTemplateStatType::Agility => Some(StatAgility),
+            ItemTemplateStatType::Strength => Some(StatStrength),
+            ItemTemplateStatType::Intellect => Some(StatIntellect),
+            ItemTemplateStatType::Spirit => Some(StatSpirit),
+            ItemTemplateStatType::Stamina => Some(StatStamina),
+            ItemTemplateStatType::NoStat => None,
+            _ => None,
+        }
+    }
+}
+
+impl FromSql for ItemTemplateStatType {
+    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
+        let value = value.as_i64()?;
+        Self::n(value).map_or(
+            Err(FromSqlError::Other(
+                "invalid stat type on item template".into(),
+            )),
+            Ok,
+        )
+    }
+}
+
+impl BinWrite for ItemTemplateStatType {
+    type Args<'a> = ();
+
+    fn write_options<W: std::io::prelude::Write + std::io::prelude::Seek>(
+        &self,
+        writer: &mut W,
+        endian: binrw::Endian,
+        args: Self::Args<'_>,
+    ) -> binrw::prelude::BinResult<()> {
+        <u32>::write_options(&(*self as u32), writer, endian, args)
+    }
 }
 
 #[binwrite]

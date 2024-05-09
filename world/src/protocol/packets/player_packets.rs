@@ -110,17 +110,26 @@ pub struct SmsgLevelUpInfo {
 
 impl SmsgLevelUpInfo {
     // TODO: enrich this when we have a better stats system
-    pub fn build(level: u32) -> Self {
+    pub fn build(
+        level: u32,
+        health_gained: u32,
+        mana_gained: u32,
+        strength_gained: u32,
+        agility_gained: u32,
+        stamina_gained: u32,
+        intellect_gained: u32,
+        spirit_gained: u32,
+    ) -> Self {
         Self {
             level,
-            health_gained: 0,
-            mana_gained: 0,
+            health_gained,
+            mana_gained,
             powers_gained: [0, 0, 0, 0],
-            strength_gained: 0,
-            agility_gained: 0,
-            stamina_gained: 0,
-            intellect_gained: 0,
-            spirit_gained: 0,
+            strength_gained,
+            agility_gained,
+            stamina_gained,
+            intellect_gained,
+            spirit_gained,
         }
     }
 }

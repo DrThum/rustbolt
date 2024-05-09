@@ -4,6 +4,7 @@ use crate::{
         packets::{SmsgLevelUpInfo, SmsgLogXpGain},
         server::ServerMessage,
     },
+    shared::constants::{AttributeModifier, AttributeModifierType, CharacterClass, CharacterRace},
 };
 
 use super::{Player, UnitFields};
@@ -67,7 +68,96 @@ impl Player {
             guard.set_u32(UnitFields::PlayerXp.into(), 0);
         }
 
-        let packet = ServerMessage::new(SmsgLevelUpInfo::build(next_level));
+        let class = CharacterClass::n(
+            self.internal_values
+                .read()
+                .get_u8(UnitFields::UnitFieldBytes0.into(), 0),
+        )
+        .unwrap();
+        let race = CharacterRace::n(
+            self.internal_values
+                .read()
+                .get_u8(UnitFields::UnitFieldBytes0.into(), 1),
+        )
+        .unwrap();
+        let ds = self.world_context.data_store.clone();
+        let current_level_base_health_mana = ds
+            .get_player_base_health_mana(class, current_level)
+            .expect("base health and mana not found upon level-up");
+        let next_level_base_health_mana = ds
+            .get_player_base_health_mana(class, next_level)
+            .expect("base health and mana not found upon level-up");
+        let current_level_base_attributes = ds
+            .get_player_base_attributes(race, class, current_level)
+            .expect("base attributes not found upon level-up");
+        let next_level_base_attributes = ds
+            .get_player_base_attributes(race, class, next_level)
+            .expect("base attributes not found upon level-up");
+
+        let health_gained =
+            next_level_base_health_mana.base_health - current_level_base_health_mana.base_health;
+        let mana_gained =
+            next_level_base_health_mana.base_mana - current_level_base_health_mana.base_mana;
+        let strength_gained =
+            next_level_base_attributes.strength - current_level_base_attributes.strength;
+        let agility_gained =
+            next_level_base_attributes.agility - current_level_base_attributes.agility;
+        let stamina_gained =
+            next_level_base_attributes.stamina - current_level_base_attributes.stamina;
+        let intellect_gained =
+            next_level_base_attributes.intellect - current_level_base_attributes.intellect;
+        let spirit_gained =
+            next_level_base_attributes.spirit - current_level_base_attributes.spirit;
+
+        let packet = ServerMessage::new(SmsgLevelUpInfo::build(
+            next_level,
+            health_gained,
+            mana_gained,
+            strength_gained,
+            agility_gained,
+            stamina_gained,
+            intellect_gained,
+            spirit_gained,
+        ));
         self.session.send(&packet).unwrap();
+
+        {
+            let mut attr_mods = self.attribute_modifiers.write();
+            attr_mods.add_modifier(
+                AttributeModifier::Health,
+                AttributeModifierType::BaseValue,
+                health_gained as f32,
+            );
+            attr_mods.add_modifier(
+                AttributeModifier::Mana,
+                AttributeModifierType::BaseValue,
+                mana_gained as f32,
+            );
+            attr_mods.add_modifier(
+                AttributeModifier::StatStrength,
+                AttributeModifierType::BaseValue,
+                strength_gained as f32,
+            );
+            attr_mods.add_modifier(
+                AttributeModifier::StatAgility,
+                AttributeModifierType::BaseValue,
+                agility_gained as f32,
+            );
+            attr_mods.add_modifier(
+                AttributeModifier::StatStamina,
+                AttributeModifierType::BaseValue,
+                stamina_gained as f32,
+            );
+            attr_mods.add_modifier(
+                AttributeModifier::StatIntellect,
+                AttributeModifierType::BaseValue,
+                intellect_gained as f32,
+            );
+            attr_mods.add_modifier(
+                AttributeModifier::StatSpirit,
+                AttributeModifierType::BaseValue,
+                spirit_gained as f32,
+            );
+        }
     }
 }

@@ -113,10 +113,18 @@ pub fn update_attributes_from_modifiers(
                     AttributeModifier::Focus => todo!(),
                     AttributeModifier::Energy => todo!(),
                     AttributeModifier::Happiness => todo!(),
-                    AttributeModifier::Armor => resistances_to_update.push((
-                        SpellSchool::Normal,
-                        attr_mods.total_modifier_value(AttributeModifier::Armor) as u32,
-                    )),
+                    AttributeModifier::Armor => {
+                        let [base, base_percent, total, total_percent] =
+                            attr_mods.modifier_values(AttributeModifier::Armor);
+                        let agility =
+                            attr_mods.total_modifier_value(AttributeModifier::StatAgility);
+
+                        // Add 2x Agility to the total armor
+                        let total_armor =
+                            ((base * base_percent) + (agility * 2.) + total) * total_percent;
+
+                        resistances_to_update.push((SpellSchool::Normal, total_armor as u32));
+                    }
                     AttributeModifier::ResistanceHoly => resistances_to_update.push((
                         SpellSchool::Holy,
                         attr_mods.total_modifier_value(AttributeModifier::ResistanceHoly) as u32,

@@ -36,9 +36,19 @@ impl AttributeModifiers {
     ) {
         self.modifiers[modifier as usize][modifier_type as usize] += value;
         self.dirty.insert(modifier);
+
+        // Some modifiers trigger changes to another modifiers
+        let extra_modifiers: Vec<AttributeModifier> = match modifier {
+            AttributeModifier::StatAgility => vec![AttributeModifier::Armor],
+            _ => vec![],
+        };
+
+        for extra_modifier in extra_modifiers {
+            self.dirty.insert(extra_modifier);
+        }
     }
 
-    pub fn total_modifier_value(&mut self, modifier: AttributeModifier) -> f32 {
+    pub fn total_modifier_value(&self, modifier: AttributeModifier) -> f32 {
         let relevant_modifier = self.modifiers[modifier as usize];
         let base = relevant_modifier[AttributeModifierType::BaseValue as usize];
         let base_percent = relevant_modifier[AttributeModifierType::BasePercent as usize];
@@ -46,5 +56,12 @@ impl AttributeModifiers {
         let total_percent = relevant_modifier[AttributeModifierType::TotalPercent as usize];
 
         (((base * base_percent) + total) * total_percent).max(0.)
+    }
+
+    pub fn modifier_values(
+        &self,
+        modifier: AttributeModifier,
+    ) -> &[f32; AttributeModifierType::Max as usize] {
+        &self.modifiers[modifier as usize]
     }
 }

@@ -1794,7 +1794,7 @@ pub enum LootError {
 }
 
 #[allow(dead_code)]
-#[derive(Eq, Hash, PartialEq, Clone, Copy)]
+#[derive(Eq, Hash, PartialEq, Clone, Copy, Debug)]
 pub enum AttributeModifier {
     StatStrength,
     StatAgility,

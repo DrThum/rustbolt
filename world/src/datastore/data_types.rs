@@ -658,10 +658,8 @@ impl SpellRecord {
         if self.mana_cost_percentage > 0 {
             let relevant_value = match self.power_type {
                 PowerType::Health => caster_base_health,
-
                 PowerType::Mana => caster_base_mana,
-                PowerType::Rage => caster_powers_snapshot.mana.max,
-
+                PowerType::Rage => caster_powers_snapshot.rage.max,
                 PowerType::Focus => caster_powers_snapshot.focus.max,
                 PowerType::Energy => caster_powers_snapshot.energy.max,
                 PowerType::PetHappiness => caster_powers_snapshot.happiness.max,

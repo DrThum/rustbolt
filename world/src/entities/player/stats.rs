@@ -1,4 +1,4 @@
-use crate::shared::constants::{SpellSchool, UnitAttribute};
+use crate::shared::constants::{PowerType, SpellSchool, UnitAttribute};
 
 use super::{Player, UnitFields};
 
@@ -7,6 +7,13 @@ impl Player {
         self.internal_values
             .write()
             .set_u32(UnitFields::UnitFieldMaxHealth.into(), value);
+    }
+
+    pub fn set_max_power(&self, power_type: PowerType, value: u32) {
+        self.internal_values.write().set_u32(
+            UnitFields::UnitFieldMaxPower1 as usize + power_type as usize,
+            value,
+        );
     }
 
     // NOTE: MaNGOS uses f32 for internal calculation but client expects u32

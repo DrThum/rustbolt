@@ -289,6 +289,7 @@ impl Map {
                         Guid::new(player_guid.clone(), player.internal_values.clone()),
                         Powers::new(
                             player.internal_values.clone(),
+                            base_health_mana_record.base_health,
                             base_health_mana_record.base_mana,
                         ),
                         Melee::new(
@@ -531,6 +532,7 @@ impl Map {
                         Guid::new(creature_guid.clone(), creature.internal_values.clone()),
                         Powers::new(
                             creature.internal_values.clone(),
+                            0, // TODO: creature base health
                             0, // TODO: creature base mana
                         ),
                         Melee::new(

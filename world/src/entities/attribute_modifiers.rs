@@ -41,6 +41,7 @@ impl AttributeModifiers {
         let extra_modifiers: Vec<AttributeModifier> = match modifier {
             AttributeModifier::StatAgility => vec![AttributeModifier::Armor],
             AttributeModifier::StatStamina => vec![AttributeModifier::Health],
+            AttributeModifier::StatIntellect => vec![AttributeModifier::Mana],
             _ => vec![],
         };
 

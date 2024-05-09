@@ -86,10 +86,6 @@ impl Creature {
 
                 // Set health
                 values.set_u32(UnitFields::UnitFieldHealth.into(), creature_health);
-                values.set_u32(
-                    UnitFields::UnitFieldBaseHealth.into(),
-                            creature_health
-                );
                 // FIXME: calculate max from base + modifiers
                 values.set_u32(
                     UnitFields::UnitFieldMaxHealth.into(),

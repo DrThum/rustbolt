@@ -10,7 +10,7 @@ use crate::{
     },
     game::map::WrappedMap,
     protocol::packets::SmsgUpdateObject,
-    shared::constants::{AttributeModifier, SpellSchool, UnitAttribute},
+    shared::constants::{AttributeModifier, PowerType, SpellSchool, UnitAttribute},
 };
 
 pub fn send_entity_update(
@@ -70,6 +70,7 @@ pub fn update_attributes_from_modifiers(map: UniqueView<WrappedMap>, v_player: V
         let mut attributes_to_update: Vec<(UnitAttribute, u32)> = Vec::new();
         let mut resistances_to_update: Vec<(SpellSchool, u32)> = Vec::new();
         let mut updated_max_health: Option<u32> = None;
+        let mut updated_max_mana: Option<u32> = None;
 
         {
             let mut attr_mods = player.attribute_modifiers.write();
@@ -123,7 +124,24 @@ pub fn update_attributes_from_modifiers(map: UniqueView<WrappedMap>, v_player: V
 
                         updated_max_health = Some(max_health as u32);
                     }
-                    AttributeModifier::Mana => todo!(),
+                    AttributeModifier::Mana => {
+                        let [base, base_percent, total, total_percent] =
+                            attr_mods.modifier_values(AttributeModifier::Mana);
+                        let intellect =
+                            attr_mods.total_modifier_value(AttributeModifier::StatIntellect);
+
+                        // Add Intellect bonus to Mana
+                        let bonus_from_intel = {
+                            let base_intel = intellect.min(20.);
+                            let extra_intel = intellect - base_intel;
+                            base_intel + (extra_intel * 15.)
+                        };
+
+                        let max_mana =
+                            ((base * base_percent) + bonus_from_intel + total) * total_percent;
+
+                        updated_max_mana = Some(max_mana as u32);
+                    }
                     AttributeModifier::Rage => todo!(),
                     AttributeModifier::Focus => todo!(),
                     AttributeModifier::Energy => todo!(),
@@ -169,7 +187,7 @@ pub fn update_attributes_from_modifiers(map: UniqueView<WrappedMap>, v_player: V
                     AttributeModifier::DamageMainHand => todo!(),
                     AttributeModifier::DamageOffHand => todo!(),
                     AttributeModifier::DamageRanged => todo!(),
-                    AttributeModifier::Max => todo!(),
+                    AttributeModifier::Max => (),
                 }
             }
 
@@ -185,5 +203,6 @@ pub fn update_attributes_from_modifiers(map: UniqueView<WrappedMap>, v_player: V
         }
 
         updated_max_health.map(|health| player.set_max_health(health));
+        updated_max_mana.map(|mana| player.set_max_power(PowerType::Mana, mana));
     }
 }

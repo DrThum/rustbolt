@@ -446,14 +446,17 @@ impl Player {
 
             // Set health
             values.set_u32(UnitFields::UnitFieldHealth.into(), character.current_health);
-            values.set_u32(
-                UnitFields::UnitFieldBaseHealth.into(),
-                base_health_mana_record.base_health,
-            );
             attr_mods.add_modifier(
                 AttributeModifier::Health,
                 AttributeModifierType::BaseValue,
                 base_health_mana_record.base_health as f32,
+            );
+
+            // Set mana
+            attr_mods.add_modifier(
+                AttributeModifier::Mana,
+                AttributeModifierType::BaseValue,
+                base_health_mana_record.base_mana as f32,
             );
         }
 

@@ -34,7 +34,17 @@ pub struct PowersSnapshot {
 
 impl Powers {
     // Calculate all base/max power types
-    pub fn new(internal_values: Arc<RwLock<InternalValues>>, base_mana: u32) -> Self {
+    pub fn new(
+        internal_values: Arc<RwLock<InternalValues>>,
+        base_health: u32,
+        base_mana: u32,
+    ) -> Self {
+        {
+            let mut values = internal_values.write();
+            values.set_u32(UnitFields::UnitFieldBaseHealth.into(), base_health);
+            values.set_u32(UnitFields::UnitFieldBaseMana.into(), base_mana);
+        }
+
         Self {
             internal_values,
             next_regen_time: Instant::now(),

@@ -117,7 +117,6 @@ impl ItemRepository {
                         stat_value: row.get(base_index + 1).unwrap(),
                     });
                 }
-                item_stats.retain(|stat| stat.stat_value != 0);
 
                 let mut item_damages: Vec<ItemTemplateDamage> =
                     Vec::with_capacity(MAX_ITEM_TEMPLATE_DAMAGES as usize);

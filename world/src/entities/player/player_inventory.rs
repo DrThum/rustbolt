@@ -324,6 +324,55 @@ impl PlayerInventory {
                     item_template.armor as f32 * factor,
                 );
             }
+
+            // Resistances
+            if item_template.holy_res != 0 {
+                attr_mod.add_modifier(
+                    AttributeModifier::ResistanceHoly,
+                    AttributeModifierType::BaseValue,
+                    item_template.holy_res as f32 * factor,
+                );
+            }
+
+            if item_template.fire_res != 0 {
+                attr_mod.add_modifier(
+                    AttributeModifier::ResistanceFire,
+                    AttributeModifierType::BaseValue,
+                    item_template.fire_res as f32 * factor,
+                );
+            }
+
+            if item_template.nature_res != 0 {
+                attr_mod.add_modifier(
+                    AttributeModifier::ResistanceNature,
+                    AttributeModifierType::BaseValue,
+                    item_template.nature_res as f32 * factor,
+                );
+            }
+
+            if item_template.frost_res != 0 {
+                attr_mod.add_modifier(
+                    AttributeModifier::ResistanceFrost,
+                    AttributeModifierType::BaseValue,
+                    item_template.frost_res as f32 * factor,
+                );
+            }
+
+            if item_template.shadow_res != 0 {
+                attr_mod.add_modifier(
+                    AttributeModifier::ResistanceShadow,
+                    AttributeModifierType::BaseValue,
+                    item_template.shadow_res as f32 * factor,
+                );
+            }
+
+            if item_template.arcane_res != 0 {
+                attr_mod.add_modifier(
+                    AttributeModifier::ResistanceArcane,
+                    AttributeModifierType::BaseValue,
+                    item_template.arcane_res as f32 * factor,
+                );
+            }
         }
     }
 }

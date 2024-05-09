@@ -117,12 +117,30 @@ pub fn update_attributes_from_modifiers(
                         SpellSchool::Normal,
                         attr_mods.total_modifier_value(AttributeModifier::Armor) as u32,
                     )),
-                    AttributeModifier::ResistanceHoly => todo!(),
-                    AttributeModifier::ResistanceFire => todo!(),
-                    AttributeModifier::ResistanceNature => todo!(),
-                    AttributeModifier::ResistanceFrost => todo!(),
-                    AttributeModifier::ResistanceShadow => todo!(),
-                    AttributeModifier::ResistanceArcane => todo!(),
+                    AttributeModifier::ResistanceHoly => resistances_to_update.push((
+                        SpellSchool::Holy,
+                        attr_mods.total_modifier_value(AttributeModifier::ResistanceHoly) as u32,
+                    )),
+                    AttributeModifier::ResistanceFire => resistances_to_update.push((
+                        SpellSchool::Fire,
+                        attr_mods.total_modifier_value(AttributeModifier::ResistanceFire) as u32,
+                    )),
+                    AttributeModifier::ResistanceNature => resistances_to_update.push((
+                        SpellSchool::Nature,
+                        attr_mods.total_modifier_value(AttributeModifier::ResistanceNature) as u32,
+                    )),
+                    AttributeModifier::ResistanceFrost => resistances_to_update.push((
+                        SpellSchool::Frost,
+                        attr_mods.total_modifier_value(AttributeModifier::ResistanceFrost) as u32,
+                    )),
+                    AttributeModifier::ResistanceShadow => resistances_to_update.push((
+                        SpellSchool::Shadow,
+                        attr_mods.total_modifier_value(AttributeModifier::ResistanceNature) as u32,
+                    )),
+                    AttributeModifier::ResistanceArcane => resistances_to_update.push((
+                        SpellSchool::Arcane,
+                        attr_mods.total_modifier_value(AttributeModifier::ResistanceArcane) as u32,
+                    )),
                     AttributeModifier::AttackPower => todo!(),
                     AttributeModifier::AttackPowerRanged => todo!(),
                     AttributeModifier::DamageMainHand => todo!(),

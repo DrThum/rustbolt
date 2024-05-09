@@ -266,6 +266,8 @@ impl Player {
                     self.auto_store_new_item(id, count).unwrap();
                 }
 
+                // TODO: remove required items
+
                 let xp = quest_template.experience_reward_at_level(self.level());
                 self.give_experience(xp, None);
                 return Some(xp);

@@ -11,7 +11,7 @@ use crate::{
         item::Item,
         update::{CreateData, UpdateData},
     },
-    shared::constants::{AttributeModifierType, InventorySlot, InventoryType},
+    shared::constants::{AttributeModifier, AttributeModifierType, InventorySlot, InventoryType},
     DataStore,
 };
 
@@ -303,6 +303,7 @@ impl PlayerInventory {
 
         if let Some(item_template) = self.data_store.get_item_template(item_entry) {
             let mut attr_mod = self.attribute_modifiers.write();
+            // Stats: both generic (stam, spirit, intel, ...) and green modifiers
             for stat in &item_template.stats {
                 stat.stat_type
                     .as_attribute_modifier()
@@ -313,6 +314,15 @@ impl PlayerInventory {
                             stat.stat_value as f32 * factor,
                         );
                     });
+            }
+
+            // Armor
+            if item_template.armor != 0 {
+                attr_mod.add_modifier(
+                    AttributeModifier::Armor,
+                    AttributeModifierType::BaseValue,
+                    item_template.armor as f32 * factor,
+                );
             }
         }
     }

@@ -10,7 +10,7 @@ use crate::{
     },
     game::map::WrappedMap,
     protocol::packets::SmsgUpdateObject,
-    shared::constants::{AttributeModifier, UnitAttribute},
+    shared::constants::{AttributeModifier, SpellSchool, UnitAttribute},
 };
 
 pub fn send_entity_update(
@@ -71,6 +71,7 @@ pub fn update_attributes_from_modifiers(
 
     for mut player in (&mut vm_player).iter() {
         let mut attributes_to_update: Vec<(UnitAttribute, u32)> = Vec::new();
+        let mut resistances_to_update: Vec<(SpellSchool, u32)> = Vec::new();
 
         {
             let mut attr_mods = player.attribute_modifiers.write();
@@ -112,7 +113,10 @@ pub fn update_attributes_from_modifiers(
                     AttributeModifier::Focus => todo!(),
                     AttributeModifier::Energy => todo!(),
                     AttributeModifier::Happiness => todo!(),
-                    AttributeModifier::Armor => todo!(),
+                    AttributeModifier::Armor => resistances_to_update.push((
+                        SpellSchool::Normal,
+                        attr_mods.total_modifier_value(AttributeModifier::Armor) as u32,
+                    )),
                     AttributeModifier::ResistanceHoly => todo!(),
                     AttributeModifier::ResistanceFire => todo!(),
                     AttributeModifier::ResistanceNature => todo!(),
@@ -133,6 +137,10 @@ pub fn update_attributes_from_modifiers(
 
         for (unit_attr, value) in attributes_to_update {
             player.set_attribute(unit_attr, value);
+        }
+
+        for (spell_school, value) in resistances_to_update {
+            player.set_resistance(spell_school, value);
         }
     }
 }

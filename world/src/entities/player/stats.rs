@@ -22,6 +22,13 @@ impl Player {
             .get_u32(UnitFields::UnitFieldResistances as usize + spell_school as usize)
     }
 
+    pub fn set_resistance(&self, spell_school: SpellSchool, value: u32) {
+        self.internal_values.write().set_u32(
+            UnitFields::UnitFieldResistances as usize + spell_school as usize,
+            value,
+        );
+    }
+
     pub fn armor(&self) -> u32 {
         self.resistance(SpellSchool::Normal)
     }

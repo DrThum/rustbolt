@@ -100,6 +100,12 @@ impl Powers {
             .set_u32(index_current, new_value);
     }
 
+    pub fn current_power(&self, power_type: &PowerType) -> u32 {
+        self.internal_values
+            .read()
+            .get_u32(UnitFields::UnitFieldPower1 as usize + *power_type as usize)
+    }
+
     pub fn is_alive(&self) -> bool {
         self.current_health() > 0
     }

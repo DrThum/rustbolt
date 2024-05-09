@@ -21,7 +21,7 @@ use crate::{
     protocol::packets::{CharEnumData, CharEnumEquip, CmsgCharCreate, CmsgCharDelete},
     shared::constants::{
         ActionButtonType, CharacterClass, CharacterRace, InventorySlot, InventoryType,
-        PlayerQuestStatus, MAX_QUEST_OBJECTIVES_COUNT,
+        PlayerQuestStatus, PowerType, MAX_QUEST_OBJECTIVES_COUNT,
     },
 };
 
@@ -52,6 +52,7 @@ impl CharacterRepository {
         account_id: u32,
         create_position: &PlayerCreatePosition,
         health: u32,
+        mana: u32,
     ) -> u64 {
         let mut stmt_create = transaction.prepare_cached("INSERT INTO characters (guid, account_id, name, race, class, gender, skin, face, hairstyle, haircolor, facialstyle, map_id, zone_id, position_x, position_y, position_z, orientation, current_health) VALUES (NULL, :account_id, :name, :race, :class, :gender, :skin, :face, :hairstyle, :haircolor, :facialstyle, :map, :zone, :x, :y, :z, :o, :current_health)").unwrap();
         stmt_create
@@ -73,6 +74,7 @@ impl CharacterRepository {
                 ":z": create_position.z,
                 ":o": create_position.o,
                 ":current_health": health,
+                ":current_mana": mana,
             })
             .unwrap();
 
@@ -225,7 +227,11 @@ impl CharacterRepository {
         guid: u64,
     ) -> Option<CharacterRecord> {
         let mut stmt = conn
-            .prepare_cached("SELECT account_id, race, class, level, gender, name, haircolor, hairstyle, face, skin, facialstyle, map_id, zone_id, position_x, position_y, position_z, orientation, current_health, experience, money FROM characters WHERE guid = :guid")
+            .prepare_cached(
+                "SELECT account_id, race, class, level, gender, name, haircolor, hairstyle, face, skin, facialstyle,
+                map_id, zone_id, position_x, position_y, position_z, orientation, current_health, current_mana, current_rage,
+                current_energy, experience, money
+                FROM characters WHERE guid = :guid")
             .unwrap();
         let mut rows = stmt
             .query(named_params! {
@@ -259,6 +265,9 @@ impl CharacterRepository {
                     o: row.get("orientation").unwrap(),
                 },
                 current_health: row.get("current_health").unwrap(),
+                current_mana: row.get("current_mana").unwrap(),
+                current_rage: row.get("current_rage").unwrap(),
+                current_energy: row.get("current_energy").unwrap(),
                 experience: row.get("experience").unwrap(),
                 money: row.get("money").unwrap(),
             })
@@ -459,7 +468,7 @@ impl CharacterRepository {
     pub fn save_to_db(
         transaction: &Transaction,
         player: &mut Player,
-        health: &Powers,
+        powers: &Powers,
         position: &WorldPosition,
     ) -> Result<(), Error> {
         let guid = player.guid().counter();
@@ -467,7 +476,12 @@ impl CharacterRepository {
         // Save character data
         let mut stmt = transaction
             .prepare_cached(
-                "UPDATE characters SET level = :level, map_id = :map_id, zone_id = :zone_id, position_x = :x, position_y = :y, position_z = :z, orientation = :o, current_health = :current_health, experience = :experience, money = :money WHERE guid = :guid",
+                "UPDATE characters SET
+                level = :level,
+                map_id = :map_id, zone_id = :zone_id, position_x = :x, position_y = :y, position_z = :z, orientation = :o,
+                current_health = :current_health, current_mana = :current_mana, current_rage = :current_rage, current_energy = :current_energy,
+                experience = :experience, money = :money
+                WHERE guid = :guid",
             )
             .unwrap();
 
@@ -479,7 +493,10 @@ impl CharacterRepository {
             ":y": position.y,
             ":z": position.z,
             ":o": position.o,
-            ":current_health": health.current_health(),
+            ":current_health": powers.current_health(),
+            ":current_mana": powers.current_power(&PowerType::Mana),
+            ":current_rage": powers.current_power(&PowerType::Rage),
+            ":current_energy": powers.current_power(&PowerType::Energy),
             ":experience": player.experience(),
             ":money": player.money(),
             ":guid": guid,
@@ -548,6 +565,9 @@ pub struct CharacterRecord {
     pub position: WorldPosition,
     pub visual_features: PlayerVisualFeatures,
     pub current_health: u32,
+    pub current_mana: u32,
+    pub current_rage: u32,
+    pub current_energy: u32,
     pub experience: u32,
     pub money: u32,
 }

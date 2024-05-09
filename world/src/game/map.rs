@@ -96,6 +96,7 @@ impl Map {
 
         let workload = || {
             (
+                updates::update_attributes_from_modifiers, // Must be before regenerate_powers
                 movement::update_movement,
                 combat::update_combat_state,
                 behavior::tick,
@@ -104,7 +105,6 @@ impl Map {
                 melee::attempt_melee_attack,
                 spell::update_spell,
                 updates::send_entity_update,
-                updates::update_attributes_from_modifiers,
                 inventory::send_inventory_update,
             )
                 .into_workload()

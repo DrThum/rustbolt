@@ -95,6 +95,7 @@ impl Player {
             account_id,
             create_position,
             base_health_mana_record.base_health,
+            base_health_mana_record.base_mana,
         );
 
         let start_items = data_store
@@ -462,15 +463,18 @@ impl Player {
 
         // Set other powers
         for power_type in PowerType::iter().skip(1) {
-            // TODO: Save powers in characters table
+            let current = match power_type {
+                PowerType::Health => 0,
+                PowerType::Mana => character.current_mana,
+                PowerType::Rage => character.current_rage,
+                PowerType::Focus => 0,
+                PowerType::Energy => character.current_energy,
+                PowerType::PetHappiness => 0,
+            };
+
             values.set_u32(
                 UnitFields::UnitFieldPower1 as usize + power_type as usize,
-                world_context.data_store.get_player_max_base_power(
-                    power_type,
-                    character.class,
-                    character.level as u32,
-                    false,
-                ),
+                current,
             );
             values.set_u32(
                 UnitFields::UnitFieldMaxPower1 as usize + power_type as usize,

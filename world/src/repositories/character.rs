@@ -54,7 +54,14 @@ impl CharacterRepository {
         health: u32,
         mana: u32,
     ) -> u64 {
-        let mut stmt_create = transaction.prepare_cached("INSERT INTO characters (guid, account_id, name, race, class, gender, skin, face, hairstyle, haircolor, facialstyle, map_id, zone_id, position_x, position_y, position_z, orientation, current_health) VALUES (NULL, :account_id, :name, :race, :class, :gender, :skin, :face, :hairstyle, :haircolor, :facialstyle, :map, :zone, :x, :y, :z, :o, :current_health)").unwrap();
+        let mut stmt_create = transaction.prepare_cached(
+            "INSERT INTO characters
+            (guid, account_id, name, race, class, gender, skin, face, hairstyle, haircolor, facialstyle,
+            map_id, zone_id, position_x, position_y, position_z, orientation, current_health, current_mana)
+            VALUES
+            (NULL, :account_id, :name, :race, :class, :gender, :skin, :face, :hairstyle, :haircolor, :facialstyle,
+            :map, :zone, :x, :y, :z, :o, :current_health, :current_mana)
+            ").unwrap();
         stmt_create
             .execute(named_params! {
                 ":account_id": account_id,

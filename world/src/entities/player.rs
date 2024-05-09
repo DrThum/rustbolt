@@ -24,7 +24,7 @@ use crate::{
         AbilityLearnType, AttributeModifier, AttributeModifierType, CharacterClass,
         CharacterClassBit, CharacterRaceBit, Gender, HighGuidType, InventorySlot, InventoryType,
         ItemClass, ItemSubclassConsumable, ObjectTypeId, ObjectTypeMask, PlayerQuestStatus,
-        PowerType, QuestSlotState, SkillRangeType, SpellSchool, UnitFlags, MAX_QUESTS_IN_LOG,
+        PowerType, QuestSlotState, SkillRangeType, UnitFlags, MAX_QUESTS_IN_LOG,
         MAX_QUEST_OBJECTIVES_COUNT, PLAYER_DEFAULT_BOUNDING_RADIUS, PLAYER_DEFAULT_COMBAT_REACH,
     },
 };
@@ -438,30 +438,24 @@ impl Player {
                 AttributeModifierType::BaseValue,
                 base_attributes_record.spirit as f32,
             );
+
+            let base_health_mana_record = world_context
+                .data_store
+                .get_player_base_health_mana(character.class, character.level as u32)
+                .expect("unable to retrieve base health/mana for this class/level combination");
+
+            // Set health
+            values.set_u32(UnitFields::UnitFieldHealth.into(), character.current_health);
+            values.set_u32(
+                UnitFields::UnitFieldBaseHealth.into(),
+                base_health_mana_record.base_health,
+            );
+            attr_mods.add_modifier(
+                AttributeModifier::Health,
+                AttributeModifierType::BaseValue,
+                base_health_mana_record.base_health as f32,
+            );
         }
-
-        // Armor is SpellSchool::Normal resistance
-        values.set_u32(
-            UnitFields::UnitFieldResistances as usize + SpellSchool::Normal as usize,
-            base_attributes_record.agility * 2,
-        );
-
-        let base_health_mana_record = world_context
-            .data_store
-            .get_player_base_health_mana(character.class, character.level as u32)
-            .expect("unable to retrieve base health/mana for this class/level combination");
-
-        // Set health
-        values.set_u32(UnitFields::UnitFieldHealth.into(), character.current_health);
-        values.set_u32(
-            UnitFields::UnitFieldBaseHealth.into(),
-            base_health_mana_record.base_health,
-        );
-        // FIXME: calculate max from base + modifiers
-        values.set_u32(
-            UnitFields::UnitFieldMaxHealth.into(),
-            base_health_mana_record.base_health,
-        );
 
         // Set other powers
         for power_type in PowerType::iter().skip(1) {

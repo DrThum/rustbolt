@@ -3,6 +3,12 @@ use crate::shared::constants::{SpellSchool, UnitAttribute};
 use super::{Player, UnitFields};
 
 impl Player {
+    pub fn set_max_health(&self, value: u32) {
+        self.internal_values
+            .write()
+            .set_u32(UnitFields::UnitFieldMaxHealth.into(), value);
+    }
+
     // NOTE: MaNGOS uses f32 for internal calculation but client expects u32
     pub fn attribute(&self, attr: UnitAttribute) -> u32 {
         self.internal_values
@@ -10,7 +16,7 @@ impl Player {
             .get_u32(UnitFields::UnitFieldStat0 as usize + attr as usize)
     }
 
-    pub fn set_attribute(&mut self, attr: UnitAttribute, value: u32) {
+    pub fn set_attribute(&self, attr: UnitAttribute, value: u32) {
         self.internal_values
             .write()
             .set_u32(UnitFields::UnitFieldStat0 as usize + attr as usize, value);
@@ -27,13 +33,5 @@ impl Player {
             UnitFields::UnitFieldResistances as usize + spell_school as usize,
             value,
         );
-    }
-
-    pub fn armor(&self) -> u32 {
-        self.resistance(SpellSchool::Normal)
-    }
-
-    pub fn recalculate_armor(&self) {
-        println!("updating armor");
     }
 }

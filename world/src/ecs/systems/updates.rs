@@ -1,4 +1,4 @@
-use shipyard::{IntoIter, UniqueView, View, ViewMut};
+use shipyard::{IntoIter, UniqueView, View};
 
 use crate::{
     ecs::components::guid::Guid,
@@ -61,17 +61,15 @@ pub fn send_entity_update(
     }
 }
 
-pub fn update_attributes_from_modifiers(
-    map: UniqueView<WrappedMap>,
-    mut vm_player: ViewMut<Player>,
-) {
+pub fn update_attributes_from_modifiers(map: UniqueView<WrappedMap>, v_player: View<Player>) {
     if !map.0.has_players() {
         return;
     }
 
-    for mut player in (&mut vm_player).iter() {
+    for player in v_player.iter() {
         let mut attributes_to_update: Vec<(UnitAttribute, u32)> = Vec::new();
         let mut resistances_to_update: Vec<(SpellSchool, u32)> = Vec::new();
+        let mut updated_max_health: Option<u32> = None;
 
         {
             let mut attr_mods = player.attribute_modifiers.write();
@@ -107,7 +105,24 @@ pub fn update_attributes_from_modifiers(
                             attr_mods.total_modifier_value(AttributeModifier::StatSpirit) as u32,
                         ));
                     }
-                    AttributeModifier::Health => todo!(),
+                    AttributeModifier::Health => {
+                        let [base, base_percent, total, total_percent] =
+                            attr_mods.modifier_values(AttributeModifier::Health);
+                        let stamina =
+                            attr_mods.total_modifier_value(AttributeModifier::StatStamina);
+
+                        // Add Stamina bonus to Health
+                        let bonus_from_stamina = {
+                            let base_stamina = stamina.min(20.);
+                            let extra_stamina = stamina - base_stamina;
+                            base_stamina + (extra_stamina * 10.)
+                        };
+
+                        let max_health =
+                            ((base * base_percent) + bonus_from_stamina + total) * total_percent;
+
+                        updated_max_health = Some(max_health as u32);
+                    }
                     AttributeModifier::Mana => todo!(),
                     AttributeModifier::Rage => todo!(),
                     AttributeModifier::Focus => todo!(),
@@ -168,5 +183,7 @@ pub fn update_attributes_from_modifiers(
         for (spell_school, value) in resistances_to_update {
             player.set_resistance(spell_school, value);
         }
+
+        updated_max_health.map(|health| player.set_max_health(health));
     }
 }

@@ -40,6 +40,7 @@ impl AttributeModifiers {
         // Some modifiers trigger changes to another modifiers
         let extra_modifiers: Vec<AttributeModifier> = match modifier {
             AttributeModifier::StatAgility => vec![AttributeModifier::Armor],
+            AttributeModifier::StatStamina => vec![AttributeModifier::Health],
             _ => vec![],
         };
 

@@ -46,8 +46,7 @@ pub fn regenerate_powers(
 
         // Regen mana
         let mana_to_regen = if let Ok(player) = v_player.get(entity_id) {
-            let res = player.mana_regen_per_tick();
-            res
+            player.mana_regen_per_tick()
         } else if let Ok(_creature) = v_creature.get(entity_id) {
             // TODO: Creature case
             0.0
@@ -59,8 +58,7 @@ pub fn regenerate_powers(
 
         // Regen energy
         let energy_to_regen = if let Ok(player) = v_player.get(entity_id) {
-            let res = player.energy_regen_per_tick();
-            res
+            player.energy_regen_per_tick()
         } else if let Ok(_creature) = v_creature.get(entity_id) {
             // TODO: Creature case
             0.0
@@ -72,8 +70,7 @@ pub fn regenerate_powers(
 
         // "Regen" rage
         let rage_to_degen = if let Ok(player) = v_player.get(entity_id) {
-            let res = player.rage_degen_per_tick();
-            res
+            player.rage_degen_per_tick()
         } else if let Ok(_creature) = v_creature.get(entity_id) {
             // TODO: Creature case
             0.0

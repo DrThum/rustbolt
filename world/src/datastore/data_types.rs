@@ -1302,6 +1302,14 @@ impl QuestTemplate {
             .collect()
     }
 
+    pub fn required_items(&self) -> Vec<(u32, u32)> {
+        self.required_item_ids
+            .iter()
+            .zip(self.required_item_counts.iter())
+            .map(|(id, count)| (id.clone(), count.clone()))
+            .collect()
+    }
+
     pub fn experience_reward_at_level(&self, player_level: u32) -> u32 {
         let rmml = self.reward_money_max_level as f32;
         let quest_level = self.level.max(0) as u32;

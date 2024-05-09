@@ -128,6 +128,33 @@ impl PlayerInventory {
         })
     }
 
+    pub fn remove_item_count(&mut self, item_id: u32, stack_count: u32) {
+        let mut remaining_stacks_to_remove = stack_count;
+        for slot in InventorySlot::BACKPACK_START..InventorySlot::BACKPACK_END {
+            if remaining_stacks_to_remove == 0 {
+                break;
+            }
+
+            let Some(item) = self.items.get_mut(&slot) else {
+                continue;
+            };
+
+            if item.entry() != item_id {
+                continue;
+            }
+
+            // Unstack the item if it has more stacks than needed and stop there
+            if item.stack_count() > remaining_stacks_to_remove {
+                item.change_stack_count(remaining_stacks_to_remove as i32 * -1);
+                break;
+            }
+
+            // Otherwise, remove the item and try to remove the rest of the stacks from somewhere else
+            let removed_item = self.remove(slot);
+            remaining_stacks_to_remove -= removed_item.map(|item| item.stack_count()).unwrap_or(0);
+        }
+    }
+
     pub fn swap(&mut self, source_slot: u32, destination_slot: u32) {
         let destination_item = self.remove(destination_slot);
 

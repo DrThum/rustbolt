@@ -248,6 +248,11 @@ impl Player {
 
                 context.slot = None;
 
+                // Take required items
+                for (id, count) in quest_template.required_items() {
+                    self.inventory.remove_item_count(id, count);
+                }
+
                 self.modify_money(quest_template.required_or_reward_money);
 
                 match quest_template.reward_choice_items()[chosen_reward_index as usize] {
@@ -265,8 +270,6 @@ impl Player {
                 {
                     self.auto_store_new_item(id, count).unwrap();
                 }
-
-                // TODO: remove required items
 
                 let xp = quest_template.experience_reward_at_level(self.level());
                 self.give_experience(xp, None);

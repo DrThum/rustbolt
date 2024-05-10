@@ -27,14 +27,17 @@ pub fn regenerate_powers(
             .map(|unit| !unit.combat_state())
             .unwrap_or(true);
 
+        let maybe_player = v_player.get(entity_id);
+        let maybe_creature = v_creature.get(entity_id);
+
         let can_regen_health =
             combat_state_allows_health_regen && powers.current_health() < powers.max_health();
 
         if can_regen_health {
             // Player case
-            let health_to_regen = if let Ok(player) = v_player.get(entity_id) {
+            let health_to_regen = if let Ok(player) = maybe_player {
                 player.health_regen_per_tick()
-            } else if let Ok(_creature) = v_creature.get(entity_id) {
+            } else if let Ok(_creature) = maybe_creature {
                 // TODO: Creature case
                 0.0
             } else {
@@ -45,9 +48,9 @@ pub fn regenerate_powers(
         }
 
         // Regen mana
-        let mana_to_regen = if let Ok(player) = v_player.get(entity_id) {
+        let mana_to_regen = if let Ok(player) = maybe_player {
             player.mana_regen_per_tick()
-        } else if let Ok(_creature) = v_creature.get(entity_id) {
+        } else if let Ok(_creature) = maybe_creature {
             // TODO: Creature case
             0.0
         } else {
@@ -57,9 +60,9 @@ pub fn regenerate_powers(
         powers.modify_power(&PowerType::Mana, mana_to_regen as i32);
 
         // Regen energy
-        let energy_to_regen = if let Ok(player) = v_player.get(entity_id) {
+        let energy_to_regen = if let Ok(player) = maybe_player {
             player.energy_regen_per_tick()
-        } else if let Ok(_creature) = v_creature.get(entity_id) {
+        } else if let Ok(_creature) = maybe_creature {
             // TODO: Creature case
             0.0
         } else {
@@ -69,9 +72,9 @@ pub fn regenerate_powers(
         powers.modify_power(&PowerType::Energy, energy_to_regen as i32);
 
         // "Regen" rage
-        let rage_to_degen = if let Ok(player) = v_player.get(entity_id) {
+        let rage_to_degen = if let Ok(player) = maybe_player {
             player.rage_degen_per_tick()
-        } else if let Ok(_creature) = v_creature.get(entity_id) {
+        } else if let Ok(_creature) = maybe_creature {
             // TODO: Creature case
             0.0
         } else {

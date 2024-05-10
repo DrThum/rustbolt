@@ -205,6 +205,15 @@ pub fn update_attributes_from_modifiers(map: UniqueView<WrappedMap>, v_player: V
         updated_max_health.map(|health| player.set_max_health(health));
         updated_max_mana.map(|mana| player.set_max_power(PowerType::Mana, mana));
 
+        {
+            let mut has_just_leveled_up = player.has_just_leveled_up.lock();
+            if *has_just_leveled_up {
+                player.set_health_to_max();
+                player.set_mana_to_max();
+                *has_just_leveled_up = false;
+            }
+        }
+
         player.calculate_mana_regen();
     }
 }

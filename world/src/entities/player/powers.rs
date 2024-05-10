@@ -54,7 +54,7 @@ impl Player {
 
     pub fn rage_degen_per_tick(&self) -> f32 {
         // TODO: Use SPELL_AURA_MOD_POWER_REGEN_PERCENT
-        20.
+        20. // Note: this probably needs to be multiplied by 10
     }
 
     pub fn calculate_mana_regen(&self) {

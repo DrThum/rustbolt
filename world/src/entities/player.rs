@@ -6,7 +6,7 @@ use std::{
 
 use enumflags2::make_bitflags;
 use log::{error, warn};
-use parking_lot::RwLock;
+use parking_lot::{Mutex, RwLock};
 use r2d2::PooledConnection;
 use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::Error;
@@ -69,6 +69,7 @@ pub struct Player {
     partial_regen_period_end: Instant, // "Five Seconds Rule", partial mana regen before, full regen after
     #[allow(dead_code)]
     pub attribute_modifiers: Arc<RwLock<AttributeModifiers>>,
+    pub has_just_leveled_up: Mutex<bool>,
 }
 
 impl Player {
@@ -641,6 +642,7 @@ impl Player {
             currently_looting: None,
             partial_regen_period_end: Instant::now(),
             attribute_modifiers,
+            has_just_leveled_up: Mutex::new(false),
         }
     }
 

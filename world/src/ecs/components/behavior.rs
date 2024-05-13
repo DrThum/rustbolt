@@ -20,7 +20,7 @@ pub struct Behavior {
 impl Behavior {
     pub fn new_wild_monster(faction_template: Option<&FactionTemplateRecord>) -> Self {
         // Aggro an enemy entity passing by
-        let aggro = BehaviorNode::new_cooldown(
+        let aggro = BehaviorNode::new_deadline(
             Box::new(BehaviorNode::Condition(
                 Box::new(BehaviorNode::Action(Action::Aggro)),
                 |ctx| {
@@ -54,7 +54,15 @@ impl Behavior {
                 ctx.vm_powers[ctx.entity_id].is_alive()
             });
 
-        let bt = BehaviorTree::new(alive_behavior);
+        let respawn = BehaviorNode::Condition(
+            Box::new(BehaviorNode::new_cooldown(
+                Box::new(BehaviorNode::Action(Action::Respawn)),
+                Duration::from_secs(5), // FIXME
+            )),
+            |ctx| !ctx.vm_powers[ctx.entity_id].is_alive(),
+        );
+
+        let bt = BehaviorTree::new(BehaviorNode::Selector(vec![alive_behavior, respawn]));
 
         Self {
             bt,
@@ -84,4 +92,5 @@ pub enum Action {
     AttackInMelee,
     // AttackWithSpell,
     ChaseTarget,
+    Respawn,
 }

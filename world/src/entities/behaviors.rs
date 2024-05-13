@@ -62,10 +62,10 @@ impl<A> BehaviorTree<A> {
                 }
                 NodeStatus::Failure
             }
-            BehaviorNodeState::Cooldown {
+            BehaviorNodeState::Deadline {
                 ref mut child,
-                ref_cooldown_min,
-                ref_cooldown_max,
+                delay_min,
+                delay_max,
                 skip_chance,
                 ref mut expire_time,
             } => {
@@ -76,15 +76,49 @@ impl<A> BehaviorTree<A> {
                     if res == NodeStatus::Success {
                         let mut rng = rand::thread_rng();
 
-                        // Reset the cooldown according to the skip chance
-                        if rng.gen_range(0.0..1.0) > *skip_chance {
-                            let next_cooldown = rng.gen_range(*ref_cooldown_min..*ref_cooldown_max);
-                            *expire_time = now + next_cooldown;
+                        // Reset the deadline according to the skip chance
+                        if *skip_chance == 0. || rng.gen_range(0.0..1.0) > *skip_chance {
+                            let next_deadline = if *delay_min == *delay_max {
+                                *delay_min
+                            } else {
+                                rng.gen_range(*delay_min..*delay_max)
+                            };
+                            *expire_time = now + next_deadline;
                         }
                     }
 
                     res
                 } else {
+                    NodeStatus::Failure
+                }
+            }
+            BehaviorNodeState::Cooldown {
+                ref mut child,
+                cooldown_min,
+                cooldown_max,
+                skip_chance,
+                ref mut cooldown_left,
+            } => {
+                if *cooldown_left <= dt {
+                    let res = Self::evaluate_tree(child, dt, ctx, tick_fn);
+
+                    if res == NodeStatus::Success {
+                        let mut rng = rand::thread_rng();
+
+                        // Reset the deadline according to the skip chance
+                        if *skip_chance == 0. || rng.gen_range(0.0..1.0) > *skip_chance {
+                            let next_cooldown = if *cooldown_min == *cooldown_max {
+                                *cooldown_min
+                            } else {
+                                rng.gen_range(*cooldown_min..*cooldown_max)
+                            };
+                            *cooldown_left = next_cooldown;
+                        }
+                    }
+
+                    res
+                } else {
+                    *cooldown_left -= dt;
                     NodeStatus::Failure
                 }
             }
@@ -108,11 +142,24 @@ pub enum BehaviorNode<A> {
     // Failure, then returns Failure too.
     Selector(Vec<BehaviorNode<A>>),
     // Decorator that locks the child tree for the configured time after it has returned Success
+    // The difference with Cooldown is that Deadline sets a fixed moment in the future when the
+    // subtree will be unlocked, regardless of any other element (a Condition node wrapping this
+    // one for example)
+    Deadline(
+        Box<BehaviorNode<A>>, // Child
+        Duration,             // Minimum delay (if range)
+        Duration,             // Maximum delay (if range)
+        f32,                  // Chance to skip and unlock immediately [0..1[
+    ),
+    // Decorator that locks the child tree for the configured time after it has returned Success
+    // The difference with Deadline is that Cooldown sets an amount of time that is decremented
+    // every time the node is evaluated. This means that if the Cooldown node is wrapped in a
+    // Condition node for example, the cooldown is only reduced when the Condition is true
     Cooldown(
         Box<BehaviorNode<A>>, // Child
-        Duration,             // Minimum duration (if range)
-        Duration,             // Maximum duration (if range)
-        f32,                  // Chance to skip cooldown [0..1[
+        Duration,             // Minimum cooldown (if range)
+        Duration,             // Maximum cooldown (if range)
+        f32,                  // Chance to skip and unlock immediately [0..1[
     ),
     // Decorator that executes the child tree if the predicate is true
     Condition(Box<BehaviorNode<A>>, fn(&BTContext) -> bool),
@@ -122,6 +169,43 @@ pub enum BehaviorNode<A> {
 
 #[allow(dead_code)]
 impl<A> BehaviorNode<A> {
+    pub fn new_deadline(child: Box<BehaviorNode<A>>, delay: Duration) -> BehaviorNode<A> {
+        Self::Deadline(child, delay, delay, 0.)
+    }
+
+    pub fn new_deadline_skippable(
+        child: Box<BehaviorNode<A>>,
+        delay: Duration,
+        skip_chance: f32,
+    ) -> BehaviorNode<A> {
+        assert!(
+            skip_chance >= 0. && skip_chance < 1.,
+            "skip_chance must be [0..1["
+        );
+        Self::Deadline(child, delay, delay, skip_chance)
+    }
+
+    pub fn new_deadline_range(
+        child: Box<BehaviorNode<A>>,
+        min: Duration,
+        max: Duration,
+    ) -> BehaviorNode<A> {
+        Self::Deadline(child, min, max, 0.)
+    }
+
+    pub fn new_deadline_range_skippable(
+        child: Box<BehaviorNode<A>>,
+        min: Duration,
+        max: Duration,
+        skip_chance: f32,
+    ) -> BehaviorNode<A> {
+        assert!(
+            skip_chance >= 0. && skip_chance < 1.,
+            "skip_chance must be [0..1["
+        );
+        Self::Deadline(child, min, max, skip_chance)
+    }
+
     pub fn new_cooldown(child: Box<BehaviorNode<A>>, cooldown: Duration) -> BehaviorNode<A> {
         Self::Cooldown(child, cooldown, cooldown, 0.)
     }
@@ -169,13 +253,22 @@ impl<A> BehaviorNode<A> {
             BehaviorNode::Selector(children) => {
                 BehaviorNodeState::Selector(children.into_iter().map(|c| c.build_state()).collect())
             }
-            BehaviorNode::Cooldown(child, ref_cooldown_min, ref_cooldown_max, skip_chance) => {
-                BehaviorNodeState::Cooldown {
+            BehaviorNode::Deadline(child, delay_min, delay_max, skip_chance) => {
+                BehaviorNodeState::Deadline {
                     child: Box::new(child.build_state()),
-                    ref_cooldown_min,
-                    ref_cooldown_max,
+                    delay_min,
+                    delay_max,
                     skip_chance,
                     expire_time: Instant::now(),
+                }
+            }
+            BehaviorNode::Cooldown(child, cooldown_min, cooldown_max, skip_chance) => {
+                BehaviorNodeState::Cooldown {
+                    child: Box::new(child.build_state()),
+                    cooldown_min,
+                    cooldown_max,
+                    skip_chance,
+                    cooldown_left: cooldown_min, // FIXME: we might want to be random here
                 }
             }
             BehaviorNode::Condition(child, pred) => {
@@ -207,7 +300,7 @@ pub struct BTContext<'a, 'b, 'c, 'd, 'e, 'f, 'g> {
     pub vm_melee: &'a mut ViewMut<'f, Melee>,
     pub vm_player: &'a mut ViewMut<'g, Player>,
     pub v_guid: &'a View<'a, Guid>,
-    pub v_wpos: &'a View<'a, WorldPosition>,
+    pub vm_wpos: &'a ViewMut<'a, WorldPosition>,
     pub v_creature: &'a View<'a, Creature>,
     pub v_spell: &'a View<'a, SpellCast>,
 }
@@ -216,12 +309,19 @@ pub struct BTContext<'a, 'b, 'c, 'd, 'e, 'f, 'g> {
 enum BehaviorNodeState<A> {
     Sequence(Vec<BehaviorNodeState<A>>),
     Selector(Vec<BehaviorNodeState<A>>),
+    Deadline {
+        child: Box<BehaviorNodeState<A>>,
+        delay_min: Duration,
+        delay_max: Duration,
+        skip_chance: f32,
+        expire_time: Instant, // When will the subtree be unlocked?
+    },
     Cooldown {
         child: Box<BehaviorNodeState<A>>,
-        ref_cooldown_min: Duration,
-        ref_cooldown_max: Duration,
+        cooldown_min: Duration,
+        cooldown_max: Duration,
         skip_chance: f32,
-        expire_time: Instant, // When will the cooldown be up?
+        cooldown_left: Duration, // Time left on the cooldown
     },
     Condition(Box<BehaviorNodeState<A>>, fn(&BTContext) -> bool),
     Action(A),

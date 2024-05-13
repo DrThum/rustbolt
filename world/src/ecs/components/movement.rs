@@ -278,6 +278,12 @@ impl Movement {
         self.flags
             .remove(MovementFlag::SplineEnabled | MovementFlag::Forward);
     }
+
+    pub fn reset(&mut self) {
+        while self.current_movement_kinds.len() > 1 {
+            self.clear(true);
+        }
+    }
 }
 
 #[derive(PartialEq, Copy, Clone, Debug)]

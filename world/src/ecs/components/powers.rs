@@ -70,6 +70,13 @@ impl Powers {
             .get_u32(UnitFields::UnitFieldHealth.into())
     }
 
+    pub fn heal_to_max(&self) {
+        let max_health = self.max_health();
+        self.internal_values
+            .write()
+            .set_u32(UnitFields::UnitFieldHealth.into(), max_health);
+    }
+
     pub fn apply_damage(&mut self, damage: u32) {
         let new_health = self.current_health().saturating_sub(damage);
         self.internal_values

@@ -32,7 +32,7 @@ pub fn tick(
     mut vm_threat_list: ViewMut<ThreatList>,
     mut vm_melee: ViewMut<Melee>,
     v_guid: View<Guid>,
-    v_wpos: View<WorldPosition>,
+    vm_wpos: ViewMut<WorldPosition>,
     v_creature: View<Creature>,
     (mut vm_player, mut vm_powers, v_spell): (ViewMut<Player>, ViewMut<Powers>, View<SpellCast>),
 ) {
@@ -57,7 +57,7 @@ pub fn tick(
                 vm_melee: &mut vm_melee,
                 vm_player: &mut vm_player,
                 v_guid: &v_guid,
-                v_wpos: &v_wpos,
+                vm_wpos: &vm_wpos,
                 v_creature: &v_creature,
                 v_spell: &v_spell,
             };
@@ -72,13 +72,14 @@ fn execute_action(action: &Action, ctx: &mut BTContext) -> NodeStatus {
         Action::Aggro => action_aggro(ctx),
         Action::AttackInMelee => action_attack_in_melee(ctx),
         Action::ChaseTarget => action_chase_target(ctx),
+        Action::Respawn => action_respawn(ctx),
     }
 }
 
 fn action_aggro(ctx: &mut BTContext) -> NodeStatus {
     let my_guid = ctx.v_guid[ctx.entity_id].0;
     let creature = &ctx.v_creature[ctx.entity_id];
-    let my_position = &ctx.v_wpos[ctx.entity_id];
+    let my_position = &ctx.vm_wpos[ctx.entity_id];
     let unit_me = &ctx.vm_unit[ctx.entity_id];
 
     let mut relevant_neighbors: Vec<(EntityId, f32)> = ctx
@@ -86,7 +87,7 @@ fn action_aggro(ctx: &mut BTContext) -> NodeStatus {
         .iter()
         .filter_map(|&neighbor_entity_id| {
             let neighbor_powers = &ctx.vm_powers[neighbor_entity_id];
-            let neighbor_position = &ctx.v_wpos[neighbor_entity_id];
+            let neighbor_position = &ctx.vm_wpos[neighbor_entity_id];
             let neighbor_unit = &ctx.vm_unit[neighbor_entity_id];
             let neighbor_level = if let Ok(player) = ctx.vm_player.get(neighbor_entity_id) {
                 player.level()
@@ -135,7 +136,7 @@ fn action_attack_in_melee(ctx: &mut BTContext) -> NodeStatus {
         ctx.map.0.clone(),
         ctx.world_context.0.data_store.clone(),
         ctx.v_guid,
-        ctx.v_wpos,
+        ctx.vm_wpos,
         ctx.v_spell,
         ctx.v_creature,
         ctx.vm_unit,
@@ -144,8 +145,8 @@ fn action_attack_in_melee(ctx: &mut BTContext) -> NodeStatus {
         ctx.vm_threat_list,
         None,
     ) {
-        Ok(_) => return NodeStatus::Success,
-        Err(_) => return NodeStatus::Failure,
+        Ok(_) => NodeStatus::Success,
+        Err(_) => NodeStatus::Failure,
     }
 }
 
@@ -155,8 +156,8 @@ fn action_chase_target(ctx: &mut BTContext) -> NodeStatus {
         let my_bounding_radius = ctx.vm_unit[ctx.entity_id].bounding_radius();
         let target_bounding_radius = ctx.vm_unit[target_entity_id].bounding_radius();
         let chase_distance = my_bounding_radius + target_bounding_radius;
-        let my_current_position = ctx.v_wpos[ctx.entity_id];
-        let target_position = ctx.v_wpos[target_entity_id];
+        let my_current_position = ctx.vm_wpos[ctx.entity_id];
+        let target_position = ctx.vm_wpos[target_entity_id];
 
         // Change movement if
         // - already chasing but chasing the wrong target
@@ -198,4 +199,21 @@ fn action_chase_target(ctx: &mut BTContext) -> NodeStatus {
     }
 
     NodeStatus::Failure
+}
+
+fn action_respawn(ctx: &mut BTContext) -> NodeStatus {
+    let Ok(creature) = &ctx.v_creature.get(ctx.entity_id) else {
+        return NodeStatus::Failure;
+    };
+    if creature.guid().counter() == 44801 {
+        println!("respawn!");
+    }
+
+    let mut position = ctx.vm_wpos[ctx.entity_id];
+    position.update_local(&creature.spawn_position.to_position());
+
+    let powers = &ctx.vm_powers[ctx.entity_id];
+    powers.heal_to_max();
+
+    NodeStatus::Success
 }

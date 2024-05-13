@@ -54,6 +54,7 @@ pub fn update_movement(
         movement.recently_expired_movement_kinds.clear();
 
         if !powers.is_alive() {
+            movement.reset();
             continue;
         }
 

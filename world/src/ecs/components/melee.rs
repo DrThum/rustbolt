@@ -173,7 +173,7 @@ impl Melee {
         map: Arc<Map>,
         data_store: Arc<DataStore>,
         v_guid: &View<Guid>,
-        v_wpos: &View<WorldPosition>,
+        vm_wpos: &ViewMut<WorldPosition>,
         v_spell: &View<SpellCast>,
         v_creature: &View<Creature>,
         v_unit: &mut ViewMut<Unit>,
@@ -187,12 +187,12 @@ impl Melee {
         if let Some(target_id) = target_id {
             if let Ok(target_guid) = v_guid.get(target_id).map(|g| g.0) {
                 let guid = v_guid[attacker_id].0;
-                let my_position = v_wpos[attacker_id];
+                let my_position = vm_wpos[attacker_id];
 
                 let mut target_powers = vm_powers
                     .get(target_id)
                     .expect("target has no Health component");
-                let target_position = v_wpos
+                let target_position = vm_wpos
                     .get(target_id)
                     .expect("target has no WorldPosition component");
                 let target_melee_reach = {

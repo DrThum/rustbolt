@@ -112,20 +112,19 @@ fn action_aggro(ctx: &mut BTContext) -> NodeStatus {
 
     relevant_neighbors.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
 
-    relevant_neighbors
-        .first()
-        .map(|&(neighbor, _)| {
-            ctx.vm_threat_list[ctx.entity_id].modify_threat(neighbor, 0.);
+    relevant_neighbors.first().map(|&(neighbor, _)| {
+        ctx.vm_threat_list[ctx.entity_id].modify_threat(neighbor, 0.);
 
-            if let Ok(player) = ctx.vm_player.get(neighbor) {
-                player.set_in_combat_with(my_guid);
-            } else if let Ok(mut other_threat_list) = ctx.vm_threat_list.get(neighbor) {
-                other_threat_list.modify_threat(ctx.entity_id, 0.);
-            }
+        if let Ok(player) = ctx.vm_player.get(neighbor) {
+            player.set_in_combat_with(my_guid);
+        } else if let Ok(mut other_threat_list) = ctx.vm_threat_list.get(neighbor) {
+            other_threat_list.modify_threat(ctx.entity_id, 0.);
+        }
 
-            NodeStatus::Success
-        })
-        .unwrap_or(NodeStatus::Failure)
+        return NodeStatus::Success;
+    });
+
+    NodeStatus::Failure
 }
 
 fn action_attack_in_melee(ctx: &mut BTContext) -> NodeStatus {

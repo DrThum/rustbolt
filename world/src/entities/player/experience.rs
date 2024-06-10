@@ -61,13 +61,13 @@ impl Player {
             .data_store
             .get_player_required_experience_at_level(next_level);
 
-        let class = CharacterClass::n(
+        let race = CharacterRace::n(
             self.internal_values
                 .read()
                 .get_u8(UnitFields::UnitFieldBytes0.into(), 0),
         )
         .unwrap();
-        let race = CharacterRace::n(
+        let class = CharacterClass::n(
             self.internal_values
                 .read()
                 .get_u8(UnitFields::UnitFieldBytes0.into(), 1),

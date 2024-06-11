@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use shipyard::{Component, EntityId};
+use shipyard::{Component, EntityId, View};
 
 use crate::{
     datastore::data_types::FactionTemplateRecord,
@@ -8,7 +8,10 @@ use crate::{
     shared::constants::FRIENDLY_FACTION_TEMPLATE_ID,
 };
 
-use super::movement::MovementKind;
+use super::{
+    movement::{Movement, MovementKind},
+    powers::Powers,
+};
 
 #[derive(Component)]
 pub struct Behavior {
@@ -24,11 +27,13 @@ impl Behavior {
             Box::new(BehaviorNode::Condition(
                 Box::new(BehaviorNode::Action(Action::Aggro)),
                 |ctx| {
-                    let curr_move_kind = **&ctx.vm_movement[ctx.entity_id].current_movement_kind();
+                    ctx.all_storages.run(|v_movement: View<Movement>| {
+                        let curr_move_kind = v_movement[ctx.entity_id].current_movement_kind();
 
-                    curr_move_kind == MovementKind::Idle
-                        || curr_move_kind.is_random()
-                        || curr_move_kind == MovementKind::Path
+                        *curr_move_kind == MovementKind::Idle
+                            || curr_move_kind.is_random()
+                            || *curr_move_kind == MovementKind::Path
+                    })
                 },
             )),
             Duration::from_millis(400),
@@ -51,7 +56,8 @@ impl Behavior {
 
         let alive_behavior =
             BehaviorNode::Condition(Box::new(BehaviorNode::Selector(alive_actions)), |ctx| {
-                ctx.vm_powers[ctx.entity_id].is_alive()
+                ctx.all_storages
+                    .run(|v_powers: View<Powers>| v_powers[ctx.entity_id].is_alive())
             });
 
         let respawn = BehaviorNode::Condition(
@@ -59,7 +65,12 @@ impl Behavior {
                 Box::new(BehaviorNode::Action(Action::Respawn)),
                 Duration::from_secs(5), // FIXME
             )),
-            |ctx| !ctx.vm_powers[ctx.entity_id].is_alive(),
+            |ctx| {
+                let is_alive = ctx
+                    .all_storages
+                    .run(|v_powers: View<Powers>| v_powers[ctx.entity_id].is_alive());
+                !is_alive
+            },
         );
 
         let bt = BehaviorTree::new(BehaviorNode::Selector(vec![alive_behavior, respawn]));

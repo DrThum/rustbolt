@@ -1,20 +1,12 @@
 use std::time::{Duration, Instant};
 
 use rand::Rng;
-use shipyard::{EntityId, UniqueView, View, ViewMut};
+use shipyard::{AllStoragesViewMut, EntityId, UniqueView};
 
 use crate::{
-    ecs::{
-        components::{
-            guid::Guid, melee::Melee, movement::Movement, powers::Powers, spell_cast::SpellCast,
-            threat_list::ThreatList, unit::Unit,
-        },
-        resources::DeltaTime,
-    },
+    ecs::resources::DeltaTime,
     game::{map::WrappedMap, world_context::WrappedWorldContext},
 };
-
-use super::{creature::Creature, player::Player, position::WorldPosition};
 
 #[allow(dead_code)]
 pub struct BehaviorTree<A> {
@@ -287,22 +279,13 @@ pub enum NodeStatus {
     Running,
 }
 
-pub struct BTContext<'a, 'b, 'c, 'd, 'e, 'f, 'g> {
+pub struct BTContext<'a> {
     pub entity_id: EntityId,
     pub neighbors: Vec<EntityId>,
     pub dt: &'a UniqueView<'a, DeltaTime>,
     pub map: &'a UniqueView<'a, WrappedMap>,
     pub world_context: &'a UniqueView<'a, WrappedWorldContext>,
-    pub vm_movement: &'a mut ViewMut<'b, Movement>,
-    pub vm_unit: &'a mut ViewMut<'c, Unit>,
-    pub vm_threat_list: &'a mut ViewMut<'d, ThreatList>,
-    pub vm_powers: &'a mut ViewMut<'e, Powers>,
-    pub vm_melee: &'a mut ViewMut<'f, Melee>,
-    pub vm_player: &'a mut ViewMut<'g, Player>,
-    pub v_guid: &'a View<'a, Guid>,
-    pub vm_wpos: &'a ViewMut<'a, WorldPosition>,
-    pub v_creature: &'a View<'a, Creature>,
-    pub v_spell: &'a View<'a, SpellCast>,
+    pub all_storages: &'a AllStoragesViewMut<'a>,
 }
 
 // Internals

@@ -67,7 +67,7 @@ fn execute_action(action: &Action, ctx: &mut BTContext) -> NodeStatus {
 }
 
 fn action_aggro(ctx: &mut BTContext) -> NodeStatus {
-    let mut relevant_neighbors: Vec<(EntityId, f32)> = ctx.all_storages.run(
+    let aggro_target: Option<EntityId> = ctx.all_storages.run(
         |(v_creature, v_wpos, v_unit, v_powers, v_player): (
             View<Creature>,
             View<WorldPosition>,
@@ -79,40 +79,40 @@ fn action_aggro(ctx: &mut BTContext) -> NodeStatus {
             let my_position = v_wpos[ctx.entity_id];
             let unit_me = &v_unit[ctx.entity_id];
 
-            ctx.neighbors
-                .iter()
-                .filter_map(|&neighbor_entity_id| {
-                    let neighbor_powers = &v_powers[neighbor_entity_id];
-                    let neighbor_position = &v_wpos[neighbor_entity_id];
-                    let neighbor_unit = &v_unit[neighbor_entity_id];
-                    let neighbor_level = if let Ok(player) = v_player.get(neighbor_entity_id) {
-                        player.level()
-                    } else if let Ok(other_creature) = v_creature.get(neighbor_entity_id) {
-                        other_creature.level_against(creature.real_level())
-                    } else {
-                        0
-                    };
+            let mut aggro_target = None;
+            let mut current_closest = f32::MAX;
 
-                    let neighbor_distance = my_position.distance_to(&neighbor_position, true);
+            ctx.neighbors.iter().for_each(|&neighbor_entity_id| {
+                let neighbor_powers = &v_powers[neighbor_entity_id];
+                let neighbor_position = &v_wpos[neighbor_entity_id];
+                let neighbor_unit = &v_unit[neighbor_entity_id];
+                let neighbor_level = if let Ok(player) = v_player.get(neighbor_entity_id) {
+                    player.level()
+                } else if let Ok(other_creature) = v_creature.get(neighbor_entity_id) {
+                    other_creature.level_against(creature.real_level())
+                } else {
+                    0
+                };
 
-                    if neighbor_powers.is_alive()
-                        && unit_me.is_hostile_to(&neighbor_unit)
-                        && my_position.distance_to(&neighbor_position, true)
-                            <= creature.aggro_distance(neighbor_level)
-                    {
-                        Some((neighbor_entity_id, neighbor_distance))
-                    } else {
-                        None
-                    }
-                })
-                .collect()
+                let neighbor_distance = my_position.distance_to(&neighbor_position, true);
+
+                if neighbor_powers.is_alive()
+                    && unit_me.is_hostile_to(&neighbor_unit)
+                    && my_position.distance_to(&neighbor_position, true)
+                        <= creature.aggro_distance(neighbor_level)
+                    && neighbor_distance < current_closest
+                {
+                    current_closest = neighbor_distance;
+                    aggro_target = Some(neighbor_entity_id);
+                }
+            });
+
+            aggro_target
         },
     );
 
-    relevant_neighbors.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
-
-    match relevant_neighbors.first() {
-        Some(&(neighbor, _)) => {
+    match aggro_target {
+        Some(target_entity_id) => {
             ctx.all_storages.run(
                 |(v_guid, mut vm_threat_list, v_player): (
                     View<Guid>,
@@ -120,11 +120,13 @@ fn action_aggro(ctx: &mut BTContext) -> NodeStatus {
                     View<Player>,
                 )| {
                     let my_guid = v_guid[ctx.entity_id].0;
-                    vm_threat_list[ctx.entity_id].modify_threat(neighbor, 0.);
+                    vm_threat_list[ctx.entity_id].modify_threat(target_entity_id, 0.);
 
-                    if let Ok(player) = v_player.get(neighbor) {
+                    if let Ok(player) = v_player.get(target_entity_id) {
                         player.set_in_combat_with(my_guid);
-                    } else if let Ok(mut other_threat_list) = (&mut vm_threat_list).get(neighbor) {
+                    } else if let Ok(mut other_threat_list) =
+                        (&mut vm_threat_list).get(target_entity_id)
+                    {
                         other_threat_list.modify_threat(ctx.entity_id, 0.);
                     }
                 },

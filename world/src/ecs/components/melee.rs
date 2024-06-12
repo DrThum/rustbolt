@@ -4,7 +4,6 @@ use std::{
 };
 
 use log::{error, warn};
-use parking_lot::RwLock;
 use shared::utils::value_range::ValueRange;
 use shipyard::{Component, EntityId, Get, View, ViewMut};
 
@@ -32,7 +31,7 @@ use super::{
 
 #[derive(Component)]
 pub struct Melee {
-    internal_values: Arc<RwLock<InternalValues>>,
+    internal_values: Arc<InternalValues>,
     damage_interval: ValueRange<f32>,
     pub is_attacking: bool,
     next_attack_times: [Instant; NUMBER_WEAPON_ATTACK_TYPES], // MainHand, OffHand, Ranged
@@ -44,7 +43,7 @@ pub struct Melee {
 
 impl Melee {
     pub fn new(
-        internal_values: Arc<RwLock<InternalValues>>,
+        internal_values: Arc<InternalValues>,
         damage_min: f32,
         damage_max: f32,
         is_default_attacking: bool,
@@ -53,28 +52,27 @@ impl Melee {
         let now = Instant::now();
 
         {
-            let mut guard = internal_values.write();
-            guard.set_u8(
+            internal_values.set_u8(
                 UnitFields::UnitFieldBytes2.into(),
                 0,
                 SheathState::Unarmed as u8,
             );
 
             // TODO: multiply these by modifiers
-            guard.set_u32(
+            internal_values.set_u32(
                 UnitFields::UnitFieldBaseAttackTime.into(),
                 attack_intervals[0].as_millis() as u32,
             );
-            guard.set_u32(
+            internal_values.set_u32(
                 UnitFields::UnitFieldBaseAttackTime as usize + 1,
                 attack_intervals[1].as_millis() as u32,
             );
-            guard.set_u32(
+            internal_values.set_u32(
                 UnitFields::UnitFieldRangedAttackTime.into(),
                 attack_intervals[2].as_millis() as u32,
             );
-            guard.set_f32(UnitFields::UnitFieldMinDamage.into(), damage_min);
-            guard.set_f32(UnitFields::UnitFieldMaxDamage.into(), damage_max);
+            internal_values.set_f32(UnitFields::UnitFieldMinDamage.into(), damage_min);
+            internal_values.set_f32(UnitFields::UnitFieldMaxDamage.into(), damage_max);
         }
 
         Self {
@@ -95,7 +93,6 @@ impl Melee {
 
     pub fn melee_reach(&self) -> f32 {
         self.internal_values
-            .read()
             .get_f32(UnitFields::UnitFieldCombatReach.into())
     }
 
@@ -153,11 +150,8 @@ impl Melee {
 
     pub fn set_sheath_state(&mut self, sheath_state: u32) {
         if let Some(sheath_state_enum) = SheathState::n(sheath_state) {
-            self.internal_values.write().set_u8(
-                UnitFields::UnitFieldBytes2.into(),
-                0,
-                sheath_state as u8,
-            );
+            self.internal_values
+                .set_u8(UnitFields::UnitFieldBytes2.into(), 0, sheath_state as u8);
 
             self.sheath_state = sheath_state_enum;
         } else {

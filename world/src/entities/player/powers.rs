@@ -9,11 +9,9 @@ impl Player {
         let level = self.level().min(GAME_TABLE_MAX_LEVEL);
         let class = self
             .internal_values
-            .read()
             .get_u8(UnitFields::UnitFieldBytes0.into(), 0) as u32;
         let spirit_stat = self
             .internal_values
-            .read()
             .get_u32(UnitFields::UnitFieldStat0 as usize + UnitAttribute::Spirit as usize)
             as f32;
         let base_spirit = spirit_stat.min(50.0);
@@ -42,7 +40,7 @@ impl Player {
         } else {
             UnitFields::PlayerFieldModManaRegen
         };
-        let mana_regen = self.internal_values.read().get_f32(values_index as usize);
+        let mana_regen = self.internal_values.get_f32(values_index as usize);
 
         mana_regen * 2.
     }
@@ -64,7 +62,6 @@ impl Player {
         let level = self.level().min(GAME_TABLE_MAX_LEVEL);
         let class = self
             .internal_values
-            .read()
             .get_u8(UnitFields::UnitFieldBytes0.into(), 0) as u32;
         let index = ((class - 1) * GAME_TABLE_MAX_LEVEL + level - 1) as usize;
 
@@ -77,13 +74,11 @@ impl Player {
         let regen_from_stats = intellect.sqrt() * regen_per_spirit;
         let regen_under_fsr = 100.; // TODO: Implement Auras
 
-        {
-            let mut values = self.internal_values.write();
-            values.set_f32(
-                UnitFields::PlayerFieldModManaRegenInterrupt.into(),
-                regen_from_stats * regen_under_fsr / 100.,
-            );
-            values.set_f32(UnitFields::PlayerFieldModManaRegen.into(), regen_from_stats);
-        }
+        self.internal_values.set_f32(
+            UnitFields::PlayerFieldModManaRegenInterrupt.into(),
+            regen_from_stats * regen_under_fsr / 100.,
+        );
+        self.internal_values
+            .set_f32(UnitFields::PlayerFieldModManaRegen.into(), regen_from_stats);
     }
 }

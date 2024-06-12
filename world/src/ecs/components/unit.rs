@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use log::warn;
-use parking_lot::RwLock;
 use shipyard::{Component, EntityId};
 
 use crate::{
@@ -13,14 +12,14 @@ use crate::{
 #[derive(Component)]
 pub struct Unit {
     target: Option<EntityId>,
-    internal_values: Arc<RwLock<InternalValues>>,
+    internal_values: Arc<InternalValues>,
     stand_state: UnitStandState,
     data_store: Arc<DataStore>,
 }
 
 impl Unit {
-    pub fn new(internal_values: Arc<RwLock<InternalValues>>, data_store: Arc<DataStore>) -> Self {
-        internal_values.write().set_u8(
+    pub fn new(internal_values: Arc<InternalValues>, data_store: Arc<DataStore>) -> Self {
+        internal_values.set_u8(
             UnitFields::UnitFieldBytes1.into(),
             0,
             UnitStandState::Stand as u8,
@@ -41,17 +40,13 @@ impl Unit {
     pub fn set_target(&mut self, target: Option<EntityId>, raw_guid: u64) {
         self.target = target;
         self.internal_values
-            .write()
             .set_u64(UnitFields::UnitFieldTarget.into(), raw_guid);
     }
 
     pub fn set_stand_state(&mut self, stand_state: u32) {
         if let Some(stand_state_enum) = UnitStandState::n(stand_state) {
-            self.internal_values.write().set_u8(
-                UnitFields::UnitFieldBytes1.into(),
-                0,
-                stand_state as u8,
-            );
+            self.internal_values
+                .set_u8(UnitFields::UnitFieldBytes1.into(), 0, stand_state as u8);
             self.stand_state = stand_state_enum;
         } else {
             warn!(
@@ -63,12 +58,12 @@ impl Unit {
 
     pub fn set_combat_state(&self, set_in_combat: bool) {
         if set_in_combat {
-            self.internal_values.write().set_flag_u32(
+            self.internal_values.set_flag_u32(
                 UnitFields::UnitFieldFlags.into(),
                 UnitFlags::InCombat as u32,
             );
         } else {
-            self.internal_values.write().unset_flag_u32(
+            self.internal_values.unset_flag_u32(
                 UnitFields::UnitFieldFlags.into(),
                 UnitFlags::InCombat as u32,
             );
@@ -76,7 +71,7 @@ impl Unit {
     }
 
     pub fn combat_state(&self) -> bool {
-        self.internal_values.read().has_flag_u32(
+        self.internal_values.has_flag_u32(
             UnitFields::UnitFieldFlags.into(),
             UnitFlags::InCombat as u32,
         )
@@ -84,13 +79,11 @@ impl Unit {
 
     pub fn bounding_radius(&self) -> f32 {
         self.internal_values
-            .read()
             .get_f32(UnitFields::UnitFieldBoundingRadius.into())
     }
 
     pub fn faction_id(&self) -> u32 {
         self.internal_values
-            .read()
             .get_u32(UnitFields::UnitFieldFactionTemplate.into())
     }
 
@@ -108,30 +101,26 @@ impl Unit {
         }
 
         warn!("faction {} not found", self.faction_id());
-        return false;
+        false
     }
 
     pub fn set_dynamic_flag(&self, flag: UnitDynamicFlag) {
         self.internal_values
-            .write()
             .set_flag_u32(UnitFields::UnitDynamicFlags.into(), flag as u32);
     }
 
     pub fn unset_dynamic_flag(&self, flag: UnitDynamicFlag) {
         self.internal_values
-            .write()
             .unset_flag_u32(UnitFields::UnitDynamicFlags.into(), flag as u32);
     }
 
     pub fn set_unit_flag(&self, flag: UnitFlags) {
         self.internal_values
-            .write()
             .set_flag_u32(UnitFields::UnitFieldFlags.into(), flag as u32);
     }
 
     pub fn unset_unit_flag(&self, flag: UnitFlags) {
         self.internal_values
-            .write()
             .unset_flag_u32(UnitFields::UnitFieldFlags.into(), flag as u32);
     }
 }

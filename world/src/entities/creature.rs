@@ -39,8 +39,8 @@ pub struct Creature {
     pub default_movement_kind: MovementKind,
     pub wander_radius: Option<u32>,
     pub npc_flags: BitFlags<NpcFlags>,
-    pub internal_values: Arc<RwLock<InternalValues>>, // TODO: Arc -> Rc everywhere in rustbolt-world
-    loot: Arc<RwLock<Loot>>,                          // Reset on (re)spawn and generated on death
+    pub internal_values: Arc<InternalValues>,
+    loot: Arc<RwLock<Loot>>, // Reset on (re)spawn and generated on death
 }
 
 impl Creature {
@@ -59,7 +59,7 @@ impl Creature {
                     creature_spawn.entry,
                     creature_spawn.guid,
                 );
-                let mut values = InternalValues::new(UNIT_END as usize);
+                let values = InternalValues::new(UNIT_END as usize);
                 values.set_u64(ObjectFields::ObjectFieldGuid.into(), guid.raw());
 
                 let object_type = make_bitflags!(ObjectTypeMask::{Object | Unit}).bits();
@@ -161,7 +161,7 @@ impl Creature {
                         o: creature_spawn.orientation,
                     },
                     npc_flags: unsafe { BitFlags::from_bits_unchecked(template.npc_flags) },
-                    internal_values: Arc::new(RwLock::new(values)),
+                    internal_values: Arc::new(values),
                     default_movement_kind,
                     wander_radius,
                     loot: Arc::new(RwLock::new(Loot::new())),
@@ -173,14 +173,12 @@ impl Creature {
         let flags = make_bitflags!(UpdateFlag::{HighGuid | Living | HasPosition});
         let mut update_builder = UpdateBlockBuilder::new();
 
-        let internal_values = self.internal_values.read();
         for index in 0..UNIT_END {
-            let value = internal_values.get_u32(index as usize);
+            let value = self.internal_values.get_u32(index as usize);
             if value != 0 {
                 update_builder.add(index as usize, value);
             }
         }
-        drop(internal_values);
 
         let blocks = update_builder.build();
 
@@ -222,13 +220,11 @@ impl Creature {
     pub fn level_against(&self, _other_entity_level: u32) -> u32 {
         // TODO: World Boss case, need other_entity_level
         self.internal_values
-            .read()
             .get_u32(UnitFields::UnitFieldLevel.into())
     }
 
     pub fn real_level(&self) -> u32 {
         self.internal_values
-            .read()
             .get_u32(UnitFields::UnitFieldLevel.into())
     }
 

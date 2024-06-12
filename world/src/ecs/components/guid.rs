@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use parking_lot::RwLock;
 use shipyard::Component;
 
 use crate::entities::{
@@ -11,10 +10,8 @@ use crate::entities::{
 pub struct Guid(pub ObjectGuid);
 
 impl Guid {
-    pub fn new(guid: ObjectGuid, internal_values: Arc<RwLock<InternalValues>>) -> Self {
-        internal_values
-            .write()
-            .set_u64(ObjectFields::ObjectFieldGuid.into(), guid.raw());
+    pub fn new(guid: ObjectGuid, internal_values: Arc<InternalValues>) -> Self {
+        internal_values.set_u64(ObjectFields::ObjectFieldGuid.into(), guid.raw());
         Self { 0: guid }
     }
 }

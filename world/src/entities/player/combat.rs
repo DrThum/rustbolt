@@ -113,12 +113,15 @@ impl Player {
                             ctx.entity_counts[objective_index] = new_count;
 
                             {
-                                let mut values_guard = self.internal_values.write();
                                 let index = UnitFields::PlayerQuestLog1_1 as usize
                                     + (slot * QUEST_SLOT_OFFSETS_COUNT
                                         + QuestSlotOffset::Counters as usize);
 
-                                values_guard.set_u8(index, objective_index, new_count as u8);
+                                self.internal_values.set_u8(
+                                    index,
+                                    objective_index,
+                                    new_count as u8,
+                                );
                             }
 
                             let packet = ServerMessage::new(SmsgQuestUpdateAddKill {

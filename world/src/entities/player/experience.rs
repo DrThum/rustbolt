@@ -11,14 +11,11 @@ use super::{Player, UnitFields};
 
 impl Player {
     pub fn experience(&self) -> u32 {
-        self.internal_values
-            .read()
-            .get_u32(UnitFields::PlayerXp.into())
+        self.internal_values.get_u32(UnitFields::PlayerXp.into())
     }
 
     pub fn experience_for_next_level(&self) -> u32 {
         self.internal_values
-            .read()
             .get_u32(UnitFields::PlayerNextLevelXp.into())
     }
 
@@ -37,7 +34,6 @@ impl Player {
         }
 
         self.internal_values
-            .write()
             .set_u32(UnitFields::PlayerXp.into(), new_xp);
 
         self.session.send(&packet).unwrap();
@@ -45,7 +41,6 @@ impl Player {
 
     pub fn level(&self) -> u32 {
         self.internal_values
-            .read()
             .get_u32(UnitFields::UnitFieldLevel.into())
     }
 
@@ -63,13 +58,11 @@ impl Player {
 
         let race = CharacterRace::n(
             self.internal_values
-                .read()
                 .get_u8(UnitFields::UnitFieldBytes0.into(), 0),
         )
         .unwrap();
         let class = CharacterClass::n(
             self.internal_values
-                .read()
                 .get_u8(UnitFields::UnitFieldBytes0.into(), 1),
         )
         .unwrap();
@@ -154,15 +147,16 @@ impl Player {
         }
 
         {
-            let mut guard = self.internal_values.write();
-            guard.set_u32(UnitFields::UnitFieldLevel.into(), next_level);
-            guard.set_u32(UnitFields::PlayerNextLevelXp.into(), next_level_xp);
-            guard.set_u32(UnitFields::PlayerXp.into(), 0);
-            guard.set_u32(
+            self.internal_values
+                .set_u32(UnitFields::UnitFieldLevel.into(), next_level);
+            self.internal_values
+                .set_u32(UnitFields::PlayerNextLevelXp.into(), next_level_xp);
+            self.internal_values.set_u32(UnitFields::PlayerXp.into(), 0);
+            self.internal_values.set_u32(
                 UnitFields::UnitFieldBaseHealth.into(),
                 next_level_base_health_mana.base_health,
             );
-            guard.set_u32(
+            self.internal_values.set_u32(
                 UnitFields::UnitFieldBaseMana.into(),
                 next_level_base_health_mana.base_mana,
             );

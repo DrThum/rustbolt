@@ -58,7 +58,7 @@ pub struct Player {
     world_context: Arc<WorldContext>,
     guid: ObjectGuid,
     pub name: String,
-    pub internal_values: Arc<RwLock<InternalValues>>,
+    pub internal_values: Arc<InternalValues>,
     inventory: PlayerInventory,
     spells: Vec<u32>,
     action_buttons: HashMap<usize, ActionButton>,
@@ -289,7 +289,7 @@ impl Player {
 
         let guid = ObjectGuid::new(HighGuidType::Player, guid as u32);
 
-        let internal_values = Arc::new(RwLock::new(InternalValues::new(PLAYER_END as usize)));
+        let internal_values = Arc::new(InternalValues::new(PLAYER_END as usize));
 
         let attribute_modifiers = Arc::new(RwLock::new(AttributeModifiers::new()));
 
@@ -314,8 +314,6 @@ impl Player {
                 inventory.set(record.slot, item);
             });
 
-        let mut values = internal_values.write();
-
         let chr_races_record = world_context
             .data_store
             .get_race_record(character.race as u32)
@@ -335,78 +333,78 @@ impl Player {
 
         let spells = CharacterRepository::fetch_character_spells(&conn, guid.raw());
 
-        values.set_guid(ObjectFields::ObjectFieldGuid.into(), &guid);
+        internal_values.set_guid(ObjectFields::ObjectFieldGuid.into(), &guid);
 
         let object_type = make_bitflags!(ObjectTypeMask::{Object | Unit | Player}).bits();
-        values.set_u32(ObjectFields::ObjectFieldType.into(), object_type);
+        internal_values.set_u32(ObjectFields::ObjectFieldType.into(), object_type);
 
-        values.set_f32(ObjectFields::ObjectFieldScaleX.into(), 1.0);
+        internal_values.set_f32(ObjectFields::ObjectFieldScaleX.into(), 1.0);
 
-        values.set_u32(UnitFields::UnitFieldLevel.into(), character.level as u32);
-        values.set_u32(
+        internal_values.set_u32(UnitFields::UnitFieldLevel.into(), character.level as u32);
+        internal_values.set_u32(
             UnitFields::PlayerFieldMaxLevel.into(),
             world_context.config.world.game.player.maxlevel,
         );
 
-        values.set_u32(UnitFields::PlayerXp.into(), character.experience);
-        values.set_u32(
+        internal_values.set_u32(UnitFields::PlayerXp.into(), character.experience);
+        internal_values.set_u32(
             UnitFields::PlayerNextLevelXp.into(),
             world_context
                 .data_store
                 .get_player_required_experience_at_level(character.level.into()),
         );
 
-        values.set_u8(UnitFields::UnitFieldBytes0.into(), 0, character.race as u8);
+        internal_values.set_u8(UnitFields::UnitFieldBytes0.into(), 0, character.race as u8);
 
-        values.set_u8(UnitFields::UnitFieldBytes0.into(), 1, character.class as u8);
+        internal_values.set_u8(UnitFields::UnitFieldBytes0.into(), 1, character.class as u8);
 
         let gender = Gender::n(character.gender).expect("Character has invalid gender in DB");
-        values.set_u8(UnitFields::UnitFieldBytes0.into(), 2, gender as u8);
+        internal_values.set_u8(UnitFields::UnitFieldBytes0.into(), 2, gender as u8);
 
-        values.set_u8(UnitFields::UnitFieldBytes0.into(), 3, power_type as u8);
+        internal_values.set_u8(UnitFields::UnitFieldBytes0.into(), 3, power_type as u8);
 
-        values.set_u8(UnitFields::UnitFieldBytes2.into(), 1, 0x28); // UNIT_BYTE2_FLAG_UNK3 | UNIT_BYTE2_FLAG_UNK5
+        internal_values.set_u8(UnitFields::UnitFieldBytes2.into(), 1, 0x28); // UNIT_BYTE2_FLAG_UNK3 | UNIT_BYTE2_FLAG_UNK5
 
-        values.set_u8(
+        internal_values.set_u8(
             UnitFields::PlayerBytes.into(),
             0,
             character.visual_features.skin,
         );
-        values.set_u8(
+        internal_values.set_u8(
             UnitFields::PlayerBytes.into(),
             1,
             character.visual_features.face,
         );
-        values.set_u8(
+        internal_values.set_u8(
             UnitFields::PlayerBytes.into(),
             2,
             character.visual_features.hairstyle,
         );
-        values.set_u8(
+        internal_values.set_u8(
             UnitFields::PlayerBytes.into(),
             3,
             character.visual_features.haircolor,
         );
-        values.set_u8(
+        internal_values.set_u8(
             UnitFields::PlayerBytes2.into(),
             0,
             character.visual_features.facialstyle,
         );
-        values.set_u8(UnitFields::PlayerBytes2.into(), 3, 0x02); // Unk
-        values.set_u8(UnitFields::PlayerBytes3.into(), 0, gender as u8);
+        internal_values.set_u8(UnitFields::PlayerBytes2.into(), 3, 0x02); // Unk
+        internal_values.set_u8(UnitFields::PlayerBytes3.into(), 0, gender as u8);
 
-        values.set_u32(UnitFields::UnitFieldDisplayid.into(), display_id);
-        values.set_u32(UnitFields::UnitFieldNativedisplayid.into(), display_id);
-        values.set_f32(
+        internal_values.set_u32(UnitFields::UnitFieldDisplayid.into(), display_id);
+        internal_values.set_u32(UnitFields::UnitFieldNativedisplayid.into(), display_id);
+        internal_values.set_f32(
             UnitFields::UnitFieldBoundingRadius.into(),
             PLAYER_DEFAULT_BOUNDING_RADIUS,
         );
-        values.set_f32(
+        internal_values.set_f32(
             UnitFields::UnitFieldCombatReach.into(),
             PLAYER_DEFAULT_COMBAT_REACH,
         );
 
-        values.set_u32(UnitFields::PlayerFieldCoinage.into(), character.money);
+        internal_values.set_u32(UnitFields::PlayerFieldCoinage.into(), character.money);
 
         // Base attributes
         let base_attributes_record = world_context
@@ -447,7 +445,7 @@ impl Player {
                 .expect("unable to retrieve base health/mana for this class/level combination");
 
             // Set health
-            values.set_u32(UnitFields::UnitFieldHealth.into(), character.current_health);
+            internal_values.set_u32(UnitFields::UnitFieldHealth.into(), character.current_health);
             attr_mods.add_modifier(
                 AttributeModifier::Health,
                 AttributeModifierType::BaseValue,
@@ -473,11 +471,11 @@ impl Player {
                 PowerType::PetHappiness => 0,
             };
 
-            values.set_u32(
+            internal_values.set_u32(
                 UnitFields::UnitFieldPower1 as usize + power_type as usize,
                 current,
             );
-            values.set_u32(
+            internal_values.set_u32(
                 UnitFields::UnitFieldMaxPower1 as usize + power_type as usize,
                 world_context.data_store.get_player_max_base_power(
                     power_type,
@@ -488,35 +486,35 @@ impl Player {
             );
         }
 
-        values.set_u32(
+        internal_values.set_u32(
             UnitFields::UnitFieldFactionTemplate.into(),
             chr_races_record.faction_id,
         );
 
-        values.set_i32(UnitFields::PlayerFieldWatchedFactionIndex.into(), -1);
+        internal_values.set_i32(UnitFields::PlayerFieldWatchedFactionIndex.into(), -1);
 
         // Skills
         let skills = CharacterRepository::fetch_character_skills(&conn, guid.raw());
         for (index, skill) in skills.iter().enumerate() {
-            values.set_u16(
+            internal_values.set_u16(
                 UnitFields::PlayerSkillInfo1_1 as usize + (index * 3),
                 0,
                 skill.skill_id,
             );
             // Note: PlayerSkillInfo1_1 offset 1 is "step"
-            values.set_u16(
+            internal_values.set_u16(
                 UnitFields::PlayerSkillInfo1_1 as usize + 1 + (index * 3),
                 0,
                 skill.value,
             );
-            values.set_u16(
+            internal_values.set_u16(
                 UnitFields::PlayerSkillInfo1_1 as usize + 1 + (index * 3),
                 1,
                 skill.max_value,
             );
         }
 
-        values.set_u32(
+        internal_values.set_u32(
             UnitFields::UnitFieldFlags.into(),
             UnitFlags::PlayerControlled as u32,
         );
@@ -588,14 +586,14 @@ impl Player {
             let base_index =
                 UnitFields::PlayerQuestLog1_1 as usize + (slot * QUEST_SLOT_OFFSETS_COUNT);
 
-            values.set_u32(base_index, quest_template.entry);
+            internal_values.set_u32(base_index, quest_template.entry);
 
             match context.status {
-                PlayerQuestStatus::ObjectivesCompleted => values.set_u32(
+                PlayerQuestStatus::ObjectivesCompleted => internal_values.set_u32(
                     base_index + QuestSlotOffset::State as usize,
                     QuestSlotState::Completed as u32,
                 ),
-                PlayerQuestStatus::Failed => values.set_u32(
+                PlayerQuestStatus::Failed => internal_values.set_u32(
                     base_index + QuestSlotOffset::State as usize,
                     QuestSlotState::Failed as u32,
                 ),
@@ -607,7 +605,7 @@ impl Player {
                 .time_limit
                 .filter(|limit| *limit != Duration::ZERO)
             {
-                values.set_u32(
+                internal_values.set_u32(
                     base_index + QuestSlotOffset::Timer as usize,
                     (SystemTime::now() + timer)
                         .duration_since(UNIX_EPOCH)
@@ -617,7 +615,7 @@ impl Player {
             }
 
             for index in 0..MAX_QUEST_OBJECTIVES_COUNT {
-                values.set_u8(
+                internal_values.set_u8(
                     base_index + QuestSlotOffset::Counters as usize,
                     index,
                     context.entity_counts[index] as u8,
@@ -625,7 +623,7 @@ impl Player {
             }
         }
 
-        values.reset_dirty();
+        internal_values.reset_dirty();
 
         Self {
             session,
@@ -668,14 +666,12 @@ impl Player {
         for_self: bool,
     ) -> SmsgCreateObject {
         let mut update_builder = UpdateBlockBuilder::new();
-        let internal_values = self.internal_values.read();
         for index in 0..PLAYER_END {
-            let value = internal_values.get_u32(index as usize);
+            let value = self.internal_values.get_u32(index as usize);
             if value != 0 {
                 update_builder.add(index as usize, value);
             }
         }
-        drop(internal_values);
 
         let blocks = update_builder.build();
         let flags = if for_self {
@@ -709,7 +705,6 @@ impl Player {
 
     pub fn money(&self) -> u32 {
         self.internal_values
-            .read()
             .get_u32(UnitFields::PlayerFieldCoinage.into())
     }
 
@@ -717,7 +712,6 @@ impl Player {
         let current_money = self.money();
         let new_money = current_money.saturating_add_signed(amount);
         self.internal_values
-            .write()
             .set_u32(UnitFields::PlayerFieldCoinage.into(), new_money);
     }
 

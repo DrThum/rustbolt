@@ -48,10 +48,10 @@ impl Player {
         }
 
         {
-            let values = self.internal_values.read();
-
             // (3)
-            let class_id = values.get_u8(UnitFields::UnitFieldBytes0.into(), 1);
+            let class_id = self
+                .internal_values
+                .get_u8(UnitFields::UnitFieldBytes0.into(), 1);
             if !quest_template.required_classes.is_empty()
                 && !quest_template
                     .required_classes
@@ -61,7 +61,9 @@ impl Player {
             }
 
             // (4)
-            let race_id = values.get_u8(UnitFields::UnitFieldBytes0.into(), 0);
+            let race_id = self
+                .internal_values
+                .get_u8(UnitFields::UnitFieldBytes0.into(), 0);
             if !quest_template.required_races.is_empty()
                 && !quest_template
                     .required_races
@@ -71,7 +73,11 @@ impl Player {
             }
 
             // (5)
-            if values.get_u32(UnitFields::UnitFieldLevel.into()) < quest_template.min_level {
+            if self
+                .internal_values
+                .get_u32(UnitFields::UnitFieldLevel.into())
+                < quest_template.min_level
+            {
                 return Some(QuestStartError::TooLowLevel);
             }
         }
@@ -115,9 +121,8 @@ impl Player {
         let mut quest_added = false;
         {
             let mut first_empty_slot: Option<usize> = None;
-            let mut values_guard = self.internal_values.write();
             for i in 0..MAX_QUESTS_IN_LOG {
-                let quest_id_in_slots = values_guard.get_u32(
+                let quest_id_in_slots = self.internal_values.get_u32(
                     UnitFields::PlayerQuestLog1_1 as usize + (i * QUEST_SLOT_OFFSETS_COUNT),
                 );
                 if quest_id_in_slots == 0 {
@@ -130,13 +135,14 @@ impl Player {
                 let base_index =
                     UnitFields::PlayerQuestLog1_1 as usize + (slot * QUEST_SLOT_OFFSETS_COUNT);
 
-                values_guard.set_u32(base_index, quest_template.entry);
+                self.internal_values
+                    .set_u32(base_index, quest_template.entry);
 
                 if let Some(timer) = quest_template
                     .time_limit
                     .filter(|limit| *limit != Duration::ZERO)
                 {
-                    values_guard.set_u32(
+                    self.internal_values.set_u32(
                         base_index + QuestSlotOffset::Timer as usize,
                         (SystemTime::now() + timer)
                             .duration_since(UNIX_EPOCH)
@@ -172,11 +178,10 @@ impl Player {
             Some(slot) => slot != slot_to_remove,
         });
 
-        let mut values_guard = self.internal_values.write();
         let base_index =
             UnitFields::PlayerQuestLog1_1 as usize + (slot_to_remove * QUEST_SLOT_OFFSETS_COUNT);
         for index in 0..QUEST_SLOT_OFFSETS_COUNT {
-            values_guard.set_u32(base_index + index, 0);
+            self.internal_values.set_u32(base_index + index, 0);
         }
     }
 
@@ -206,10 +211,9 @@ impl Player {
             // TODO: Check exploration etc
 
             context.status = PlayerQuestStatus::ObjectivesCompleted;
-            let mut values_guard = self.internal_values.write();
             let base_index = UnitFields::PlayerQuestLog1_1 as usize
                 + (context.slot.unwrap() * QUEST_SLOT_OFFSETS_COUNT);
-            values_guard.set_u32(
+            self.internal_values.set_u32(
                 base_index + QuestSlotOffset::State as usize,
                 QuestSlotState::Completed as u32,
             )
@@ -237,12 +241,11 @@ impl Player {
                 context.status = PlayerQuestStatus::TurnedIn;
 
                 {
-                    let mut values_guard = self.internal_values.write();
                     let base_index = UnitFields::PlayerQuestLog1_1 as usize
                         + (context.slot.unwrap() * QUEST_SLOT_OFFSETS_COUNT);
 
                     for index in 0..QUEST_SLOT_OFFSETS_COUNT {
-                        values_guard.set_u32(base_index + index, 0);
+                        self.internal_values.set_u32(base_index + index, 0);
                     }
                 }
 

@@ -338,7 +338,7 @@ impl Map {
                 });
 
                 let player = vm_player.get(entity_id).unwrap();
-                player.internal_values.write().reset_dirty();
+                player.internal_values.reset_dirty();
                 let smsg_create_object = player.build_create_object(movement, true);
 
                 session.create_entity(&player_guid, smsg_create_object);
@@ -582,7 +582,6 @@ impl Map {
                     .get(entity_id)
                     .unwrap()
                     .internal_values
-                    .write()
                     .reset_dirty();
 
                 entity_id

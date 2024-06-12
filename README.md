@@ -50,3 +50,13 @@ To build a release:
 ```bash
 $ cargo test
 ```
+
+### Profiling
+
+https://github.com/mstange/samply?tab=readme-ov-file#turn-on-debug-info-for-full-stacks
+
+* Follow these instructions
+* Run the program
+* ctrl-c once and go to http://localhost:3000
+
+Note : for rustbolt-world, turn off terrain loading if possible as it creates an outlier

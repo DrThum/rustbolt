@@ -23,7 +23,7 @@ use crate::{
         position::WorldPosition,
     },
     game::{map::WrappedMap, world_context::WrappedWorldContext},
-    shared::constants::MAX_CHASE_LEEWAY,
+    shared::constants::{CREATURE_AGGRO_DISTANCE_MAX, MAX_CHASE_LEEWAY},
 };
 
 pub fn tick(vm_all_storage: AllStoragesViewMut) {
@@ -83,8 +83,14 @@ fn action_aggro(ctx: &mut BTContext) -> NodeStatus {
             let mut current_closest = f32::MAX;
 
             ctx.neighbors.iter().for_each(|&neighbor_entity_id| {
-                let neighbor_powers = &v_powers[neighbor_entity_id];
                 let neighbor_position = &v_wpos[neighbor_entity_id];
+                let neighbor_distance = my_position.distance_to(&neighbor_position, true);
+
+                if neighbor_distance > CREATURE_AGGRO_DISTANCE_MAX {
+                    return;
+                }
+
+                let neighbor_powers = &v_powers[neighbor_entity_id];
                 let neighbor_unit = &v_unit[neighbor_entity_id];
                 let neighbor_level = if let Ok(player) = v_player.get(neighbor_entity_id) {
                     player.level()
@@ -94,13 +100,11 @@ fn action_aggro(ctx: &mut BTContext) -> NodeStatus {
                     0
                 };
 
-                let neighbor_distance = my_position.distance_to(&neighbor_position, true);
-
-                if neighbor_powers.is_alive()
-                    && unit_me.is_hostile_to(&neighbor_unit)
+                if neighbor_distance < current_closest
                     && my_position.distance_to(&neighbor_position, true)
                         <= creature.aggro_distance(neighbor_level)
-                    && neighbor_distance < current_closest
+                    && neighbor_powers.is_alive()
+                    && unit_me.is_hostile_to(&neighbor_unit)
                 {
                     current_closest = neighbor_distance;
                     aggro_target = Some(neighbor_entity_id);

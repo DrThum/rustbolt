@@ -314,6 +314,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "allocator-api2"
+version = "0.2.18"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5c6cb57a04249c6480766f7f7cef5467412af1490f8d1e243141daddada3264f"
+
+[[package]]
 name = "alsa"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2595,6 +2601,10 @@ name = "hashbrown"
 version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2c6201b9ff9fd90a5a3bac2e56a830d0caa509576f0e503818ee82c181b3437a"
+dependencies = [
+ "ahash 0.8.6",
+ "allocator-api2",
+]
 
 [[package]]
 name = "hashlink"
@@ -4054,7 +4064,7 @@ dependencies = [
  "regex",
  "rusqlite",
  "serde",
- "siphasher",
+ "siphasher 0.3.10",
  "thiserror",
  "time 0.3.20",
  "toml",
@@ -4462,18 +4472,19 @@ checksum = "24188a676b6ae68c3b2cb3a01be17fbf7240ce009799bb56d5b1409051e78fde"
 [[package]]
 name = "shipyard"
 version = "0.6.0"
-source = "git+https://github.com/leudz/shipyard#619a8a248f17c267639129f59a48d00ee9549fa8"
+source = "git+https://github.com/leudz/shipyard#d2f3c5a270f25026f11bd37a91436b7175a5e501"
 dependencies = [
- "hashbrown 0.12.3",
+ "hashbrown 0.14.0",
  "lock_api",
  "rayon",
  "shipyard_proc",
+ "siphasher 1.0.1",
 ]
 
 [[package]]
 name = "shipyard_proc"
 version = "0.3.0"
-source = "git+https://github.com/leudz/shipyard#619a8a248f17c267639129f59a48d00ee9549fa8"
+source = "git+https://github.com/leudz/shipyard#d2f3c5a270f25026f11bd37a91436b7175a5e501"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4519,6 +4530,12 @@ name = "siphasher"
 version = "0.3.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7bd3e3206899af3f8b12af284fafc038cc1dc2b41d1b89dd17297221c5d225de"
+
+[[package]]
+name = "siphasher"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "56199f7ddabf13fe5074ce809e7d3f42b42ae711800501b5b16ea82ad029c39d"
 
 [[package]]
 name = "slab"

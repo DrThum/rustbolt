@@ -1,12 +1,7 @@
 use std::time::{Duration, Instant};
 
 use rand::Rng;
-use shipyard::{AllStoragesViewMut, EntityId, UniqueView};
-
-use crate::{
-    ecs::resources::DeltaTime,
-    game::{map::WrappedMap, world_context::WrappedWorldContext},
-};
+use shipyard::{AllStoragesViewMut, EntityId};
 
 #[allow(dead_code)]
 pub struct BehaviorTree<A> {
@@ -282,9 +277,6 @@ pub enum NodeStatus {
 pub struct BTContext<'a> {
     pub entity_id: EntityId,
     pub neighbors: Vec<EntityId>,
-    pub dt: &'a UniqueView<'a, DeltaTime>,
-    pub map: &'a UniqueView<'a, WrappedMap>,
-    pub world_context: &'a UniqueView<'a, WrappedWorldContext>,
     pub all_storages: &'a AllStoragesViewMut<'a>,
 }
 

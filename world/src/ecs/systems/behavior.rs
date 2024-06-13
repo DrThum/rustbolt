@@ -27,16 +27,14 @@ use crate::{
 };
 
 pub fn tick(vm_all_storage: AllStoragesViewMut) {
-    let dt = vm_all_storage.borrow::<UniqueView<DeltaTime>>().unwrap();
-    let map = vm_all_storage.borrow::<UniqueView<WrappedMap>>().unwrap();
-    let world_context = vm_all_storage
-        .borrow::<UniqueView<WrappedWorldContext>>()
-        .unwrap();
-
-    if !map.0.has_players() {
-        return;
+    {
+        let map = vm_all_storage.borrow::<UniqueView<WrappedMap>>().unwrap();
+        if !map.0.has_players() {
+            return;
+        }
     }
 
+    let dt = vm_all_storage.borrow::<UniqueView<DeltaTime>>().unwrap();
     vm_all_storage.run(|mut vm_behavior: ViewMut<Behavior>| {
         (&mut vm_behavior)
             .iter()
@@ -45,9 +43,6 @@ pub fn tick(vm_all_storage: AllStoragesViewMut) {
                 let mut context = BTContext {
                     entity_id,
                     neighbors: behavior.neighbors(),
-                    dt: &dt,
-                    map: &map,
-                    world_context: &world_context,
                     all_storages: &vm_all_storage,
                 };
 
@@ -147,6 +142,8 @@ fn action_attack_in_melee(ctx: &mut BTContext) -> NodeStatus {
 
     ctx.all_storages.run(
         |(
+            map,
+            world_context,
             v_guid,
             mut vm_wpos,
             v_spell,
@@ -156,6 +153,8 @@ fn action_attack_in_melee(ctx: &mut BTContext) -> NodeStatus {
             mut vm_melee,
             mut vm_threat_list,
         ): (
+            UniqueView<WrappedMap>,
+            UniqueView<WrappedWorldContext>,
             View<Guid>,
             ViewMut<WorldPosition>,
             View<SpellCast>,
@@ -167,8 +166,8 @@ fn action_attack_in_melee(ctx: &mut BTContext) -> NodeStatus {
         )| {
             match Melee::execute_attack(
                 my_id,
-                ctx.map.0.clone(),
-                ctx.world_context.0.data_store.clone(),
+                map.0.clone(),
+                world_context.0.data_store.clone(),
                 &v_guid,
                 &mut vm_wpos,
                 &v_spell,
@@ -188,7 +187,8 @@ fn action_attack_in_melee(ctx: &mut BTContext) -> NodeStatus {
 
 fn action_chase_target(ctx: &mut BTContext) -> NodeStatus {
     ctx.all_storages.run(
-        |(v_unit, v_wpos, mut vm_movement, v_guid): (
+        |(map, v_unit, v_wpos, mut vm_movement, v_guid): (
+            UniqueView<WrappedMap>,
             View<Unit>,
             View<WorldPosition>,
             ViewMut<Movement>,
@@ -231,7 +231,7 @@ fn action_chase_target(ctx: &mut BTContext) -> NodeStatus {
                         &v_guid[target_entity_id].0,
                         target_entity_id,
                         chase_distance,
-                        ctx.map.0.clone(),
+                        map.0.clone(),
                         &my_current_position,
                         target_position,
                         speed,

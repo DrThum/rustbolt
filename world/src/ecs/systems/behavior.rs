@@ -62,6 +62,10 @@ fn execute_action(action: &Action, ctx: &mut BTContext) -> NodeStatus {
 }
 
 fn action_aggro(ctx: &mut BTContext) -> NodeStatus {
+    if ctx.neighbors.is_empty() {
+        return NodeStatus::Failure;
+    }
+
     let aggro_target: Option<EntityId> = ctx.all_storages.run(
         |(v_creature, v_wpos, v_unit, v_powers, v_player): (
             View<Creature>,

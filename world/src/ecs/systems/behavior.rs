@@ -35,21 +35,20 @@ pub fn tick(vm_all_storage: AllStoragesViewMut) {
     }
 
     let dt = vm_all_storage.borrow::<UniqueView<DeltaTime>>().unwrap();
-    vm_all_storage.run(|mut vm_behavior: ViewMut<Behavior>| {
-        (&mut vm_behavior)
-            .iter()
-            .with_id()
-            .for_each(|(entity_id, mut behavior)| {
-                let mut context = BTContext {
-                    entity_id,
-                    neighbors: behavior.neighbors(),
-                    all_storages: &vm_all_storage,
-                };
+    let mut vm_behavior = vm_all_storage.borrow::<ViewMut<Behavior>>().unwrap();
+    (&mut vm_behavior)
+        .iter()
+        .with_id()
+        .for_each(|(entity_id, behavior)| {
+            let mut context = BTContext {
+                entity_id,
+                neighbors: behavior.neighbors(),
+                all_storages: &vm_all_storage,
+            };
 
-                behavior.tree().tick(dt.0, &mut context, execute_action);
-                behavior.reset_neighbors();
-            });
-    });
+            behavior.tree().tick(dt.0, &mut context, execute_action);
+            behavior.reset_neighbors();
+        });
 }
 
 fn execute_action(action: &Action, ctx: &mut BTContext) -> NodeStatus {

@@ -140,6 +140,14 @@ fn action_aggro(ctx: &mut BTContext) -> NodeStatus {
 fn action_attack_in_melee(ctx: &mut BTContext) -> NodeStatus {
     let my_id = ctx.entity_id;
 
+    if let Ok(v_unit) = ctx.all_storages.borrow::<View<Unit>>() {
+        if v_unit[my_id].target().is_none() {
+            return NodeStatus::Failure;
+        }
+    } else {
+        return NodeStatus::Failure;
+    };
+
     ctx.all_storages.run(
         |(
             map,
@@ -186,6 +194,14 @@ fn action_attack_in_melee(ctx: &mut BTContext) -> NodeStatus {
 }
 
 fn action_chase_target(ctx: &mut BTContext) -> NodeStatus {
+    if let Ok(v_unit) = ctx.all_storages.borrow::<View<Unit>>() {
+        if v_unit[ctx.entity_id].target().is_none() {
+            return NodeStatus::Failure;
+        }
+    } else {
+        return NodeStatus::Failure;
+    };
+
     ctx.all_storages.run(
         |(map, v_unit, v_wpos, mut vm_movement, v_guid): (
             UniqueView<WrappedMap>,

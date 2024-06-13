@@ -90,6 +90,11 @@ fn action_aggro(ctx: &mut BTContext) -> NodeStatus {
                 }
 
                 let neighbor_powers = &v_powers[neighbor_entity_id];
+
+                if !neighbor_powers.is_alive() {
+                    return;
+                }
+
                 let neighbor_unit = &v_unit[neighbor_entity_id];
                 let neighbor_level = if let Ok(player) = v_player.get(neighbor_entity_id) {
                     player.level()
@@ -102,7 +107,6 @@ fn action_aggro(ctx: &mut BTContext) -> NodeStatus {
                 if neighbor_distance < current_closest
                     && my_position.distance_to(&neighbor_position, true)
                         <= creature.aggro_distance(neighbor_level)
-                    && neighbor_powers.is_alive()
                     && unit_me.is_hostile_to(&neighbor_unit)
                 {
                     current_closest = neighbor_distance;

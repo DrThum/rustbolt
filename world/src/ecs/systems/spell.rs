@@ -27,7 +27,7 @@ pub fn update_spell(vm_all_storages: AllStoragesViewMut) {
                 return;
             }
 
-            for (caster_entity_id, (mut spell, guid)) in (&mut vm_spell, &v_guid).iter().with_id() {
+            for (caster_entity_id, (spell, guid)) in (&mut vm_spell, &v_guid).iter().with_id() {
                 if let Some((current_ranged, cast_end)) = spell.current_ranged() {
                     let now = Instant::now();
 

@@ -13,7 +13,7 @@ pub fn regenerate_powers(
     v_player: View<Player>,
     v_creature: View<Creature>,
 ) {
-    for (entity_id, mut powers) in (&mut vm_powers).iter().with_id() {
+    for (entity_id, powers) in (&mut vm_powers).iter().with_id() {
         if !powers.is_past_next_regen_time() {
             continue;
         }

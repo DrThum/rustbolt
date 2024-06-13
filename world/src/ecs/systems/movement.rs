@@ -45,7 +45,7 @@ pub fn update_movement(
 
     let mut map_pending_updates: Vec<(&ObjectGuid, EntityId, Position)> = Vec::new();
 
-    for (entity_id, (guid, mut movement, my_wpos, powers)) in
+    for (entity_id, (guid, movement, my_wpos, powers)) in
         (&v_guid, &mut vm_movement, &vm_wpos, &v_powers)
             .iter()
             .with_id()

@@ -70,7 +70,7 @@ pub fn select_target(
         return;
     }
 
-    for (mut unit, mut threat_list, powers) in (&mut vm_unit, &mut vm_threat_list, &v_powers).iter()
+    for (unit, threat_list, powers) in (&mut vm_unit, &mut vm_threat_list, &v_powers).iter()
     {
         // Reset our target and threat list if we're dead
         if !powers.is_alive() {

@@ -24,7 +24,7 @@ pub fn send_entity_update(
     }
 
     for (guid, wrapped_int_vals, wpos) in (&v_guid, &v_int_vals, &v_wpos).iter() {
-        let internal_values = &wrapped_int_vals.0;
+        let mut internal_values = wrapped_int_vals.0.write();
         if internal_values.has_dirty() {
             for session in map.0.sessions_nearby_position(
                 &wpos.to_position(),

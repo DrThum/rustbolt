@@ -27,7 +27,7 @@ impl Item {
         let guid = ObjectGuid::new(HighGuidType::ItemOrContainer, guid);
         let object_type = make_bitflags!(ObjectTypeMask::{Object | Item}).bits();
 
-        let values = InternalValues::new(ITEM_END as usize);
+        let mut values = InternalValues::new(ITEM_END as usize);
 
         values.set_u64(ObjectFields::ObjectFieldGuid.into(), guid.raw());
         values.set_u32(ObjectFields::ObjectFieldType.into(), object_type);

@@ -19,14 +19,14 @@ use super::{UnitFields, MAX_PLAYER_VISIBLE_ITEM_OFFSET};
 
 pub struct PlayerInventory {
     items: HashMap<u32, Item>, // Key is slot
-    internal_values: Arc<InternalValues>,
+    internal_values: Arc<RwLock<InternalValues>>,
     attribute_modifiers: Arc<RwLock<AttributeModifiers>>,
     data_store: Arc<DataStore>,
 }
 
 impl PlayerInventory {
     pub fn new(
-        internal_values: Arc<InternalValues>,
+        internal_values: Arc<RwLock<InternalValues>>,
         attribute_modifiers: Arc<RwLock<AttributeModifiers>>,
         data_store: Arc<DataStore>,
     ) -> Self {
@@ -96,7 +96,7 @@ impl PlayerInventory {
             return;
         }
 
-        self.internal_values.set_guid(
+        self.internal_values.write().set_guid(
             UnitFields::PlayerFieldInvSlotHead as usize + (2 * slot) as usize,
             item.guid(),
         );
@@ -112,7 +112,7 @@ impl PlayerInventory {
     }
 
     pub fn remove(&mut self, slot: u32) -> Option<Item> {
-        self.internal_values.set_u64(
+        self.internal_values.write().set_u64(
             UnitFields::PlayerFieldInvSlotHead as usize + (2 * slot) as usize,
             0,
         );
@@ -167,12 +167,13 @@ impl PlayerInventory {
     pub fn move_item(&mut self, source_slot: u32, destination_slot: u32) {
         if let Some(item) = self.items.remove(&source_slot) {
             {
-                self.internal_values.set_u64(
+                let mut values = self.internal_values.write();
+                values.set_u64(
                     UnitFields::PlayerFieldInvSlotHead as usize + (2 * source_slot) as usize,
                     0,
                 );
 
-                self.internal_values.set_guid(
+                values.set_guid(
                     UnitFields::PlayerFieldInvSlotHead as usize + (2 * destination_slot) as usize,
                     item.guid(),
                 );
@@ -295,8 +296,10 @@ impl PlayerInventory {
     }
 
     fn update_visible_bits(&self, slot: u32, item_entry: u32) {
+        let mut values = self.internal_values.write();
+
         if slot >= InventorySlot::EQUIPMENT_START && slot < InventorySlot::EQUIPMENT_END {
-            self.internal_values.set_u32(
+            values.set_u32(
                 UnitFields::PlayerVisibleItem1_0 as usize
                     + (slot * MAX_PLAYER_VISIBLE_ITEM_OFFSET) as usize,
                 item_entry,

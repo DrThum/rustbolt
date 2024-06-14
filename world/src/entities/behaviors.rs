@@ -54,13 +54,14 @@ impl<A> BehaviorTree<A> {
                 delay_min,
                 delay_max,
                 skip_chance,
+                ignore_status_for_reset,
                 ref mut expire_time,
             } => {
                 let now = Instant::now();
                 if *expire_time <= now {
                     let res = Self::evaluate_tree(child, dt, ctx, tick_fn);
 
-                    if res == NodeStatus::Success {
+                    if *ignore_status_for_reset || res == NodeStatus::Success {
                         let mut rng = rand::thread_rng();
 
                         // Reset the deadline according to the skip chance
@@ -84,12 +85,13 @@ impl<A> BehaviorTree<A> {
                 cooldown_min,
                 cooldown_max,
                 skip_chance,
+                ignore_status_for_reset,
                 ref mut cooldown_left,
             } => {
                 if *cooldown_left <= dt {
                     let res = Self::evaluate_tree(child, dt, ctx, tick_fn);
 
-                    if res == NodeStatus::Success {
+                    if *ignore_status_for_reset || res == NodeStatus::Success {
                         let mut rng = rand::thread_rng();
 
                         // Reset the deadline according to the skip chance
@@ -136,7 +138,9 @@ pub enum BehaviorNode<A> {
         Box<BehaviorNode<A>>, // Child
         Duration,             // Minimum delay (if range)
         Duration,             // Maximum delay (if range)
-        f32,                  // Chance to skip and unlock immediately [0..1[
+        bool,                 // True if the cooldown should reset no matter the child status,
+        // false if it should reset only when child status is Success
+        f32, // Chance to skip and unlock immediately [0..1[
     ),
     // Decorator that locks the child tree for the configured time after it has returned Success
     // The difference with Deadline is that Cooldown sets an amount of time that is decremented
@@ -146,7 +150,9 @@ pub enum BehaviorNode<A> {
         Box<BehaviorNode<A>>, // Child
         Duration,             // Minimum cooldown (if range)
         Duration,             // Maximum cooldown (if range)
-        f32,                  // Chance to skip and unlock immediately [0..1[
+        bool,                 // True if the cooldown should reset no matter the child status,
+        // false if it should reset only when child status is Success
+        f32, // Chance to skip and unlock immediately [0..1[
     ),
     // Decorator that executes the child tree if the predicate is true
     Condition(Box<BehaviorNode<A>>, fn(&BTContext) -> bool),
@@ -156,65 +162,84 @@ pub enum BehaviorNode<A> {
 
 #[allow(dead_code)]
 impl<A> BehaviorNode<A> {
-    pub fn new_deadline(child: Box<BehaviorNode<A>>, delay: Duration) -> BehaviorNode<A> {
-        Self::Deadline(child, delay, delay, 0.)
+    pub fn new_deadline(
+        child: Box<BehaviorNode<A>>,
+        delay: Duration,
+        ignore_status_for_reset: bool,
+    ) -> BehaviorNode<A> {
+        Self::Deadline(child, delay, delay, ignore_status_for_reset, 0.)
     }
 
     pub fn new_deadline_skippable(
         child: Box<BehaviorNode<A>>,
         delay: Duration,
         skip_chance: f32,
+        ignore_status_for_reset: bool,
     ) -> BehaviorNode<A> {
         assert!(
             skip_chance >= 0. && skip_chance < 1.,
             "skip_chance must be [0..1["
         );
-        Self::Deadline(child, delay, delay, skip_chance)
+        Self::Deadline(child, delay, delay, ignore_status_for_reset, skip_chance)
     }
 
     pub fn new_deadline_range(
         child: Box<BehaviorNode<A>>,
         min: Duration,
         max: Duration,
+        ignore_status_for_reset: bool,
     ) -> BehaviorNode<A> {
-        Self::Deadline(child, min, max, 0.)
+        Self::Deadline(child, min, max, ignore_status_for_reset, 0.)
     }
 
     pub fn new_deadline_range_skippable(
         child: Box<BehaviorNode<A>>,
         min: Duration,
         max: Duration,
+        ignore_status_for_reset: bool,
         skip_chance: f32,
     ) -> BehaviorNode<A> {
         assert!(
             skip_chance >= 0. && skip_chance < 1.,
             "skip_chance must be [0..1["
         );
-        Self::Deadline(child, min, max, skip_chance)
+        Self::Deadline(child, min, max, ignore_status_for_reset, skip_chance)
     }
 
-    pub fn new_cooldown(child: Box<BehaviorNode<A>>, cooldown: Duration) -> BehaviorNode<A> {
-        Self::Cooldown(child, cooldown, cooldown, 0.)
+    pub fn new_cooldown(
+        child: Box<BehaviorNode<A>>,
+        cooldown: Duration,
+        ignore_status_for_reset: bool,
+    ) -> BehaviorNode<A> {
+        Self::Cooldown(child, cooldown, cooldown, ignore_status_for_reset, 0.)
     }
 
     pub fn new_cooldown_skippable(
         child: Box<BehaviorNode<A>>,
         cooldown: Duration,
         skip_chance: f32,
+        ignore_status_for_reset: bool,
     ) -> BehaviorNode<A> {
         assert!(
             skip_chance >= 0. && skip_chance < 1.,
             "skip_chance must be [0..1["
         );
-        Self::Cooldown(child, cooldown, cooldown, skip_chance)
+        Self::Cooldown(
+            child,
+            cooldown,
+            cooldown,
+            ignore_status_for_reset,
+            skip_chance,
+        )
     }
 
     pub fn new_cooldown_range(
         child: Box<BehaviorNode<A>>,
         min: Duration,
         max: Duration,
+        ignore_status_for_reset: bool,
     ) -> BehaviorNode<A> {
-        Self::Cooldown(child, min, max, 0.)
+        Self::Cooldown(child, min, max, ignore_status_for_reset, 0.)
     }
 
     pub fn new_cooldown_range_skippable(
@@ -222,12 +247,13 @@ impl<A> BehaviorNode<A> {
         min: Duration,
         max: Duration,
         skip_chance: f32,
+        ignore_status_for_reset: bool,
     ) -> BehaviorNode<A> {
         assert!(
             skip_chance >= 0. && skip_chance < 1.,
             "skip_chance must be [0..1["
         );
-        Self::Cooldown(child, min, max, skip_chance)
+        Self::Cooldown(child, min, max, ignore_status_for_reset, skip_chance)
     }
 }
 
@@ -240,21 +266,33 @@ impl<A> BehaviorNode<A> {
             BehaviorNode::Selector(children) => {
                 BehaviorNodeState::Selector(children.into_iter().map(|c| c.build_state()).collect())
             }
-            BehaviorNode::Deadline(child, delay_min, delay_max, skip_chance) => {
-                BehaviorNodeState::Deadline {
-                    child: Box::new(child.build_state()),
-                    delay_min,
-                    delay_max,
-                    skip_chance,
-                    expire_time: Instant::now(),
-                }
-            }
-            BehaviorNode::Cooldown(child, cooldown_min, cooldown_max, skip_chance) => {
+            BehaviorNode::Deadline(
+                child,
+                delay_min,
+                delay_max,
+                ignore_status_for_reset,
+                skip_chance,
+            ) => BehaviorNodeState::Deadline {
+                child: Box::new(child.build_state()),
+                delay_min,
+                delay_max,
+                skip_chance,
+                ignore_status_for_reset,
+                expire_time: Instant::now(),
+            },
+            BehaviorNode::Cooldown(
+                child,
+                cooldown_min,
+                cooldown_max,
+                ignore_status_for_reset,
+                skip_chance,
+            ) => {
                 BehaviorNodeState::Cooldown {
                     child: Box::new(child.build_state()),
                     cooldown_min,
                     cooldown_max,
                     skip_chance,
+                    ignore_status_for_reset,
                     cooldown_left: cooldown_min, // FIXME: we might want to be random here
                 }
             }
@@ -289,6 +327,9 @@ enum BehaviorNodeState<A> {
         delay_min: Duration,
         delay_max: Duration,
         skip_chance: f32,
+        // If true, the delay is reset no matter the NodeStatus of the child node
+        // If false, the delay is reset only if the child returns NodeStatus::Success
+        ignore_status_for_reset: bool,
         expire_time: Instant, // When will the subtree be unlocked?
     },
     Cooldown {
@@ -296,6 +337,9 @@ enum BehaviorNodeState<A> {
         cooldown_min: Duration,
         cooldown_max: Duration,
         skip_chance: f32,
+        // If true, the delay is reset no matter the NodeStatus of the child node
+        // If false, the delay is reset only if the child returns NodeStatus::Success
+        ignore_status_for_reset: bool,
         cooldown_left: Duration, // Time left on the cooldown
     },
     Condition(Box<BehaviorNodeState<A>>, fn(&BTContext) -> bool),

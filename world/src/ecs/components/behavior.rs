@@ -37,6 +37,7 @@ impl Behavior {
                 },
             )),
             Duration::from_millis(400),
+            true,
         );
 
         let attack_melee = BehaviorNode::Action(Action::AttackInMelee);
@@ -64,6 +65,7 @@ impl Behavior {
             Box::new(BehaviorNode::new_cooldown(
                 Box::new(BehaviorNode::Action(Action::Respawn)),
                 Duration::from_secs(5), // FIXME
+                true,
             )),
             |ctx| {
                 let is_alive = ctx

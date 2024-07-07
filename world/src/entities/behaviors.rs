@@ -1,18 +1,35 @@
 use std::time::{Duration, Instant};
 
+use parking_lot::{RwLock, RwLockWriteGuard};
 use rand::Rng;
 use shipyard::{AllStoragesViewMut, EntityId};
 
 #[allow(dead_code)]
 pub struct BehaviorTree<A> {
-    root: BehaviorNodeState<A>,
+    nodes: Vec<RwLock<BehaviorNodeState<A>>>,
+    running_node_index: Option<usize>,
+    root_index: usize,
 }
 
 impl<A> BehaviorTree<A> {
     pub fn new(root: BehaviorNode<A>) -> Self {
-        Self {
-            root: root.build_state(),
-        }
+        let mut tree = Self {
+            nodes: Vec::new(),
+            running_node_index: None,
+            root_index: 0,
+        };
+        let root_index = root.build_state(&mut tree);
+        tree.root_index = root_index;
+        tree
+    }
+
+    fn node_by_index_mut(&self, index: usize) -> RwLockWriteGuard<BehaviorNodeState<A>> {
+        self.nodes[index].write()
+    }
+
+    fn register_node(&mut self, node: BehaviorNodeState<A>) -> usize {
+        self.nodes.push(RwLock::new(node));
+        self.nodes.len() - 1
     }
 
     pub fn tick(
@@ -21,19 +38,20 @@ impl<A> BehaviorTree<A> {
         ctx: &mut BTContext,
         tick_fn: fn(&A, &mut BTContext) -> NodeStatus,
     ) {
-        Self::evaluate_tree(&mut self.root, dt, ctx, tick_fn);
+        self.evaluate_tree(self.root_index, dt, ctx, tick_fn);
     }
 
     fn evaluate_tree(
-        node: &mut BehaviorNodeState<A>,
+        &self,
+        node_index: usize,
         dt: Duration,
         ctx: &mut BTContext,
         tick_fn: fn(&A, &mut BTContext) -> NodeStatus,
     ) -> NodeStatus {
-        match node {
+        match &mut *self.node_by_index_mut(node_index) {
             BehaviorNodeState::Sequence(nodes) => {
-                for child_node in nodes {
-                    let status = Self::evaluate_tree(child_node, dt, ctx, tick_fn);
+                for child_node_index in nodes.clone() {
+                    let status = self.evaluate_tree(child_node_index, dt, ctx, tick_fn);
                     if status != NodeStatus::Success {
                         return status;
                     }
@@ -41,8 +59,8 @@ impl<A> BehaviorTree<A> {
                 NodeStatus::Success
             }
             BehaviorNodeState::Selector(nodes) => {
-                for child_node in nodes {
-                    let status = Self::evaluate_tree(child_node, dt, ctx, tick_fn);
+                for child_node_index in nodes.clone() {
+                    let status = self.evaluate_tree(child_node_index, dt, ctx, tick_fn);
                     if status == NodeStatus::Success {
                         return status;
                     }
@@ -50,7 +68,7 @@ impl<A> BehaviorTree<A> {
                 NodeStatus::Failure
             }
             BehaviorNodeState::Deadline {
-                ref mut child,
+                child,
                 delay_min,
                 delay_max,
                 skip_chance,
@@ -59,14 +77,14 @@ impl<A> BehaviorTree<A> {
             } => {
                 let now = Instant::now();
                 if *expire_time <= now {
-                    let res = Self::evaluate_tree(child, dt, ctx, tick_fn);
+                    let res = self.evaluate_tree(*child, dt, ctx, tick_fn);
 
                     if *ignore_status_for_reset || res == NodeStatus::Success {
                         let mut rng = rand::thread_rng();
 
                         // Reset the deadline according to the skip chance
                         if *skip_chance == 0. || rng.gen_range(0.0..1.0) > *skip_chance {
-                            let next_deadline = if *delay_min == *delay_max {
+                            let next_deadline = if delay_min == delay_max {
                                 *delay_min
                             } else {
                                 rng.gen_range(*delay_min..*delay_max)
@@ -81,7 +99,7 @@ impl<A> BehaviorTree<A> {
                 }
             }
             BehaviorNodeState::Cooldown {
-                ref mut child,
+                child,
                 cooldown_min,
                 cooldown_max,
                 skip_chance,
@@ -89,14 +107,14 @@ impl<A> BehaviorTree<A> {
                 ref mut cooldown_left,
             } => {
                 if *cooldown_left <= dt {
-                    let res = Self::evaluate_tree(child, dt, ctx, tick_fn);
+                    let res = self.evaluate_tree(*child, dt, ctx, tick_fn);
 
                     if *ignore_status_for_reset || res == NodeStatus::Success {
                         let mut rng = rand::thread_rng();
 
                         // Reset the deadline according to the skip chance
                         if *skip_chance == 0. || rng.gen_range(0.0..1.0) > *skip_chance {
-                            let next_cooldown = if *cooldown_min == *cooldown_max {
+                            let next_cooldown = if cooldown_min == cooldown_max {
                                 *cooldown_min
                             } else {
                                 rng.gen_range(*cooldown_min..*cooldown_max)
@@ -113,12 +131,12 @@ impl<A> BehaviorTree<A> {
             }
             BehaviorNodeState::Condition(child, pred) => {
                 if pred(ctx) {
-                    Self::evaluate_tree(child, dt, ctx, tick_fn)
+                    self.evaluate_tree(*child, dt, ctx, tick_fn)
                 } else {
                     NodeStatus::Failure
                 }
             }
-            BehaviorNodeState::Action(action) => tick_fn(action, ctx),
+            BehaviorNodeState::Action(action) => tick_fn(&action, ctx),
         }
     }
 }
@@ -258,13 +276,19 @@ impl<A> BehaviorNode<A> {
 }
 
 impl<A> BehaviorNode<A> {
-    fn build_state(self) -> BehaviorNodeState<A> {
+    fn build_state(self, tree: &mut BehaviorTree<A>) -> usize {
         match self {
             BehaviorNode::Sequence(children) => {
-                BehaviorNodeState::Sequence(children.into_iter().map(|c| c.build_state()).collect())
+                let node = BehaviorNodeState::Sequence(
+                    children.into_iter().map(|c| c.build_state(tree)).collect(),
+                );
+                tree.register_node(node)
             }
             BehaviorNode::Selector(children) => {
-                BehaviorNodeState::Selector(children.into_iter().map(|c| c.build_state()).collect())
+                let node = BehaviorNodeState::Selector(
+                    children.into_iter().map(|c| c.build_state(tree)).collect(),
+                );
+                tree.register_node(node)
             }
             BehaviorNode::Deadline(
                 child,
@@ -272,14 +296,17 @@ impl<A> BehaviorNode<A> {
                 delay_max,
                 ignore_status_for_reset,
                 skip_chance,
-            ) => BehaviorNodeState::Deadline {
-                child: Box::new(child.build_state()),
-                delay_min,
-                delay_max,
-                skip_chance,
-                ignore_status_for_reset,
-                expire_time: Instant::now(),
-            },
+            ) => {
+                let node = BehaviorNodeState::Deadline {
+                    child: child.build_state(tree),
+                    delay_min,
+                    delay_max,
+                    skip_chance,
+                    ignore_status_for_reset,
+                    expire_time: Instant::now(),
+                };
+                tree.register_node(node)
+            }
             BehaviorNode::Cooldown(
                 child,
                 cooldown_min,
@@ -287,19 +314,24 @@ impl<A> BehaviorNode<A> {
                 ignore_status_for_reset,
                 skip_chance,
             ) => {
-                BehaviorNodeState::Cooldown {
-                    child: Box::new(child.build_state()),
+                let node = BehaviorNodeState::Cooldown {
+                    child: child.build_state(tree),
                     cooldown_min,
                     cooldown_max,
                     skip_chance,
                     ignore_status_for_reset,
                     cooldown_left: cooldown_min, // FIXME: we might want to be random here
-                }
+                };
+                tree.register_node(node)
             }
             BehaviorNode::Condition(child, pred) => {
-                BehaviorNodeState::Condition(Box::new(child.build_state()), pred)
+                let node = BehaviorNodeState::Condition(child.build_state(tree), pred);
+                tree.register_node(node)
             }
-            BehaviorNode::Action(action) => BehaviorNodeState::Action(action),
+            BehaviorNode::Action(action) => {
+                let node = BehaviorNodeState::Action(action);
+                tree.register_node(node)
+            }
         }
     }
 }
@@ -309,7 +341,7 @@ impl<A> BehaviorNode<A> {
 pub enum NodeStatus {
     Success,
     Failure,
-    Running,
+    Running(usize),
 }
 
 pub struct BTContext<'a> {
@@ -320,10 +352,10 @@ pub struct BTContext<'a> {
 
 // Internals
 enum BehaviorNodeState<A> {
-    Sequence(Vec<BehaviorNodeState<A>>),
-    Selector(Vec<BehaviorNodeState<A>>),
+    Sequence(Vec<usize>),
+    Selector(Vec<usize>),
     Deadline {
-        child: Box<BehaviorNodeState<A>>,
+        child: usize,
         delay_min: Duration,
         delay_max: Duration,
         skip_chance: f32,
@@ -333,7 +365,7 @@ enum BehaviorNodeState<A> {
         expire_time: Instant, // When will the subtree be unlocked?
     },
     Cooldown {
-        child: Box<BehaviorNodeState<A>>,
+        child: usize,
         cooldown_min: Duration,
         cooldown_max: Duration,
         skip_chance: f32,
@@ -342,6 +374,6 @@ enum BehaviorNodeState<A> {
         ignore_status_for_reset: bool,
         cooldown_left: Duration, // Time left on the cooldown
     },
-    Condition(Box<BehaviorNodeState<A>>, fn(&BTContext) -> bool),
+    Condition(usize, fn(&BTContext) -> bool),
     Action(A),
 }

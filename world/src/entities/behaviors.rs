@@ -61,7 +61,7 @@ impl<A> BehaviorTree<A> {
             BehaviorNodeState::Selector(nodes) => {
                 for child_node_index in nodes.clone() {
                     let status = self.evaluate_tree(child_node_index, dt, ctx, tick_fn);
-                    if status == NodeStatus::Success {
+                    if status != NodeStatus::Failure {
                         return status;
                     }
                 }
@@ -181,15 +181,15 @@ pub enum BehaviorNode<A> {
 #[allow(dead_code)]
 impl<A> BehaviorNode<A> {
     pub fn new_deadline(
-        child: Box<BehaviorNode<A>>,
+        child: BehaviorNode<A>,
         delay: Duration,
         ignore_status_for_reset: bool,
     ) -> BehaviorNode<A> {
-        Self::Deadline(child, delay, delay, ignore_status_for_reset, 0.)
+        Self::Deadline(Box::new(child), delay, delay, ignore_status_for_reset, 0.)
     }
 
     pub fn new_deadline_skippable(
-        child: Box<BehaviorNode<A>>,
+        child: BehaviorNode<A>,
         delay: Duration,
         skip_chance: f32,
         ignore_status_for_reset: bool,
@@ -198,20 +198,26 @@ impl<A> BehaviorNode<A> {
             skip_chance >= 0. && skip_chance < 1.,
             "skip_chance must be [0..1["
         );
-        Self::Deadline(child, delay, delay, ignore_status_for_reset, skip_chance)
+        Self::Deadline(
+            Box::new(child),
+            delay,
+            delay,
+            ignore_status_for_reset,
+            skip_chance,
+        )
     }
 
     pub fn new_deadline_range(
-        child: Box<BehaviorNode<A>>,
+        child: BehaviorNode<A>,
         min: Duration,
         max: Duration,
         ignore_status_for_reset: bool,
     ) -> BehaviorNode<A> {
-        Self::Deadline(child, min, max, ignore_status_for_reset, 0.)
+        Self::Deadline(Box::new(child), min, max, ignore_status_for_reset, 0.)
     }
 
     pub fn new_deadline_range_skippable(
-        child: Box<BehaviorNode<A>>,
+        child: BehaviorNode<A>,
         min: Duration,
         max: Duration,
         ignore_status_for_reset: bool,
@@ -221,19 +227,31 @@ impl<A> BehaviorNode<A> {
             skip_chance >= 0. && skip_chance < 1.,
             "skip_chance must be [0..1["
         );
-        Self::Deadline(child, min, max, ignore_status_for_reset, skip_chance)
+        Self::Deadline(
+            Box::new(child),
+            min,
+            max,
+            ignore_status_for_reset,
+            skip_chance,
+        )
     }
 
     pub fn new_cooldown(
-        child: Box<BehaviorNode<A>>,
+        child: BehaviorNode<A>,
         cooldown: Duration,
         ignore_status_for_reset: bool,
     ) -> BehaviorNode<A> {
-        Self::Cooldown(child, cooldown, cooldown, ignore_status_for_reset, 0.)
+        Self::Cooldown(
+            Box::new(child),
+            cooldown,
+            cooldown,
+            ignore_status_for_reset,
+            0.,
+        )
     }
 
     pub fn new_cooldown_skippable(
-        child: Box<BehaviorNode<A>>,
+        child: BehaviorNode<A>,
         cooldown: Duration,
         skip_chance: f32,
         ignore_status_for_reset: bool,
@@ -243,7 +261,7 @@ impl<A> BehaviorNode<A> {
             "skip_chance must be [0..1["
         );
         Self::Cooldown(
-            child,
+            Box::new(child),
             cooldown,
             cooldown,
             ignore_status_for_reset,
@@ -252,16 +270,16 @@ impl<A> BehaviorNode<A> {
     }
 
     pub fn new_cooldown_range(
-        child: Box<BehaviorNode<A>>,
+        child: BehaviorNode<A>,
         min: Duration,
         max: Duration,
         ignore_status_for_reset: bool,
     ) -> BehaviorNode<A> {
-        Self::Cooldown(child, min, max, ignore_status_for_reset, 0.)
+        Self::Cooldown(Box::new(child), min, max, ignore_status_for_reset, 0.)
     }
 
     pub fn new_cooldown_range_skippable(
-        child: Box<BehaviorNode<A>>,
+        child: BehaviorNode<A>,
         min: Duration,
         max: Duration,
         skip_chance: f32,
@@ -271,7 +289,13 @@ impl<A> BehaviorNode<A> {
             skip_chance >= 0. && skip_chance < 1.,
             "skip_chance must be [0..1["
         );
-        Self::Cooldown(child, min, max, ignore_status_for_reset, skip_chance)
+        Self::Cooldown(
+            Box::new(child),
+            min,
+            max,
+            ignore_status_for_reset,
+            skip_chance,
+        )
     }
 }
 

@@ -24,18 +24,15 @@ impl Behavior {
     pub fn new_wild_monster(faction_template: Option<&FactionTemplateRecord>) -> Self {
         // Aggro an enemy entity passing by
         let aggro = BehaviorNode::new_deadline(
-            Box::new(BehaviorNode::Condition(
-                Box::new(BehaviorNode::Action(Action::Aggro)),
-                |ctx| {
-                    ctx.all_storages.run(|v_movement: View<Movement>| {
-                        let curr_move_kind = v_movement[ctx.entity_id].current_movement_kind();
+            BehaviorNode::Condition(Box::new(BehaviorNode::Action(Action::Aggro)), |ctx| {
+                ctx.all_storages.run(|v_movement: View<Movement>| {
+                    let curr_move_kind = v_movement[ctx.entity_id].current_movement_kind();
 
-                        *curr_move_kind == MovementKind::Idle
-                            || curr_move_kind.is_random()
-                            || *curr_move_kind == MovementKind::Path
-                    })
-                },
-            )),
+                    *curr_move_kind == MovementKind::Idle
+                        || curr_move_kind.is_random()
+                        || *curr_move_kind == MovementKind::Path
+                })
+            }),
             Duration::from_millis(400),
             true,
         );
@@ -63,7 +60,7 @@ impl Behavior {
 
         let respawn = BehaviorNode::Condition(
             Box::new(BehaviorNode::new_cooldown(
-                Box::new(BehaviorNode::Action(Action::Respawn)),
+                BehaviorNode::Action(Action::Respawn),
                 Duration::from_secs(5), // FIXME
                 true,
             )),

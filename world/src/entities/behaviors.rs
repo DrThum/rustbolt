@@ -1,12 +1,12 @@
 use std::time::{Duration, Instant};
 
-use parking_lot::{RwLock, RwLockWriteGuard};
+use parking_lot::{Mutex, MutexGuard};
 use rand::Rng;
 use shipyard::{AllStoragesViewMut, EntityId};
 
 #[allow(dead_code)]
 pub struct BehaviorTree<A> {
-    nodes: Vec<RwLock<BehaviorNodeState<A>>>,
+    nodes: Vec<Mutex<BehaviorNodeState<A>>>,
     running_node_index: Option<usize>,
     root_index: usize,
 }
@@ -23,12 +23,12 @@ impl<A> BehaviorTree<A> {
         tree
     }
 
-    fn node_by_index_mut(&self, index: usize) -> RwLockWriteGuard<BehaviorNodeState<A>> {
-        self.nodes[index].write()
+    fn node_by_index_mut(&self, index: usize) -> MutexGuard<BehaviorNodeState<A>> {
+        self.nodes[index].lock()
     }
 
     fn register_node(&mut self, node: BehaviorNodeState<A>) -> usize {
-        self.nodes.push(RwLock::new(node));
+        self.nodes.push(Mutex::new(node));
         self.nodes.len() - 1
     }
 
@@ -38,7 +38,12 @@ impl<A> BehaviorTree<A> {
         ctx: &mut BTContext,
         tick_fn: fn(&A, &mut BTContext) -> NodeStatus,
     ) {
-        self.evaluate_tree(self.root_index, dt, ctx, tick_fn);
+        self.evaluate_tree(
+            self.running_node_index.unwrap_or(self.root_index),
+            dt,
+            ctx,
+            tick_fn,
+        );
     }
 
     fn evaluate_tree(

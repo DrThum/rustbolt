@@ -1,5 +1,3 @@
-use std::sync::atomic::Ordering;
-
 use shipyard::{
     AllStoragesViewMut, EntityId, Get, IntoIter, IntoWithId, UniqueView, View, ViewMut,
 };
@@ -44,12 +42,7 @@ pub fn tick(vm_all_storage: AllStoragesViewMut) {
     (&mut vm_behavior, &v_nearby_players)
         .iter()
         .with_id()
-        .for_each(|(entity_id, (behavior, nearby_players))| {
-            // Don't run if no player is nearby
-            if nearby_players.count.load(Ordering::Relaxed) == 0 {
-                return;
-            }
-
+        .for_each(|(entity_id, (behavior, _))| {
             let mut context = BTContext {
                 entity_id,
                 neighbors: behavior.neighbors(),

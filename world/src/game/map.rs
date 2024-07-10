@@ -236,7 +236,10 @@ impl Map {
              mut vm_int_vals: ViewMut<WrappedInternalValues>,
              mut vm_player: ViewMut<Player>,
              mut vm_movement: ViewMut<Movement>,
-             mut vm_spell: ViewMut<SpellCast>| {
+             (mut vm_spell, mut vm_nearby_players): (
+                ViewMut<SpellCast>,
+                ViewMut<NearbyPlayers>,
+            )| {
                 let player = Player::load_from_db(
                     session.account_id,
                     char_data.guid,
@@ -285,6 +288,7 @@ impl Map {
                         &mut vm_player,
                         &mut vm_movement,
                         &mut vm_spell,
+                        &mut vm_nearby_players,
                     ),
                     (
                         Guid::new(player_guid.clone(), player.internal_values.clone()),
@@ -322,6 +326,7 @@ impl Map {
                         player,
                         Movement::new(MovementKind::PlayerControlled),
                         SpellCast::new(),
+                        NearbyPlayers::new(), // Player is always nearby a player
                     ),
                 );
 

@@ -4,7 +4,9 @@ use shipyard::{AllStoragesViewMut, Get, IntoIter, IntoWithId, UniqueView, View, 
 
 use crate::{
     datastore::data_types::SpellRecord,
-    ecs::components::{guid::Guid, powers::Powers, spell_cast::SpellCast},
+    ecs::components::{
+        guid::Guid, nearby_players::NearbyPlayers, powers::Powers, spell_cast::SpellCast,
+    },
     entities::player::Player,
     game::{
         map::{Map, WrappedMap},
@@ -22,12 +24,15 @@ pub fn update_spell(vm_all_storages: AllStoragesViewMut) {
          world_context: UniqueView<WrappedWorldContext>,
          spell_effect_handler: UniqueView<WrappedSpellEffectHandler>,
          mut vm_spell: ViewMut<SpellCast>,
-         v_guid: View<Guid>| {
+         v_guid: View<Guid>,
+         v_nearby_players: View<NearbyPlayers>| {
             if !map.0.has_players() {
                 return;
             }
 
-            for (caster_entity_id, (spell, guid)) in (&mut vm_spell, &v_guid).iter().with_id() {
+            for (caster_entity_id, (spell, guid, _)) in
+                (&mut vm_spell, &v_guid, &v_nearby_players).iter().with_id()
+            {
                 if let Some((current_ranged, cast_end)) = spell.current_ranged() {
                     let now = Instant::now();
 

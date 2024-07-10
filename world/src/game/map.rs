@@ -1,6 +1,6 @@
 use std::{
     collections::{HashMap, HashSet, VecDeque},
-    sync::Arc,
+    sync::{atomic::Ordering, Arc},
     thread,
     time::{Duration, Instant},
 };
@@ -27,6 +27,7 @@ use crate::{
             guid::Guid,
             melee::Melee,
             movement::{Movement, MovementKind},
+            nearby_players::NearbyPlayers,
             powers::Powers,
             quest_actor::QuestActor,
             spell_cast::SpellCast,
@@ -390,6 +391,14 @@ impl Map {
                     other_session.create_entity(&player_guid, smsg_create_object);
                 }
 
+                // Make creatures aware of the player's presence
+                self.world()
+                    .run(|vm_nearby_players: ViewMut<NearbyPlayers>| {
+                        if let Ok(nearby_players) = vm_nearby_players.get(other_entity_id) {
+                            nearby_players.count.fetch_add(1, Ordering::Relaxed);
+                        }
+                    });
+
                 // Send nearby entities to the new player
                 let mut smsg_create_object: Option<SmsgCreateObject> = None;
                 {
@@ -509,11 +518,18 @@ impl Map {
              mut vm_int_vals: ViewMut<WrappedInternalValues>,
              mut vm_creature: ViewMut<Creature>,
              mut vm_movement: ViewMut<Movement>,
-             (mut vm_spell, mut vm_quest_actor, mut vm_behavior, mut vm_threat_list): (
+             (
+                mut vm_spell,
+                mut vm_quest_actor,
+                mut vm_behavior,
+                mut vm_threat_list,
+                mut vm_nearby_players,
+            ): (
                 ViewMut<SpellCast>,
                 ViewMut<QuestActor>,
                 ViewMut<Behavior>,
                 ViewMut<ThreatList>,
+                ViewMut<NearbyPlayers>,
             )| {
                 let entity_id = entities.add_entity(
                     (
@@ -526,7 +542,7 @@ impl Map {
                         &mut vm_movement,
                         &mut vm_spell,
                         &mut vm_behavior,
-                        &mut vm_threat_list,
+                        (&mut vm_threat_list, &mut vm_nearby_players),
                     ),
                     (
                         Guid::new(creature_guid.clone(), creature.internal_values.clone()),
@@ -556,7 +572,7 @@ impl Map {
                         SpellCast::new(),
                         // FIXME: Will need different behavior depending on some flags
                         Behavior::new_wild_monster(creature_faction_template),
-                        ThreatList::new(),
+                        (ThreatList::new(), NearbyPlayers::default()),
                     ),
                 );
 
@@ -637,7 +653,9 @@ impl Map {
         v_guid: &View<Guid>,
         vm_wpos: &mut ViewMut<WorldPosition>,
         vm_behavior: &mut ViewMut<Behavior>,
+        vm_nearby_players: &mut ViewMut<NearbyPlayers>,
     ) {
+        let is_moving_entity_a_player = origin_session.is_some();
         let previous_position: Option<Position>;
         {
             let mut tree = self.entities_tree.write();
@@ -782,9 +800,16 @@ impl Map {
                         .map(|os| os.create_entity(&other_guid, smsg));
                 } else {
                     warn!(
-                        "add_player_on_login: unable to generate a SmsgCreateObject for guid {:?}",
+                        "Map::update_entity_position: unable to generate a SmsgCreateObject for guid {:?}",
                         other_entity_id
                     );
+                }
+
+                // Make creatures around the moving player aware of their presence
+                if is_moving_entity_a_player {
+                    if let Ok(nearby_players) = vm_nearby_players.get(other_entity_id) {
+                        nearby_players.count.fetch_add(1, Ordering::Relaxed);
+                    }
                 }
             }
 
@@ -800,6 +825,13 @@ impl Map {
                 origin_session
                     .as_ref()
                     .map(|os| os.destroy_entity(&other_guid));
+
+                // Make creatures around the moving player aware the they moved away
+                if is_moving_entity_a_player {
+                    if let Ok(nearby_players) = vm_nearby_players.get(other_entity_id) {
+                        nearby_players.count.fetch_sub(1, Ordering::Relaxed);
+                    }
+                }
             }
 
             // If a creature is involved (whether it moved or it witnessed another entity moving),

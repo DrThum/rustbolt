@@ -2,6 +2,7 @@ pub mod behavior;
 pub mod guid;
 pub mod melee;
 pub mod movement;
+pub mod nearby_players;
 pub mod powers;
 pub mod quest_actor;
 pub mod spell_cast;

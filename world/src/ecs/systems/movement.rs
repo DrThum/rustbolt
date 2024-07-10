@@ -8,6 +8,7 @@ use crate::{
             behavior::Behavior,
             guid::Guid,
             movement::{Movement, MovementKind},
+            nearby_players::NearbyPlayers,
             powers::Powers,
             threat_list::ThreatList,
             unit::Unit,
@@ -31,12 +32,20 @@ pub fn update_movement(
     v_player: View<Player>,
     v_creature: View<Creature>,
     v_powers: View<Powers>,
-    (mut vm_unit, mut vm_movement, mut vm_wpos, mut vm_threat_list, mut vm_behavior): (
+    (
+        mut vm_unit,
+        mut vm_movement,
+        mut vm_wpos,
+        mut vm_threat_list,
+        mut vm_behavior,
+        mut vm_nearby_players,
+    ): (
         ViewMut<Unit>,
         ViewMut<Movement>,
         ViewMut<WorldPosition>,
         ViewMut<ThreatList>,
         ViewMut<Behavior>,
+        ViewMut<NearbyPlayers>,
     ),
 ) {
     if !map.0.has_players() {
@@ -221,6 +230,7 @@ pub fn update_movement(
             &v_guid,
             &mut vm_wpos,
             &mut vm_behavior,
+            &mut vm_nearby_players,
         );
     }
 }

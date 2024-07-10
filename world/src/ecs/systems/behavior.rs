@@ -1,3 +1,5 @@
+use std::sync::atomic::Ordering;
+
 use shipyard::{
     AllStoragesViewMut, EntityId, Get, IntoIter, IntoWithId, UniqueView, View, ViewMut,
 };
@@ -9,6 +11,7 @@ use crate::{
             guid::Guid,
             melee::Melee,
             movement::{Movement, MovementKind},
+            nearby_players::NearbyPlayers,
             powers::Powers,
             spell_cast::SpellCast,
             threat_list::ThreatList,
@@ -27,6 +30,7 @@ use crate::{
 };
 
 pub fn tick(vm_all_storage: AllStoragesViewMut) {
+    // Don't run on maps with no player
     {
         let map = vm_all_storage.borrow::<UniqueView<WrappedMap>>().unwrap();
         if !map.0.has_players() {
@@ -36,10 +40,16 @@ pub fn tick(vm_all_storage: AllStoragesViewMut) {
 
     let dt = vm_all_storage.borrow::<UniqueView<DeltaTime>>().unwrap();
     let mut vm_behavior = vm_all_storage.borrow::<ViewMut<Behavior>>().unwrap();
-    (&mut vm_behavior)
+    let v_nearby_players = vm_all_storage.borrow::<View<NearbyPlayers>>().unwrap();
+    (&mut vm_behavior, &v_nearby_players)
         .iter()
         .with_id()
-        .for_each(|(entity_id, behavior)| {
+        .for_each(|(entity_id, (behavior, nearby_players))| {
+            // Don't run if no player is nearby
+            if nearby_players.count.load(Ordering::Relaxed) == 0 {
+                return;
+            }
+
             let mut context = BTContext {
                 entity_id,
                 neighbors: behavior.neighbors(),

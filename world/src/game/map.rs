@@ -1,6 +1,6 @@
 use std::{
     collections::{HashMap, HashSet, VecDeque},
-    sync::{atomic::Ordering, Arc},
+    sync::Arc,
     thread,
     time::{Duration, Instant},
 };
@@ -393,10 +393,8 @@ impl Map {
 
                 // Make creatures aware of the player's presence
                 self.world()
-                    .run(|vm_nearby_players: ViewMut<NearbyPlayers>| {
-                        if let Ok(nearby_players) = vm_nearby_players.get(other_entity_id) {
-                            nearby_players.count.fetch_add(1, Ordering::Relaxed);
-                        }
+                    .run(|mut vm_nearby_players: ViewMut<NearbyPlayers>| {
+                        NearbyPlayers::increment(other_entity_id, &mut vm_nearby_players);
                     });
 
                 // Send nearby entities to the new player
@@ -518,18 +516,11 @@ impl Map {
              mut vm_int_vals: ViewMut<WrappedInternalValues>,
              mut vm_creature: ViewMut<Creature>,
              mut vm_movement: ViewMut<Movement>,
-             (
-                mut vm_spell,
-                mut vm_quest_actor,
-                mut vm_behavior,
-                mut vm_threat_list,
-                mut vm_nearby_players,
-            ): (
+             (mut vm_spell, mut vm_quest_actor, mut vm_behavior, mut vm_threat_list): (
                 ViewMut<SpellCast>,
                 ViewMut<QuestActor>,
                 ViewMut<Behavior>,
                 ViewMut<ThreatList>,
-                ViewMut<NearbyPlayers>,
             )| {
                 let entity_id = entities.add_entity(
                     (
@@ -542,7 +533,7 @@ impl Map {
                         &mut vm_movement,
                         &mut vm_spell,
                         &mut vm_behavior,
-                        (&mut vm_threat_list, &mut vm_nearby_players),
+                        &mut vm_threat_list,
                     ),
                     (
                         Guid::new(creature_guid.clone(), creature.internal_values.clone()),
@@ -572,7 +563,7 @@ impl Map {
                         SpellCast::new(),
                         // FIXME: Will need different behavior depending on some flags
                         Behavior::new_wild_monster(creature_faction_template),
-                        (ThreatList::new(), NearbyPlayers::default()),
+                        ThreatList::new(),
                     ),
                 );
 
@@ -807,9 +798,7 @@ impl Map {
 
                 // Make creatures around the moving player aware of their presence
                 if is_moving_entity_a_player {
-                    if let Ok(nearby_players) = vm_nearby_players.get(other_entity_id) {
-                        nearby_players.count.fetch_add(1, Ordering::Relaxed);
-                    }
+                    NearbyPlayers::increment(other_entity_id, vm_nearby_players);
                 }
             }
 
@@ -828,9 +817,7 @@ impl Map {
 
                 // Make creatures around the moving player aware the they moved away
                 if is_moving_entity_a_player {
-                    if let Ok(nearby_players) = vm_nearby_players.get(other_entity_id) {
-                        nearby_players.count.fetch_sub(1, Ordering::Relaxed);
-                    }
+                    NearbyPlayers::decrement(other_entity_id, vm_nearby_players);
                 }
             }
 

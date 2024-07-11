@@ -54,10 +54,15 @@ pub fn update_movement(
 
     let mut map_pending_updates: Vec<(&ObjectGuid, EntityId, Position)> = Vec::new();
 
-    for (entity_id, (guid, movement, my_wpos, powers)) in
-        (&v_guid, &mut vm_movement, &vm_wpos, &v_powers)
-            .iter()
-            .with_id()
+    for (entity_id, (guid, movement, my_wpos, powers, _)) in (
+        &v_guid,
+        &mut vm_movement,
+        &vm_wpos,
+        &v_powers,
+        &vm_nearby_players,
+    )
+        .iter()
+        .with_id()
     {
         // Reset expired movements after one tick
         movement.recently_expired_movement_kinds.clear();

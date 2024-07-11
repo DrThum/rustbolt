@@ -1,7 +1,10 @@
 use shipyard::{Get, IntoIter, UniqueView, View, ViewMut};
 
 use crate::{
-    ecs::components::{guid::Guid, powers::Powers, threat_list::ThreatList, unit::Unit},
+    ecs::components::{
+        guid::Guid, nearby_players::NearbyPlayers, powers::Powers, threat_list::ThreatList,
+        unit::Unit,
+    },
     entities::player::Player,
     game::map::WrappedMap,
 };
@@ -64,13 +67,20 @@ pub fn select_target(
     map: UniqueView<WrappedMap>,
     mut vm_unit: ViewMut<Unit>,
     mut vm_threat_list: ViewMut<ThreatList>,
+    v_nearby_players: View<NearbyPlayers>,
     v_guid: View<Guid>,
 ) {
     if !map.0.has_players() {
         return;
     }
 
-    for (unit, threat_list, powers) in (&mut vm_unit, &mut vm_threat_list, &v_powers).iter()
+    for (unit, threat_list, powers, _) in (
+        &mut vm_unit,
+        &mut vm_threat_list,
+        &v_powers,
+        &v_nearby_players,
+    )
+        .iter()
     {
         // Reset our target and threat list if we're dead
         if !powers.is_alive() {

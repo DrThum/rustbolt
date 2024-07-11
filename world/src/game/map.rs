@@ -842,8 +842,6 @@ impl Map {
 
             // If a creature is involved (whether it moved or it witnessed another entity moving),
             // inform its behavior tree that a neighbor has moved (for aggro, script, etc)
-
-            // TODO: try to refactor these 2 for's into one
             for &neighbor in in_range_now.iter() {
                 if let Ok(mut source_behavior) = vm_behavior.get(mover_entity_id) {
                     source_behavior.neighbor_moved(neighbor);

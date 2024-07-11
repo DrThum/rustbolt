@@ -1,7 +1,7 @@
 use shipyard::{IntoIter, UniqueView, View};
 
 use crate::{
-    ecs::components::guid::Guid,
+    ecs::components::{guid::Guid, nearby_players::NearbyPlayers},
     entities::{
         internal_values::WrappedInternalValues,
         player::Player,
@@ -18,12 +18,15 @@ pub fn send_entity_update(
     v_guid: View<Guid>,
     v_int_vals: View<WrappedInternalValues>,
     v_wpos: View<WorldPosition>,
+    v_nearby_players: View<NearbyPlayers>,
 ) {
     if !map.0.has_players() {
         return;
     }
 
-    for (guid, wrapped_int_vals, wpos) in (&v_guid, &v_int_vals, &v_wpos).iter() {
+    for (guid, wrapped_int_vals, wpos, _) in
+        (&v_guid, &v_int_vals, &v_wpos, &v_nearby_players).iter()
+    {
         let mut internal_values = wrapped_int_vals.0.write();
         if internal_values.has_dirty() {
             for session in map.0.sessions_nearby_position(

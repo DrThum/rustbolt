@@ -801,9 +801,16 @@ impl Map {
                     );
                 }
 
-                // Make creatures around the moving player aware of their presence
+                // If a player appeared, increment the NearbyPlayers counter for the creature
                 if is_moving_entity_a_player {
                     NearbyPlayers::increment(other_entity_id, vm_nearby_players);
+                }
+                // If a creature moved within visibility distance of a player, increment the
+                // NearbyPlayers counter for the creature
+                else {
+                    if let Ok(_) = v_player.get(other_entity_id) {
+                        NearbyPlayers::increment(mover_entity_id, vm_nearby_players);
+                    }
                 }
             }
 
@@ -820,9 +827,16 @@ impl Map {
                     .as_ref()
                     .map(|os| os.destroy_entity(&other_guid));
 
-                // Make creatures around the moving player aware the they moved away
+                // If a player moved away, decrement the NearbyPlayers counter for the creature
                 if is_moving_entity_a_player {
                     NearbyPlayers::decrement(other_entity_id, vm_nearby_players);
+                }
+                // If a creature moved away from a player, decrement the NearbyPlayers counter for
+                // the creature
+                else {
+                    if let Ok(_) = v_player.get(other_entity_id) {
+                        NearbyPlayers::decrement(mover_entity_id, vm_nearby_players);
+                    }
                 }
             }
 

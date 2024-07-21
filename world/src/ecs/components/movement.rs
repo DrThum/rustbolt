@@ -222,7 +222,7 @@ impl Movement {
         mover_guid: &ObjectGuid,
         map: Arc<Map>,
         starting_position: &Vector3,
-        destination: WorldPosition,
+        destination: WorldPosition, // TODO: Find a way to remove this parameter
         velocity: f32,
         linear: bool,
     ) -> Duration {

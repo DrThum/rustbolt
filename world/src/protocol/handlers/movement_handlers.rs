@@ -5,6 +5,7 @@ use shipyard::{View, ViewMut};
 use crate::{
     ecs::components::{
         behavior::Behavior, guid::Guid, movement::Movement, nearby_players::NearbyPlayers,
+        unwind::Unwind,
     },
     entities::{creature::Creature, player::Player, position::WorldPosition},
     protocol::{client::ClientMessage, opcodes::Opcode, packets::MovementInfo},
@@ -33,7 +34,8 @@ impl OpcodeHandler {
                  v_guid: View<Guid>,
                  mut vm_wpos: ViewMut<WorldPosition>,
                  mut vm_behavior: ViewMut<Behavior>,
-                 mut vm_nearby_players: ViewMut<NearbyPlayers>| {
+                 mut vm_nearby_players: ViewMut<NearbyPlayers>,
+                 mut vm_unwind: ViewMut<Unwind>| {
                     map.update_entity_position(
                         &player_guid,
                         session.player_entity_id().unwrap(),
@@ -46,6 +48,7 @@ impl OpcodeHandler {
                         &mut vm_wpos,
                         &mut vm_behavior,
                         &mut vm_nearby_players,
+                        &mut vm_unwind,
                     );
                 },
             );

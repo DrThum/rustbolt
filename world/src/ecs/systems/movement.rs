@@ -12,6 +12,7 @@ use crate::{
             powers::Powers,
             threat_list::ThreatList,
             unit::Unit,
+            unwind::Unwind,
         },
         resources::DeltaTime,
     },
@@ -39,6 +40,7 @@ pub fn update_movement(
         mut vm_threat_list,
         mut vm_behavior,
         mut vm_nearby_players,
+        mut vm_unwind,
     ): (
         ViewMut<Unit>,
         ViewMut<Movement>,
@@ -46,6 +48,7 @@ pub fn update_movement(
         ViewMut<ThreatList>,
         ViewMut<Behavior>,
         ViewMut<NearbyPlayers>,
+        ViewMut<Unwind>,
     ),
 ) {
     if !map.0.has_players() {
@@ -128,9 +131,7 @@ pub fn update_movement(
                     let distance_to_home = creature.spawn_position.distance_to(my_wpos, true);
                     if distance_to_home > CREATURE_LEASH_DISTANCE {
                         should_stop_chasing = true;
-                    }
-
-                    if let Ok(powers) = v_powers.get(target_entity_id) {
+                    } else if let Ok(powers) = v_powers.get(target_entity_id) {
                         if !powers.is_alive() {
                             should_stop_chasing = true;
                         }
@@ -236,6 +237,7 @@ pub fn update_movement(
             &mut vm_wpos,
             &mut vm_behavior,
             &mut vm_nearby_players,
+            &mut vm_unwind,
         );
     }
 }

@@ -33,9 +33,10 @@ use crate::{
             spell_cast::SpellCast,
             threat_list::ThreatList,
             unit::Unit,
+            unwind::Unwind,
         },
         resources::DeltaTime,
-        systems::{behavior, combat, inventory, melee, movement, powers, spell, updates},
+        systems::{behavior, combat, inventory, melee, movement, powers, spell, unwind, updates},
     },
     entities::{
         creature::Creature,
@@ -97,6 +98,7 @@ impl Map {
 
         let workload = || {
             (
+                unwind::unwind_creatures,
                 updates::update_attributes_from_modifiers, // Must be before regenerate_powers
                 movement::update_movement,
                 combat::update_combat_state,
@@ -650,6 +652,7 @@ impl Map {
         vm_wpos: &mut ViewMut<WorldPosition>,
         vm_behavior: &mut ViewMut<Behavior>,
         vm_nearby_players: &mut ViewMut<NearbyPlayers>,
+        vm_unwind: &mut ViewMut<Unwind>,
     ) {
         let is_moving_entity_a_player = origin_session.is_some();
         let previous_position: Option<Position>;
@@ -829,13 +832,13 @@ impl Map {
 
                 // If a player moved away, decrement the NearbyPlayers counter for the creature
                 if is_moving_entity_a_player {
-                    NearbyPlayers::decrement(other_entity_id, vm_nearby_players);
+                    NearbyPlayers::decrement(other_entity_id, vm_nearby_players, vm_unwind);
                 }
                 // If a creature moved away from a player, decrement the NearbyPlayers counter for
                 // the creature
                 else {
                     if let Ok(_) = v_player.get(other_entity_id) {
-                        NearbyPlayers::decrement(mover_entity_id, vm_nearby_players);
+                        NearbyPlayers::decrement(mover_entity_id, vm_nearby_players, vm_unwind);
                     }
                 }
             }

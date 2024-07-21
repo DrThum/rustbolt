@@ -43,6 +43,7 @@ pub struct Movement {
     pub speed_turn: f32,
     spline: MovementSpline,
     // Movements that expired during the latest tick
+    // NOTE: Doesn't seem in use anymore
     pub recently_expired_movement_kinds: Vec<MovementKind>,
     // Acts like a stack, the top of the stack is at the end of the Vec
     current_movement_kinds: Vec<MovementKind>,

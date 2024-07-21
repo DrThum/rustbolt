@@ -127,9 +127,8 @@ impl TerrainBlock {
         let filename = format!("{}/terrain/{}_{}_{}.terrain", data_dir, map_name, row, col);
         if let Ok(mut f) = fs::File::open(&filename) {
             let metadata = fs::metadata(&filename).expect("unable to read terrain file metadata");
-            let mut buffer = Vec::new();
-            buffer.resize(metadata.len() as usize, 0);
-            f.read(&mut buffer).unwrap();
+            let mut buffer = vec![0; metadata.len() as usize];
+            f.read_exact(&mut buffer).unwrap();
 
             let mut reader = Cursor::new(buffer);
             let terrain_block: TerrainBlock = reader.read_le().unwrap();

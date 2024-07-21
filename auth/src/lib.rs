@@ -66,12 +66,12 @@ impl<S> AuthState<S> {
         match self.socket.read(&mut buf).await {
             Ok(0) => {
                 trace!("Client disconnected");
-                return Err(AuthError::ClientDisconnected);
+                Err(AuthError::ClientDisconnected)
             }
             Ok(_) => Ok(buf),
             Err(e) => {
                 error!("Socket error, closing");
-                return Err(AuthError::SocketError(e));
+                Err(AuthError::SocketError(e))
             }
         }
     }
@@ -90,7 +90,7 @@ impl AuthState<SocketOpened> {
 
         let mut writer = Cursor::new(Vec::new());
         writer.write_le(&cmd_auth_logon_challenge_server)?;
-        self.socket.write(writer.get_ref()).await?;
+        self.socket.write_all(writer.get_ref()).await?;
         trace!("Sent auth logon challenge (server)");
 
         let new_state = AuthState {
@@ -128,7 +128,7 @@ impl AuthState<ServerSentLogonChallenge> {
 
         let mut writer = Cursor::new(Vec::new());
         writer.write_le(&cmd_auth_logon_proof_server)?;
-        self.socket.write(writer.get_ref()).await?;
+        self.socket.write_all(writer.get_ref()).await?;
         trace!("Sent auth logon proof (server)");
 
         let new_state = AuthState {
@@ -148,17 +148,17 @@ impl AuthState<ClientAuthenticated> {
         trace!("Received {:?}", cmd_realm_list_client);
 
         let cmd_realm_list_server = CmdRealmListServer {
-            _opcode: packets::Opcode::CmdRealmList,
-            _size: 8 + realms.iter().fold(0, |acc, r| acc + r.size()),
-            _padding: 0,
-            _num_realms: realms.len().try_into().unwrap(),
-            _realms: &*realms,
-            _padding_footer: 0,
+            opcode: packets::Opcode::CmdRealmList,
+            size: 8 + realms.iter().fold(0, |acc, r| acc + r.size()),
+            padding: 0,
+            num_realms: realms.len().try_into().unwrap(),
+            realms,
+            padding_footer: 0,
         };
 
         let mut writer = Cursor::new(Vec::new());
         writer.write_le(&cmd_realm_list_server)?;
-        self.socket.write(writer.get_ref()).await?;
+        self.socket.write_all(writer.get_ref()).await?;
         trace!("Sent realm list (server)");
 
         Ok(())

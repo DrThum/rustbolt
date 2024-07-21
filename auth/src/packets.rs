@@ -7,6 +7,7 @@ use wow_srp::{
 #[binrw]
 #[brw(repr(u8))]
 #[derive(Debug)]
+#[allow(clippy::enum_variant_names)]
 pub enum Opcode {
     CmdAuthLogonChallenge = 0x00,
     CmdAuthLogonProof = 0x01,
@@ -175,21 +176,21 @@ pub enum RealmFlag {
 #[binwrite]
 #[derive(Debug)]
 pub struct Realm {
-    pub _realm_type: RealmType,
+    pub realm_type: RealmType,
     #[bw(map = |l: &bool| if *l { 1_u8 } else { 0_u8 })]
-    pub _locked: bool,
-    pub _realm_flags: u8,
-    pub _realm_name: NullString,
-    pub _address_port: NullString,
-    pub _population: f32,
-    pub _num_chars: u8,
-    pub _realm_category: u8, // https://github.com/mangosone/server/blob/d62fdfe93b96bef5daa36433116d2f0eeb9fc3d0/src/game/WorldHandlers/World.h#L411-L452
-    pub _realm_id: u8,
+    pub locked: bool,
+    pub realm_flags: u8,
+    pub realm_name: NullString,
+    pub address_port: NullString,
+    pub population: f32,
+    pub num_chars: u8,
+    pub realm_category: u8, // https://github.com/mangosone/server/blob/d62fdfe93b96bef5daa36433116d2f0eeb9fc3d0/src/game/WorldHandlers/World.h#L411-L452
+    pub realm_id: u8,
 }
 
 impl Realm {
     pub fn size(&self) -> u16 {
-        (10 + self._realm_name.len() + 1 + self._address_port.len() + 1)
+        (10 + self.realm_name.len() + 1 + self.address_port.len() + 1)
             .try_into()
             .unwrap()
     }
@@ -198,10 +199,10 @@ impl Realm {
 #[binwrite]
 #[derive(Debug)]
 pub struct CmdRealmListServer<'a> {
-    pub _opcode: Opcode,
-    pub _size: u16,
-    pub _padding: u32,
-    pub _num_realms: u16,
-    pub _realms: &'a Vec<Realm>,
-    pub _padding_footer: u16,
+    pub opcode: Opcode,
+    pub size: u16,
+    pub padding: u32,
+    pub num_realms: u16,
+    pub realms: &'a Vec<Realm>,
+    pub padding_footer: u16,
 }

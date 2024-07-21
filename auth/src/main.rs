@@ -73,15 +73,15 @@ fn load_realms_from_db(conn: &mut Connection) -> Arc<Vec<Realm>> {
             let address: String = row.get("address")?;
 
             Ok(Realm {
-                _realm_type: realm_type,
-                _locked: locked,
-                _realm_flags: row.get("flags")?,
-                _realm_name: realm_name.try_into().unwrap(),
-                _address_port: address.try_into().unwrap(),
-                _population: row.get("population")?,
-                _num_chars: 1,
-                _realm_category: row.get("category")?,
-                _realm_id: row.get("id")?,
+                realm_type,
+                locked,
+                realm_flags: row.get("flags")?,
+                realm_name: realm_name.into(),
+                address_port: address.into(),
+                population: row.get("population")?,
+                num_chars: 1,
+                realm_category: row.get("category")?,
+                realm_id: row.get("id")?,
             })
         })
         .unwrap();

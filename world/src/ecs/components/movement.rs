@@ -121,7 +121,7 @@ impl Movement {
         mover_guid: &ObjectGuid,
         map: Arc<Map>,
         starting_position: &Vector3,
-        path: &Vec<Vector3>,
+        path: &[Vector3],
         velocity: f32,
         linear: bool,
     ) -> Duration {
@@ -241,7 +241,7 @@ impl Movement {
         self.spline.state() == MovementSplineState::Moving
     }
 
-    pub fn previous_movement_kind(&self) -> &Vec<MovementKind> {
+    pub fn previous_movement_kind(&self) -> &[MovementKind] {
         &self.recently_expired_movement_kinds
     }
 

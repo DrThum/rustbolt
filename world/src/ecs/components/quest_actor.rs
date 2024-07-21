@@ -43,7 +43,7 @@ impl QuestActor {
         }
     }
 
-    pub fn quests_started(&self) -> &Vec<u32> {
+    pub fn quests_started(&self) -> &[u32] {
         &self.starts
     }
 
@@ -51,7 +51,7 @@ impl QuestActor {
         self.starts.contains(&quest_id)
     }
 
-    pub fn quests_ended(&self) -> &Vec<u32> {
+    pub fn quests_ended(&self) -> &[u32] {
         &self.ends
     }
 

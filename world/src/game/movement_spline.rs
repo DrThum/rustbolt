@@ -39,7 +39,7 @@ impl MovementSpline {
     pub fn init(
         &mut self,
         starting_position: &Vector3,
-        path: &Vec<Vector3>,
+        path: &[Vector3],
         velocity: f32,
         linear: bool,
     ) -> Duration {
@@ -134,7 +134,7 @@ impl MovementSpline {
     }
 
     // Calculates the length of each segment depending on the type of path (linear or catmull-rom)
-    fn segments_length(starting_position: &Vector3, path: &Vec<Vector3>, linear: bool) -> Vec<f32> {
+    fn segments_length(starting_position: &Vector3, path: &[Vector3], linear: bool) -> Vec<f32> {
         let mut lengths: Vec<f32> = vec![0.; path.len()];
 
         if linear {

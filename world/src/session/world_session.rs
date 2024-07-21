@@ -343,7 +343,7 @@ impl WorldSession {
     }
 
     pub fn send_initial_spells(&self, player: &Player) {
-        let spells: Vec<u32> = player.spells().clone();
+        let spells: Vec<u32> = player.spells().to_vec();
         let packet = ServerMessage::new(SmsgInitialSpells::new(spells, Vec::new() /* TODO */));
         self.send(&packet).unwrap();
     }

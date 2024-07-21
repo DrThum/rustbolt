@@ -63,7 +63,7 @@ impl Loot {
         })
     }
 
-    pub fn items(&self) -> &Vec<ItemInLoot> {
+    pub fn items(&self) -> &[ItemInLoot] {
         &self.items
     }
 

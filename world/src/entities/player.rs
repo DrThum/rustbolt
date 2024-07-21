@@ -646,7 +646,7 @@ impl Player {
         }
     }
 
-    pub fn spells(&self) -> &Vec<u32> {
+    pub fn spells(&self) -> &[u32] {
         &self.spells
     }
 

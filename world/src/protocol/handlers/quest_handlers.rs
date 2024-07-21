@@ -38,14 +38,14 @@ impl OpcodeHandler {
                         })
                     });
 
-            maybe_status.map(|status| {
+            if let Some(status) = maybe_status {
                 let packet = ServerMessage::new(SmsgQuestGiverStatus {
                     guid: cmsg.guid,
                     status,
                 });
 
                 session.send(&packet).unwrap();
-            });
+            };
         }
     }
 

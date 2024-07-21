@@ -49,7 +49,7 @@ fn main() {
         config.common.data.directory
     ))
     .with_init(move |c| {
-        if let Ok(_) = mutex.try_acquire() {
+        if mutex.try_acquire().is_ok() {
             embedded_characters::migrations::runner().run(c).unwrap();
         }
         Ok(())
@@ -64,7 +64,7 @@ fn main() {
         config.common.data.directory
     ))
     .with_init(move |c| {
-        if let Ok(_) = mutex.try_acquire() {
+        if mutex.try_acquire().is_ok() {
             embedded_world::migrations::runner().run(c).unwrap();
         }
         Ok(())

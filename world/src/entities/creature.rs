@@ -98,11 +98,11 @@ impl Creature {
                     CharacterClass::Rogue => values.set_u8(UnitFields::UnitFieldBytes0.into(), 3, PowerType::Energy as u8),
                     CharacterClass::Paladin | CharacterClass::Mage => {
                         values.set_u8(UnitFields::UnitFieldBytes0.into(), 3, PowerType::Mana as u8);
-                        data_store.get_creature_base_attributes(template.unit_class, selected_level).map(|attrs| {
+                        if let Some(attrs) = data_store.get_creature_base_attributes(template.unit_class, selected_level) {
                             values.set_u32(UnitFields::UnitFieldBaseMana.into(), attrs.mana);
                             values.set_u32(UnitFields::UnitFieldPower1.into(), attrs.mana);
                             values.set_u32(UnitFields::UnitFieldMaxPower1.into(), attrs.mana);
-                        });
+                        };
                     },
 
                     _ => (),

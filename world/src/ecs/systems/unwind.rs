@@ -44,7 +44,7 @@ pub fn unwind_creatures(
             .with_id()
     {
         movement.reset();
-        unwinding_update_data.push((guid.0, my_entity_id, me.spawn_position.to_position()));
+        unwinding_update_data.push((guid.0, my_entity_id, me.spawn_position.as_position()));
     }
 
     // Teleport back to our spawn

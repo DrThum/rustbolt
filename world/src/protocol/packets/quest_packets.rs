@@ -88,7 +88,7 @@ pub struct QuestDetailsEmote {
 
 #[binread]
 pub struct CmsgQuestGiverAcceptQuest {
-    pub guid: u64,
+    _guid: u64,
     pub quest_id: u32,
 }
 

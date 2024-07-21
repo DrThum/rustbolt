@@ -199,7 +199,7 @@ impl MapManager {
         let maps_guard = self.maps.read();
         if let Some(map) = maps_guard.get(&world_position.map_key) {
             let sessions = &mut map.sessions_nearby_position(
-                &world_position.to_position(),
+                &world_position.as_position(),
                 map.visibility_distance(),
                 true,
                 None,

@@ -122,8 +122,7 @@ impl DbcTypedRecord for CharStartOutfitRecord {
             // where outfit_id is always 0
             let key = record.fields[1].as_u32;
 
-            let mut items: Vec<CharStartItem> = Vec::new();
-            items.reserve(MAX_OUTFIT_ITEMS);
+            let mut items: Vec<CharStartItem> = Vec::with_capacity(MAX_OUTFIT_ITEMS);
             for index in 0..MAX_OUTFIT_ITEMS {
                 if record.fields[2 + index].as_i32 < 1 {
                     // 0 and -1 represent empty slots
@@ -418,24 +417,15 @@ impl DbcTypedRecord for MapRecord {
 
 impl MapRecord {
     pub fn is_instanceable(&self) -> bool {
-        match self.map_type {
-            MapType::Common => false,
-            _ => true,
-        }
+        !matches!(self.map_type, MapType::Common)
     }
 
     pub fn is_continent(&self) -> bool {
-        match self.id {
-            0 | 1 | 530 => true,
-            _ => false,
-        }
+        matches!(self.id, 0 | 1 | 530)
     }
 
     pub fn is_dungeon(&self) -> bool {
-        match self.map_type {
-            MapType::Instance | MapType::Raid => true,
-            _ => false,
-        }
+        matches!(self.map_type, MapType::Instance | MapType::Raid)
     }
 }
 
@@ -711,8 +701,12 @@ impl DbcTypedRecord for SpellRecord {
                 base_level: record.fields[32].as_u32,
                 spell_level: record.fields[33].as_u32,
                 duration_index: record.fields[34].as_u32,
-                power_type: PowerType::n(record.fields[35].as_i32).unwrap_or_else(|| panic!("unknown power type {} for spell {}",
-                        record.fields[35].as_u32, key)),
+                power_type: PowerType::n(record.fields[35].as_i32).unwrap_or_else(|| {
+                    panic!(
+                        "unknown power type {} for spell {}",
+                        record.fields[35].as_u32, key
+                    )
+                }),
                 mana_cost: record.fields[36].as_u32,
                 mana_cost_perlevel: record.fields[37].as_u32,
                 mana_per_second: record.fields[38].as_u32,
@@ -962,8 +956,12 @@ impl DbcTypedRecord for SkillLineRecord {
             let record = SkillLineRecord {
                 id: SkillType::n(record.fields[0].as_u32)
                     .expect("invalid skill_id in SkillLine.dbc"),
-                category: SkillCategory::n(record.fields[1].as_i32).unwrap_or_else(|| panic!("invalid skill_category_id {} in SkillLine.dbc (record {})",
-                    record.fields[1].as_i32, record.fields[0].as_u32)),
+                category: SkillCategory::n(record.fields[1].as_i32).unwrap_or_else(|| {
+                    panic!(
+                        "invalid skill_category_id {} in SkillLine.dbc (record {})",
+                        record.fields[1].as_i32, record.fields[0].as_u32
+                    )
+                }),
                 name: strings
                     .get(record.fields[3].as_u32 as usize)
                     .expect("invalid name found in SkillLine.dbc"),
@@ -1004,8 +1002,14 @@ impl DbcTypedRecord for SkillLineAbilityRecord {
                 class_mask: BitFlags::from_bits_unchecked(record.fields[4].as_u32),
                 required_skill_value: record.fields[7].as_u32,
                 forward_spell_id: record.fields[8].as_u32,
-                learn_on_get_skill: AbilityLearnType::n(record.fields[9].as_u32).unwrap_or_else(|| panic!("invalid learn_on_get_skill {} found in SkillLineAbility.dbc",
-                    record.fields[9].as_u32)),
+                learn_on_get_skill: AbilityLearnType::n(record.fields[9].as_u32).unwrap_or_else(
+                    || {
+                        panic!(
+                            "invalid learn_on_get_skill {} found in SkillLineAbility.dbc",
+                            record.fields[9].as_u32
+                        )
+                    },
+                ),
                 max_value: record.fields[10].as_u32,
                 min_value: record.fields[11].as_u32,
                 required_train_points: record.fields[14].as_u32,

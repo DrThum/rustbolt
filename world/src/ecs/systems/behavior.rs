@@ -163,7 +163,7 @@ fn action_attack_in_melee(ctx: &mut BTContext) -> NodeStatus {
             map,
             world_context,
             v_guid,
-            mut vm_wpos,
+            v_wpos,
             v_spell,
             v_creature,
             mut vm_unit,
@@ -174,7 +174,7 @@ fn action_attack_in_melee(ctx: &mut BTContext) -> NodeStatus {
             UniqueView<WrappedMap>,
             UniqueView<WrappedWorldContext>,
             View<Guid>,
-            ViewMut<WorldPosition>,
+            View<WorldPosition>,
             View<SpellCast>,
             View<Creature>,
             ViewMut<Unit>,
@@ -187,7 +187,7 @@ fn action_attack_in_melee(ctx: &mut BTContext) -> NodeStatus {
                 map.0.clone(),
                 world_context.0.data_store.clone(),
                 &v_guid,
-                &mut vm_wpos,
+                &v_wpos,
                 &v_spell,
                 &v_creature,
                 &mut vm_unit,
@@ -281,7 +281,7 @@ fn action_respawn(ctx: &mut BTContext) -> NodeStatus {
             };
 
             let mut position = v_wpos[ctx.entity_id];
-            position.update_local(&creature.spawn_position.to_position());
+            position.update_local(&creature.spawn_position.as_position());
 
             v_powers[ctx.entity_id].heal_to_max();
 

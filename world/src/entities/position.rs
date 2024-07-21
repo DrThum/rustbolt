@@ -62,7 +62,7 @@ pub struct WorldPosition {
 }
 
 impl WorldPosition {
-    pub fn to_position(&self) -> Position {
+    pub fn as_position(&self) -> Position {
         Position {
             x: self.x,
             y: self.y,

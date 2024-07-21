@@ -7,7 +7,7 @@ pub struct Spell {
     power_cost: u32,
 }
 
-impl<'a> Spell {
+impl Spell {
     pub fn new(id: u32, caster: EntityId, target: EntityId, power_cost: u32) -> Self {
         Self {
             id,

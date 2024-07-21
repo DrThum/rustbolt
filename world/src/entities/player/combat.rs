@@ -105,36 +105,33 @@ impl Player {
             if let Some((objective_index, required_count)) =
                 quest_template.creature_requirements(creature_entry)
             {
-                match (ctx.status, ctx.slot) {
-                    (PlayerQuestStatus::InProgress, Some(slot)) => {
-                        let current_count = ctx.entity_counts[objective_index];
-                        if current_count < required_count {
-                            let new_count = (current_count + 1).min(required_count);
-                            ctx.entity_counts[objective_index] = new_count;
+                if let (PlayerQuestStatus::InProgress, Some(slot)) = (ctx.status, ctx.slot) {
+                    let current_count = ctx.entity_counts[objective_index];
+                    if current_count < required_count {
+                        let new_count = (current_count + 1).min(required_count);
+                        ctx.entity_counts[objective_index] = new_count;
 
-                            {
-                                let mut values_guard = self.internal_values.write();
-                                let index = UnitFields::PlayerQuestLog1_1 as usize
-                                    + (slot * QUEST_SLOT_OFFSETS_COUNT
-                                        + QuestSlotOffset::Counters as usize);
+                        {
+                            let mut values_guard = self.internal_values.write();
+                            let index = UnitFields::PlayerQuestLog1_1 as usize
+                                + (slot * QUEST_SLOT_OFFSETS_COUNT
+                                    + QuestSlotOffset::Counters as usize);
 
-                                values_guard.set_u8(index, objective_index, new_count as u8);
-                            }
-
-                            let packet = ServerMessage::new(SmsgQuestUpdateAddKill {
-                                quest_id: quest_template.entry,
-                                entity_id: creature_entry,
-                                new_count,
-                                required_count,
-                                guid: creature_guid.raw(),
-                            });
-
-                            self.session.send(&packet).unwrap();
-
-                            updated_quests.push(quest_template.clone());
+                            values_guard.set_u8(index, objective_index, new_count as u8);
                         }
+
+                        let packet = ServerMessage::new(SmsgQuestUpdateAddKill {
+                            quest_id: quest_template.entry,
+                            entity_id: creature_entry,
+                            new_count,
+                            required_count,
+                            guid: creature_guid.raw(),
+                        });
+
+                        self.session.send(&packet).unwrap();
+
+                        updated_quests.push(quest_template.clone());
                     }
-                    _ => (),
                 }
             }
         });

@@ -308,10 +308,7 @@ pub enum MovementKind {
 
 impl MovementKind {
     pub fn is_random(&self) -> bool {
-        match self {
-            MovementKind::Random { cooldown_end: _ } => true,
-            _ => false,
-        }
+        matches!(self, MovementKind::Random { cooldown_end: _ })
     }
 }
 

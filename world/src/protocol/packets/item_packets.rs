@@ -18,7 +18,7 @@ pub struct CmsgItemQuerySingle {
 #[binread]
 pub struct CmsgItemNameQuery {
     pub item_id: u32,
-    pub item_guid: u64,
+    _item_guid: u64,
 }
 
 #[binwrite]
@@ -85,8 +85,8 @@ impl FromSql for ItemTemplateStatType {
     fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
         let value = value.as_i64()?;
         Self::n(value).ok_or(FromSqlError::Other(
-                "invalid stat type on item template".into(),
-            ))
+            "invalid stat type on item template".into(),
+        ))
     }
 }
 
@@ -235,17 +235,17 @@ pub struct SmsgItemPushResult {
 
 #[binread]
 pub struct CmsgDestroyItem {
-    pub bag: u8,
+    _bag: u8,
     pub slot: u8,
-    pub amount: u8,
-    pub unk1: u8,
-    pub unk2: u8,
-    pub unk3: u8,
+    _amount: u8,
+    _unk1: u8,
+    _unk2: u8,
+    _unk3: u8,
 }
 
 #[binread]
 pub struct CmsgAutoEquipItem {
-    pub bag: u8,
+    _bag: u8,
     pub slot: u8,
 }
 
@@ -293,9 +293,9 @@ impl SmsgInventoryChangeFailure {
 
 #[binread]
 pub struct CmsgSplitItem {
-    pub source_bag: u8,
+    _source_bag: u8,
     pub source_slot: u8,
-    pub destination_bag: u8,
+    _destination_bag: u8,
     pub destination_slot: u8,
     pub count: u8,
 }

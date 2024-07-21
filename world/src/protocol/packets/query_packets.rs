@@ -31,7 +31,7 @@ pub struct SmsgNameQueryResponse {
 #[binread]
 pub struct CmsgCreatureQuery {
     pub entry: u32,
-    pub guid: u64,
+    _guid: u64,
 }
 
 #[binwrite]
@@ -68,7 +68,7 @@ impl ServerMessagePayload<{ Opcode::SmsgCreatureQueryResponse as u16 }>
 #[binread]
 pub struct CmsgNpcTextQuery {
     pub text_id: u32,
-    pub guid: u64,
+    _guid: u64,
 }
 
 #[binwrite]

@@ -13,9 +13,9 @@ pub struct CmsgMessageChat {
     #[br(map = |ct: u32| Language::n(ct).expect("non-existing Language"))]
     pub language: Language,
     #[br(if(chat_type == ChatMessageType::Whisper))]
-    pub recipient: Option<NullString>,
+    _recipient: Option<NullString>,
     #[br(if(chat_type == ChatMessageType::Channel))]
-    pub channel: Option<NullString>,
+    _channel: Option<NullString>,
     pub msg: NullString,
 }
 

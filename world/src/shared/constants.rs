@@ -646,7 +646,7 @@ pub enum MapType {
     Arena = 4,
 }
 
-#[allow(dead_code)]
+#[allow(dead_code, clippy::enum_clike_unportable_variant)]
 #[derive(N, PartialEq, Debug, Clone, Copy)]
 pub enum ChatMessageType {
     Addon = 0xFFFFFFFF,

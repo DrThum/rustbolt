@@ -159,7 +159,9 @@ impl PlayerInventory {
         let destination_item = self.remove(destination_slot);
 
         self.move_item(source_slot, destination_slot);
-        if let Some(destination_item) = destination_item { self.set(source_slot, destination_item); }
+        if let Some(destination_item) = destination_item {
+            self.set(source_slot, destination_item);
+        }
     }
 
     pub fn move_item(&mut self, source_slot: u32, destination_slot: u32) {
@@ -199,7 +201,7 @@ impl PlayerInventory {
     }
 
     pub fn mark_saved(&mut self) {
-        for (_, item) in &mut self.items {
+        for item in self.items.values_mut() {
             item.mark_saved();
         }
     }
@@ -284,7 +286,8 @@ impl PlayerInventory {
     }
 
     pub fn find_first_free_slot(&self) -> Option<u32> {
-        (InventorySlot::BACKPACK_START..InventorySlot::BACKPACK_END).find(|&slot| !self.items.contains_key(&slot))
+        (InventorySlot::BACKPACK_START..InventorySlot::BACKPACK_END)
+            .find(|&slot| !self.items.contains_key(&slot))
     }
 
     fn update_visible_bits(&self, slot: u32, item_entry: u32) {
@@ -324,12 +327,13 @@ impl PlayerInventory {
             let mut attr_mod = self.attribute_modifiers.write();
             // Stats: both generic (stam, spirit, intel, ...) and green modifiers
             for stat in &item_template.stats {
-                if let Some(attribute_modifier) = stat.stat_type
-                    .as_attribute_modifier() { attr_mod.add_modifier(
-                            attribute_modifier,
-                            AttributeModifierType::BaseValue,
-                            stat.stat_value as f32 * factor,
-                        ); }
+                if let Some(attribute_modifier) = stat.stat_type.as_attribute_modifier() {
+                    attr_mod.add_modifier(
+                        attribute_modifier,
+                        AttributeModifierType::BaseValue,
+                        stat.stat_value as f32 * factor,
+                    );
+                }
             }
 
             // Armor

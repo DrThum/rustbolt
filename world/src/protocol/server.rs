@@ -41,7 +41,7 @@ impl<const OPCODE: u16, Payload: ServerMessagePayload<OPCODE> + BinWrite>
         writer.write_le(&header)?;
         let packet = writer.get_mut();
         packet.extend(payload);
-        socket.write(packet).await?;
+        socket.write_all(packet).await?;
         Ok(())
     }
 

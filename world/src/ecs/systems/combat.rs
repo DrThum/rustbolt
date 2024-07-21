@@ -103,18 +103,18 @@ pub fn select_target(
                 .unwrap_or(false)
         });
 
-        threat_list
+        if let Some((entity_id, _threat)) = threat_list
             .threat_list()
             .into_iter()
             .max_by(|&a, &b| a.1.total_cmp(&b.1))
-            .map(|(entity_id, _threat)| {
-                if unit.target() != Some(entity_id) {
-                    if let Ok(target_guid) = v_guid.get(entity_id) {
-                        unit.set_target(Some(entity_id), target_guid.0.raw());
-                    } else {
-                        threat_list.remove(&entity_id);
-                    }
+        {
+            if unit.target() != Some(entity_id) {
+                if let Ok(target_guid) = v_guid.get(entity_id) {
+                    unit.set_target(Some(entity_id), target_guid.0.raw());
+                } else {
+                    threat_list.remove(&entity_id);
                 }
-            });
+            }
+        };
     }
 }

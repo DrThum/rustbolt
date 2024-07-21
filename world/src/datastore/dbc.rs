@@ -69,11 +69,10 @@ pub struct DbcHeader {
 
 impl DbcHeader {
     pub fn read(file: &mut File) -> Result<DbcHeader, std::io::Error> {
-        let mut buffer = Vec::new();
-        buffer.resize(size_of::<u32>() + size_of::<DbcHeader>(), 0); // Magic + Header
+        let mut buffer = vec![0; size_of::<u32>() + size_of::<DbcHeader>()]; // Magic + Header
 
         file.seek(SeekFrom::Start(0))?;
-        file.read(&mut buffer)?;
+        file.read_exact(&mut buffer)?;
 
         if buffer[..4] == [b'W', b'D', b'B', b'C'] {
             let buffer: Vec<u32> = cast_slice(&buffer).to_vec();
@@ -98,8 +97,7 @@ pub struct DbcRecord {
 
 impl DbcRecord {
     fn read(file: &mut File, header: &DbcHeader) -> Result<Vec<DbcRecord>, std::io::Error> {
-        let mut buffer = Vec::new();
-        buffer.resize(header.record_size as usize, 0);
+        let mut buffer = vec![0; header.record_size as usize];
 
         file.seek(SeekFrom::Start(
             (size_of::<u32>() + size_of::<DbcHeader>()) as u64,
@@ -107,7 +105,7 @@ impl DbcRecord {
 
         let mut records: Vec<DbcRecord> = Vec::new();
         for _i in 0..header.record_count {
-            file.read(&mut buffer)?;
+            file.read_exact(&mut buffer)?;
 
             let fields: Vec<u32> = cast_slice(&buffer).to_vec();
             let fields: Vec<DbcValue> =
@@ -133,11 +131,10 @@ pub struct DbcStringBlock {
 
 impl DbcStringBlock {
     fn read(file: &mut File, header: &DbcHeader) -> Result<DbcStringBlock, std::io::Error> {
-        let mut buffer = Vec::new();
-        buffer.resize(header.string_block_size as usize, 0);
+        let mut buffer = vec![0; header.string_block_size as usize];
 
         file.seek(SeekFrom::End(-(header.string_block_size as i64)))?;
-        file.read(&mut buffer)?;
+        file.read_exact(&mut buffer)?;
 
         Ok(DbcStringBlock {
             raw_characters: buffer,

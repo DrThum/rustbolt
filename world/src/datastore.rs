@@ -4,7 +4,6 @@ use indicatif::ProgressBar;
 use log::info;
 use multimap::MultiMap;
 use shared::{models::loot::LootTable, repositories::loot::LootRepository};
-use shipyard::Unique;
 use std::{
     collections::{hash_map::Values, HashMap},
     sync::Arc,
@@ -134,7 +133,7 @@ impl DataStore {
             parse_dbc!(config.common.data.directory, "SkillLineAbility");
         let skill_line_ability_by_spell = {
             let mut multimap: MultiMap<u32, SkillLineAbilityRecord> = MultiMap::new();
-            for (_, record) in &skill_line_ability {
+            for record in skill_line_ability.values() {
                 multimap.insert(record.spell_id, (*record).clone());
             }
 
@@ -581,6 +580,3 @@ impl DataStore {
         self.gt_RegenMPPerSpt.get(index)
     }
 }
-
-#[derive(Unique)]
-pub struct WrappedDataStore(pub Arc<DataStore>);

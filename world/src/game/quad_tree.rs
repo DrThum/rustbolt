@@ -218,7 +218,7 @@ impl QuadTree {
         exclude_id: Option<&EntityId>,
     ) -> Vec<Value> {
         fn search_rec(
-            node: &Box<Node>,
+            node: &Node,
             bounds: Bounds,
             center: &Vector3,
             radius_square: f32,

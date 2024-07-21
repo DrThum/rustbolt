@@ -18,7 +18,7 @@ pub fn attempt_melee_attack(
     mut vm_unit: ViewMut<Unit>,
     mut vm_threat_list: ViewMut<ThreatList>,
     mut vm_player: ViewMut<Player>,
-    vm_wpos: ViewMut<WorldPosition>,
+    v_wpos: View<WorldPosition>,
     v_spell: View<SpellCast>,
     v_creature: View<Creature>,
 ) {
@@ -32,7 +32,7 @@ pub fn attempt_melee_attack(
             map.0.clone(),
             world_context.0.data_store.clone(),
             &v_guid,
-            &vm_wpos,
+            &v_wpos,
             &v_spell,
             &v_creature,
             &mut vm_unit,

@@ -345,9 +345,10 @@ pub async fn process(
 
     loop {
         let session = state.state.session.clone();
-        match WorldSession::process_incoming_packet(session).await {
-            Err(WorldSocketError::ClientDisconnected) => break Ok(()),
-            _ => (),
+        if let Err(WorldSocketError::ClientDisconnected) =
+            WorldSession::process_incoming_packet(session).await
+        {
+            break Ok(());
         }
     }
 }

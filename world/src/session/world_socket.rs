@@ -61,7 +61,7 @@ impl WorldSocket {
                 let packet = writer.get_mut();
                 trace!("Payload for opcode {:X}: {:X?}", header.opcode, payload);
                 packet.extend(payload);
-                socket.write(packet).await.unwrap();
+                socket.write_all(packet).await.unwrap();
             }
         });
 
@@ -105,7 +105,7 @@ impl WorldSocket {
                 let mut buf_payload = [0_u8; 2048];
                 if bytes_to_read > 0 {
                     socket
-                        .read(&mut buf_payload[..bytes_to_read])
+                        .read_exact(&mut buf_payload[..bytes_to_read])
                         .await
                         .unwrap();
 

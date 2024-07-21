@@ -30,7 +30,7 @@ pub fn send_entity_update(
         let mut internal_values = wrapped_int_vals.0.write();
         if internal_values.has_dirty() {
             for session in map.0.sessions_nearby_position(
-                &wpos.to_position(),
+                &wpos.as_position(),
                 map.0.visibility_distance(),
                 true,
                 None,
@@ -205,8 +205,12 @@ pub fn update_attributes_from_modifiers(map: UniqueView<WrappedMap>, v_player: V
             player.set_resistance(spell_school, value);
         }
 
-        if let Some(health) = updated_max_health { player.set_max_health(health) }
-        if let Some(mana) = updated_max_mana { player.set_max_power(PowerType::Mana, mana) }
+        if let Some(health) = updated_max_health {
+            player.set_max_health(health)
+        }
+        if let Some(mana) = updated_max_mana {
+            player.set_max_power(PowerType::Mana, mana)
+        }
 
         {
             let mut has_just_leveled_up = player.has_just_leveled_up.lock();

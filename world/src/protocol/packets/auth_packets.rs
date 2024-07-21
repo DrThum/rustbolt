@@ -41,8 +41,8 @@ pub struct SmsgAuthResponse {
 pub struct ClientAddonInfo {
     pub name: NullString,
     pub crc: u32,
-    pub unk1: u32,
-    pub unk2: u8,
+    _unk1: u32,
+    _unk2: u8,
 }
 
 impl ClientAddonInfo {

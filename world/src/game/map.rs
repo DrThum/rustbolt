@@ -20,7 +20,6 @@ use shipyard::{
 
 use crate::{
     config::WorldConfig,
-    datastore::WrappedDataStore,
     ecs::{
         components::{
             behavior::Behavior,
@@ -90,7 +89,6 @@ impl Map {
     ) -> Arc<Map> {
         let world = World::new();
         world.add_unique(DeltaTime::default());
-        world.add_unique(WrappedDataStore(world_context.data_store.clone()));
         world.add_unique(WrappedSpellEffectHandler(
             world_context.spell_effect_handler.clone(),
         ));
@@ -332,16 +330,14 @@ impl Map {
                     ),
                 );
 
-                self.ecs_entities
-                    .write()
-                    .insert(player_guid, entity_id);
+                self.ecs_entities.write().insert(player_guid, entity_id);
 
                 session.set_player_entity_id(entity_id);
 
                 let movement = vm_movement.get(entity_id).ok().map(|m| {
                     m.build_update(
                         self.world_context.clone(),
-                        &char_data.position.to_position(),
+                        &char_data.position.as_position(),
                     )
                 });
 
@@ -357,12 +353,12 @@ impl Map {
 
         {
             let mut tree = self.entities_tree.write();
-            tree.insert(char_data.position.to_position(), player_entity_id);
+            tree.insert(char_data.position.as_position(), player_entity_id);
         }
 
         {
             let entities_around = self.entities_tree.read().search_around_position(
-                &char_data.position.to_position(),
+                &char_data.position.as_position(),
                 self.visibility_distance(),
                 true,
                 Some(&player_entity_id),
@@ -385,7 +381,7 @@ impl Map {
                         let movement = v_movement.get(new_player_entity_id).ok().map(|m| {
                             m.build_update(
                                 self.world_context.clone(),
-                                &char_data.position.to_position(),
+                                &char_data.position.as_position(),
                             )
                         });
 
@@ -421,7 +417,7 @@ impl Map {
                     let movement = v_movement.get(other_entity_id).ok().map(|m| {
                         m.build_update(
                             self.world_context.clone(),
-                            &v_wpos[other_entity_id].to_position(),
+                            &v_wpos[other_entity_id].as_position(),
                         )
                     });
 
@@ -478,7 +474,7 @@ impl Map {
 
         {
             let mut guard = self.sessions.write();
-            if let None = guard.remove(player_guid) {
+            if guard.remove(player_guid).is_none() {
                 warn!("player guid {:?} was not on map {}", player_guid, self.key);
             }
         }
@@ -588,9 +584,7 @@ impl Map {
 
                 entities.add_component(entity_id, &mut vm_creature, creature);
 
-                self.ecs_entities
-                    .write()
-                    .insert(*creature_guid, entity_id);
+                self.ecs_entities.write().insert(*creature_guid, entity_id);
 
                 vm_creature
                     .get(entity_id)
@@ -605,12 +599,12 @@ impl Map {
 
         {
             let mut tree = self.entities_tree.write();
-            tree.insert(wpos.to_position(), creature_entity_id);
+            tree.insert(wpos.as_position(), creature_entity_id);
         }
 
         // TODO: Don't attempt this during startup, it's pointless
         for session in self.sessions_nearby_position(
-            &wpos.to_position(),
+            &wpos.as_position(),
             self.visibility_distance(),
             true,
             None,
@@ -627,7 +621,7 @@ impl Map {
                 let movement = v_movement
                     .get(new_creature_entity_id)
                     .ok()
-                    .map(|m| m.build_update(self.world_context.clone(), &wpos.to_position()));
+                    .map(|m| m.build_update(self.world_context.clone(), &wpos.as_position()));
 
                 smsg_create_object = v_creature
                     .get(new_creature_entity_id)
@@ -782,7 +776,7 @@ impl Map {
                     let movement = v_movement.get(other_entity_id).ok().map(|m| {
                         m.build_update(
                             self.world_context.clone(),
-                            &vm_wpos[other_entity_id].to_position(),
+                            &vm_wpos[other_entity_id].as_position(),
                         )
                     });
 
@@ -794,8 +788,9 @@ impl Map {
                 }
 
                 if let Some(smsg) = smsg_create_object {
-                    if let Some(os) = origin_session
-                        .as_ref() { os.create_entity(&other_guid, smsg) }
+                    if let Some(os) = origin_session.as_ref() {
+                        os.create_entity(&other_guid, smsg)
+                    }
                 } else {
                     warn!(
                         "Map::update_entity_position: unable to generate a SmsgCreateObject for guid {:?}",
@@ -823,8 +818,9 @@ impl Map {
                 }
 
                 // Destroy the other entity for the moving player
-                if let Some(os) = origin_session
-                    .as_ref() { os.destroy_entity(&other_guid) }
+                if let Some(os) = origin_session.as_ref() {
+                    os.destroy_entity(&other_guid)
+                }
 
                 // If a player moved away, decrement the NearbyPlayers counter for the creature
                 if is_moving_entity_a_player {
@@ -949,7 +945,7 @@ impl Map {
             let time_of_impact = terrain
                 .collision_mesh
                 .as_ref()
-                .and_then(|mesh| mesh.cast_ray(&Isometry::identity(), &ray, std::f32::MAX, false));
+                .and_then(|mesh| mesh.cast_ray(&Isometry::identity(), &ray, f32::MAX, false));
 
             let intersection_point = time_of_impact.map(|toi| ray.origin + ray.dir * toi);
             let wmo_height = intersection_point

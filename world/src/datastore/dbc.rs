@@ -152,7 +152,7 @@ impl DbcStringBlock {
             let str_end_index = slice.iter().position(|&c| c == 0).unwrap();
 
             let slice = &self.raw_characters[offset..(offset + str_end_index)];
-            Some(std::str::from_utf8(&slice).unwrap().to_owned())
+            Some(std::str::from_utf8(slice).unwrap().to_owned())
         }
     }
 }

@@ -38,8 +38,8 @@ pub fn send_entity_update(
                 let mut update_builder = UpdateBlockBuilder::new();
 
                 for index in internal_values.get_dirty_indexes() {
-                    let value = internal_values.get_u32(index as usize);
-                    update_builder.add(index as usize, value);
+                    let value = internal_values.get_u32(index);
+                    update_builder.add(index, value);
                 }
 
                 let blocks = update_builder.build();
@@ -205,8 +205,8 @@ pub fn update_attributes_from_modifiers(map: UniqueView<WrappedMap>, v_player: V
             player.set_resistance(spell_school, value);
         }
 
-        updated_max_health.map(|health| player.set_max_health(health));
-        updated_max_mana.map(|mana| player.set_max_power(PowerType::Mana, mana));
+        if let Some(health) = updated_max_health { player.set_max_health(health) }
+        if let Some(mana) = updated_max_mana { player.set_max_power(PowerType::Mana, mana) }
 
         {
             let mut has_just_leveled_up = player.has_just_leveled_up.lock();

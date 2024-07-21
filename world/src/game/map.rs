@@ -220,7 +220,7 @@ impl Map {
 
         {
             let mut guard = self.sessions.write();
-            if let Some(previous_session) = guard.insert(player_guid.clone(), session.clone()) {
+            if let Some(previous_session) = guard.insert(player_guid, session.clone()) {
                 warn!(
                     "session from account {} was already on map {}",
                     previous_session.account_id, self.key
@@ -293,7 +293,7 @@ impl Map {
                         &mut vm_nearby_players,
                     ),
                     (
-                        Guid::new(player_guid.clone(), player.internal_values.clone()),
+                        Guid::new(player_guid, player.internal_values.clone()),
                         Powers::new(
                             player.internal_values.clone(),
                             base_health_mana_record.base_health,
@@ -334,7 +334,7 @@ impl Map {
 
                 self.ecs_entities
                     .write()
-                    .insert(player_guid.clone(), entity_id);
+                    .insert(player_guid, entity_id);
 
                 session.set_player_entity_id(entity_id);
 
@@ -425,9 +425,9 @@ impl Map {
                         )
                     });
 
-                    if let Some(player) = v_player.get(other_entity_id).ok() {
+                    if let Ok(player) = v_player.get(other_entity_id) {
                         smsg_create_object = Some(player.build_create_object(movement, false));
-                    } else if let Some(creature) = v_creature.get(other_entity_id).ok() {
+                    } else if let Ok(creature) = v_creature.get(other_entity_id) {
                         smsg_create_object = Some(creature.build_create_object(movement));
                     }
                 }
@@ -543,7 +543,7 @@ impl Map {
                         &mut vm_threat_list,
                     ),
                     (
-                        Guid::new(creature_guid.clone(), creature.internal_values.clone()),
+                        Guid::new(*creature_guid, creature.internal_values.clone()),
                         Powers::new(
                             creature.internal_values.clone(),
                             0, // TODO: creature base health
@@ -590,7 +590,7 @@ impl Map {
 
                 self.ecs_entities
                     .write()
-                    .insert(creature_guid.clone(), entity_id);
+                    .insert(*creature_guid, entity_id);
 
                 vm_creature
                     .get(entity_id)
@@ -760,10 +760,10 @@ impl Map {
                             .ok()
                             .map(|m| m.build_update(self.world_context.clone(), new_position));
 
-                        if let Some(player) = v_player.get(mover_entity_id).ok() {
+                        if let Ok(player) = v_player.get(mover_entity_id) {
                             moving_entity_smsg_create_object =
                                 Some(player.build_create_object(movement, false));
-                        } else if let Some(creature) = v_creature.get(mover_entity_id).ok() {
+                        } else if let Ok(creature) = v_creature.get(mover_entity_id) {
                             moving_entity_smsg_create_object =
                                 Some(creature.build_create_object(movement));
                         }
@@ -786,17 +786,16 @@ impl Map {
                         )
                     });
 
-                    if let Some(player) = v_player.get(other_entity_id).ok() {
+                    if let Ok(player) = v_player.get(other_entity_id) {
                         smsg_create_object = Some(player.build_create_object(movement, false));
-                    } else if let Some(creature) = v_creature.get(other_entity_id).ok() {
+                    } else if let Ok(creature) = v_creature.get(other_entity_id) {
                         smsg_create_object = Some(creature.build_create_object(movement));
                     }
                 }
 
                 if let Some(smsg) = smsg_create_object {
-                    origin_session
-                        .as_ref()
-                        .map(|os| os.create_entity(&other_guid, smsg));
+                    if let Some(os) = origin_session
+                        .as_ref() { os.create_entity(&other_guid, smsg) }
                 } else {
                     warn!(
                         "Map::update_entity_position: unable to generate a SmsgCreateObject for guid {:?}",
@@ -810,10 +809,8 @@ impl Map {
                 }
                 // If a creature moved within visibility distance of a player, increment the
                 // NearbyPlayers counter for the creature
-                else {
-                    if let Ok(_) = v_player.get(other_entity_id) {
-                        NearbyPlayers::increment(mover_entity_id, vm_nearby_players);
-                    }
+                else if v_player.get(other_entity_id).is_ok() {
+                    NearbyPlayers::increment(mover_entity_id, vm_nearby_players);
                 }
             }
 
@@ -826,9 +823,8 @@ impl Map {
                 }
 
                 // Destroy the other entity for the moving player
-                origin_session
-                    .as_ref()
-                    .map(|os| os.destroy_entity(&other_guid));
+                if let Some(os) = origin_session
+                    .as_ref() { os.destroy_entity(&other_guid) }
 
                 // If a player moved away, decrement the NearbyPlayers counter for the creature
                 if is_moving_entity_a_player {
@@ -836,10 +832,8 @@ impl Map {
                 }
                 // If a creature moved away from a player, decrement the NearbyPlayers counter for
                 // the creature
-                else {
-                    if let Ok(_) = v_player.get(other_entity_id) {
-                        NearbyPlayers::decrement(mover_entity_id, vm_nearby_players, vm_unwind);
-                    }
+                else if v_player.get(other_entity_id).is_ok() {
+                    NearbyPlayers::decrement(mover_entity_id, vm_nearby_players, vm_unwind);
                 }
             }
 
@@ -1044,7 +1038,7 @@ impl Map {
 
     pub fn get_random_point_around(&self, origin: &Vector3, radius: f32) -> Vector3 {
         if radius <= 0. {
-            return origin.clone();
+            return *origin;
         }
 
         let mut rng = rand::thread_rng();
@@ -1073,7 +1067,7 @@ impl Map {
             .get_ground_or_floor_height(x, y, origin.z)
             .unwrap_or(origin.z);
 
-        let mut point = origin.clone();
+        let mut point = *origin;
         point.x = x;
         point.y = y;
         point.z = z;

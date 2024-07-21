@@ -13,7 +13,7 @@ use crate::{
 use super::world_session::WorldSession;
 
 pub type PacketHandler =
-    Box<dyn Send + Sync + Fn(Arc<WorldSession>, Arc<WorldContext>, Vec<u8>) -> ()>;
+    Box<dyn Send + Sync + Fn(Arc<WorldSession>, Arc<WorldContext>, Vec<u8>)>;
 
 macro_rules! define_handler {
     ($opcode:expr, $handler:expr) => {
@@ -37,6 +37,12 @@ macro_rules! define_movement_handler {
 
 pub struct OpcodeHandler {
     handlers: HashMap<u32, PacketHandler>,
+}
+
+impl Default for OpcodeHandler {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl OpcodeHandler {

@@ -120,7 +120,7 @@ impl Creature {
                 values.set_u32(UnitFields::UnitFieldNativedisplayid.into(), **display_id);
                 let model_info = data_store
                     .get_creature_model_info(**display_id)
-                    .expect(format!("creature entry {} has invalid model id {}", template.entry, **display_id).as_str());
+                    .unwrap_or_else(|| panic!("creature entry {} has invalid model id {}", template.entry, **display_id));
                 values.set_f32(UnitFields::UnitFieldCombatReach.into(), model_info.combat_reach);
                 values.set_f32(UnitFields::UnitFieldBoundingRadius.into(), template.scale * model_info.bounding_radius);
 

@@ -163,7 +163,7 @@ impl Movement {
             mover_guid,
             map,
             starting_position,
-            &vec![destination],
+            &[destination],
             velocity,
             linear,
         );
@@ -212,7 +212,7 @@ impl Movement {
             mover_guid,
             map,
             &starting_position.vec3(),
-            &vec![destination.vec3()],
+            &[destination.vec3()],
             velocity,
             linear,
         )
@@ -232,7 +232,7 @@ impl Movement {
             mover_guid,
             map,
             starting_position,
-            &vec![destination.vec3()],
+            &[destination.vec3()],
             velocity,
             linear,
         )

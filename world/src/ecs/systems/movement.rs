@@ -95,27 +95,25 @@ pub fn update_movement(
                     if spline_state == MovementSplineState::Arrived {
                         movement.clear(false);
                     }
-                } else {
-                    if *cooldown_end <= Instant::now() {
-                        let current_pos = my_wpos.vec3();
-                        let around = creature.spawn_position.vec3();
-                        let destination = map.0.get_random_point_around(
-                            &around,
-                            creature.wander_radius.expect(
-                                "expected an existing wander radius on creature with random movement",
-                            ) as f32,
-                        );
-                        // TODO: Select speed depending on move flags (implement in Movement)
-                        let speed = movement.speed_run;
-                        movement.start_random_movement(
-                            &guid.0,
-                            map.0.clone(),
-                            &current_pos,
-                            destination,
-                            speed,
-                            true,
-                        );
-                    }
+                } else if *cooldown_end <= Instant::now() {
+                    let current_pos = my_wpos.vec3();
+                    let around = creature.spawn_position.vec3();
+                    let destination = map.0.get_random_point_around(
+                        &around,
+                        creature.wander_radius.expect(
+                            "expected an existing wander radius on creature with random movement",
+                        ) as f32,
+                    );
+                    // TODO: Select speed depending on move flags (implement in Movement)
+                    let speed = movement.speed_run;
+                    movement.start_random_movement(
+                        &guid.0,
+                        map.0.clone(),
+                        &current_pos,
+                        destination,
+                        speed,
+                        true,
+                    );
                 }
             }
             MovementKind::Path => (), // TODO
@@ -125,7 +123,7 @@ pub fn update_movement(
                 destination,
                 distance,
             } => {
-                let target_entity_id = target_entity_id.clone();
+                let target_entity_id = *target_entity_id;
                 if let Ok(creature) = v_creature.get(entity_id) {
                     let mut should_stop_chasing = false;
                     let distance_to_home = creature.spawn_position.distance_to(my_wpos, true);
@@ -138,10 +136,10 @@ pub fn update_movement(
                     }
 
                     if let Ok(target_position) = vm_wpos.get(target_entity_id) {
-                        if destination.distance_to(&target_position, true)
+                        if destination.distance_to(target_position, true)
                             > MAX_CHASE_LEEWAY + distance
                         {
-                            let target_guid = target_guid.clone();
+                            let target_guid = *target_guid;
 
                             let my_bounding_radius = vm_unit[entity_id].bounding_radius();
                             let target_bounding_radius =
@@ -157,7 +155,7 @@ pub fn update_movement(
                                 target_entity_id,
                                 chase_distance,
                                 map.0.clone(),
-                                &my_wpos,
+                                my_wpos,
                                 *target_position,
                                 speed,
                                 true,

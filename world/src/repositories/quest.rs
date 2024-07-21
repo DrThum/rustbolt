@@ -84,7 +84,7 @@ impl QuestRepository {
                     suggested_players: row.get(SuggestedPlayers as usize).unwrap(),
                     time_limit: row
                         .get::<usize, Option<u64>>(TimeLimit as usize)
-                        .map(|limit| limit.map(|l| Duration::from_millis(l)))
+                        .map(|limit| limit.map(Duration::from_millis))
                         .unwrap(),
                     flags: unsafe {
                         row.get::<usize, u32>(Flags as usize)
@@ -231,7 +231,7 @@ impl QuestRepository {
             })
             .unwrap();
 
-        result.filter_map(|res| res.ok()).into_iter().collect()
+        result.filter_map(|res| res.ok()).collect()
     }
 
     // Note: only load creature quest relations for now (GameObjects and AreaTriggers not
@@ -278,7 +278,7 @@ impl QuestRepository {
             })
             .unwrap();
 
-        result.filter_map(|res| res.ok()).into_iter().collect()
+        result.filter_map(|res| res.ok()).collect()
     }
 }
 

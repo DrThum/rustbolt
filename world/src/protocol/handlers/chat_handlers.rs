@@ -26,7 +26,7 @@ impl OpcodeHandler {
         // TODO: Check that the language exists
         // TODO: Check that the player has the associated skill
 
-        if cmsg_message_chat.msg.to_string().starts_with(".") {
+        if cmsg_message_chat.msg.to_string().starts_with('.') {
             let mut command = cmsg_message_chat.msg.to_string();
             command.drain(0..1);
             if world_context.chat_commands.try_process(
@@ -41,7 +41,7 @@ impl OpcodeHandler {
         match cmsg_message_chat.chat_type {
             ChatMessageType::Say | ChatMessageType::Yell | ChatMessageType::Emote => {
                 let smsg_message_chat = ServerMessage::new(session.build_chat_packet(
-                    cmsg_message_chat.chat_type.clone(),
+                    cmsg_message_chat.chat_type,
                     cmsg_message_chat.language,
                     None,
                     cmsg_message_chat.msg,
@@ -107,9 +107,9 @@ impl OpcodeHandler {
                     let target_name =
                         map.world()
                             .run(|v_player: View<Player>, v_creature: View<Creature>| {
-                                if let Some(player) = v_player.get(target_entity_id).ok() {
+                                if let Ok(player) = v_player.get(target_entity_id) {
                                     player.name.clone()
-                                } else if let Some(creature) = v_creature.get(target_entity_id).ok()
+                                } else if let Ok(creature) = v_creature.get(target_entity_id)
                                 {
                                     creature.name.clone()
                                 } else {

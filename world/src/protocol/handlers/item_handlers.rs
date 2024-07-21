@@ -88,7 +88,7 @@ impl OpcodeHandler {
                     sockets: &item.sockets,
                     socket_bonus: item.socket_bonus,
                     gem_properties: item.gem_properties,
-                    required_enchantment_skill: item.required_disenchant_skill as i32,
+                    required_enchantment_skill: item.required_disenchant_skill,
                     armor_damage_modifier: item.armor_damage_modifier,
                     duration: item.duration,
                 }),

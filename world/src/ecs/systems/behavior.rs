@@ -85,7 +85,7 @@ fn action_aggro(ctx: &mut BTContext) -> NodeStatus {
 
             ctx.neighbors.iter().for_each(|&neighbor_entity_id| {
                 let neighbor_position = &v_wpos[neighbor_entity_id];
-                let neighbor_distance = my_position.distance_to(&neighbor_position, true);
+                let neighbor_distance = my_position.distance_to(neighbor_position, true);
 
                 if neighbor_distance > CREATURE_AGGRO_DISTANCE_MAX {
                     return;
@@ -107,9 +107,9 @@ fn action_aggro(ctx: &mut BTContext) -> NodeStatus {
                 };
 
                 if neighbor_distance < current_closest
-                    && my_position.distance_to(&neighbor_position, true)
+                    && my_position.distance_to(neighbor_position, true)
                         <= creature.aggro_distance(neighbor_level)
-                    && unit_me.is_hostile_to(&neighbor_unit)
+                    && unit_me.is_hostile_to(neighbor_unit)
                 {
                     current_closest = neighbor_distance;
                     aggro_target = Some(neighbor_entity_id);

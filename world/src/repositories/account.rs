@@ -12,10 +12,6 @@ impl AccountRepository {
             .unwrap();
         let mut rows = stmt.query(&[(":username", &username)]).unwrap();
 
-        if let Some(row) = rows.next().unwrap() {
-            Some((row.get("id").unwrap(), row.get("session_key").unwrap()))
-        } else {
-            None
-        }
+        rows.next().unwrap().map(|row| (row.get("id").unwrap(), row.get("session_key").unwrap()))
     }
 }

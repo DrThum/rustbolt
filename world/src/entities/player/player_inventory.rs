@@ -145,7 +145,7 @@ impl PlayerInventory {
 
             // Unstack the item if it has more stacks than needed and stop there
             if item.stack_count() > remaining_stacks_to_remove {
-                item.change_stack_count(remaining_stacks_to_remove as i32 * -1);
+                item.change_stack_count(-(remaining_stacks_to_remove as i32));
                 break;
             }
 
@@ -159,9 +159,7 @@ impl PlayerInventory {
         let destination_item = self.remove(destination_slot);
 
         self.move_item(source_slot, destination_slot);
-        destination_item.map(|destination_item| {
-            self.set(source_slot, destination_item);
-        });
+        if let Some(destination_item) = destination_item { self.set(source_slot, destination_item); }
     }
 
     pub fn move_item(&mut self, source_slot: u32, destination_slot: u32) {
@@ -286,19 +284,13 @@ impl PlayerInventory {
     }
 
     pub fn find_first_free_slot(&self) -> Option<u32> {
-        for slot in InventorySlot::BACKPACK_START..InventorySlot::BACKPACK_END {
-            if !self.items.contains_key(&slot) {
-                return Some(slot);
-            }
-        }
-
-        None
+        (InventorySlot::BACKPACK_START..InventorySlot::BACKPACK_END).find(|&slot| !self.items.contains_key(&slot))
     }
 
     fn update_visible_bits(&self, slot: u32, item_entry: u32) {
         let mut values = self.internal_values.write();
 
-        if slot >= InventorySlot::EQUIPMENT_START && slot < InventorySlot::EQUIPMENT_END {
+        if (InventorySlot::EQUIPMENT_START..InventorySlot::EQUIPMENT_END).contains(&slot) {
             values.set_u32(
                 UnitFields::PlayerVisibleItem1_0 as usize
                     + (slot * MAX_PLAYER_VISIBLE_ITEM_OFFSET) as usize,
@@ -321,7 +313,7 @@ impl PlayerInventory {
     }
 
     fn is_gear_slot(slot: u32) -> bool {
-        slot >= InventorySlot::EQUIPMENT_START && slot < InventorySlot::EQUIPMENT_END
+        (InventorySlot::EQUIPMENT_START..InventorySlot::EQUIPMENT_END).contains(&slot)
     }
 
     fn toggle_stats_from_item(&self, item_entry: u32, is_equipping_item: bool) {
@@ -332,15 +324,12 @@ impl PlayerInventory {
             let mut attr_mod = self.attribute_modifiers.write();
             // Stats: both generic (stam, spirit, intel, ...) and green modifiers
             for stat in &item_template.stats {
-                stat.stat_type
-                    .as_attribute_modifier()
-                    .map(|attribute_modifier| {
-                        attr_mod.add_modifier(
+                if let Some(attribute_modifier) = stat.stat_type
+                    .as_attribute_modifier() { attr_mod.add_modifier(
                             attribute_modifier,
                             AttributeModifierType::BaseValue,
                             stat.stat_value as f32 * factor,
-                        );
-                    });
+                        ); }
             }
 
             // Armor

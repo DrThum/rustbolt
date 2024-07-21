@@ -411,7 +411,7 @@ impl WorldSession {
     }
 
     fn add_known_guid(&self, guid: &ObjectGuid) {
-        self.known_guids.write().push(guid.clone());
+        self.known_guids.write().push(*guid);
     }
 
     fn remove_known_guid(&self, guid: &ObjectGuid) {

@@ -34,7 +34,7 @@ impl Player {
                     let available_stack_count = item_template.max_stack_count - item.stack_count();
                     let stack_count_to_add = remaining_stack_count.min(available_stack_count);
                     item.change_stack_count(stack_count_to_add.try_into().unwrap());
-                    remaining_stack_count = remaining_stack_count - stack_count_to_add;
+                    remaining_stack_count -= stack_count_to_add;
                 }
             }
 
@@ -58,7 +58,7 @@ impl Player {
                         stack_count_to_add,
                         false,
                     );
-                    remaining_stack_count = remaining_stack_count - stack_count_to_add;
+                    remaining_stack_count -= stack_count_to_add;
 
                     let packet = ServerMessage::new(SmsgCreateObject {
                         updates_count: 1,
@@ -77,7 +77,7 @@ impl Player {
 
         let total_count = self.inventory.get_item_count(item_id);
         let packet = ServerMessage::new(SmsgItemPushResult {
-            player_guid: self.guid.clone(),
+            player_guid: self.guid,
             loot_source: 0,
             is_created: 0,
             is_visible_in_chat: 1,
@@ -105,14 +105,14 @@ impl Player {
             .collect();
         let world_context_local_clone = self.world_context.clone();
         for quest_id in quest_ids {
-            let Some(&ref quest_template) = world_context_local_clone
+            let Some(quest_template) = world_context_local_clone
                 .data_store
                 .get_quest_template(quest_id)
             else {
                 continue;
             };
 
-            self.try_complete_quest(&quest_template);
+            self.try_complete_quest(quest_template);
         }
 
         Ok(chosen_slot)
@@ -177,9 +177,9 @@ impl Player {
         };
 
         let is_destination_gear_slot =
-            to_slot >= InventorySlot::EQUIPMENT_START && to_slot < InventorySlot::EQUIPMENT_END;
+            (InventorySlot::EQUIPMENT_START..InventorySlot::EQUIPMENT_END).contains(&to_slot);
         let is_origin_gear_slot =
-            from_slot >= InventorySlot::EQUIPMENT_START && from_slot < InventorySlot::EQUIPMENT_END;
+            (InventorySlot::EQUIPMENT_START..InventorySlot::EQUIPMENT_END).contains(&from_slot);
 
         // Equipment is dragged over a gear slot
         // => Check that moved_item can go in to_slot
@@ -228,7 +228,7 @@ impl Player {
 
                 target_item.change_stack_count(stack_diff);
                 if stack_diff < moved_item_stack_count as i32 {
-                    moved_item.change_stack_count(stack_diff as i32 * -1);
+                    moved_item.change_stack_count(-stack_diff);
                 } else {
                     // If the moved item has no stack after the transfer, delete it
                     self.remove_item(from_slot);
@@ -238,15 +238,13 @@ impl Player {
             }
 
             InventoryResult::Ok
+        } else if is_destination_gear_slot {
+            // Moving the item from a bag to gear: equip it
+            self.try_equip_item_from_inventory(from_slot)
         } else {
-            if is_destination_gear_slot {
-                // Moving the item from a bag to gear: equip it
-                self.try_equip_item_from_inventory(from_slot)
-            } else {
-                // Moving the item to a bag (from gear or a bag): just move it
-                self.inventory.move_item(from_slot, to_slot);
-                InventoryResult::Ok
-            }
+            // Moving the item to a bag (from gear or a bag): just move it
+            self.inventory.move_item(from_slot, to_slot);
+            InventoryResult::Ok
         }
     }
 
@@ -266,7 +264,7 @@ impl Player {
             }
             (Some(moved_item), None) => {
                 // Dropping the extra stacks on an empty slot
-                moved_item.change_stack_count(count as i32 * -1);
+                moved_item.change_stack_count(-(count as i32));
                 let new_item_guid: u32 = self.world_context.next_item_guid();
                 let new_item = Item::new(
                     new_item_guid,
@@ -303,7 +301,7 @@ impl Player {
                     target_item_template.max_stack_count - target_item.stack_count();
                 let stacks_to_move = available_stack_count.min(count.into()) as i32;
 
-                moved_item.change_stack_count(stacks_to_move * -1);
+                moved_item.change_stack_count(-stacks_to_move);
                 target_item.change_stack_count(stacks_to_move);
                 InventoryResult::Ok
             }

@@ -8,6 +8,12 @@ pub struct SessionHolder {
     sessions: RwLock<HashMap<u32, Arc<WorldSession>>>,
 }
 
+impl Default for SessionHolder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SessionHolder {
     pub fn new() -> Self {
         Self {

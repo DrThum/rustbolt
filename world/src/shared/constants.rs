@@ -1213,8 +1213,7 @@ pub enum ActionButtonType {
 impl FromSql for ActionButtonType {
     fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
         let value = value.as_i64()?;
-        ActionButtonType::n(value)
-            .map_or(Err(FromSqlError::Other("invalid action_type".into())), Ok)
+        ActionButtonType::n(value).ok_or(FromSqlError::Other("invalid action_type".into()))
     }
 }
 

@@ -211,7 +211,7 @@ impl Player {
                             {
                                 let (value, max_value) = match skill_line.range_type() {
                                     SkillRangeType::Language => (300, 300),
-                                    SkillRangeType::Level => (1, 1 /* level */ * 5),
+                                    SkillRangeType::Level => (1, 5),
                                     SkillRangeType::Mono => (1, 1),
                                     _ => (0, 0),
                                 };

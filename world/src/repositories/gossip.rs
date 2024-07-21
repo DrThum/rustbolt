@@ -83,9 +83,7 @@ impl GossipRepository {
             .unwrap();
 
         result
-            .filter(|res| res.is_ok())
-            .map(|res| res.unwrap())
-            .into_iter()
+            .flatten()
             .collect()
     }
 
@@ -125,9 +123,7 @@ impl GossipRepository {
                 .unwrap();
 
             result
-                .filter(|res| res.is_ok())
-                .map(|res| res.unwrap())
-                .into_iter()
+                .flatten()
                 .collect()
         }
 
@@ -152,9 +148,7 @@ impl GossipRepository {
             .unwrap();
 
         result
-            .filter(|res| res.is_ok())
-            .map(|res| res.unwrap())
-            .into_iter()
+            .flatten()
             .collect()
     }
 }

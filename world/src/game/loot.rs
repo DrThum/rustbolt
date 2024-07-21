@@ -16,6 +16,12 @@ pub struct ItemInLoot {
     pub random_property_id: u32,
 }
 
+impl Default for Loot {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Loot {
     pub fn new() -> Self {
         Self {

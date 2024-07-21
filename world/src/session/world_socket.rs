@@ -61,7 +61,7 @@ impl WorldSocket {
                 let packet = writer.get_mut();
                 trace!("Payload for opcode {:X}: {:X?}", header.opcode, payload);
                 packet.extend(payload);
-                socket.write(&packet).await.unwrap();
+                socket.write(packet).await.unwrap();
             }
         });
 
@@ -87,14 +87,14 @@ impl WorldSocket {
         match socket.read(&mut buf[..6]).await {
             Ok(0) => {
                 trace!("Client disconnected");
-                return Err(WorldSocketError::ClientDisconnected);
+                Err(WorldSocketError::ClientDisconnected)
             }
             Ok(n) if n < 6 => {
                 error!("Received less than 6 bytes, need to handle partial header");
-                return Err(WorldSocketError::SocketError(std::io::Error::new(
+                Err(WorldSocketError::SocketError(std::io::Error::new(
                     std::io::ErrorKind::InvalidData,
                     "Received an incomplete client header",
-                )));
+                )))
             }
             Ok(_) => {
                 let mut encryption = self.encryption.lock().await;
@@ -122,7 +122,7 @@ impl WorldSocket {
             }
             Err(e) => {
                 error!("Socket error, closing");
-                return Err(WorldSocketError::SocketError(e));
+                Err(WorldSocketError::SocketError(e))
             }
         }
     }

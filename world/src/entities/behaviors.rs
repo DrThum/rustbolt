@@ -141,7 +141,7 @@ impl<A> BehaviorTree<A> {
                     NodeStatus::Failure
                 }
             }
-            BehaviorNodeState::Action(action) => tick_fn(&action, ctx),
+            BehaviorNodeState::Action(action) => tick_fn(action, ctx),
         }
     }
 }
@@ -200,7 +200,7 @@ impl<A> BehaviorNode<A> {
         ignore_status_for_reset: bool,
     ) -> BehaviorNode<A> {
         assert!(
-            skip_chance >= 0. && skip_chance < 1.,
+            (0. ..1.).contains(&skip_chance),
             "skip_chance must be [0..1["
         );
         Self::Deadline(
@@ -229,7 +229,7 @@ impl<A> BehaviorNode<A> {
         skip_chance: f32,
     ) -> BehaviorNode<A> {
         assert!(
-            skip_chance >= 0. && skip_chance < 1.,
+            (0. ..1.).contains(&skip_chance),
             "skip_chance must be [0..1["
         );
         Self::Deadline(
@@ -262,7 +262,7 @@ impl<A> BehaviorNode<A> {
         ignore_status_for_reset: bool,
     ) -> BehaviorNode<A> {
         assert!(
-            skip_chance >= 0. && skip_chance < 1.,
+            (0. ..1.).contains(&skip_chance),
             "skip_chance must be [0..1["
         );
         Self::Cooldown(
@@ -291,7 +291,7 @@ impl<A> BehaviorNode<A> {
         ignore_status_for_reset: bool,
     ) -> BehaviorNode<A> {
         assert!(
-            skip_chance >= 0. && skip_chance < 1.,
+            (0. ..1.).contains(&skip_chance),
             "skip_chance must be [0..1["
         );
         Self::Cooldown(

@@ -61,9 +61,9 @@ impl QuestActor {
         world_context: Arc<WorldContext>,
     ) -> QuestGiverStatus {
         for quest_id in self.ends.iter() {
-            if player.can_turn_in_quest(&quest_id) {
+            if player.can_turn_in_quest(quest_id) {
                 return QuestGiverStatus::Reward;
-            } else if player.is_progressing_quest(&quest_id) {
+            } else if player.is_progressing_quest(quest_id) {
                 return QuestGiverStatus::Incomplete;
             }
         }
@@ -80,6 +80,6 @@ impl QuestActor {
             // something like that)
         }
 
-        return QuestGiverStatus::None;
+        QuestGiverStatus::None
     }
 }

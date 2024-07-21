@@ -89,7 +89,7 @@ impl Behavior {
     }
 
     pub fn neighbors(&self) -> Vec<EntityId> {
-        self.moving_neighbors.iter().cloned().collect()
+        self.moving_neighbors.to_vec()
     }
 
     pub fn reset_neighbors(&mut self) {

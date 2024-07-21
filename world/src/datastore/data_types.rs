@@ -711,13 +711,8 @@ impl DbcTypedRecord for SpellRecord {
                 base_level: record.fields[32].as_u32,
                 spell_level: record.fields[33].as_u32,
                 duration_index: record.fields[34].as_u32,
-                power_type: PowerType::n(record.fields[35].as_i32).expect(
-                    format!(
-                        "unknown power type {} for spell {}",
-                        record.fields[35].as_u32, key
-                    )
-                    .as_str(),
-                ),
+                power_type: PowerType::n(record.fields[35].as_i32).unwrap_or_else(|| panic!("unknown power type {} for spell {}",
+                        record.fields[35].as_u32, key)),
                 mana_cost: record.fields[36].as_u32,
                 mana_cost_perlevel: record.fields[37].as_u32,
                 mana_per_second: record.fields[38].as_u32,
@@ -967,10 +962,8 @@ impl DbcTypedRecord for SkillLineRecord {
             let record = SkillLineRecord {
                 id: SkillType::n(record.fields[0].as_u32)
                     .expect("invalid skill_id in SkillLine.dbc"),
-                category: SkillCategory::n(record.fields[1].as_i32).expect(&format!(
-                    "invalid skill_category_id {} in SkillLine.dbc (record {})",
-                    record.fields[1].as_i32, record.fields[0].as_u32
-                )),
+                category: SkillCategory::n(record.fields[1].as_i32).unwrap_or_else(|| panic!("invalid skill_category_id {} in SkillLine.dbc (record {})",
+                    record.fields[1].as_i32, record.fields[0].as_u32)),
                 name: strings
                     .get(record.fields[3].as_u32 as usize)
                     .expect("invalid name found in SkillLine.dbc"),
@@ -1011,10 +1004,8 @@ impl DbcTypedRecord for SkillLineAbilityRecord {
                 class_mask: BitFlags::from_bits_unchecked(record.fields[4].as_u32),
                 required_skill_value: record.fields[7].as_u32,
                 forward_spell_id: record.fields[8].as_u32,
-                learn_on_get_skill: AbilityLearnType::n(record.fields[9].as_u32).expect(&format!(
-                    "invalid learn_on_get_skill {} found in SkillLineAbility.dbc",
-                    record.fields[9].as_u32
-                )),
+                learn_on_get_skill: AbilityLearnType::n(record.fields[9].as_u32).unwrap_or_else(|| panic!("invalid learn_on_get_skill {} found in SkillLineAbility.dbc",
+                    record.fields[9].as_u32)),
                 max_value: record.fields[10].as_u32,
                 min_value: record.fields[11].as_u32,
                 required_train_points: record.fields[14].as_u32,
@@ -1290,7 +1281,7 @@ impl QuestTemplate {
         self.reward_choice_item_ids
             .iter()
             .zip(self.reward_choice_item_counts.iter())
-            .map(|(id, count)| (id.clone(), count.clone()))
+            .map(|(id, count)| (*id, *count))
             .collect()
     }
 
@@ -1298,7 +1289,7 @@ impl QuestTemplate {
         self.reward_item_ids
             .iter()
             .zip(self.reward_item_counts.iter())
-            .map(|(id, count)| (id.clone(), count.clone()))
+            .map(|(id, count)| (*id, *count))
             .collect()
     }
 
@@ -1306,7 +1297,7 @@ impl QuestTemplate {
         self.required_item_ids
             .iter()
             .zip(self.required_item_counts.iter())
-            .map(|(id, count)| (id.clone(), count.clone()))
+            .map(|(id, count)| (*id, *count))
             .collect()
     }
 

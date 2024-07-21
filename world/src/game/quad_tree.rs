@@ -73,7 +73,7 @@ impl Node {
     }
 
     pub fn leaf_or_empty(values: Vec<Value>) -> Node {
-        if values.len() > 0 {
+        if !values.is_empty() {
             Node {
                 content: NodeContent::Values(values),
             }
@@ -130,7 +130,7 @@ impl QuadTree {
             new_value_position: Vector3,
             node_capacity: usize,
         ) {
-            match &mut (*node).content {
+            match &mut node.content {
                 // Node is empty, transform it to a Leaf node with the new value
                 NodeContent::Empty => **node = Node::leaf((new_value, new_value_position)),
                 // Node is a leaf but is not at capacity yet, add the new value
@@ -149,10 +149,10 @@ impl QuadTree {
 
                     for value in existing_values {
                         match Quadrant::select(&value.1, &bounds) {
-                            Quadrant::NorthWest => nw.push(value.clone()),
-                            Quadrant::NorthEast => ne.push(value.clone()),
-                            Quadrant::SouthWest => sw.push(value.clone()),
-                            Quadrant::SouthEast => se.push(value.clone()),
+                            Quadrant::NorthWest => nw.push(*value),
+                            Quadrant::NorthEast => ne.push(*value),
+                            Quadrant::SouthWest => sw.push(*value),
+                            Quadrant::SouthEast => se.push(*value),
                         }
                     }
 
@@ -227,39 +227,39 @@ impl QuadTree {
         ) {
             match &node.content {
                 NodeContent::Empty => (),
-                NodeContent::Values(values) if bounds.intersects_circle(&center, radius_square) => {
+                NodeContent::Values(values) if bounds.intersects_circle(center, radius_square) => {
                     for value in values {
                         let dist_square = if search_in_3d {
-                            value.1.square_distance_3d(&center)
+                            value.1.square_distance_3d(center)
                         } else {
-                            value.1.square_distance_2d(&center)
+                            value.1.square_distance_2d(center)
                         };
 
                         if dist_square <= radius_square {
-                            acc.push(value.clone());
+                            acc.push(*value);
                         }
                     }
                 }
                 NodeContent::Values(_) => (),
                 NodeContent::Children { nw, ne, sw, se } => {
                     let child_bounds = bounds.for_quadrant(Quadrant::NorthWest);
-                    if child_bounds.intersects_circle(&center, radius_square) {
-                        search_rec(nw, child_bounds, &center, radius_square, search_in_3d, acc);
+                    if child_bounds.intersects_circle(center, radius_square) {
+                        search_rec(nw, child_bounds, center, radius_square, search_in_3d, acc);
                     }
 
                     let child_bounds = bounds.for_quadrant(Quadrant::NorthEast);
-                    if child_bounds.intersects_circle(&center, radius_square) {
-                        search_rec(ne, child_bounds, &center, radius_square, search_in_3d, acc);
+                    if child_bounds.intersects_circle(center, radius_square) {
+                        search_rec(ne, child_bounds, center, radius_square, search_in_3d, acc);
                     }
 
                     let child_bounds = bounds.for_quadrant(Quadrant::SouthWest);
-                    if child_bounds.intersects_circle(&center, radius_square) {
-                        search_rec(sw, child_bounds, &center, radius_square, search_in_3d, acc);
+                    if child_bounds.intersects_circle(center, radius_square) {
+                        search_rec(sw, child_bounds, center, radius_square, search_in_3d, acc);
                     }
 
                     let child_bounds = bounds.for_quadrant(Quadrant::SouthEast);
-                    if child_bounds.intersects_circle(&center, radius_square) {
-                        search_rec(se, child_bounds, &center, radius_square, search_in_3d, acc);
+                    if child_bounds.intersects_circle(center, radius_square) {
+                        search_rec(se, child_bounds, center, radius_square, search_in_3d, acc);
                     }
                 }
             }
@@ -289,7 +289,7 @@ impl QuadTree {
         search_in_3d: bool,
         exclude_id: Option<&EntityId>,
     ) -> Vec<Value> {
-        if let Some(position) = self.entities_positions.get(&entity_id) {
+        if let Some(position) = self.entities_positions.get(entity_id) {
             return self.search_around_position(position, radius, search_in_3d, exclude_id);
         }
 
@@ -302,7 +302,7 @@ impl QuadTree {
 
     pub fn delete(&mut self, guid: &EntityId) -> Option<Position> {
         fn delete_rec(node: &mut Box<Node>, bounds: Bounds, position: &Vector3, value: &EntityId) {
-            match &mut (*node).content {
+            match &mut node.content {
                 NodeContent::Values(ref mut existing_values) => {
                     existing_values.retain(|v| v.0 != *value);
 
@@ -350,15 +350,15 @@ impl QuadTree {
 
         let position = self
             .entities_positions
-            .get(&guid)
+            .get(guid)
             .expect("entity exists in quadtree but is not in entities_positions");
         delete_rec(
             &mut self.root,
             Bounds::root_bounds(),
             &position.vec3(),
-            &guid,
+            guid,
         );
-        self.entities_positions.remove(&guid)
+        self.entities_positions.remove(guid)
     }
 
     pub fn update(&mut self, new_position: &Position, entity_id: &EntityId) -> Option<Position> {
@@ -369,7 +369,7 @@ impl QuadTree {
         // ends up in the same node as the old position
         // For now, simply delete then insert
         let previous_position = self.delete(entity_id);
-        self.insert(new_position.clone(), entity_id.clone());
+        self.insert(*new_position, *entity_id);
 
         previous_position
     }

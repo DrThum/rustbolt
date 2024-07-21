@@ -16,6 +16,12 @@ pub struct MovementSpline {
     total_time: Duration,
 }
 
+impl Default for MovementSpline {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MovementSpline {
     pub fn new() -> Self {
         Self {
@@ -129,7 +135,7 @@ impl MovementSpline {
     pub fn path(&self) -> Vec<Vector3> {
         self.spline
             .as_ref()
-            .map(|s| s.keys().into_iter().map(|k| k.value).collect())
+            .map(|s| s.keys().iter().map(|k| k.value).collect())
             .unwrap_or_default()
     }
 

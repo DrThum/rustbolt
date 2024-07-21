@@ -142,7 +142,7 @@ impl CharacterRepository {
                     let item_dbc = data_store.get_item_record(item_entry).expect("Unknown item found in CharacterRepository::fetch_characters");
 
                     Ok((inv_type, item_dbc))
-                }).unwrap().into_iter().map(|res| res.unwrap()).collect();
+                }).unwrap().map(|res| res.unwrap()).collect();
 
                 let equipment = vec![
                     InventoryType::Head,
@@ -178,7 +178,7 @@ impl CharacterRepository {
 
                 Ok(CharEnumData {
                     guid: row.get("guid").unwrap(),
-                    name: row.get::<&str, String>("name").unwrap().try_into().unwrap(),
+                    name: row.get::<&str, String>("name").unwrap().into(),
                     race: row.get("race").unwrap(),
                     class: row.get("class").unwrap(),
                     gender: row.get("gender").unwrap(),
@@ -205,9 +205,7 @@ impl CharacterRepository {
             .unwrap();
 
         chars
-            .filter(|res| res.is_ok())
-            .map(|res| res.unwrap())
-            .into_iter()
+            .flatten()
             .collect()
     }
 
@@ -246,8 +244,7 @@ impl CharacterRepository {
             })
             .unwrap();
 
-        if let Some(row) = rows.next().unwrap() {
-            Some(CharacterRecord {
+        rows.next().unwrap().map(|row| CharacterRecord {
                 guid,
                 account_id: row.get("account_id").unwrap(),
                 race: row.get("race").unwrap(),
@@ -278,9 +275,6 @@ impl CharacterRepository {
                 experience: row.get("experience").unwrap(),
                 money: row.get("money").unwrap(),
             })
-        } else {
-            None
-        }
     }
 
     pub fn fetch_character_spells(

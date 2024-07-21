@@ -84,12 +84,9 @@ impl ItemTemplateStatType {
 impl FromSql for ItemTemplateStatType {
     fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
         let value = value.as_i64()?;
-        Self::n(value).map_or(
-            Err(FromSqlError::Other(
+        Self::n(value).ok_or(FromSqlError::Other(
                 "invalid stat type on item template".into(),
-            )),
-            Ok,
-        )
+            ))
     }
 }
 

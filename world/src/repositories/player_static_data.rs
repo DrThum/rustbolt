@@ -41,7 +41,7 @@ impl PlayerStaticDataRepository {
             })
             .unwrap();
 
-        result.filter_map(|res| res.ok()).into_iter().collect()
+        result.filter_map(|res| res.ok()).collect()
     }
 
     pub fn load_spells(conn: &PooledConnection<SqliteConnectionManager>) -> Vec<PlayerCreateSpell> {
@@ -72,7 +72,7 @@ impl PlayerStaticDataRepository {
             })
             .unwrap();
 
-        result.filter_map(|res| res.ok()).into_iter().collect()
+        result.filter_map(|res| res.ok()).collect()
     }
 
     pub fn load_action_buttons(
@@ -105,7 +105,7 @@ impl PlayerStaticDataRepository {
             })
             .unwrap();
 
-        result.filter_map(|res| res.ok()).into_iter().collect()
+        result.filter_map(|res| res.ok()).collect()
     }
 
     pub fn load_base_health_mana_per_level(
@@ -137,7 +137,7 @@ impl PlayerStaticDataRepository {
             })
             .unwrap();
 
-        result.filter_map(|res| res.ok()).into_iter().collect()
+        result.filter_map(|res| res.ok()).collect()
     }
 
     pub fn load_base_attributes_per_level(
@@ -173,7 +173,7 @@ impl PlayerStaticDataRepository {
             })
             .unwrap();
 
-        result.filter_map(|res| res.ok()).into_iter().collect()
+        result.filter_map(|res| res.ok()).collect()
     }
 
     pub fn load_experience_per_level(
@@ -205,7 +205,7 @@ impl PlayerStaticDataRepository {
             })
             .unwrap();
 
-        result.filter_map(|res| res.ok()).into_iter().collect()
+        result.filter_map(|res| res.ok()).collect()
     }
 }
 
@@ -225,10 +225,7 @@ impl PlayerBaseHealthManaPerLevelDbRecord {
 impl FromSql for CharacterClass {
     fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
         let value = value.as_i64()?;
-        CharacterClass::n(value).map_or(
-            Err(FromSqlError::Other("invalid character class".into())),
-            Ok,
-        )
+        CharacterClass::n(value).ok_or(FromSqlError::Other("invalid character class".into()))
     }
 }
 
@@ -252,10 +249,7 @@ impl PlayerBaseAttributesPerLevelDbRecord {
 impl FromSql for CharacterRace {
     fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
         let value = value.as_i64()?;
-        CharacterRace::n(value).map_or(
-            Err(FromSqlError::Other("invalid character race".into())),
-            Ok,
-        )
+        CharacterRace::n(value).ok_or(FromSqlError::Other("invalid character race".into()))
     }
 }
 

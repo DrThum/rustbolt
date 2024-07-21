@@ -270,37 +270,35 @@ impl Melee {
 
                     if target_powers.is_alive() {
                         if let Ok(mut tl) = vm_threat_list.get(target_id) {
-                            tl.modify_threat(attacker_id, damage as f32);
+                            tl.modify_threat(attacker_id, damage);
                         }
-                    } else {
-                        if let Some(player) = player_attacker {
-                            let mut has_loot = false; // TODO: Handle player case (Insignia looting in PvP)
-                            if let Ok(creature) = v_creature.get(target_id) {
-                                let xp_gain = Experience::xp_gain_against(
-                                    &player,
-                                    creature,
-                                    map.id(),
-                                    data_store.clone(),
-                                );
-                                player.give_experience(xp_gain, Some(target_guid));
-                                player.notify_killed_creature(
-                                    creature.guid(),
-                                    creature.template.entry,
-                                );
+                    } else if let Some(player) = player_attacker {
+                        let mut has_loot = false; // TODO: Handle player case (Insignia looting in PvP)
+                        if let Ok(creature) = v_creature.get(target_id) {
+                            let xp_gain = Experience::xp_gain_against(
+                                player,
+                                creature,
+                                map.id(),
+                                data_store.clone(),
+                            );
+                            player.give_experience(xp_gain, Some(target_guid));
+                            player.notify_killed_creature(
+                                creature.guid(),
+                                creature.template.entry,
+                            );
 
-                                has_loot = creature.generate_loot();
-                            }
-
-                            if let Ok(target_unit) = v_unit.get(target_id) {
-                                if has_loot {
-                                    target_unit.set_dynamic_flag(UnitDynamicFlag::Lootable);
-                                }
-                            }
-
-                            player.unset_in_combat_with(target_guid);
-                        } else if let Ok(mut threat_list) = vm_threat_list.get(attacker_id) {
-                            threat_list.remove(&target_id);
+                            has_loot = creature.generate_loot();
                         }
+
+                        if let Ok(target_unit) = v_unit.get(target_id) {
+                            if has_loot {
+                                target_unit.set_dynamic_flag(UnitDynamicFlag::Lootable);
+                            }
+                        }
+
+                        player.unset_in_combat_with(target_guid);
+                    } else if let Ok(mut threat_list) = vm_threat_list.get(attacker_id) {
+                        threat_list.remove(&target_id);
                     }
 
                     return Ok(());

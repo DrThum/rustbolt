@@ -51,7 +51,7 @@ impl OpcodeHandler {
                                     world_context.data_store.get_item_template(li.item_id)
                                 {
                                     LootResponseItem {
-                                        index: li.index as u8,
+                                        index: li.index,
                                         id: li.item_id,
                                         count: li.count,
                                         display_info_id: item_template.display_id,

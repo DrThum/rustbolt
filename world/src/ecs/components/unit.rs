@@ -108,7 +108,7 @@ impl Unit {
         }
 
         warn!("faction {} not found", self.faction_id());
-        return false;
+        false
     }
 
     pub fn set_dynamic_flag(&self, flag: UnitDynamicFlag) {

@@ -106,7 +106,7 @@ impl Player {
     }
 
     pub fn start_quest(&mut self, quest_template: &QuestTemplate) {
-        if !self.can_start_quest(&quest_template) {
+        if !self.can_start_quest(quest_template) {
             error!("attempt to start a quest that the player cannot start");
             return;
         }
@@ -259,7 +259,6 @@ impl Player {
                     (0, _) | (_, 0) => (),
                     (id, count) => {
                         self.auto_store_new_item(id, count).unwrap();
-                        ()
                     }
                 }
 

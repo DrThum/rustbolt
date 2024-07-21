@@ -7,6 +7,12 @@ pub struct AttributeModifiers {
     dirty: HashSet<AttributeModifier>,
 }
 
+impl Default for AttributeModifiers {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AttributeModifiers {
     pub fn new() -> Self {
         let mut start_values = [[0., 1., 0., 1.]; AttributeModifier::Max as usize];

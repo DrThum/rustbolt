@@ -17,7 +17,7 @@ pub type EffectHandler = Box<
             Arc<SpellRecord>,
             usize,
             &'a AllStoragesViewMut<'b>,
-        ) -> (),
+        ),
 >;
 
 macro_rules! define_handler {
@@ -42,6 +42,12 @@ pub struct SpellEffectHandler {
     handlers: HashMap<SpellEffect, EffectHandler>,
 }
 
+impl Default for SpellEffectHandler {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SpellEffectHandler {
     pub fn new() -> Self {
         Self {
@@ -58,7 +64,7 @@ impl SpellEffectHandler {
 
     pub fn get_handler(&self, spell_effect: &SpellEffect) -> &EffectHandler {
         self.handlers
-            .get(&spell_effect)
+            .get(spell_effect)
             .map(|eff| {
                 trace!("Handling spell effect {:?}", spell_effect);
                 eff

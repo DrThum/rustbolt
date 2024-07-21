@@ -54,7 +54,7 @@ pub fn update_spell(vm_all_storages: AllStoragesViewMut) {
                                         power_type => {
                                             powers.modify_power(
                                                 &power_type,
-                                                current_ranged.power_cost() as i32 * -1,
+                                                -(current_ranged.power_cost() as i32),
                                             );
                                         }
                                     }

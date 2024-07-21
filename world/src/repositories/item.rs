@@ -87,9 +87,7 @@ impl ItemRepository {
             .unwrap();
 
         result
-            .filter(|res| res.is_ok())
-            .map(|res| res.unwrap())
-            .into_iter()
+            .flatten()
             .collect()
     }
 
@@ -109,7 +107,7 @@ impl ItemRepository {
                 use ItemTemplateColumnIndex::*;
 
                 let mut item_stats: Vec<ItemTemplateStat> =
-                    Vec::with_capacity(MAX_ITEM_TEMPLATE_STATS as usize);
+                    Vec::with_capacity(MAX_ITEM_TEMPLATE_STATS);
                 for index in 0..MAX_ITEM_TEMPLATE_STATS {
                     let base_index = StatType1 as usize + (index * 2);
                     item_stats.push(ItemTemplateStat {
@@ -119,7 +117,7 @@ impl ItemRepository {
                 }
 
                 let mut item_damages: Vec<ItemTemplateDamage> =
-                    Vec::with_capacity(MAX_ITEM_TEMPLATE_DAMAGES as usize);
+                    Vec::with_capacity(MAX_ITEM_TEMPLATE_DAMAGES);
                 for index in 0..MAX_ITEM_TEMPLATE_DAMAGES {
                     let base_index = DmgMin1 as usize + (index * 3);
                     item_damages.push(ItemTemplateDamage {
@@ -130,7 +128,7 @@ impl ItemRepository {
                 }
 
                 let mut item_spells: Vec<ItemTemplateSpell> =
-                    Vec::with_capacity(MAX_ITEM_TEMPLATE_SPELLS as usize);
+                    Vec::with_capacity(MAX_ITEM_TEMPLATE_SPELLS);
                 for index in 0..MAX_ITEM_TEMPLATE_SPELLS {
                     let base_index = SpellId1 as usize + (index * 7);
                     item_spells.push(ItemTemplateSpell {
@@ -145,7 +143,7 @@ impl ItemRepository {
                 }
 
                 let mut item_sockets: Vec<ItemTemplateSocket> =
-                    Vec::with_capacity(MAX_ITEM_TEMPLATE_SOCKETS as usize);
+                    Vec::with_capacity(MAX_ITEM_TEMPLATE_SOCKETS);
                 for index in 0..MAX_ITEM_TEMPLATE_SOCKETS {
                     let base_index = SocketColor1 as usize + (index * 2);
                     item_sockets.push(ItemTemplateSocket {
@@ -234,9 +232,7 @@ impl ItemRepository {
             .unwrap();
 
         result
-            .filter(|res| res.is_ok())
-            .map(|res| res.unwrap())
-            .into_iter()
+            .flatten()
             .collect()
     }
 }

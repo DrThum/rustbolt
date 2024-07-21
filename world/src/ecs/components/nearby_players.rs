@@ -10,6 +10,12 @@ pub struct NearbyPlayers {
     pub count: AtomicUsize,
 }
 
+impl Default for NearbyPlayers {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl NearbyPlayers {
     pub fn new() -> Self {
         Self {

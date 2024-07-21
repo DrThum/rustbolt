@@ -111,7 +111,7 @@ impl MapManager {
             None => Err(MapManagerError::UnknownMapId),
             Some(map_record) => {
                 if !map_record.is_instanceable() {
-                    return Err(MapManagerError::CommonMapAlreadyInstanced);
+                    Err(MapManagerError::CommonMapAlreadyInstanced)
                 } else {
                     // Load terrain for this map, or get it from the cache
                     let mut terrain_guard = self.terrains.write();

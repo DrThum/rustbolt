@@ -35,7 +35,6 @@ impl CreatureRepository {
                 use CreatureTemplateColumnIndex::*;
 
                 let model_ids: Vec<u32> = (0..MAX_CREATURE_TEMPLATE_MODELID)
-                    .into_iter()
                     .map(|index| row.get(ModelId1 as usize + index).unwrap())
                     .collect();
 
@@ -92,12 +91,10 @@ impl CreatureRepository {
                 };
 
                 assert!(
-                    vec![
-                        CharacterClass::Warrior,
+                    [CharacterClass::Warrior,
                         CharacterClass::Paladin,
                         CharacterClass::Rogue,
-                        CharacterClass::Mage
-                    ]
+                        CharacterClass::Mage]
                     .contains(&template.unit_class),
                     "creature unit_class must be Warrior, Paladin, Rogue or Mage"
                 );
@@ -106,7 +103,7 @@ impl CreatureRepository {
             })
             .unwrap();
 
-        result.filter_map(|res| res.ok()).into_iter().collect()
+        result.filter_map(|res| res.ok()).collect()
     }
 
     pub fn load_creature_spawns(
@@ -133,7 +130,7 @@ impl CreatureRepository {
             })
             .unwrap();
 
-        result.filter_map(|res| res.ok()).into_iter().collect()
+        result.filter_map(|res| res.ok()).collect()
     }
 
     pub fn load_creature_model_info(
@@ -169,7 +166,7 @@ impl CreatureRepository {
             })
             .unwrap();
 
-        result.filter_map(|res| res.ok()).into_iter().collect()
+        result.filter_map(|res| res.ok()).collect()
     }
 }
 
@@ -260,13 +257,13 @@ enum CreatureModelInfoColumnIndex {
 impl FromSql for Gender {
     fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
         let value = value.as_i64()?;
-        Gender::n(value).map_or(Err(FromSqlError::Other("invalid gender".into())), Ok)
+        Gender::n(value).ok_or(FromSqlError::Other("invalid gender".into()))
     }
 }
 
 impl FromSql for CreatureRank {
     fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
         let value = value.as_i64()?;
-        CreatureRank::n(value).map_or(Err(FromSqlError::Other("invalid creature rank".into())), Ok)
+        CreatureRank::n(value).ok_or(FromSqlError::Other("invalid creature rank".into()))
     }
 }

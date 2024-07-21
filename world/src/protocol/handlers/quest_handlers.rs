@@ -277,7 +277,7 @@ impl OpcodeHandler {
                                 .get_quest_template(next_quest_id)
                                 .unwrap();
 
-                            if player.can_start_quest(&next_quest) {
+                            if player.can_start_quest(next_quest) {
                                 Self::send_quest_details(
                                     cmsg.quest_giver_guid,
                                     next_quest,

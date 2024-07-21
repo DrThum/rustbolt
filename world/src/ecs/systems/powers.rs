@@ -81,7 +81,7 @@ pub fn regenerate_powers(
             0.0
         };
 
-        powers.modify_power(&PowerType::Rage, rage_to_degen as i32 * -1);
+        powers.modify_power(&PowerType::Rage, -(rage_to_degen as i32));
 
         powers.reset_next_regen_time();
     }

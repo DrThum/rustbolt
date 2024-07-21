@@ -112,8 +112,8 @@ impl Item {
         let mut update_builder = UpdateBlockBuilder::new();
 
         for index in self.values.get_dirty_indexes() {
-            let value = self.values.get_u32(index as usize);
-            update_builder.add(index as usize, value);
+            let value = self.values.get_u32(index);
+            update_builder.add(index, value);
         }
 
         let blocks = update_builder.build();

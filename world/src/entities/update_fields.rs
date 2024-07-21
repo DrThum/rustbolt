@@ -7,9 +7,9 @@ pub enum ObjectFields {
     ObjectFieldPadding = 0x0005, // Size: 1, Type: Int, Flags: None
 }
 
-impl Into<usize> for ObjectFields {
-    fn into(self) -> usize {
-        self as usize
+impl From<ObjectFields> for usize {
+    fn from(val: ObjectFields) -> Self {
+        val as usize
     }
 }
 
@@ -18,7 +18,7 @@ pub const OBJECT_END: isize = 0x0006;
 
 #[allow(dead_code)]
 pub enum ItemFields {
-    ItemFieldOwner = OBJECT_END + 0x0000, // Size: 2, Type: Long, Flags: Public
+    ItemFieldOwner = OBJECT_END, // Size: 2, Type: Long, Flags: Public
     ItemFieldContained = OBJECT_END + 0x0002, // Size: 2, Type: Long, Flags: Public
     ItemFieldCreator = OBJECT_END + 0x0004, // Size: 2, Type: Long, Flags: Public
     ItemFieldGiftcreator = OBJECT_END + 0x0006, // Size: 2, Type: Long, Flags: Public
@@ -34,9 +34,9 @@ pub enum ItemFields {
     ItemFieldMaxdurability = OBJECT_END + 0x0035, // Size: 1, Type: Int, Flags: OwnerOnly, Unk2
 }
 
-impl Into<usize> for ItemFields {
-    fn into(self) -> usize {
-        self as usize
+impl From<ItemFields> for usize {
+    fn from(val: ItemFields) -> Self {
+        val as usize
     }
 }
 
@@ -45,14 +45,14 @@ pub const ITEM_END: isize = OBJECT_END + 0x0036;
 
 #[allow(dead_code)]
 pub enum ContainerFields {
-    ContainerFieldNumSlots = ITEM_END + 0x0000, // Size: 1, Type: Int, Flags: Public
+    ContainerFieldNumSlots = ITEM_END, // Size: 1, Type: Int, Flags: Public
     ContainerAlignPad = ITEM_END + 0x0001,      // Size: 1, Type: Bytes, Flags: None
     ContainerFieldSlot1 = ITEM_END + 0x0002,    // Size: 72, Type: Long, Flags: Public
 }
 
-impl Into<usize> for ContainerFields {
-    fn into(self) -> usize {
-        self as usize
+impl From<ContainerFields> for usize {
+    fn from(val: ContainerFields) -> Self {
+        val as usize
     }
 }
 
@@ -61,7 +61,7 @@ pub const CONTAINER_END: isize = ITEM_END + 0x004A;
 
 #[allow(dead_code)]
 pub enum UnitFields {
-    UnitFieldCharm = OBJECT_END + 0x0000, // Size: 2, Type: Long, Flags: Public
+    UnitFieldCharm = OBJECT_END, // Size: 2, Type: Long, Flags: Public
     UnitFieldSummon = OBJECT_END + 0x0002, // Size: 2, Type: Long, Flags: Public
     UnitFieldCharmedby = OBJECT_END + 0x0004, // Size: 2, Type: Long, Flags: Public
     UnitFieldSummonedby = OBJECT_END + 0x0006, // Size: 2, Type: Long, Flags: Public
@@ -150,7 +150,7 @@ pub enum UnitFields {
     UnitFieldMaxhealthmodifier = OBJECT_END + 0x00E2, // Size: 1, Type: Float, Flags: Private, OwnerOnly
     UnitFieldPadding = OBJECT_END + 0x00E3,           // Size: 1, Type: Int, Flags: None
 
-    PlayerDuelArbiter = UNIT_END + 0x0000, // Size: 2, Type: Long, Flags: Public
+    PlayerDuelArbiter = UNIT_END, // Size: 2, Type: Long, Flags: Public
     PlayerFlags = UNIT_END + 0x0002,       // Size: 1, Type: Int, Flags: Public
     PlayerGuildid = UNIT_END + 0x0003,     // Size: 1, Type: Int, Flags: Public
     PlayerGuildrank = UNIT_END + 0x0004,   // Size: 1, Type: Int, Flags: Public
@@ -394,9 +394,9 @@ pub enum UnitFields {
     PlayerFieldDailyQuests1 = UNIT_END + 0x0535, // Size: 25, Type: Int, Flags: Private
 }
 
-impl Into<usize> for UnitFields {
-    fn into(self) -> usize {
-        self as usize
+impl From<UnitFields> for usize {
+    fn from(val: UnitFields) -> Self {
+        val as usize
     }
 }
 
@@ -409,7 +409,7 @@ pub const MAX_PLAYER_VISIBLE_ITEM_OFFSET: u32 = 16;
 
 #[allow(dead_code)]
 pub enum GameObjectFields {
-    ObjectFieldCreatedBy = OBJECT_END + 0x0000, // Size: 2, Type: Long, Flags: Public
+    ObjectFieldCreatedBy = OBJECT_END, // Size: 2, Type: Long, Flags: Public
     GameObjectDisplayid = OBJECT_END + 0x0002,  // Size: 1, Type: Int, Flags: Public
     GameObjectFlags = OBJECT_END + 0x0003,      // Size: 1, Type: Int, Flags: Public
     GameObjectRotation = OBJECT_END + 0x0004,   // Size: 4, Type: Float, Flags: Public
@@ -427,9 +427,9 @@ pub enum GameObjectFields {
     GameObjectPadding = OBJECT_END + 0x0013,    // Size: 1, Type: Int, Flags: None
 }
 
-impl Into<usize> for GameObjectFields {
-    fn into(self) -> usize {
-        self as usize
+impl From<GameObjectFields> for usize {
+    fn from(val: GameObjectFields) -> Self {
+        val as usize
     }
 }
 
@@ -438,7 +438,7 @@ pub const GAME_OBJECT_END: isize = OBJECT_END + 0x0014;
 
 #[allow(dead_code)]
 pub enum DynamicObjectFields {
-    DynamicObjectCaster = OBJECT_END + 0x0000, // Size: 2, Type: Long, Flags: Public
+    DynamicObjectCaster = OBJECT_END, // Size: 2, Type: Long, Flags: Public
     DynamicObjectBytes = OBJECT_END + 0x0002,  // Size: 1, Type: Bytes, Flags: Public
     DynamicObjectSpellid = OBJECT_END + 0x0003, // Size: 1, Type: Int, Flags: Public
     DynamicObjectRadius = OBJECT_END + 0x0004, // Size: 1, Type: Float, Flags: Public
@@ -449,9 +449,9 @@ pub enum DynamicObjectFields {
     DynamicObjectCasttime = OBJECT_END + 0x0009, // Size: 1, Type: Int, Flags: Public
 }
 
-impl Into<usize> for DynamicObjectFields {
-    fn into(self) -> usize {
-        self as usize
+impl From<DynamicObjectFields> for usize {
+    fn from(val: DynamicObjectFields) -> Self {
+        val as usize
     }
 }
 
@@ -460,7 +460,7 @@ pub const DYNAMIC_OBJECT_END: isize = OBJECT_END + 0x000A;
 
 #[allow(dead_code)]
 pub enum CorpseFields {
-    CorpseFieldOwner = OBJECT_END + 0x0000, // Size: 2, Type: Long, Flags: Public
+    CorpseFieldOwner = OBJECT_END, // Size: 2, Type: Long, Flags: Public
     CorpseFieldParty = OBJECT_END + 0x0002, // Size: 2, Type: Long, Flags: Public
     CorpseFieldFacing = OBJECT_END + 0x0004, // Size: 1, Type: Float, Flags: Public
     CorpseFieldPosX = OBJECT_END + 0x0005,  // Size: 1, Type: Float, Flags: Public
@@ -476,9 +476,9 @@ pub enum CorpseFields {
     CorpseFieldPad = OBJECT_END + 0x0021,   // Size: 1, Type: Int, Flags: None
 }
 
-impl Into<usize> for CorpseFields {
-    fn into(self) -> usize {
-        self as usize
+impl From<CorpseFields> for usize {
+    fn from(val: CorpseFields) -> Self {
+        val as usize
     }
 }
 

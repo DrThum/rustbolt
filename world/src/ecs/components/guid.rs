@@ -15,6 +15,6 @@ impl Guid {
         internal_values
             .write()
             .set_u64(ObjectFields::ObjectFieldGuid.into(), guid.raw());
-        Self { 0: guid }
+        Self(guid)
     }
 }

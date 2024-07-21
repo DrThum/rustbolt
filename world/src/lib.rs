@@ -173,14 +173,14 @@ impl WorldSocketState<ServerSentAuthChallenge> {
         match self.state.socket.read_exact(&mut buf[..6]).await {
             Ok(0) => {
                 trace!("Client disconnected");
-                return Err(WorldSocketError::ClientDisconnected);
+                Err(WorldSocketError::ClientDisconnected)
             }
             Ok(n) if n < 6 => {
                 error!("Received less than 6 bytes, need to handle partial header");
-                return Err(WorldSocketError::SocketError(std::io::Error::new(
+                Err(WorldSocketError::SocketError(std::io::Error::new(
                     std::io::ErrorKind::InvalidData,
                     "Received an incomplete client header",
-                )));
+                )))
             }
             Ok(_) => {
                 let mut reader = Cursor::new(buf);
@@ -200,7 +200,7 @@ impl WorldSocketState<ServerSentAuthChallenge> {
             }
             Err(e) => {
                 error!("Socket error, closing");
-                return Err(WorldSocketError::SocketError(e));
+                Err(WorldSocketError::SocketError(e))
             }
         }
     }
@@ -286,7 +286,7 @@ impl WorldSocketState<ServerSentAuthChallenge> {
         let uncompressed_size: u32 = reader.read_le().unwrap();
 
         let compressed_data = &raw_data[4..].to_vec();
-        let data = miniz_oxide::inflate::decompress_to_vec_zlib(&compressed_data).unwrap();
+        let data = miniz_oxide::inflate::decompress_to_vec_zlib(compressed_data).unwrap();
 
         let mut offset: usize = 0;
         let mut infos: Vec<ClientAddonInfo> = Vec::new();

@@ -46,7 +46,7 @@ impl CreatureStaticDataRepository {
             })
             .unwrap();
 
-        result.filter_map(|res| res.ok()).into_iter().collect()
+        result.filter_map(|res| res.ok()).collect()
     }
 }
 
@@ -71,6 +71,6 @@ impl CreatureBaseAttributesPerLevelDbRecord {
     }
 
     pub fn damage(&self, expansion: usize, multiplier: f32) -> f32 {
-        ((self.damage[expansion] as f32 * multiplier).ceil()).max(1.)
+        ((self.damage[expansion] * multiplier).ceil()).max(1.)
     }
 }

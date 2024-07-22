@@ -23,6 +23,7 @@ use crate::{
         creature_static_data::{
             CreatureBaseAttributesPerLevelDbRecord, CreatureStaticDataRepository,
         },
+        game_object::GameObjectRepository,
         gossip::GossipRepository,
         item::ItemRepository,
         player_static_data::{
@@ -40,10 +41,10 @@ use crate::{
 
 use self::data_types::{
     CharStartOutfitRecord, ChrClassesRecord, ChrRacesRecord, EmotesTextRecord, FactionRecord,
-    FactionTemplateRecord, GameTableOCTRegenHPRecord, GameTableRegenHPPerSptRecord,
-    GameTableRegenMPPerSptRecord, GossipMenuDbRecord, ItemRecord, ItemTemplate, MapRecord,
-    PlayerCreateActionButton, QuestRelation, QuestTemplate, SkillLineAbilityRecord,
-    SkillLineRecord, SpellCastTimeRecord, SpellDurationRecord, SpellRecord,
+    FactionTemplateRecord, GameObjectTemplate, GameTableOCTRegenHPRecord,
+    GameTableRegenHPPerSptRecord, GameTableRegenMPPerSptRecord, GossipMenuDbRecord, ItemRecord,
+    ItemTemplate, MapRecord, PlayerCreateActionButton, QuestRelation, QuestTemplate,
+    SkillLineAbilityRecord, SkillLineRecord, SpellCastTimeRecord, SpellDurationRecord, SpellRecord,
 };
 
 pub mod data_types;
@@ -56,6 +57,7 @@ pub type SqlStore<T> = HashMap<u32, T>;
 pub type SqlMultiStore<T> = MultiMap<u32, T>;
 
 pub struct DataStore {
+    // DBCs
     chr_races: DbcStore<ChrRacesRecord>,
     chr_classes: DbcStore<ChrClassesRecord>,
     char_start_outfit: DbcStore<CharStartOutfitRecord>,
@@ -70,6 +72,7 @@ pub struct DataStore {
     skill_line_ability_by_spell: DbcMultiStore<SkillLineAbilityRecord>,
     faction: DbcStore<FactionRecord>,
     faction_template: DbcStore<FactionTemplateRecord>,
+    // SQL tables
     item_templates: SqlStore<ItemTemplate>,
     player_create_positions: SqlStore<PlayerCreatePosition>,
     player_create_spells: SqlMultiStore<u32>,
@@ -85,6 +88,7 @@ pub struct DataStore {
     creature_base_attributes: SqlStore<CreatureBaseAttributesPerLevelDbRecord>,
     player_experience_per_level: SqlStore<PlayerExperiencePerLevel>,
     creature_loot_tables: SqlStore<LootTable>,
+    game_object_templates: SqlStore<GameObjectTemplate>,
     // GameTables (DBC files with name starting with gtXXX)
     gt_OCTRegenHP: GameTableStore<GameTableOCTRegenHPRecord>,
     gt_RegenHPPerSpt: GameTableStore<GameTableRegenHPPerSptRecord>,
@@ -317,6 +321,19 @@ impl DataStore {
             creature_loot_tables
         };
 
+        let game_object_templates = if config.world.dev.load_creature_templates {
+            info!("Loading game object templates...");
+            let game_object_templates = GameObjectRepository::load_templates(conn);
+            let game_object_templates: SqlStore<GameObjectTemplate> = game_object_templates
+                .into_iter()
+                .map(|template| (template.entry, template))
+                .collect();
+            game_object_templates
+        } else {
+            info!("Game object templates loading disabled in configuration");
+            HashMap::new()
+        };
+
         Ok(DataStore {
             chr_races,
             chr_classes,
@@ -347,6 +364,7 @@ impl DataStore {
             creature_base_attributes,
             player_experience_per_level,
             creature_loot_tables,
+            game_object_templates,
             gt_OCTRegenHP,
             gt_RegenHPPerSpt,
             gt_RegenMPPerSpt,

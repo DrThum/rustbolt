@@ -42,6 +42,7 @@ mod entities {
     pub mod update_fields;
 
     pub mod creature;
+    pub mod game_object;
     pub mod item;
     pub mod player;
 
@@ -75,6 +76,7 @@ pub mod repositories {
     pub mod character;
     pub mod creature;
     pub mod creature_static_data;
+    pub mod game_object;
     pub mod gossip;
     pub mod item;
     pub mod player_static_data;

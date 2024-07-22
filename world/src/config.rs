@@ -57,4 +57,5 @@ pub struct PlayerSection {
 pub struct DevSection {
     pub load_terrain: bool,
     pub load_creature_templates: bool,
+    pub load_game_object_templates: bool,
 }

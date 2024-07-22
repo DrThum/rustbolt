@@ -703,32 +703,25 @@ impl Map {
                 }
 
                 // Make the entity (player or otherwise) appear for the moving player
-                let mut smsg_create_object: Option<SmsgCreateObject> = None;
+                if let Some(origin_session) = origin_session.as_ref() {
+                    let smsg_create_object: SmsgCreateObject = {
+                        let movement = v_movement.get(other_entity_id).ok().map(|m| {
+                            m.build_update(
+                                self.world_context.clone(),
+                                &vm_wpos[other_entity_id].as_position(),
+                            )
+                        });
 
-                {
-                    let movement = v_movement.get(other_entity_id).ok().map(|m| {
-                        m.build_update(
-                            self.world_context.clone(),
-                            &vm_wpos[other_entity_id].as_position(),
-                        )
-                    });
+                        if let Ok(player) = v_player.get(other_entity_id) {
+                            player.build_create_object(movement, false)
+                        } else if let Ok(creature) = v_creature.get(other_entity_id) {
+                            creature.build_create_object(movement)
+                        } else {
+                            unreachable!("cannot generate SMSG_CREATE_OBJECT for this entity type");
+                        }
+                    };
 
-                    if let Ok(player) = v_player.get(other_entity_id) {
-                        smsg_create_object = Some(player.build_create_object(movement, false));
-                    } else if let Ok(creature) = v_creature.get(other_entity_id) {
-                        smsg_create_object = Some(creature.build_create_object(movement));
-                    }
-                }
-
-                if let Some(smsg) = smsg_create_object {
-                    if let Some(os) = origin_session.as_ref() {
-                        os.create_entity(&other_guid, smsg)
-                    }
-                } else {
-                    warn!(
-                        "Map::update_entity_position: unable to generate a SmsgCreateObject for guid {:?}",
-                        other_entity_id
-                    );
+                    origin_session.create_entity(&other_guid, smsg_create_object);
                 }
 
                 // If a player appeared, increment the NearbyPlayers counter for the creature

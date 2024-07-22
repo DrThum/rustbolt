@@ -28,7 +28,7 @@ impl Position {
         }
     }
 
-    pub fn distance_to(&self, other: &Position, is_3d: bool) -> f32 {
+    pub fn distance_to(&self, other: Position, is_3d: bool) -> f32 {
         let dist_x = self.x - other.x;
         let dist_y = self.y - other.y;
 
@@ -41,7 +41,7 @@ impl Position {
         }
     }
 
-    pub fn center_between(&self, other: &Position) -> Position {
+    pub fn center_between(&self, other: Position) -> Position {
         Position {
             x: (self.x + other.x) / 2.,
             y: (self.y + other.y) / 2.,

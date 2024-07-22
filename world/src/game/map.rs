@@ -638,7 +638,7 @@ impl Map {
         entity_guid: &ObjectGuid,
         mover_entity_id: EntityId,
         origin_session: Option<Arc<WorldSession>>, // Must be defined if entity is a player
-        new_position: &Position,
+        new_position: &Position,                   // FIXME: remove the &
         v_movement: &View<Movement>,
         v_player: &View<Player>,
         v_creature: &View<Creature>,
@@ -662,83 +662,16 @@ impl Map {
 
             vm_wpos[mover_entity_id].update_local(new_position);
 
-            let visibility_distance = self.visibility_distance();
-            // Most of the moves are going to be small (entity just walking around), so in these
-            // cases we can perform a single search in the quadtree, in a circle that will include
-            // both the old and new positions circles (which are going to mostly overlap)
-            let in_range_before: Vec<EntityId>;
-            let in_range_now: Vec<EntityId>;
-
-            let traveled_distance = previous_position.distance_to(new_position, true);
-            if traveled_distance <= visibility_distance {
-                let center = previous_position.center_between(new_position);
-                let search_radius = visibility_distance + traveled_distance / 2.;
-                let in_range_all = self.entities_tree.read().search_around_position(
-                    &center,
-                    search_radius,
-                    true,
-                    Some(&mover_entity_id),
-                );
-
-                let previous_vec3 = previous_position.vec3();
-                let new_vec3 = new_position.vec3();
-                in_range_before = in_range_all
-                    .iter()
-                    .filter_map(|(entity_id, vec3)| {
-                        if vec3.square_distance_3d(&previous_vec3)
-                            <= visibility_distance * visibility_distance
-                        {
-                            Some(*entity_id)
-                        } else {
-                            None
-                        }
-                    })
-                    .collect();
-
-                in_range_now = in_range_all
-                    .iter()
-                    .filter_map(|(entity_id, vec3)| {
-                        if vec3.square_distance_3d(&new_vec3)
-                            <= visibility_distance * visibility_distance
-                        {
-                            Some(*entity_id)
-                        } else {
-                            None
-                        }
-                    })
-                    .collect();
-            } else {
-                in_range_before = self
-                    .entities_tree
-                    .read()
-                    .search_around_position(
-                        &previous_position,
-                        visibility_distance,
-                        true,
-                        Some(&mover_entity_id),
-                    )
-                    .into_iter()
-                    .map(|(entity_id, _)| entity_id)
-                    .collect();
-                in_range_now = self
-                    .entities_tree
-                    .read()
-                    .search_around_position(
-                        new_position,
-                        visibility_distance,
-                        true,
-                        Some(&mover_entity_id),
-                    )
-                    .into_iter()
-                    .map(|(entity_id, _)| entity_id)
-                    .collect();
-            }
-
-            let in_range_before: HashSet<EntityId> = in_range_before.into_iter().collect();
-            let in_range_now: HashSet<EntityId> = in_range_now.into_iter().collect();
-
-            let appeared_for = &in_range_now - &in_range_before;
-            let disappeared_for = &in_range_before - &in_range_now;
+            let VisibilityChangesAfterMovement {
+                moving_entity_appeared_for: appeared_for,
+                moving_entity_disappeared_for: disappeared_for,
+                entities_in_range_now: in_range_now,
+                ..
+            } = self.get_visibility_changes_for_entities(
+                previous_position,
+                *new_position,
+                mover_entity_id,
+            );
 
             let mut moving_entity_smsg_create_object: Option<SmsgCreateObject> = None;
 
@@ -846,6 +779,98 @@ impl Map {
             }
         } else {
             error!("updating position for entity not on map");
+        }
+    }
+
+    fn get_visibility_changes_for_entities(
+        &self,
+        previous_position: Position,
+        new_position: Position,
+        mover_entity_id: EntityId,
+    ) -> VisibilityChangesAfterMovement {
+        let visibility_distance = self.visibility_distance;
+        let in_range_before: Vec<EntityId>;
+        let in_range_now: Vec<EntityId>;
+
+        let traveled_distance = previous_position.distance_to(new_position, true);
+        if traveled_distance <= visibility_distance {
+            // Most of the moves are going to be small (entity just walking around), so in these
+            // cases we can perform a single search in the quadtree, in a circle that will include
+            // both the old and new positions circles (which are going to mostly overlap)
+            let center = previous_position.center_between(new_position);
+            let search_radius = visibility_distance + traveled_distance / 2.;
+            let in_range_all = self.entities_tree.read().search_around_position(
+                &center,
+                search_radius,
+                true,
+                Some(&mover_entity_id),
+            );
+
+            let previous_vec3 = previous_position.vec3();
+            let new_vec3 = new_position.vec3();
+            in_range_before = in_range_all
+                .iter()
+                .filter_map(|(entity_id, vec3)| {
+                    if vec3.square_distance_3d(&previous_vec3)
+                        <= visibility_distance * visibility_distance
+                    {
+                        Some(*entity_id)
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+
+            in_range_now = in_range_all
+                .iter()
+                .filter_map(|(entity_id, vec3)| {
+                    if vec3.square_distance_3d(&new_vec3)
+                        <= visibility_distance * visibility_distance
+                    {
+                        Some(*entity_id)
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+        } else {
+            in_range_before = self
+                .entities_tree
+                .read()
+                .search_around_position(
+                    &previous_position,
+                    visibility_distance,
+                    true,
+                    Some(&mover_entity_id),
+                )
+                .into_iter()
+                .map(|(entity_id, _)| entity_id)
+                .collect();
+            in_range_now = self
+                .entities_tree
+                .read()
+                .search_around_position(
+                    &new_position,
+                    visibility_distance,
+                    true,
+                    Some(&mover_entity_id),
+                )
+                .into_iter()
+                .map(|(entity_id, _)| entity_id)
+                .collect();
+        }
+
+        let in_range_now: HashSet<EntityId> = in_range_now.into_iter().collect();
+        let in_range_before: HashSet<EntityId> = in_range_before.into_iter().collect();
+
+        let appeared_for = &in_range_now - &in_range_before;
+        let disappeared_for = &in_range_before - &in_range_now;
+
+        VisibilityChangesAfterMovement {
+            moving_entity_appeared_for: appeared_for,
+            moving_entity_disappeared_for: disappeared_for,
+            entities_in_range_before: in_range_before,
+            entities_in_range_now: in_range_now,
         }
     }
 
@@ -1074,3 +1099,11 @@ impl Map {
 
 #[derive(Unique)]
 pub struct WrappedMap(pub Arc<Map>);
+
+#[allow(dead_code)]
+struct VisibilityChangesAfterMovement {
+    pub moving_entity_appeared_for: HashSet<EntityId>,
+    pub moving_entity_disappeared_for: HashSet<EntityId>,
+    pub entities_in_range_before: HashSet<EntityId>,
+    pub entities_in_range_now: HashSet<EntityId>,
+}

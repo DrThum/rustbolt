@@ -1,4 +1,7 @@
+use std::f32::consts;
+
 use indicatif::ProgressBar;
+use parry3d::na::Quaternion;
 use r2d2::PooledConnection;
 use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::named_params;
@@ -97,6 +100,11 @@ impl GameObjectRepository {
             .query_map(named_params! { ":map_id": map_id }, |row| {
                 use GameObjectSpawnColumnIndex::*;
 
+                let rotation0: f32 = row.get(Rotation0 as usize).unwrap();
+                let rotation1: f32 = row.get(Rotation1 as usize).unwrap();
+                let rotation2: f32 = row.get(Rotation2 as usize).unwrap();
+                let rotation3: f32 = row.get(Rotation3 as usize).unwrap();
+
                 Ok(GameObjectSpawnDbRecord {
                     guid: row.get(Guid as usize).unwrap(),
                     entry: row.get(Entry as usize).unwrap(),
@@ -105,10 +113,8 @@ impl GameObjectRepository {
                     position_y: row.get(PositionY as usize).unwrap(),
                     position_z: row.get(PositionZ as usize).unwrap(),
                     orientation: row.get(Orientation as usize).unwrap(),
-                    rotation0: row.get(Rotation0 as usize).unwrap(),
-                    rotation1: row.get(Rotation1 as usize).unwrap(),
-                    rotation2: row.get(Rotation2 as usize).unwrap(),
-                    rotation3: row.get(Rotation3 as usize).unwrap(),
+                    rotation: Quaternion::new(rotation3, rotation0, rotation1, rotation2)
+                        .normalize(),
                 })
             })
             .unwrap();
@@ -125,10 +131,18 @@ pub struct GameObjectSpawnDbRecord {
     pub position_y: f32,
     pub position_z: f32,
     pub orientation: f32,
-    pub rotation0: f32,
-    pub rotation1: f32,
-    pub rotation2: f32,
-    pub rotation3: f32,
+    pub rotation: Quaternion<f32>,
+}
+
+impl GameObjectSpawnDbRecord {
+    // I have no idea what I'm doing, this is straight from MaNGOS
+    pub fn get_orientation_from_rotation(&self) -> f32 {
+        let q = self.rotation;
+        let t1 = 2. * (q.w * q.k + q.i * q.j);
+        let t2 = 1. - 2. * (q.j * q.j + q.k * q.k);
+        let orientation = f32::atan2(t1, t2);
+        orientation % (2. * consts::PI)
+    }
 }
 
 enum GameObjectTemplateColumnIndex {

@@ -16,7 +16,7 @@ use super::{
     object_guid::ObjectGuid,
     position::WorldPosition,
     update::{CreateData, PositionUpdateData, UpdateBlockBuilder, UpdateFlag, UpdateType},
-    update_fields::{ObjectFields, GAME_OBJECT_END},
+    update_fields::{GameObjectFields, ObjectFields, GAME_OBJECT_END},
 };
 
 #[derive(Component)]
@@ -28,25 +28,22 @@ pub struct GameObject {
 
 impl GameObject {
     pub fn from_spawn(
-        game_object_spawn: &GameObjectSpawnDbRecord,
+        spawn: &GameObjectSpawnDbRecord,
         world_context: Arc<WorldContext>,
     ) -> Option<Self> {
         let data_store = world_context.data_store.clone();
         data_store
-            .get_game_object_template(game_object_spawn.entry)
+            .get_game_object_template(spawn.entry)
             .map(|template| {
-                let guid = ObjectGuid::with_entry(
-                    HighGuidType::Gameobject,
-                    game_object_spawn.entry,
-                    game_object_spawn.guid,
-                );
+                let guid =
+                    ObjectGuid::with_entry(HighGuidType::Gameobject, spawn.entry, spawn.guid);
                 let spawn_position = WorldPosition {
-                    map_key: MapKey::for_continent(game_object_spawn.map), // TODO: MapKey for dungeon
+                    map_key: MapKey::for_continent(spawn.map), // TODO: MapKey for dungeon
                     zone: 0, // TODO: Calculate zone from terrain files
-                    x: game_object_spawn.position_x,
-                    y: game_object_spawn.position_y,
-                    z: game_object_spawn.position_z,
-                    o: game_object_spawn.orientation,
+                    x: spawn.position_x,
+                    y: spawn.position_y,
+                    z: spawn.position_z,
+                    o: spawn.orientation,
                 };
 
                 let mut values = InternalValues::new(GAME_OBJECT_END as usize);
@@ -56,6 +53,42 @@ impl GameObject {
                 values.set_u32(ObjectFields::ObjectFieldType.into(), object_type);
 
                 values.set_u32(ObjectFields::ObjectFieldEntry.into(), template.entry);
+                values.set_f32(ObjectFields::ObjectFieldScaleX.into(), template.size);
+                values.set_u32(
+                    GameObjectFields::GameObjectDisplayid.into(),
+                    template.display_id,
+                );
+                values.set_u8(GameObjectFields::GameObjectState.into(), 0, 1); // TODO: Enum GO_STATE
+                values.set_u32(GameObjectFields::GameObjectTypeId.into(), template.go_type);
+                values.set_u32(GameObjectFields::GameObjectAnimprogress.into(), 100); // FIXME: animprogress in DB
+
+                values.set_f32(GameObjectFields::GameObjectPosX.into(), spawn.position_x);
+                values.set_f32(GameObjectFields::GameObjectPosY.into(), spawn.position_y);
+                values.set_f32(GameObjectFields::GameObjectPosZ.into(), spawn.position_z);
+
+                values.set_f32(
+                    GameObjectFields::GameObjectRotation.into(),
+                    spawn.rotation.i,
+                );
+                values.set_f32(
+                    GameObjectFields::GameObjectRotation as usize + 1,
+                    spawn.rotation.j,
+                );
+                values.set_f32(
+                    GameObjectFields::GameObjectRotation as usize + 2,
+                    spawn.rotation.k,
+                );
+                values.set_f32(
+                    GameObjectFields::GameObjectRotation as usize + 3,
+                    spawn.rotation.w,
+                );
+                values.set_f32(
+                    GameObjectFields::GameObjectFacing.into(),
+                    spawn.get_orientation_from_rotation(),
+                );
+
+                values.set_u32(GameObjectFields::GameObjectFaction.into(), template.faction);
+                values.set_u32(GameObjectFields::GameObjectFlags.into(), template.flags);
 
                 GameObject {
                     guid,

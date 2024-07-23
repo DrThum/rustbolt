@@ -12,8 +12,7 @@ use crate::{
 
 use super::world_session::WorldSession;
 
-pub type PacketHandler =
-    Box<dyn Send + Sync + Fn(Arc<WorldSession>, Arc<WorldContext>, Vec<u8>)>;
+pub type PacketHandler = Box<dyn Send + Sync + Fn(Arc<WorldSession>, Arc<WorldContext>, Vec<u8>)>;
 
 macro_rules! define_handler {
     ($opcode:expr, $handler:expr) => {
@@ -223,6 +222,10 @@ impl OpcodeHandler {
                     OpcodeHandler::handle_cmsg_swap_inv_item
                 ),
                 define_handler!(Opcode::CmsgSplitItem, OpcodeHandler::handle_cmsg_split_item),
+                define_handler!(
+                    Opcode::CmsgGameObjectQuery,
+                    OpcodeHandler::handle_cmsg_game_object_query
+                ),
             ]),
         }
     }

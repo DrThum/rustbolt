@@ -1473,3 +1473,35 @@ pub struct GameObjectTemplate {
     pub min_money_loot: u32,
     pub max_money_loot: u32,
 }
+
+impl GameObjectTemplate {
+    // TODO: type dataXX depending on go_type (union maybe)
+    pub fn raw_data(&self) -> [u32; 24] {
+        [
+            self.data0,
+            self.data1,
+            self.data2,
+            self.data3,
+            self.data4,
+            self.data5,
+            self.data6,
+            self.data7,
+            self.data8,
+            self.data9,
+            self.data10,
+            self.data11,
+            self.data12,
+            self.data13,
+            self.data14,
+            self.data15,
+            self.data16,
+            self.data17,
+            self.data18,
+            self.data19,
+            self.data20,
+            self.data21,
+            self.data22,
+            self.data23,
+        ]
+    }
+}

@@ -8,9 +8,10 @@ use crate::{
     protocol::{
         client::ClientMessage,
         packets::{
-            CmsgCreatureQuery, CmsgNpcTextQuery, CmsgQuestQuery, NpcTextUpdate,
-            SmsgCreatureQueryResponse, SmsgCreatureQueryResponseUnknownTemplate, SmsgNpcTextUpdate,
-            SmsgQuestQueryResponse,
+            CmsgCreatureQuery, CmsgGameObjectQuery, CmsgNpcTextQuery, CmsgQuestQuery,
+            NpcTextUpdate, SmsgCreatureQueryResponse, SmsgCreatureQueryResponseUnknownTemplate,
+            SmsgGameObjectQueryResponse, SmsgGameObjectQueryResponseUnknownTemplate,
+            SmsgNpcTextUpdate, SmsgQuestQueryResponse,
         },
         server::ServerMessage,
     },
@@ -49,6 +50,44 @@ impl OpcodeHandler {
             session.send(&packet).unwrap();
         } else {
             let packet = ServerMessage::new(SmsgCreatureQueryResponseUnknownTemplate {
+                masked_entry: cmsg.entry | 0x80000000,
+            });
+
+            session.send(&packet).unwrap();
+        }
+    }
+
+    pub(crate) fn handle_cmsg_game_object_query(
+        session: Arc<WorldSession>,
+        world_context: Arc<WorldContext>,
+        data: Vec<u8>,
+    ) {
+        let cmsg: CmsgGameObjectQuery = ClientMessage::read_as(data).unwrap();
+
+        if let Some(template) = world_context
+            .data_store
+            .get_game_object_template(cmsg.entry)
+        {
+            let packet = ServerMessage::new(SmsgGameObjectQueryResponse {
+                entry: template.entry,
+                go_type: template.go_type,
+                display_id: template.display_id,
+                name: NullString::from(template.name.clone()),
+                name2: 0,
+                name3: 0,
+                name4: 0,
+                icon_name: 0,
+                cast_bar_caption: NullString::from(
+                    template.cast_bar_caption.clone().unwrap_or("".to_owned()),
+                ),
+                unk: 0,
+                data: template.raw_data(),
+                size: template.size,
+            });
+
+            session.send(&packet).unwrap();
+        } else {
+            let packet = ServerMessage::new(SmsgGameObjectQueryResponseUnknownTemplate {
                 masked_entry: cmsg.entry | 0x80000000,
             });
 

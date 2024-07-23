@@ -3,6 +3,7 @@ use opcode_derive::server_opcode;
 
 use crate::{
     datastore::data_types::NpcTextEmote,
+    entities::object_guid::ObjectGuid,
     protocol::{opcodes::Opcode, server::ServerMessagePayload},
     shared::constants::{
         MAX_QUEST_CHOICE_REWARDS_COUNT, MAX_QUEST_OBJECTIVES_COUNT, MAX_QUEST_REWARDS_COUNT,
@@ -129,4 +130,36 @@ pub struct SmsgQuestQueryResponse {
     pub required_entities_and_items:
         [[u32; MAX_QUEST_OBJECTIVES_COUNT]; MAX_QUEST_OBJECTIVES_COUNT],
     pub objective_texts: [NullString; MAX_QUEST_OBJECTIVES_COUNT],
+}
+
+#[binread]
+pub struct CmsgGameObjectQuery {
+    pub entry: u32,
+    _guid: ObjectGuid,
+}
+
+#[binwrite]
+#[server_opcode]
+pub struct SmsgGameObjectQueryResponse {
+    pub entry: u32,
+    pub go_type: u32,
+    pub display_id: u32,
+    pub name: NullString,
+    pub name2: u8,     // 0
+    pub name3: u8,     // 0
+    pub name4: u8,     // 0
+    pub icon_name: u8, // 0, always empty in DB
+    pub cast_bar_caption: NullString,
+    pub unk: u8,         // Actually a string but send 0 instead
+    pub data: [u32; 24], // data0, ..., data23
+    pub size: f32,
+}
+
+#[binwrite]
+pub struct SmsgGameObjectQueryResponseUnknownTemplate {
+    pub masked_entry: u32,
+}
+impl ServerMessagePayload<{ Opcode::SmsgGameObjectQueryResponse as u16 }>
+    for SmsgGameObjectQueryResponseUnknownTemplate
+{
 }

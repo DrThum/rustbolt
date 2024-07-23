@@ -39,6 +39,7 @@ use crate::{
     },
     entities::{
         creature::Creature,
+        game_object::GameObject,
         internal_values::WrappedInternalValues,
         object_guid::ObjectGuid,
         player::Player,
@@ -50,7 +51,10 @@ use crate::{
         packets::{MovementInfo, SmsgCreateObject},
         server::ServerMessage,
     },
-    repositories::{character::CharacterRecord, creature::CreatureSpawnDbRecord},
+    repositories::{
+        character::CharacterRecord, creature::CreatureSpawnDbRecord,
+        game_object::GameObjectSpawnDbRecord,
+    },
     session::world_session::WorldSession,
     shared::constants::{HighGuidType, NpcFlags, WeaponAttackType},
 };
@@ -85,6 +89,7 @@ impl Map {
         world_context: Arc<WorldContext>,
         terrain: Arc<HashMap<TerrainBlockCoords, Terrain>>,
         creature_spawns: Vec<CreatureSpawnDbRecord>,
+        game_object_spawns: Vec<GameObjectSpawnDbRecord>,
         config: Arc<WorldConfig>,
     ) -> Arc<Map> {
         let world = World::new();
@@ -143,6 +148,24 @@ impl Map {
                 .expect("unable to build InternalValues for creature from DB spawn");
 
             map.add_creature(&guid, creature, &position);
+        }
+
+        for spawn in game_object_spawns {
+            let guid = ObjectGuid::with_entry(HighGuidType::Gameobject, spawn.entry, spawn.guid);
+
+            let position = WorldPosition {
+                map_key: key,
+                zone: 1, // FIXME: calculate from position and terrain
+                x: spawn.position_x,
+                y: spawn.position_y,
+                z: spawn.position_z,
+                o: spawn.orientation,
+            };
+
+            let game_object = GameObject::from_spawn(&spawn, world_context.clone())
+                .expect("unable to build InternalValues for game object from DB spawn");
+
+            map.add_game_object(&guid, game_object, &position);
         }
 
         let map = Arc::new(map);
@@ -401,7 +424,7 @@ impl Map {
                     });
 
                 // Send nearby entities to the new player
-                let mut smsg_create_object: Option<SmsgCreateObject> = None;
+                let smsg_create_object: Option<SmsgCreateObject>;
                 {
                     let world_guard = self.world.lock();
 
@@ -425,6 +448,8 @@ impl Map {
                         smsg_create_object = Some(player.build_create_object(movement, false));
                     } else if let Ok(creature) = v_creature.get(other_entity_id) {
                         smsg_create_object = Some(creature.build_create_object(movement));
+                    } else {
+                        unreachable!("cannot generate SMSG_CREATE_OBJECT for this entity type");
                     }
                 }
 
@@ -631,6 +656,40 @@ impl Map {
 
             session.create_entity(creature_guid, smsg_create_object);
         }
+    }
+
+    pub fn add_game_object(
+        &self,
+        game_object_guid: &ObjectGuid,
+        game_object: GameObject,
+        wpos: &WorldPosition,
+    ) {
+        let game_object_entity_id = self.world.lock().run(
+            |mut entities: EntitiesViewMut,
+             mut vm_guid: ViewMut<Guid>,
+             mut vm_game_object: ViewMut<GameObject>| {
+                let entity_id = entities.add_entity(
+                    &mut vm_guid,
+                    Guid::new(*game_object_guid, game_object.internal_values.clone()),
+                );
+                entities.add_component(entity_id, &mut vm_game_object, game_object);
+
+                vm_game_object
+                    .get(entity_id)
+                    .unwrap()
+                    .internal_values
+                    .write()
+                    .reset_dirty();
+                entity_id
+            },
+        );
+
+        {
+            let mut tree = self.entities_tree.write();
+            tree.insert(wpos.as_position(), game_object_entity_id);
+        }
+
+        // TODO: Notify nearby players if map.has_players
     }
 
     pub fn update_entity_position(

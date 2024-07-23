@@ -494,6 +494,10 @@ impl DataStore {
         self.creature_templates.get(&entry)
     }
 
+    pub fn get_game_object_template(&self, entry: u32) -> Option<&GameObjectTemplate> {
+        self.game_object_templates.get(&entry)
+    }
+
     pub fn get_quest_template(&self, entry: u32) -> Option<&QuestTemplate> {
         self.quest_templates.get(&entry)
     }

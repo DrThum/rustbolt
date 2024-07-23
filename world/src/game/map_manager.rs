@@ -9,7 +9,7 @@ use crate::{
     config::WorldConfig,
     entities::{object_guid::ObjectGuid, position::WorldPosition},
     protocol::{self, server::ServerMessage},
-    repositories::creature::CreatureRepository,
+    repositories::{creature::CreatureRepository, game_object::GameObjectRepository},
     session::world_session::WorldSession,
     DataStore,
 };
@@ -86,6 +86,7 @@ impl MapManager {
             self.terrains.write().insert(map.id, map_terrains.clone());
 
             let creature_spawns = CreatureRepository::load_creature_spawns(conn, map.id);
+            let game_object_spawns = GameObjectRepository::load_game_object_spawns(conn, map.id);
 
             let key = MapKey::for_continent(map.id);
             self.maps.write().insert(
@@ -95,6 +96,7 @@ impl MapManager {
                     world_context.clone(),
                     map_terrains,
                     creature_spawns,
+                    game_object_spawns,
                     config.clone(),
                 ),
             );
@@ -143,6 +145,8 @@ impl MapManager {
                     let instance_id: u32 = self.next_instance_id.inc().try_into().unwrap();
 
                     let creature_spawns = CreatureRepository::load_creature_spawns(conn, map_id);
+                    let game_object_spawns =
+                        GameObjectRepository::load_game_object_spawns(conn, map_id);
 
                     let map_key = MapKey::for_instance(map_id, instance_id);
                     let map = Map::new(
@@ -150,6 +154,7 @@ impl MapManager {
                         world_context.clone(),
                         map_terrain.clone(),
                         creature_spawns,
+                        game_object_spawns,
                         self.config.clone(),
                     );
                     map_guard.insert(map_key, map.clone());

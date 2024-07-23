@@ -84,35 +84,37 @@ fn action_aggro(ctx: &mut BTContext) -> NodeStatus {
             let mut current_closest = f32::MAX;
 
             ctx.neighbors.iter().for_each(|&neighbor_entity_id| {
-                let neighbor_position = &v_wpos[neighbor_entity_id];
-                let neighbor_distance = my_position.distance_to(neighbor_position, true);
+                if v_creature.get(neighbor_entity_id).is_ok() {
+                    let neighbor_position = &v_wpos[neighbor_entity_id];
+                    let neighbor_distance = my_position.distance_to(neighbor_position, true);
 
-                if neighbor_distance > CREATURE_AGGRO_DISTANCE_MAX {
-                    return;
-                }
+                    if neighbor_distance > CREATURE_AGGRO_DISTANCE_MAX {
+                        return;
+                    }
 
-                let neighbor_powers = &v_powers[neighbor_entity_id];
+                    let neighbor_powers = &v_powers[neighbor_entity_id];
 
-                if !neighbor_powers.is_alive() {
-                    return;
-                }
+                    if !neighbor_powers.is_alive() {
+                        return;
+                    }
 
-                let neighbor_unit = &v_unit[neighbor_entity_id];
-                let neighbor_level = if let Ok(player) = v_player.get(neighbor_entity_id) {
-                    player.level()
-                } else if let Ok(other_creature) = v_creature.get(neighbor_entity_id) {
-                    other_creature.level_against(creature.real_level())
-                } else {
-                    0
-                };
+                    let neighbor_unit = &v_unit[neighbor_entity_id];
+                    let neighbor_level = if let Ok(player) = v_player.get(neighbor_entity_id) {
+                        player.level()
+                    } else if let Ok(other_creature) = v_creature.get(neighbor_entity_id) {
+                        other_creature.level_against(creature.real_level())
+                    } else {
+                        0
+                    };
 
-                if neighbor_distance < current_closest
-                    && my_position.distance_to(neighbor_position, true)
-                        <= creature.aggro_distance(neighbor_level)
-                    && unit_me.is_hostile_to(neighbor_unit)
-                {
-                    current_closest = neighbor_distance;
-                    aggro_target = Some(neighbor_entity_id);
+                    if neighbor_distance < current_closest
+                        && my_position.distance_to(neighbor_position, true)
+                            <= creature.aggro_distance(neighbor_level)
+                        && unit_me.is_hostile_to(neighbor_unit)
+                    {
+                        current_closest = neighbor_distance;
+                        aggro_target = Some(neighbor_entity_id);
+                    }
                 }
             });
 

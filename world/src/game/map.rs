@@ -667,7 +667,7 @@ impl Map {
         game_object: GameObject,
         wpos: &WorldPosition,
     ) {
-        let game_object_entity_id = self.world.lock().run(
+        let entity_id = self.world.lock().run(
             |mut entities: EntitiesViewMut,
              mut vm_guid: ViewMut<Guid>,
              mut vm_game_object: ViewMut<GameObject>| {
@@ -689,8 +689,12 @@ impl Map {
 
         {
             let mut tree = self.entities_tree.write();
-            tree.insert(wpos.as_position(), game_object_entity_id);
+            tree.insert(wpos.as_position(), entity_id);
         }
+
+        self.ecs_entities
+            .write()
+            .insert(*game_object_guid, entity_id);
 
         // TODO: Notify nearby players if map.has_players
     }

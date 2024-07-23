@@ -21,9 +21,9 @@ pub struct CreateData {
     #[bw(map = |bf: &BitFlags<UpdateFlag>| bf.bits())]
     pub flags: BitFlags<UpdateFlag>,
     pub movement: Option<MovementUpdateData>, // Only if flags & Living
-    // pub position: Option<PositionUpdateData>, // Only if flags & HasPosition and !Living
-    pub low_guid_part: Option<u32>,  // Only if flags & LowGuid
-    pub high_guid_part: Option<u32>, // Only if flags & HighGuid
+    pub position: Option<PositionUpdateData>, // Only if flags & HasPosition and !Living
+    pub low_guid_part: Option<u32>,           // Only if flags & LowGuid
+    pub high_guid_part: Option<u32>,          // Only if flags & HighGuid
     pub blocks: UpdateBlock,
 }
 
@@ -131,6 +131,15 @@ pub struct MovementUpdateData {
     pub speed_turn: f32,
     #[bw(if(movement_flags.contains(MovementFlag::SplineEnabled)))]
     pub current_movement: Option<CurrentMovementData>,
+}
+
+#[binwrite]
+#[derive(Clone, Debug)]
+pub struct PositionUpdateData {
+    pub position_x: f32,
+    pub position_y: f32,
+    pub position_z: f32,
+    pub orientation: f32,
 }
 
 #[binwrite]

@@ -190,6 +190,7 @@ impl Creature {
             object_type: ObjectTypeId::Unit,
             flags,
             movement,
+            position: None,
             low_guid_part: None,
             high_guid_part: Some(HighGuidType::Unit as u32),
             blocks,

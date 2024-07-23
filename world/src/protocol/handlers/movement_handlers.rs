@@ -7,7 +7,9 @@ use crate::{
         behavior::Behavior, guid::Guid, movement::Movement, nearby_players::NearbyPlayers,
         unwind::Unwind,
     },
-    entities::{creature::Creature, player::Player, position::WorldPosition},
+    entities::{
+        creature::Creature, game_object::GameObject, player::Player, position::WorldPosition,
+    },
     protocol::{client::ClientMessage, opcodes::Opcode, packets::MovementInfo},
     session::{
         opcode_handler::{OpcodeHandler, PacketHandler},
@@ -31,6 +33,7 @@ impl OpcodeHandler {
                 |v_movement: View<Movement>,
                  v_player: View<Player>,
                  v_creature: View<Creature>,
+                 v_game_object: View<GameObject>,
                  v_guid: View<Guid>,
                  mut vm_wpos: ViewMut<WorldPosition>,
                  mut vm_behavior: ViewMut<Behavior>,
@@ -44,6 +47,7 @@ impl OpcodeHandler {
                         &v_movement,
                         &v_player,
                         &v_creature,
+                        &v_game_object,
                         &v_guid,
                         &mut vm_wpos,
                         &mut vm_behavior,

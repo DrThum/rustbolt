@@ -7,6 +7,7 @@ use crate::{
     },
     entities::{
         creature::Creature,
+        game_object::GameObject,
         object_guid::ObjectGuid,
         player::Player,
         position::{Position, WorldPosition},
@@ -19,6 +20,7 @@ pub fn unwind_creatures(
     v_guid: View<Guid>,
     v_creature: View<Creature>,
     v_player: View<Player>,
+    v_game_object: View<GameObject>,
     (
         mut vm_wpos,
         mut vm_unit,
@@ -58,6 +60,7 @@ pub fn unwind_creatures(
             &movement_as_view,
             &v_player,
             &v_creature,
+            &v_game_object,
             &v_guid,
             &mut vm_wpos,
             &mut vm_behavior,

@@ -690,6 +690,7 @@ impl Player {
             object_type: ObjectTypeId::Player,
             flags,
             movement,
+            position: None,
             low_guid_part: None,
             high_guid_part: Some(HighGuidType::Player as u32),
             blocks,

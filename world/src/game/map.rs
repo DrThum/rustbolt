@@ -428,11 +428,12 @@ impl Map {
                 {
                     let world_guard = self.world.lock();
 
-                    let (v_movement, v_player, v_creature, v_wpos) = world_guard
+                    let (v_movement, v_player, v_creature, v_game_object, v_wpos) = world_guard
                         .borrow::<(
                             View<Movement>,
                             View<Player>,
                             View<Creature>,
+                            View<GameObject>,
                             View<WorldPosition>,
                         )>()
                         .unwrap();
@@ -448,6 +449,8 @@ impl Map {
                         smsg_create_object = Some(player.build_create_object(movement, false));
                     } else if let Ok(creature) = v_creature.get(other_entity_id) {
                         smsg_create_object = Some(creature.build_create_object(movement));
+                    } else if let Ok(game_object) = v_game_object.get(other_entity_id) {
+                        smsg_create_object = Some(game_object.build_create_object());
                     } else {
                         unreachable!("cannot generate SMSG_CREATE_OBJECT for this entity type");
                     }
@@ -701,6 +704,7 @@ impl Map {
         v_movement: &View<Movement>,
         v_player: &View<Player>,
         v_creature: &View<Creature>,
+        v_game_object: &View<GameObject>,
         v_guid: &View<Guid>,
         vm_wpos: &mut ViewMut<WorldPosition>,
         vm_behavior: &mut ViewMut<Behavior>,
@@ -775,6 +779,8 @@ impl Map {
                             player.build_create_object(movement, false)
                         } else if let Ok(creature) = v_creature.get(other_entity_id) {
                             creature.build_create_object(movement)
+                        } else if let Ok(game_object) = v_game_object.get(other_entity_id) {
+                            game_object.build_create_object()
                         } else {
                             unreachable!("cannot generate SMSG_CREATE_OBJECT for this entity type");
                         }

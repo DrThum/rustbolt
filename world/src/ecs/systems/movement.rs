@@ -18,6 +18,7 @@ use crate::{
     },
     entities::{
         creature::Creature,
+        game_object::GameObject,
         object_guid::ObjectGuid,
         player::Player,
         position::{Position, WorldPosition},
@@ -30,8 +31,7 @@ pub fn update_movement(
     dt: UniqueView<DeltaTime>,
     map: UniqueView<WrappedMap>,
     v_guid: View<Guid>,
-    v_player: View<Player>,
-    v_creature: View<Creature>,
+    (v_player, v_creature, v_game_object): (View<Player>, View<Creature>, View<GameObject>),
     v_powers: View<Powers>,
     (
         mut vm_unit,
@@ -231,6 +231,7 @@ pub fn update_movement(
             &v_movement,
             &v_player,
             &v_creature,
+            &v_game_object,
             &v_guid,
             &mut vm_wpos,
             &mut vm_behavior,

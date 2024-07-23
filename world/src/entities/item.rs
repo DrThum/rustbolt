@@ -98,6 +98,7 @@ impl Item {
             object_type: ObjectTypeId::Item,
             flags: make_bitflags!(UpdateFlag::{LowGuid | HighGuid}),
             movement: None,
+            position: None,
             low_guid_part: Some(self.guid.counter()),
             high_guid_part: Some(HighGuidType::ItemOrContainer as u32),
             blocks,

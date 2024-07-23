@@ -84,7 +84,7 @@ impl Map {
         key: MapKey,
         world_context: Arc<WorldContext>,
         terrain: Arc<HashMap<TerrainBlockCoords, Terrain>>,
-        spawns: Vec<CreatureSpawnDbRecord>,
+        creature_spawns: Vec<CreatureSpawnDbRecord>,
         config: Arc<WorldConfig>,
     ) -> Arc<Map> {
         let world = World::new();
@@ -127,7 +127,7 @@ impl Map {
             visibility_distance: DEFAULT_VISIBILITY_DISTANCE,
         };
 
-        for spawn in spawns {
+        for spawn in creature_spawns {
             let guid = ObjectGuid::with_entry(HighGuidType::Unit, spawn.entry, spawn.guid);
 
             let position = WorldPosition {

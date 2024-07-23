@@ -85,7 +85,7 @@ impl MapManager {
             let map_terrains = Arc::new(map_terrains);
             self.terrains.write().insert(map.id, map_terrains.clone());
 
-            let spawns = CreatureRepository::load_creature_spawns(conn, map.id);
+            let creature_spawns = CreatureRepository::load_creature_spawns(conn, map.id);
 
             let key = MapKey::for_continent(map.id);
             self.maps.write().insert(
@@ -94,7 +94,7 @@ impl MapManager {
                     key,
                     world_context.clone(),
                     map_terrains,
-                    spawns,
+                    creature_spawns,
                     config.clone(),
                 ),
             );
@@ -142,14 +142,14 @@ impl MapManager {
                     let mut map_guard = self.maps.write();
                     let instance_id: u32 = self.next_instance_id.inc().try_into().unwrap();
 
-                    let spawns = CreatureRepository::load_creature_spawns(conn, map_id);
+                    let creature_spawns = CreatureRepository::load_creature_spawns(conn, map_id);
 
                     let map_key = MapKey::for_instance(map_id, instance_id);
                     let map = Map::new(
                         map_key,
                         world_context.clone(),
                         map_terrain.clone(),
-                        spawns,
+                        creature_spawns,
                         self.config.clone(),
                     );
                     map_guard.insert(map_key, map.clone());

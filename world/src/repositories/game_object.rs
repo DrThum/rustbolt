@@ -1,6 +1,7 @@
 use indicatif::ProgressBar;
 use r2d2::PooledConnection;
 use r2d2_sqlite::SqliteConnectionManager;
+use rusqlite::named_params;
 
 use crate::datastore::data_types::GameObjectTemplate;
 
@@ -83,6 +84,51 @@ impl GameObjectRepository {
 
         result.filter_map(|res| res.ok()).collect()
     }
+
+    pub fn load_game_object_spawns(
+        conn: &PooledConnection<SqliteConnectionManager>,
+        map_id: u32,
+    ) -> Vec<GameObjectSpawnDbRecord> {
+        let mut stmt = conn.prepare_cached("
+            SELECT guid, entry, map, position_x, position_y, position_z, orientation, rotation0, rotation1, rotation2, rotation3
+            FROM game_object_spawns WHERE map = :map_id").unwrap();
+
+        let result = stmt
+            .query_map(named_params! { ":map_id": map_id }, |row| {
+                use GameObjectSpawnColumnIndex::*;
+
+                Ok(GameObjectSpawnDbRecord {
+                    guid: row.get(Guid as usize).unwrap(),
+                    entry: row.get(Entry as usize).unwrap(),
+                    map: row.get(Map as usize).unwrap(),
+                    position_x: row.get(PositionX as usize).unwrap(),
+                    position_y: row.get(PositionY as usize).unwrap(),
+                    position_z: row.get(PositionZ as usize).unwrap(),
+                    orientation: row.get(Orientation as usize).unwrap(),
+                    rotation0: row.get(Rotation0 as usize).unwrap(),
+                    rotation1: row.get(Rotation1 as usize).unwrap(),
+                    rotation2: row.get(Rotation2 as usize).unwrap(),
+                    rotation3: row.get(Rotation3 as usize).unwrap(),
+                })
+            })
+            .unwrap();
+
+        result.filter_map(|res| res.ok()).collect()
+    }
+}
+
+pub struct GameObjectSpawnDbRecord {
+    pub guid: u32,
+    pub entry: u32,
+    pub map: u32,
+    pub position_x: f32,
+    pub position_y: f32,
+    pub position_z: f32,
+    pub orientation: f32,
+    pub rotation0: f32,
+    pub rotation1: f32,
+    pub rotation2: f32,
+    pub rotation3: f32,
 }
 
 enum GameObjectTemplateColumnIndex {
@@ -120,4 +166,18 @@ enum GameObjectTemplateColumnIndex {
     Data23,
     MinMoneyLoot,
     MaxMoneyLoot,
+}
+
+enum GameObjectSpawnColumnIndex {
+    Guid,
+    Entry,
+    Map,
+    PositionX,
+    PositionY,
+    PositionZ,
+    Orientation,
+    Rotation0,
+    Rotation1,
+    Rotation2,
+    Rotation3,
 }

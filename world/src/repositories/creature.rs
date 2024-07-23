@@ -91,10 +91,12 @@ impl CreatureRepository {
                 };
 
                 assert!(
-                    [CharacterClass::Warrior,
+                    [
+                        CharacterClass::Warrior,
                         CharacterClass::Paladin,
                         CharacterClass::Rogue,
-                        CharacterClass::Mage]
+                        CharacterClass::Mage
+                    ]
                     .contains(&template.unit_class),
                     "creature unit_class must be Warrior, Paladin, Rogue or Mage"
                 );

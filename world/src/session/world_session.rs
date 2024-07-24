@@ -39,7 +39,8 @@ use crate::{
     },
     repositories::character::CharacterRepository,
     shared::constants::{
-        ChatMessageType, Language, MAX_VISIBLE_REPUTATIONS, PLAYER_MAX_ACTION_BUTTONS,
+        ChatMessageType, Language, PlayerQuestStatus, MAX_VISIBLE_REPUTATIONS,
+        PLAYER_MAX_ACTION_BUTTONS,
     },
     WorldSocketError,
 };
@@ -495,7 +496,11 @@ impl WorldSession {
 
     // Make nearby GameObjects related to the quest active or inactive depending on player quest
     // status
-    pub fn force_refresh_nearby_game_objects(&self, quest_id: u32, is_quest_active: bool) {
+    pub fn force_refresh_nearby_game_objects(
+        &self,
+        quest_id: u32,
+        quest_status: PlayerQuestStatus,
+    ) {
         let Some(map) = self.current_map() else {
             return;
         };
@@ -510,8 +515,7 @@ impl WorldSession {
                     continue;
                 };
 
-                if let Some(packet) = game_object.build_update_for_quest(quest_id, is_quest_active)
-                {
+                if let Some(packet) = game_object.build_update_for_quest(quest_id, quest_status) {
                     self.update_entity(packet);
                 }
             }

@@ -122,9 +122,9 @@ impl GameObject {
 
         // If player has a relevant quest active, make the GameObject Activate and Sparkle
         for quest_id in &self.relevant_quest_ids {
-            if let Some(quest_log_context) = player.quest_status(&quest_id) {
-                let is_quest_active = quest_log_context.status == PlayerQuestStatus::InProgress;
-                Self::add_active_state_to_update(&mut update_builder, is_quest_active);
+            if let Some(quest_log_context) = player.quest_status(quest_id) {
+                let activate = self.should_activate(*quest_id, quest_log_context.status);
+                Self::add_active_state_to_update(&mut update_builder, activate);
             }
         }
 
@@ -165,35 +165,43 @@ impl GameObject {
     pub fn build_update_for_quest(
         &self,
         quest_id: u32,
-        is_quest_active: bool,
+        quest_status: PlayerQuestStatus,
     ) -> Option<SmsgUpdateObject> {
-        // TODO: check player target's quest status relative to this Gameobject
-        // If player has the quest, add dynflags (see mangos - GO_DYNFLAG_LO_ACTIVATE |
-        // GO_DYNFLAG_LO_SPARKLE)
-
-        if self.relevant_quest_ids.contains(&quest_id) {
-            let mut update_builder = UpdateBlockBuilder::new();
-            Self::add_active_state_to_update(&mut update_builder, is_quest_active);
-            let blocks = update_builder.build();
-
-            let update_data = vec![UpdateData {
-                update_type: UpdateType::Values,
-                packed_guid: self.guid.as_packed(),
-                blocks,
-            }];
-
-            Some(SmsgUpdateObject {
-                updates_count: update_data.len() as u32,
-                has_transport: false,
-                updates: update_data,
-            })
-        } else {
-            None
+        if !self.relevant_quest_ids.contains(&quest_id) {
+            return None;
         }
+
+        let activate = self.should_activate(quest_id, quest_status);
+        let mut update_builder = UpdateBlockBuilder::new();
+        Self::add_active_state_to_update(&mut update_builder, activate);
+        let blocks = update_builder.build();
+
+        let update_data = vec![UpdateData {
+            update_type: UpdateType::Values,
+            packed_guid: self.guid.as_packed(),
+            blocks,
+        }];
+
+        Some(SmsgUpdateObject {
+            updates_count: update_data.len() as u32,
+            has_transport: false,
+            updates: update_data,
+        })
     }
 
-    fn add_active_state_to_update(update_builder: &mut UpdateBlockBuilder, is_quest_active: bool) {
-        let flags = if is_quest_active {
+    fn should_activate(&self, _quest_id: u32, quest_status: PlayerQuestStatus) -> bool {
+        // TODO:
+        // - for GameObjectType::QuestGiver, activate if GO gives quest and player can take it, or
+        // if GO finishes quest and player has quest ready to turn in
+        // - for GameObjectType::Chest, activate if GO has quest loots for the player
+        // - for Generic, SpellFocus and Goober, activate if player has quest in InProgress state
+        let activate = quest_status == PlayerQuestStatus::InProgress; // FIXME
+
+        activate
+    }
+
+    fn add_active_state_to_update(update_builder: &mut UpdateBlockBuilder, activate: bool) {
+        let flags = if activate {
             // FIXME: Spark is only for a few GO types (see Object::BuildValuesUpdate in MaNGOS)
             (GameObjectDynamicLowFlags::Activate | GameObjectDynamicLowFlags::Sparkle)
                 .bits()

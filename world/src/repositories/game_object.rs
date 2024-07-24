@@ -7,7 +7,10 @@ use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::named_params;
 
 use crate::{
-    datastore::data_types::{GameObjectData, GameObjectTemplate},
+    datastore::{
+        data_types::{GameObjectData, GameObjectTemplate, QuestTemplate},
+        SqlStore,
+    },
     shared::constants::GameObjectType,
 };
 
@@ -16,6 +19,7 @@ pub struct GameObjectRepository;
 impl GameObjectRepository {
     pub fn load_templates(
         conn: &PooledConnection<SqliteConnectionManager>,
+        quest_templates_store: &SqlStore<QuestTemplate>,
     ) -> Vec<GameObjectTemplate> {
         let mut stmt = conn
             .prepare_cached("SELECT COUNT(entry) FROM game_object_templates")
@@ -93,7 +97,7 @@ impl GameObjectRepository {
                     quest_ids: vec![],
                 };
 
-                template.initialize_relevant_quests();
+                template.initialize_relevant_quests(quest_templates_store);
 
                 Ok(template)
             })
@@ -235,6 +239,9 @@ impl GameObjectRepository {
                 spellFocusType: raw_data[0],
                 diameter: raw_data[1],
                 linkedTrapGameObjectEntry: raw_data[2],
+                isServerOnly: raw_data[3] != 0,
+                questId: raw_data[4],
+                isLarge: raw_data[5] != 0,
             },
             Text => GameObjectData::Text {
                 pageId: raw_data[0],

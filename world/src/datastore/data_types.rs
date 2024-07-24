@@ -23,7 +23,10 @@ use crate::{
 
 pub const GAME_TABLE_MAX_LEVEL: u32 = 100;
 
-use super::dbc::{DbcRecord, DbcStringBlock};
+use super::{
+    dbc::{DbcRecord, DbcStringBlock},
+    SqlStore,
+};
 
 pub trait DbcTypedRecord {
     fn from_record(record: &DbcRecord, strings: &DbcStringBlock) -> (u32, Self);
@@ -1357,6 +1360,16 @@ impl QuestTemplate {
         None
     }
 
+    pub fn game_object_requirements(&self, game_object_id: u32) -> Option<(usize, u32)> {
+        for (index, req_ent_id) in self.required_entity_ids.iter().enumerate() {
+            if *req_ent_id == -(game_object_id as i32) {
+                return Some((index, self.required_entity_counts[index]));
+            }
+        }
+
+        None
+    }
+
     pub fn item_requirements(&self, item_id: u32) -> Option<u32> {
         for (index, req_item_id) in self.required_item_ids.iter().enumerate() {
             if *req_item_id == item_id {
@@ -1454,13 +1467,35 @@ pub struct GameObjectTemplate {
 }
 
 impl GameObjectTemplate {
-    pub fn initialize_relevant_quests(&mut self) {
+    pub fn initialize_relevant_quests(&mut self, quest_templates_store: &SqlStore<QuestTemplate>) {
         use GameObjectData::*;
 
+        let mut quest_ids: Vec<u32> = vec![];
+
+        // 1. quest requiring the game_object
+        let quests_requiring_go: Vec<u32> = quest_templates_store
+            .iter()
+            .filter_map(|(id, template)| template.game_object_requirements(self.entry).map(|_| *id))
+            .collect();
+
+        quest_ids.extend(quests_requiring_go);
+
+        // 2. Type-dependent data
         match self.data {
-            Chest { .. } => self.quest_ids = vec![3902],
-            _ => self.quest_ids = vec![],
+            QuestGiver { .. } => (), // TODO: add data for GOs in quest_relations
+            Chest { questId, .. } => {
+                // TODO: implement GO loot tables
+                if questId != 0 {
+                    quest_ids.extend([questId]);
+                }
+            }
+            Generic { questId, .. } if questId != 0 => quest_ids.extend([questId]),
+            SpellFocus { questId, .. } if questId != 0 => quest_ids.extend([questId]),
+            Goober { questId, .. } if questId != 0 => quest_ids.extend([questId]),
+            _ => (),
         }
+
+        self.quest_ids = quest_ids;
     }
 }
 
@@ -1548,6 +1583,9 @@ pub enum GameObjectData {
         spellFocusType: u32, // SpellFocusObject.dbc
         diameter: u32,
         linkedTrapGameObjectEntry: u32,
+        isServerOnly: bool,
+        questId: u32,
+        isLarge: bool,
     },
     Text {
         pageId: u32,         // page_text.entry

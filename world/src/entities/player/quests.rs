@@ -161,8 +161,10 @@ impl Player {
         }
 
         if quest_added {
-            self.session
-                .force_refresh_nearby_game_objects(quest_template.entry, true);
+            self.session.force_refresh_nearby_game_objects(
+                quest_template.entry,
+                PlayerQuestStatus::InProgress,
+            );
             self.try_complete_quest(quest_template);
         }
     }
@@ -183,7 +185,7 @@ impl Player {
         drop(values_guard);
 
         self.session
-            .force_refresh_nearby_game_objects(quest_id, false);
+            .force_refresh_nearby_game_objects(quest_id, PlayerQuestStatus::Failed);
     }
 
     pub fn try_complete_quest(&mut self, quest_template: &QuestTemplate) {
@@ -218,7 +220,13 @@ impl Player {
             values_guard.set_u32(
                 base_index + QuestSlotOffset::State as usize,
                 QuestSlotState::Completed as u32,
-            )
+            );
+            drop(values_guard);
+
+            self.session.force_refresh_nearby_game_objects(
+                quest_id,
+                PlayerQuestStatus::ObjectivesCompleted,
+            );
         }
     }
 
@@ -256,7 +264,7 @@ impl Player {
 
                 // Disable nearby GameObjects that depend on that quest
                 self.session
-                    .force_refresh_nearby_game_objects(quest_id, false);
+                    .force_refresh_nearby_game_objects(quest_id, PlayerQuestStatus::TurnedIn);
 
                 // Take required items
                 for (id, count) in quest_template.required_items() {

@@ -323,7 +323,8 @@ impl DataStore {
 
         let game_object_templates = if config.world.dev.load_creature_templates {
             info!("Loading game object templates...");
-            let game_object_templates = GameObjectRepository::load_templates(conn);
+            let game_object_templates =
+                GameObjectRepository::load_templates(conn, &quest_templates);
             let game_object_templates: SqlStore<GameObjectTemplate> = game_object_templates
                 .into_iter()
                 .map(|template| (template.entry, template))

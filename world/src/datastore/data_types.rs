@@ -1455,8 +1455,10 @@ pub struct GameObjectTemplate {
 
 impl GameObjectTemplate {
     pub fn initialize_relevant_quests(&mut self) {
+        use GameObjectData::*;
+
         match self.data {
-            // QuestGiverData { .. } => vec![1, 2, 3]
+            Chest { .. } => self.quest_ids = vec![3902],
             _ => self.quest_ids = vec![],
         }
     }

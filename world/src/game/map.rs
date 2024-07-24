@@ -6,7 +6,7 @@ use std::{
 };
 
 use log::{error, info, warn};
-use parking_lot::{Mutex, MutexGuard, RwLock};
+use parking_lot::{ReentrantMutex, ReentrantMutexGuard, RwLock};
 use parry3d::{
     math::{Isometry, Point},
     query::{Ray, RayCast},
@@ -74,7 +74,7 @@ pub const HEIGHT_MEASUREMENT_TOLERANCE: f32 = 1.;
 
 pub struct Map {
     key: MapKey,
-    world: Arc<Mutex<World>>,
+    world: Arc<ReentrantMutex<World>>,
     world_context: Arc<WorldContext>,
     sessions: RwLock<HashMap<ObjectGuid, Arc<WorldSession>>>,
     ecs_entities: RwLock<HashMap<ObjectGuid, EntityId>>,
@@ -117,7 +117,7 @@ impl Map {
         };
         world.add_workload(workload);
 
-        let world = Arc::new(Mutex::new(world));
+        let world = Arc::new(ReentrantMutex::new(world));
 
         let map = Map {
             key,
@@ -220,7 +220,7 @@ impl Map {
         map
     }
 
-    pub fn world(&self) -> MutexGuard<World> {
+    pub fn world(&self) -> ReentrantMutexGuard<World> {
         self.world.lock()
     }
 

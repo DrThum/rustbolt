@@ -8,7 +8,9 @@ use crate::{
     game::{map_manager::MapKey, world_context::WorldContext},
     protocol::packets::{SmsgCreateObject, SmsgUpdateObject},
     repositories::game_object::GameObjectSpawnDbRecord,
-    shared::constants::{HighGuidType, ObjectTypeId, ObjectTypeMask},
+    shared::constants::{
+        GameObjectDynamicLowFlags, HighGuidType, ObjectTypeId, ObjectTypeMask, PlayerQuestStatus,
+    },
 };
 
 use super::{
@@ -16,13 +18,16 @@ use super::{
     object_guid::ObjectGuid,
     player::Player,
     position::WorldPosition,
-    update::{CreateData, PositionUpdateData, UpdateBlockBuilder, UpdateFlag, UpdateType},
+    update::{
+        CreateData, PositionUpdateData, UpdateBlockBuilder, UpdateData, UpdateFlag, UpdateType,
+    },
     update_fields::{GameObjectFields, ObjectFields, GAME_OBJECT_END},
 };
 
 #[derive(Component)]
 pub struct GameObject {
     guid: ObjectGuid,
+    relevant_quest_ids: Vec<u32>,
     pub internal_values: Arc<RwLock<InternalValues>>,
     pub spawn_position: WorldPosition,
 }
@@ -96,13 +101,14 @@ impl GameObject {
 
                 GameObject {
                     guid,
+                    relevant_quest_ids: template.quest_ids.clone(),
                     internal_values: Arc::new(RwLock::new(values)),
                     spawn_position,
                 }
             })
     }
 
-    pub fn build_create_object_for(&self, _player: &Player) -> SmsgCreateObject {
+    pub fn build_create_object_for(&self, player: &Player) -> SmsgCreateObject {
         let flags = make_bitflags!(UpdateFlag::{HighGuid | LowGuid | HasPosition});
         let mut update_builder = UpdateBlockBuilder::new();
 
@@ -114,7 +120,13 @@ impl GameObject {
             }
         }
 
-        // TODO: If player has a relevant quest active, make the GameObject Activate and Sparkle
+        // If player has a relevant quest active, make the GameObject Activate and Sparkle
+        for quest_id in &self.relevant_quest_ids {
+            if let Some(quest_log_context) = player.quest_status(&quest_id) {
+                let is_quest_active = quest_log_context.status == PlayerQuestStatus::InProgress;
+                Self::add_active_state_to_update(&mut update_builder, is_quest_active);
+            }
+        }
 
         drop(internal_values);
 
@@ -150,10 +162,45 @@ impl GameObject {
     // Upon quest changes (accept, turn in, abandon, ...), GameObjects around a player might change
     // state, only for that player. For example, if they accept a quest, nearby Chest GameObjects
     // that loot the quest item must active (again, only for that player).
-    pub fn build_update_for(&self, _player: &Player, _quest_id: u32) -> Option<SmsgUpdateObject> {
+    pub fn build_update_for_quest(
+        &self,
+        quest_id: u32,
+        is_quest_active: bool,
+    ) -> Option<SmsgUpdateObject> {
         // TODO: check player target's quest status relative to this Gameobject
         // If player has the quest, add dynflags (see mangos - GO_DYNFLAG_LO_ACTIVATE |
         // GO_DYNFLAG_LO_SPARKLE)
-        None
+
+        if self.relevant_quest_ids.contains(&quest_id) {
+            let mut update_builder = UpdateBlockBuilder::new();
+            Self::add_active_state_to_update(&mut update_builder, is_quest_active);
+            let blocks = update_builder.build();
+
+            let update_data = vec![UpdateData {
+                update_type: UpdateType::Values,
+                packed_guid: self.guid.as_packed(),
+                blocks,
+            }];
+
+            Some(SmsgUpdateObject {
+                updates_count: update_data.len() as u32,
+                has_transport: false,
+                updates: update_data,
+            })
+        } else {
+            None
+        }
+    }
+
+    fn add_active_state_to_update(update_builder: &mut UpdateBlockBuilder, is_quest_active: bool) {
+        let flags = if is_quest_active {
+            // FIXME: Spark is only for a few GO types (see Object::BuildValuesUpdate in MaNGOS)
+            (GameObjectDynamicLowFlags::Activate | GameObjectDynamicLowFlags::Sparkle)
+                .bits()
+                .into()
+        } else {
+            0
+        };
+        update_builder.add(GameObjectFields::GameObjectDynFlags.into(), flags);
     }
 }

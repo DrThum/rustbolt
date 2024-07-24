@@ -162,7 +162,7 @@ impl Player {
 
         if quest_added {
             self.session
-                .force_refresh_nearby_game_objects(quest_template.entry);
+                .force_refresh_nearby_game_objects(quest_template.entry, true);
             self.try_complete_quest(quest_template);
         }
     }
@@ -176,9 +176,14 @@ impl Player {
         let mut values_guard = self.internal_values.write();
         let base_index =
             UnitFields::PlayerQuestLog1_1 as usize + (slot_to_remove * QUEST_SLOT_OFFSETS_COUNT);
+        let quest_id = values_guard.get_u32(base_index);
         for index in 0..QUEST_SLOT_OFFSETS_COUNT {
             values_guard.set_u32(base_index + index, 0);
         }
+        drop(values_guard);
+
+        self.session
+            .force_refresh_nearby_game_objects(quest_id, false);
     }
 
     pub fn try_complete_quest(&mut self, quest_template: &QuestTemplate) {
@@ -248,6 +253,10 @@ impl Player {
                 }
 
                 context.slot = None;
+
+                // Disable nearby GameObjects that depend on that quest
+                self.session
+                    .force_refresh_nearby_game_objects(quest_id, false);
 
                 // Take required items
                 for (id, count) in quest_template.required_items() {

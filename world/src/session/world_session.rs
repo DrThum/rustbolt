@@ -10,7 +10,7 @@ use std::{
     time::Duration,
 };
 
-use log::{trace, warn};
+use log::trace;
 use tokio::{
     net::TcpStream,
     sync::{
@@ -493,16 +493,14 @@ impl WorldSession {
         None
     }
 
-    // Force-refresh nearby GameObjects for example when a quest is taken to make chests lootable
-    // (UpdateForQuestWorldObjects on MaNGOS)
-    // The second parameter is the relevant quest ID that has just been taken, turned in or
-    // abandoned
-    pub fn force_refresh_nearby_game_objects(&self, quest_id: u32) {
+    // Make nearby GameObjects related to the quest active or inactive depending on player quest
+    // status
+    pub fn force_refresh_nearby_game_objects(&self, quest_id: u32, is_quest_active: bool) {
         let Some(map) = self.current_map() else {
             return;
         };
 
-        map.world().run(|v_game_object: View<GameObject>, v_player: View<Player>| {
+        map.world().run(|v_game_object: View<GameObject>| {
             for guid in &*self.known_guids.read() {
                 let Some(entity_id) = map.lookup_entity_ecs(guid) else {
                     continue;
@@ -512,12 +510,8 @@ impl WorldSession {
                     continue;
                 };
 
-                let Some(player) = self.player_entity_id().and_then(|player_entity_id| {v_player.get(player_entity_id).ok()}) else {
-                    warn!("force_refresh_nearby_game_objects: session has no player or player is not in-game");
-                    continue;
-                };
-
-                if let Some(packet) = game_object.build_update_for(&player, quest_id) {
+                if let Some(packet) = game_object.build_update_for_quest(quest_id, is_quest_active)
+                {
                     self.update_entity(packet);
                 }
             }

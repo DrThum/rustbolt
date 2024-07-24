@@ -60,7 +60,10 @@ impl GameObject {
                     template.display_id,
                 );
                 values.set_u8(GameObjectFields::GameObjectState.into(), 0, 1); // TODO: Enum GO_STATE
-                values.set_u32(GameObjectFields::GameObjectTypeId.into(), template.go_type);
+                values.set_u32(
+                    GameObjectFields::GameObjectTypeId.into(),
+                    template.go_type as u32,
+                );
                 values.set_u32(GameObjectFields::GameObjectAnimprogress.into(), 100); // FIXME: animprogress in DB
 
                 values.set_f32(GameObjectFields::GameObjectPosX.into(), spawn.position_x);

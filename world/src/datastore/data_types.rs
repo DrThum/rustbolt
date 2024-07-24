@@ -11,8 +11,8 @@ use crate::{
     },
     shared::constants::{
         AbilityLearnType, ActionButtonType, CharacterClass, CharacterClassBit, CharacterRaceBit,
-        CreatureRank, Expansion, InventorySlot, InventoryType, MapType, PowerType, QuestFlag,
-        SkillCategory, SkillRangeType, SkillType, SpellEffect,
+        CreatureRank, Expansion, GameObjectType, InventorySlot, InventoryType, MapType, PowerType,
+        QuestFlag, SkillCategory, SkillRangeType, SkillType, SpellEffect,
         FACTION_NUMBER_BASE_REPUTATION_MASKS, MAX_QUEST_CHOICE_REWARDS_COUNT,
         MAX_QUEST_OBJECTIVES_COUNT, MAX_QUEST_REWARDS_COUNT, MAX_QUEST_REWARDS_REPUT_COUNT,
         MAX_SPELL_EFFECTS, MAX_SPELL_REAGENTS, MAX_SPELL_TOTEMS, NPC_TEXT_EMOTE_COUNT,
@@ -1439,69 +1439,232 @@ pub struct GossipMenuOption {
 #[allow(dead_code)]
 pub struct GameObjectTemplate {
     pub entry: u32,
-    pub go_type: u32,
+    pub go_type: GameObjectType,
     pub display_id: u32,
     pub name: String,
     pub cast_bar_caption: Option<String>,
     pub faction: u32,
     pub flags: u32,
     pub size: f32,
-    pub data0: u32,
-    pub data1: u32,
-    pub data2: u32,
-    pub data3: u32,
-    pub data4: u32,
-    pub data5: u32,
-    pub data6: u32,
-    pub data7: u32,
-    pub data8: u32,
-    pub data9: u32,
-    pub data10: u32,
-    pub data11: u32,
-    pub data12: u32,
-    pub data13: u32,
-    pub data14: u32,
-    pub data15: u32,
-    pub data16: u32,
-    pub data17: u32,
-    pub data18: u32,
-    pub data19: u32,
-    pub data20: u32,
-    pub data21: u32,
-    pub data22: u32,
-    pub data23: u32,
+    pub data: GameObjectData,
+    pub raw_data: [u32; 24],
     pub min_money_loot: u32,
     pub max_money_loot: u32,
+    pub quest_ids: Vec<u32>,
 }
 
 impl GameObjectTemplate {
-    // TODO: type dataXX depending on go_type (union maybe)
-    pub fn raw_data(&self) -> [u32; 24] {
-        [
-            self.data0,
-            self.data1,
-            self.data2,
-            self.data3,
-            self.data4,
-            self.data5,
-            self.data6,
-            self.data7,
-            self.data8,
-            self.data9,
-            self.data10,
-            self.data11,
-            self.data12,
-            self.data13,
-            self.data14,
-            self.data15,
-            self.data16,
-            self.data17,
-            self.data18,
-            self.data19,
-            self.data20,
-            self.data21,
-            self.data22,
-            self.data23,
-        ]
+    pub fn initialize_relevant_quests(&mut self) {
+        match self.data {
+            // QuestGiverData { .. } => vec![1, 2, 3]
+            _ => self.quest_ids = vec![],
+        }
     }
+}
+
+#[allow(dead_code)]
+#[derive(Clone, Copy)]
+pub enum GameObjectData {
+    Door {
+        isStartOpen: bool,
+        openLockId: u32,
+        autoCloseTimerSecs: u32,
+        isNoDamageImmune: bool,
+        openTextId: u32,
+        closeTextId: u32,
+    },
+    Button {
+        isStartOpen: bool,
+        openLockId: u32,
+        autoCloseTimerSecs: u32,
+        linkedTrapGameObjectEntry: u32,
+        isNoDamageImmune: bool,
+        isLarge: bool,
+        openTextId: u32,
+        closeTextId: u32,
+        isLineOfSightOK: bool,
+    },
+    QuestGiver {
+        openLockId: u32,
+        questList: u32,
+        pageMaterialId: u32, // PageTextMaterial.dbc
+        gossipId: u32,
+        customAnim: u32, // Unk, from 1 to 4
+        isNoDamageImmune: bool,
+        openTextId: u32,
+        isLineOfSightOK: bool,
+        doesAllowMounted: bool,
+        isLarge: bool, // Not sure
+    },
+    Chest {
+        openLockId: u32,
+        lootTemplateEntry: u32,
+        restockTimerSecs: u32,
+        isConsumable: bool,
+        minLootAttempt: u32, // minRestock in MaNGOS
+        maxLootAttempt: u32, // maxRestock in MaNGOS
+        lootedEventId: u32,
+        linkedTrapGameObjectEntry: u32,
+        questId: u32,
+        minLevelToOpen: u32,
+        isLineOfSightOK: bool,
+        isLeaveLoot: bool,
+        notInCombat: bool,
+        shouldLogLoot: bool,
+        openTextId: u32,
+        usesGroupLootRules: bool,
+    },
+    Binder,
+    Generic {
+        isFloatingTooltip: bool,
+        isHighlighted: bool,
+        isServerOnly: bool, // Always 0
+        isLarge: bool,
+        isFloatingOnWater: bool,
+        questId: u32,
+    },
+    Trap {
+        openLockId: u32,
+        level: u32,
+        diameter: u32,
+        spellId: u32,
+        charges: u32, // 0 or 1
+        cooldownSecs: u32,
+        isAutoClose: bool,
+        startDelaySecs: u32,
+        isServerOnly: bool,
+        isStealthed: bool,
+        isLarge: bool,
+        isAffectedByStealth: bool,
+        openTextId: u32,
+    },
+    Chair {
+        slots: u32,
+        orientation: u32,
+    },
+    SpellFocus {
+        spellFocusType: u32, // SpellFocusObject.dbc
+        diameter: u32,
+        linkedTrapGameObjectEntry: u32,
+    },
+    Text {
+        pageId: u32,         // page_text.entry
+        languageId: u32,     // Languages.dbc
+        pageMaterialId: u32, // PageTextMaterial.dbc
+    },
+    Goober {
+        openLockId: u32,
+        questId: u32,
+        eventId: u32,
+        isAutoClose: bool,
+        customAnim: u32,
+        isConsumable: bool,
+        cooldownSecs: u32,
+        pageId: u32,
+        languageId: u32,
+        pageMaterialId: u32,
+        spellId: u32,
+        isNoDamageImmune: bool,
+        linkedTrapGameObjectEntry: u32,
+        isLarge: bool,
+        openTextId: u32,
+        closeTextId: u32,
+        isLineOfSightOK: bool,
+    },
+    Transport,
+    AreaDamage,
+    Camera {
+        openLockId: u32,
+        cinematicId: u32, // CinematicCamera.dbc
+    },
+    MapObject,
+    MoTransport {
+        taxiPathId: u32, // TaxiPath.dbc
+        moveSpeed: u32,
+        accelRate: u32,
+    },
+    DualArbiter,
+    FishingNode,
+    SummoningRitual {
+        casters: u32,
+        spellId: u32,
+        animSpell: u32,
+        isPersistent: bool,
+        casterTargetSpell: u32,
+        isCasterTargetSpellTargets: bool,
+        areCastersGrouped: bool,
+    },
+    MailBox,
+    AuctionHouse {
+        auctionHouseId: u32, // AuctionHouse.dbc
+    },
+    GuardPost,
+    SpellCaster {
+        spellId: u32,
+        charges: u32,
+        isPartyOnly: bool,
+    },
+    MeetingStone {
+        minLevel: u32,
+        maxLevel: u32,
+        areaId: u32, // AreaTable.dbc
+    },
+    FlagStand {
+        openLockId: u32,
+        pickupSpellId: u32,
+        radius: u32,
+        returnAuraId: u32,  // Spell.dbc
+        returnSpellId: u32, // Spell.dbc
+        isNoDamageImmune: bool,
+        openTextId: u32,
+        isLineOfSightOK: bool,
+    },
+    FishingHole {
+        radius: u32,
+        lootTemplateEntry: u32,
+        minLootAttempt: u32, // minRestock in MaNGOS
+        maxLootAttempt: u32, // maxRestock in MaNGOS
+    },
+    FlagDrop {
+        openLockId: u32,
+        eventId: u32,
+        pickupSpellId: u32,
+        isNoDamageImmune: bool,
+    },
+    MiniGame,
+    LotteryKiosk,
+    CapturePoint {
+        radius: u32,
+        spellId: u32,
+        worldState1: u32,
+        worldState2: u32,
+        winEventId1: u32,
+        winEventId2: u32,
+        contestedEventId1: u32,
+        contestedEventId2: u32,
+        progressEventId1: u32,
+        progressEventId2: u32,
+        neutralEventId1: u32,
+        neutralEventId2: u32,
+        neutralPercent: u32,
+        worldState3: u32,
+        minSuperiority: u32,
+        maxSuperiority: u32,
+        minTimeSecs: u32,
+        maxTimeSecs: u32,
+        isLarge: bool,
+    },
+    AuraGenerator {
+        isStartOpen: bool,
+        radius: u32,
+        auraId: u32,
+        conditionId: u32,
+    },
+    DungeonDifficulty {
+        mapId: u32,      // Map.dbc
+        difficulty: u32, // 0 or 1
+    },
+    BarberChair,
+    DestructibleBuilding,
+    GuildBank,
 }

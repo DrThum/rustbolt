@@ -6,7 +6,10 @@ use r2d2::PooledConnection;
 use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::named_params;
 
-use crate::datastore::data_types::GameObjectTemplate;
+use crate::{
+    datastore::data_types::{GameObjectData, GameObjectTemplate},
+    shared::constants::GameObjectType,
+};
 
 pub struct GameObjectRepository;
 
@@ -44,42 +47,53 @@ impl GameObjectRepository {
                     bar.finish();
                 }
 
-                let template = GameObjectTemplate {
+                let go_type: u32 = row.get(Type as usize).unwrap();
+                let go_type = GameObjectType::n(go_type).unwrap();
+
+                let raw_data = [
+                    row.get(Data0 as usize).unwrap(),
+                    row.get(Data1 as usize).unwrap(),
+                    row.get(Data2 as usize).unwrap(),
+                    row.get(Data3 as usize).unwrap(),
+                    row.get(Data4 as usize).unwrap(),
+                    row.get(Data5 as usize).unwrap(),
+                    row.get(Data6 as usize).unwrap(),
+                    row.get(Data7 as usize).unwrap(),
+                    row.get(Data8 as usize).unwrap(),
+                    row.get(Data9 as usize).unwrap(),
+                    row.get(Data10 as usize).unwrap(),
+                    row.get(Data11 as usize).unwrap(),
+                    row.get(Data12 as usize).unwrap(),
+                    row.get(Data13 as usize).unwrap(),
+                    row.get(Data14 as usize).unwrap(),
+                    row.get(Data15 as usize).unwrap(),
+                    row.get(Data16 as usize).unwrap(),
+                    row.get(Data17 as usize).unwrap(),
+                    row.get(Data18 as usize).unwrap(),
+                    row.get(Data19 as usize).unwrap(),
+                    row.get(Data20 as usize).unwrap(),
+                    row.get(Data21 as usize).unwrap(),
+                    row.get(Data22 as usize).unwrap(),
+                    row.get(Data23 as usize).unwrap(),
+                ];
+
+                let mut template = GameObjectTemplate {
                     entry: row.get(Entry as usize).unwrap(),
-                    go_type: row.get(Type as usize).unwrap(),
+                    go_type,
                     display_id: row.get(DisplayId as usize).unwrap(),
                     name: row.get(Name as usize).unwrap(),
                     cast_bar_caption: row.get(CastBarCaption as usize).unwrap(),
                     faction: row.get(Faction as usize).unwrap(),
                     flags: row.get(Flags as usize).unwrap(),
                     size: row.get(Size as usize).unwrap(),
-                    data0: row.get(Data0 as usize).unwrap(),
-                    data1: row.get(Data1 as usize).unwrap(),
-                    data2: row.get(Data2 as usize).unwrap(),
-                    data3: row.get(Data3 as usize).unwrap(),
-                    data4: row.get(Data4 as usize).unwrap(),
-                    data5: row.get(Data5 as usize).unwrap(),
-                    data6: row.get(Data6 as usize).unwrap(),
-                    data7: row.get(Data7 as usize).unwrap(),
-                    data8: row.get(Data8 as usize).unwrap(),
-                    data9: row.get(Data9 as usize).unwrap(),
-                    data10: row.get(Data10 as usize).unwrap(),
-                    data11: row.get(Data11 as usize).unwrap(),
-                    data12: row.get(Data12 as usize).unwrap(),
-                    data13: row.get(Data13 as usize).unwrap(),
-                    data14: row.get(Data14 as usize).unwrap(),
-                    data15: row.get(Data15 as usize).unwrap(),
-                    data16: row.get(Data16 as usize).unwrap(),
-                    data17: row.get(Data17 as usize).unwrap(),
-                    data18: row.get(Data18 as usize).unwrap(),
-                    data19: row.get(Data19 as usize).unwrap(),
-                    data20: row.get(Data20 as usize).unwrap(),
-                    data21: row.get(Data21 as usize).unwrap(),
-                    data22: row.get(Data22 as usize).unwrap(),
-                    data23: row.get(Data23 as usize).unwrap(),
+                    data: Self::build_template_data(go_type, raw_data),
+                    raw_data,
                     min_money_loot: row.get(MinMoneyLoot as usize).unwrap(),
                     max_money_loot: row.get(MaxMoneyLoot as usize).unwrap(),
+                    quest_ids: vec![],
                 };
+
+                template.initialize_relevant_quests();
 
                 Ok(template)
             })
@@ -120,6 +134,229 @@ impl GameObjectRepository {
             .unwrap();
 
         result.filter_map(|res| res.ok()).collect()
+    }
+
+    fn build_template_data(go_type: GameObjectType, raw_data: [u32; 24]) -> GameObjectData {
+        use GameObjectType::*;
+
+        match go_type {
+            Door => GameObjectData::Door {
+                isStartOpen: raw_data[0] != 0,
+                openLockId: raw_data[1],
+                autoCloseTimerSecs: raw_data[2],
+                isNoDamageImmune: raw_data[3] != 0,
+                openTextId: raw_data[4],
+                closeTextId: raw_data[5],
+            },
+            Button => GameObjectData::Button {
+                isStartOpen: raw_data[0] != 0,
+                openLockId: raw_data[1],
+                autoCloseTimerSecs: raw_data[2],
+                linkedTrapGameObjectEntry: raw_data[3],
+                isNoDamageImmune: raw_data[4] != 0,
+                isLarge: raw_data[5] != 0,
+                openTextId: raw_data[6],
+                closeTextId: raw_data[7],
+                isLineOfSightOK: raw_data[8] != 0,
+            },
+            QuestGiver => GameObjectData::QuestGiver {
+                openLockId: raw_data[0],
+                questList: raw_data[1],
+                pageMaterialId: raw_data[2],
+                gossipId: raw_data[3],
+                customAnim: raw_data[4],
+                isNoDamageImmune: raw_data[5] != 0,
+                openTextId: raw_data[6],
+                isLineOfSightOK: raw_data[7] != 0,
+                doesAllowMounted: raw_data[8] != 0,
+                isLarge: raw_data[9] != 0,
+            },
+            Chest => GameObjectData::Chest {
+                openLockId: raw_data[0],
+                lootTemplateEntry: raw_data[1],
+                restockTimerSecs: raw_data[2],
+                isConsumable: raw_data[3] != 0,
+                minLootAttempt: raw_data[4],
+                maxLootAttempt: raw_data[5],
+                lootedEventId: raw_data[6],
+                linkedTrapGameObjectEntry: raw_data[7],
+                questId: raw_data[8],
+                minLevelToOpen: raw_data[9],
+                isLineOfSightOK: raw_data[10] != 0,
+                isLeaveLoot: raw_data[11] != 0,
+                notInCombat: raw_data[12] != 0,
+                shouldLogLoot: raw_data[13] != 0,
+                openTextId: raw_data[14],
+                usesGroupLootRules: raw_data[15] != 0,
+            },
+            Binder => GameObjectData::Binder,
+            Generic => GameObjectData::Generic {
+                isFloatingTooltip: raw_data[0] != 0,
+                isHighlighted: raw_data[1] != 0,
+                isServerOnly: raw_data[2] != 0,
+                isLarge: raw_data[3] != 0,
+                isFloatingOnWater: raw_data[4] != 0,
+                questId: raw_data[5],
+            },
+            Trap => GameObjectData::Trap {
+                openLockId: raw_data[0],
+                level: raw_data[1],
+                diameter: raw_data[2],
+                spellId: raw_data[3],
+                charges: raw_data[4],
+                cooldownSecs: raw_data[5],
+                isAutoClose: raw_data[6] != 0,
+                startDelaySecs: raw_data[7],
+                isServerOnly: raw_data[8] != 0,
+                isStealthed: raw_data[9] != 0,
+                isLarge: raw_data[10] != 0,
+                isAffectedByStealth: raw_data[11] != 0,
+                openTextId: raw_data[12],
+            },
+            Chair => GameObjectData::Chest {
+                openLockId: raw_data[0],
+                lootTemplateEntry: raw_data[1],
+                restockTimerSecs: raw_data[2],
+                isConsumable: raw_data[3] != 0,
+                minLootAttempt: raw_data[4],
+                maxLootAttempt: raw_data[5],
+                lootedEventId: raw_data[6],
+                linkedTrapGameObjectEntry: raw_data[7],
+                questId: raw_data[8],
+                minLevelToOpen: raw_data[9],
+                isLineOfSightOK: raw_data[10] != 0,
+                isLeaveLoot: raw_data[11] != 0,
+                notInCombat: raw_data[12] != 0,
+                shouldLogLoot: raw_data[13] != 0,
+                openTextId: raw_data[14],
+                usesGroupLootRules: raw_data[15] != 0,
+            },
+            SpellFocus => GameObjectData::SpellFocus {
+                spellFocusType: raw_data[0],
+                diameter: raw_data[1],
+                linkedTrapGameObjectEntry: raw_data[2],
+            },
+            Text => GameObjectData::Text {
+                pageId: raw_data[0],
+                languageId: raw_data[1],
+                pageMaterialId: raw_data[2],
+            },
+            Goober => GameObjectData::Goober {
+                openLockId: raw_data[0],
+                questId: raw_data[1],
+                eventId: raw_data[2],
+                isAutoClose: raw_data[3] != 0,
+                customAnim: raw_data[4],
+                isConsumable: raw_data[5] != 0,
+                cooldownSecs: raw_data[6],
+                pageId: raw_data[7],
+                languageId: raw_data[8],
+                pageMaterialId: raw_data[9],
+                spellId: raw_data[10],
+                isNoDamageImmune: raw_data[11] != 0,
+                linkedTrapGameObjectEntry: raw_data[12],
+                isLarge: raw_data[13] != 0,
+                openTextId: raw_data[14],
+                closeTextId: raw_data[15],
+                isLineOfSightOK: raw_data[16] != 0,
+            },
+            Transport => GameObjectData::Transport,
+            AreaDamage => GameObjectData::AreaDamage,
+            Camera => GameObjectData::Camera {
+                openLockId: raw_data[0],
+                cinematicId: raw_data[1],
+            },
+            MapObject => GameObjectData::MapObject,
+            MoTransport => GameObjectData::MoTransport {
+                taxiPathId: raw_data[0],
+                moveSpeed: raw_data[1],
+                accelRate: raw_data[2],
+            },
+            DuelArbiter => GameObjectData::DualArbiter,
+            FishingNode => GameObjectData::FishingNode,
+            SummoningRitual => GameObjectData::SummoningRitual {
+                casters: raw_data[0],
+                spellId: raw_data[1],
+                animSpell: raw_data[2],
+                isPersistent: raw_data[3] != 0,
+                casterTargetSpell: raw_data[4],
+                isCasterTargetSpellTargets: raw_data[5] != 0,
+                areCastersGrouped: raw_data[6] != 0,
+            },
+            MailBox => GameObjectData::MailBox,
+            AuctionHouse => GameObjectData::AuctionHouse {
+                auctionHouseId: raw_data[0],
+            },
+            GuardPost => GameObjectData::GuardPost,
+            SpellCaster => GameObjectData::SpellCaster {
+                spellId: raw_data[0],
+                charges: raw_data[1],
+                isPartyOnly: raw_data[2] != 0,
+            },
+            MeetingStone => GameObjectData::MeetingStone {
+                minLevel: raw_data[0],
+                maxLevel: raw_data[1],
+                areaId: raw_data[2],
+            },
+            FlagStand => GameObjectData::FlagStand {
+                openLockId: raw_data[0],
+                pickupSpellId: raw_data[1],
+                radius: raw_data[2],
+                returnAuraId: raw_data[3],
+                returnSpellId: raw_data[4],
+                isNoDamageImmune: raw_data[5] != 0,
+                openTextId: raw_data[6],
+                isLineOfSightOK: raw_data[7] != 0,
+            },
+            FishingHole => GameObjectData::FishingHole {
+                radius: raw_data[0],
+                lootTemplateEntry: raw_data[1],
+                minLootAttempt: raw_data[2],
+                maxLootAttempt: raw_data[3],
+            },
+            FlagDrop => GameObjectData::FlagDrop {
+                openLockId: raw_data[0],
+                eventId: raw_data[1],
+                pickupSpellId: raw_data[2],
+                isNoDamageImmune: raw_data[3] != 0,
+            },
+            MiniGame => GameObjectData::MiniGame,
+            LotteryKiosk => GameObjectData::LotteryKiosk,
+            CapturePoint => GameObjectData::CapturePoint {
+                radius: raw_data[0],
+                spellId: raw_data[1],
+                worldState1: raw_data[2],
+                worldState2: raw_data[3],
+                winEventId1: raw_data[4],
+                winEventId2: raw_data[5],
+                contestedEventId1: raw_data[6],
+                contestedEventId2: raw_data[7],
+                progressEventId1: raw_data[8],
+                progressEventId2: raw_data[9],
+                neutralEventId1: raw_data[10],
+                neutralEventId2: raw_data[11],
+                neutralPercent: raw_data[12],
+                worldState3: raw_data[13],
+                minSuperiority: raw_data[14],
+                maxSuperiority: raw_data[15],
+                minTimeSecs: raw_data[16],
+                maxTimeSecs: raw_data[17],
+                isLarge: raw_data[18] != 0,
+            },
+            AuraGenerator => GameObjectData::AuraGenerator {
+                isStartOpen: raw_data[0] != 0,
+                radius: raw_data[1],
+                auraId: raw_data[2],
+                conditionId: raw_data[3],
+            },
+            DungeonDifficulty => GameObjectData::DungeonDifficulty {
+                mapId: raw_data[0],
+                difficulty: raw_data[1],
+            },
+            BarberChair => GameObjectData::BarberChair,
+            DestructibleBuilding => GameObjectData::DestructibleBuilding,
+            GuildBank => GameObjectData::GuildBank,
+        }
     }
 }
 

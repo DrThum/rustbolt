@@ -70,7 +70,7 @@ impl OpcodeHandler {
         {
             let packet = ServerMessage::new(SmsgGameObjectQueryResponse {
                 entry: template.entry,
-                go_type: template.go_type,
+                go_type: template.go_type as u32,
                 display_id: template.display_id,
                 name: NullString::from(template.name.clone()),
                 name2: 0,
@@ -81,7 +81,7 @@ impl OpcodeHandler {
                     template.cast_bar_caption.clone().unwrap_or("".to_owned()),
                 ),
                 unk: 0,
-                data: template.raw_data(),
+                data: template.raw_data,
                 size: template.size,
             });
 

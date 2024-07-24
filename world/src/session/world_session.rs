@@ -4,13 +4,13 @@ use miniz_oxide::deflate::CompressionLevel;
 use parking_lot::RwLock;
 use r2d2::PooledConnection;
 use r2d2_sqlite::SqliteConnectionManager;
-use shipyard::{EntityId, View, ViewMut};
+use shipyard::{EntityId, Get, View, ViewMut};
 use std::{
     sync::{atomic::AtomicU32, Arc},
     time::Duration,
 };
 
-use log::trace;
+use log::{trace, warn};
 use tokio::{
     net::TcpStream,
     sync::{
@@ -23,7 +23,9 @@ use wow_srp::tbc_header::HeaderCrypto;
 
 use crate::{
     ecs::components::powers::Powers,
-    entities::{object_guid::ObjectGuid, player::Player, position::WorldPosition},
+    entities::{
+        game_object::GameObject, object_guid::ObjectGuid, player::Player, position::WorldPosition,
+    },
     game::{map::Map, world_context::WorldContext},
     protocol::{
         client::ClientMessage,
@@ -489,6 +491,37 @@ impl WorldSession {
         }
 
         None
+    }
+
+    // Force-refresh nearby GameObjects for example when a quest is taken to make chests lootable
+    // (UpdateForQuestWorldObjects on MaNGOS)
+    // The second parameter is the relevant quest ID that has just been taken, turned in or
+    // abandoned
+    pub fn force_refresh_nearby_game_objects(&self, quest_id: u32) {
+        let Some(map) = self.current_map() else {
+            return;
+        };
+
+        map.world().run(|v_game_object: View<GameObject>, v_player: View<Player>| {
+            for guid in &*self.known_guids.read() {
+                let Some(entity_id) = map.lookup_entity_ecs(guid) else {
+                    continue;
+                };
+
+                let Ok(game_object) = v_game_object.get(entity_id) else {
+                    continue;
+                };
+
+                let Some(player) = self.player_entity_id().and_then(|player_entity_id| {v_player.get(player_entity_id).ok()}) else {
+                    warn!("force_refresh_nearby_game_objects: session has no player or player is not in-game");
+                    continue;
+                };
+
+                if let Some(packet) = game_object.build_update_for(&player, quest_id) {
+                    self.update_entity(packet);
+                }
+            }
+        });
     }
 }
 

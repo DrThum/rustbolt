@@ -6,7 +6,7 @@ use shipyard::Component;
 
 use crate::{
     game::{map_manager::MapKey, world_context::WorldContext},
-    protocol::packets::SmsgCreateObject,
+    protocol::packets::{SmsgCreateObject, SmsgUpdateObject},
     repositories::game_object::GameObjectSpawnDbRecord,
     shared::constants::{HighGuidType, ObjectTypeId, ObjectTypeMask},
 };
@@ -14,6 +14,7 @@ use crate::{
 use super::{
     internal_values::InternalValues,
     object_guid::ObjectGuid,
+    player::Player,
     position::WorldPosition,
     update::{CreateData, PositionUpdateData, UpdateBlockBuilder, UpdateFlag, UpdateType},
     update_fields::{GameObjectFields, ObjectFields, GAME_OBJECT_END},
@@ -98,7 +99,7 @@ impl GameObject {
             })
     }
 
-    pub fn build_create_object(&self) -> SmsgCreateObject {
+    pub fn build_create_object_for(&self, _player: &Player) -> SmsgCreateObject {
         let flags = make_bitflags!(UpdateFlag::{HighGuid | LowGuid | HasPosition});
         let mut update_builder = UpdateBlockBuilder::new();
 
@@ -109,6 +110,9 @@ impl GameObject {
                 update_builder.add(index as usize, value);
             }
         }
+
+        // TODO: If player has a relevant quest active, make the GameObject Activate and Sparkle
+
         drop(internal_values);
 
         let blocks = update_builder.build();
@@ -138,5 +142,15 @@ impl GameObject {
             has_transport: false,
             updates: update_data,
         }
+    }
+
+    // Upon quest changes (accept, turn in, abandon, ...), GameObjects around a player might change
+    // state, only for that player. For example, if they accept a quest, nearby Chest GameObjects
+    // that loot the quest item must active (again, only for that player).
+    pub fn build_update_for(&self, _player: &Player, _quest_id: u32) -> Option<SmsgUpdateObject> {
+        // TODO: check player target's quest status relative to this Gameobject
+        // If player has the quest, add dynflags (see mangos - GO_DYNFLAG_LO_ACTIVATE |
+        // GO_DYNFLAG_LO_SPARKLE)
+        None
     }
 }

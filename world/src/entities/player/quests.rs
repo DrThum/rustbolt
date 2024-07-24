@@ -111,8 +111,7 @@ impl Player {
             return;
         }
 
-        #[allow(unused_assignments)]
-        let mut quest_added = false;
+        let quest_added: bool;
         {
             let mut first_empty_slot: Option<usize> = None;
             let mut values_guard = self.internal_values.write();
@@ -162,6 +161,8 @@ impl Player {
         }
 
         if quest_added {
+            self.session
+                .force_refresh_nearby_game_objects(quest_template.entry);
             self.try_complete_quest(quest_template);
         }
     }

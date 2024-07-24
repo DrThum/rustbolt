@@ -1831,3 +1831,14 @@ pub enum AttributeModifierType {
     TotalPercent,
     Max,
 }
+
+#[allow(dead_code)]
+#[bitflags]
+#[repr(u16)]
+#[derive(Copy, Clone, Debug)]
+pub enum GameObjectDynamicLowFlags {
+    Activate = 0x01,   // enables interaction with GO
+    Animate = 0x02,    // possibly more distinct animation of GO
+    NoInteract = 0x04, // appears to disable interaction (not fully verified)
+    Sparkle = 0x08,    // makes GO sparkle
+}

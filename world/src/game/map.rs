@@ -450,7 +450,8 @@ impl Map {
                     } else if let Ok(creature) = v_creature.get(other_entity_id) {
                         smsg_create_object = Some(creature.build_create_object(movement));
                     } else if let Ok(game_object) = v_game_object.get(other_entity_id) {
-                        smsg_create_object = Some(game_object.build_create_object());
+                        smsg_create_object =
+                            Some(game_object.build_create_object_for(&v_player[player_entity_id]));
                     } else {
                         unreachable!("cannot generate SMSG_CREATE_OBJECT for this entity type");
                     }
@@ -784,7 +785,7 @@ impl Map {
                         } else if let Ok(creature) = v_creature.get(other_entity_id) {
                             creature.build_create_object(movement)
                         } else if let Ok(game_object) = v_game_object.get(other_entity_id) {
-                            game_object.build_create_object()
+                            game_object.build_create_object_for(&v_player[mover_entity_id])
                         } else {
                             unreachable!("cannot generate SMSG_CREATE_OBJECT for this entity type");
                         }
@@ -793,12 +794,13 @@ impl Map {
                     origin_session.create_entity(&other_guid, smsg_create_object);
                 }
 
-                // If a player appeared, increment the NearbyPlayers counter for the creature
+                // If a player appeared, increment the NearbyPlayers counter for the
+                // creature/gameobject
                 if is_moving_entity_a_player {
                     NearbyPlayers::increment(other_entity_id, vm_nearby_players);
                 }
                 // If a creature moved within visibility distance of a player, increment the
-                // NearbyPlayers counter for the creature
+                // NearbyPlayers counter for the creature/gameobject
                 else if v_player.get(other_entity_id).is_ok() {
                     NearbyPlayers::increment(mover_entity_id, vm_nearby_players);
                 }

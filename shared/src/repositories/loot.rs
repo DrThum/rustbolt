@@ -16,18 +16,16 @@ use super::error::RResult;
 pub struct LootRepository;
 
 impl LootRepository {
-    pub fn load_creature_loot_tables(
+    pub fn load_loot_tables(
         conn: &PooledConnection<SqliteConnectionManager>,
     ) -> RResult<Vec<LootTable>> {
-        let mut stmt = conn.prepare_cached("SELECT COUNT(id) FROM creature_loot_tables")?;
+        let mut stmt = conn.prepare_cached("SELECT COUNT(id) FROM loot_tables")?;
         let mut group_count = stmt.query_map([], |row| row.get::<usize, u64>(0)).unwrap();
 
         let count = group_count.next().unwrap().unwrap_or(0);
         let bar = ProgressBar::new(count);
 
-        let mut stmt = conn
-            .prepare_cached("SELECT id FROM creature_loot_tables")
-            .unwrap();
+        let mut stmt = conn.prepare_cached("SELECT id FROM loot_tables").unwrap();
 
         let result = stmt
             .query_map([], |row| {
@@ -53,7 +51,7 @@ impl LootRepository {
         conn: &PooledConnection<SqliteConnectionManager>,
         id: u32,
     ) -> RResult<Option<LootTable>> {
-        let mut stmt = conn.prepare_cached("SELECT id FROM creature_loot_tables WHERE id = :id")?;
+        let mut stmt = conn.prepare_cached("SELECT id FROM loot_tables WHERE id = :id")?;
         let loot_table_exists = stmt
             .query_map(named_params! { ":id": id }, |row| row.get::<usize, u64>(0))?
             .filter_map(Result::ok)
@@ -72,12 +70,13 @@ impl LootRepository {
         conn: &PooledConnection<SqliteConnectionManager>,
         loot_table_id: u32,
     ) -> RResult<Vec<LootGroup>> {
-        let mut stmt_groups = conn
-                    .prepare_cached("
+        let mut stmt_groups = conn.prepare_cached(
+            "
                         SELECT id, chance, num_rolls_min, num_rolls_max, condition_id
-                        FROM creature_loot_table_groups
-                        JOIN loot_groups ON creature_loot_table_groups.loot_group_id = loot_groups.id
-                        WHERE creature_loot_table_id = :loot_table_id")?;
+                        FROM loot_table_groups
+                        JOIN loot_groups ON loot_table_groups.loot_group_id = loot_groups.id
+                        WHERE loot_table_id = :loot_table_id",
+        )?;
 
         let result_groups = stmt_groups
             .query_map(
@@ -149,7 +148,7 @@ impl LootRepository {
         {
             let mut stmt = transaction
                 .prepare_cached(
-                    "INSERT OR IGNORE INTO creature_loot_tables(id, description)
+                    "INSERT OR IGNORE INTO loot_tables(id, description)
                 VALUES (:loot_table_id, NULL)",
                 )
                 .unwrap();
@@ -172,7 +171,7 @@ impl LootRepository {
             // Unlink groups from the loot table (they are relinked later)
             let mut stmt = transaction
                 .prepare_cached(
-                    "DELETE FROM creature_loot_table_groups WHERE creature_loot_table_id = :loot_table_id",
+                    "DELETE FROM loot_table_groups WHERE loot_table_id = :loot_table_id",
                 )
                 .unwrap();
 
@@ -227,10 +226,12 @@ impl LootRepository {
                     group_id
                 };
 
-                let mut stmt = transaction.prepare_cached(
-                    "INSERT INTO creature_loot_table_groups(creature_loot_table_id, loot_group_id, description)
-                    VALUES(:loot_table_id, :group_id, NULL)"
-                ).unwrap();
+                let mut stmt = transaction
+                    .prepare_cached(
+                        "INSERT INTO loot_table_groups(loot_table_id, loot_group_id, description)
+                    VALUES(:loot_table_id, :group_id, NULL)",
+                    )
+                    .unwrap();
 
                 stmt.execute(named_params! {
                     ":loot_table_id": loot_table.id,
@@ -241,7 +242,7 @@ impl LootRepository {
 
             // Clear orphaned loot groups
             let mut stmt = transaction.prepare_cached(
-                "DELETE FROM loot_groups WHERE id NOT IN (SELECT loot_group_id FROM creature_loot_table_groups)"
+                "DELETE FROM loot_groups WHERE id NOT IN (SELECT loot_group_id FROM loot_table_groups)"
             ).unwrap();
 
             stmt.execute([]).unwrap();

@@ -245,7 +245,7 @@ impl Creature {
         if let Some(loot_table) = self
             .template
             .loot_table_id
-            .and_then(|loot_table_id| self.data_store.get_creature_loot_table(loot_table_id))
+            .and_then(|loot_table_id| self.data_store.get_loot_table(loot_table_id))
         {
             let items = loot_table.generate_loots();
             for item in items {

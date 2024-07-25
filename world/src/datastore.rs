@@ -88,7 +88,7 @@ pub struct DataStore {
     player_base_attributes: SqlStore<PlayerBaseAttributesPerLevelDbRecord>,
     creature_base_attributes: SqlStore<CreatureBaseAttributesPerLevelDbRecord>,
     player_experience_per_level: SqlStore<PlayerExperiencePerLevel>,
-    creature_loot_tables: SqlStore<LootTable>,
+    loot_tables: SqlStore<LootTable>,
     game_object_templates: SqlStore<GameObjectTemplate>,
     // GameTables (DBC files with name starting with gtXXX)
     gt_OCTRegenHP: GameTableStore<GameTableOCTRegenHPRecord>,
@@ -322,15 +322,15 @@ impl DataStore {
             player_experience_per_level
         };
 
-        let creature_loot_tables = {
+        let loot_tables = {
             info!("Loading creature loot tables...");
-            let creature_loot_tables = LootRepository::load_creature_loot_tables(conn);
-            let creature_loot_tables: SqlStore<LootTable> = creature_loot_tables
+            let loot_tables = LootRepository::load_loot_tables(conn);
+            let loot_tables: SqlStore<LootTable> = loot_tables
                 .unwrap()
                 .into_iter()
                 .map(|clt| (clt.id, clt))
                 .collect();
-            creature_loot_tables
+            loot_tables
         };
 
         let game_object_templates = if config.world.dev.load_creature_templates {
@@ -380,7 +380,7 @@ impl DataStore {
             player_base_attributes,
             creature_base_attributes,
             player_experience_per_level,
-            creature_loot_tables,
+            loot_tables,
             game_object_templates,
             gt_OCTRegenHP,
             gt_RegenHPPerSpt,
@@ -607,8 +607,8 @@ impl DataStore {
             .unwrap_or(0)
     }
 
-    pub fn get_creature_loot_table(&self, id: u32) -> Option<&LootTable> {
-        self.creature_loot_tables.get(&id)
+    pub fn get_loot_table(&self, id: u32) -> Option<&LootTable> {
+        self.loot_tables.get(&id)
     }
 
     pub fn get_gtOCTRegenHP(&self, index: usize) -> Option<&GameTableOCTRegenHPRecord> {

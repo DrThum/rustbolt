@@ -1461,8 +1461,6 @@ pub struct GameObjectTemplate {
     pub size: f32,
     pub data: GameObjectData,
     pub raw_data: [u32; 24],
-    pub min_money_loot: u32,
-    pub max_money_loot: u32,
     pub quest_ids: Vec<(u32, PlayerQuestStatus)>,
 }
 

@@ -36,7 +36,7 @@ impl GameObjectRepository {
             SELECT entry, type, display_id, name, cast_bar_caption, faction, flags, size,
                 data0, data1, data2, data3, data4, data5, data6, data7, data8, data9, data10,
                 data11, data12, data13, data14, data15, data16, data17, data18, data19, data20,
-                data21, data22, data23, min_money_loot, max_money_loot
+                data21, data22, data23
             FROM game_object_templates
             ORDER BY entry
         ",
@@ -93,8 +93,6 @@ impl GameObjectRepository {
                     size: row.get(Size as usize).unwrap(),
                     data: Self::build_template_data(go_type, raw_data),
                     raw_data,
-                    min_money_loot: row.get(MinMoneyLoot as usize).unwrap(),
-                    max_money_loot: row.get(MaxMoneyLoot as usize).unwrap(),
                     quest_ids: vec![],
                 };
 
@@ -426,8 +424,6 @@ enum GameObjectTemplateColumnIndex {
     Data21,
     Data22,
     Data23,
-    MinMoneyLoot,
-    MaxMoneyLoot,
 }
 
 enum GameObjectSpawnColumnIndex {

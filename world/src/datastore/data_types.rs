@@ -1462,6 +1462,7 @@ pub struct GameObjectTemplate {
     pub data: GameObjectData,
     pub raw_data: [u32; 24],
     pub quest_ids: Vec<(u32, PlayerQuestStatus)>,
+    pub loot_table_id: Option<u32>,
 }
 
 impl GameObjectTemplate {

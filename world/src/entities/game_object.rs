@@ -1,11 +1,11 @@
 use std::sync::Arc;
 
 use enumflags2::make_bitflags;
-use parking_lot::RwLock;
+use parking_lot::{RwLock, RwLockWriteGuard};
 use shipyard::Component;
 
 use crate::{
-    game::{map_manager::MapKey, world_context::WorldContext},
+    game::{loot::Loot, map_manager::MapKey, world_context::WorldContext},
     protocol::packets::{SmsgCreateObject, SmsgUpdateObject},
     repositories::game_object::GameObjectSpawnDbRecord,
     shared::constants::{
@@ -32,6 +32,8 @@ pub struct GameObject {
     data_store: Arc<DataStore>,
     pub internal_values: Arc<RwLock<InternalValues>>,
     pub spawn_position: WorldPosition,
+    loot_table_id: Option<u32>,
+    loot: Arc<RwLock<Loot>>,
 }
 
 impl GameObject {
@@ -107,6 +109,8 @@ impl GameObject {
                     data_store: world_context.data_store.clone(),
                     internal_values: Arc::new(RwLock::new(values)),
                     spawn_position,
+                    loot_table_id: template.loot_table_id,
+                    loot: Arc::new(RwLock::new(Loot::new())),
                 }
             })
     }
@@ -247,5 +251,31 @@ impl GameObject {
             0
         };
         update_builder.add(GameObjectFields::GameObjectDynFlags.into(), flags);
+    }
+
+    pub fn generate_loot(&self) -> bool {
+        let mut loot = Loot::new();
+
+        if let Some(loot_table) = self
+            .loot_table_id
+            .and_then(|loot_table_id| self.data_store.get_loot_table(loot_table_id))
+        {
+            let items = loot_table.generate_loots();
+            for item in items {
+                loot.add_item(item.item_id, item.count.random_value().into())
+            }
+        }
+
+        let has_loot = !loot.is_empty();
+        *self.loot.write() = loot;
+        has_loot
+    }
+
+    pub fn loot(&self) -> Loot {
+        self.loot.read().clone()
+    }
+
+    pub fn loot_mut(&self) -> RwLockWriteGuard<Loot> {
+        self.loot.write()
     }
 }

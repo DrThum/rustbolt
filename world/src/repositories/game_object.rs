@@ -36,7 +36,7 @@ impl GameObjectRepository {
             SELECT entry, type, display_id, name, cast_bar_caption, faction, flags, size,
                 data0, data1, data2, data3, data4, data5, data6, data7, data8, data9, data10,
                 data11, data12, data13, data14, data15, data16, data17, data18, data19, data20,
-                data21, data22, data23
+                data21, data22, data23, loot_table_id
             FROM game_object_templates
             ORDER BY entry
         ",
@@ -94,6 +94,7 @@ impl GameObjectRepository {
                     data: Self::build_template_data(go_type, raw_data),
                     raw_data,
                     quest_ids: vec![],
+                    loot_table_id: row.get(LootTableId as usize).unwrap(),
                 };
 
                 template.initialize_relevant_quests(
@@ -424,6 +425,7 @@ enum GameObjectTemplateColumnIndex {
     Data21,
     Data22,
     Data23,
+    LootTableId,
 }
 
 enum GameObjectSpawnColumnIndex {

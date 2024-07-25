@@ -8,8 +8,8 @@ use rusqlite::named_params;
 
 use crate::{
     datastore::{
-        data_types::{GameObjectData, GameObjectTemplate, QuestTemplate},
-        SqlStore,
+        data_types::{GameObjectData, GameObjectTemplate, QuestRelation, QuestTemplate},
+        SqlMultiStore, SqlStore,
     },
     shared::constants::GameObjectType,
 };
@@ -20,6 +20,7 @@ impl GameObjectRepository {
     pub fn load_templates(
         conn: &PooledConnection<SqliteConnectionManager>,
         quest_templates_store: &SqlStore<QuestTemplate>,
+        quest_relations_by_game_object: &SqlMultiStore<QuestRelation>,
     ) -> Vec<GameObjectTemplate> {
         let mut stmt = conn
             .prepare_cached("SELECT COUNT(entry) FROM game_object_templates")
@@ -97,7 +98,10 @@ impl GameObjectRepository {
                     quest_ids: vec![],
                 };
 
-                template.initialize_relevant_quests(quest_templates_store);
+                template.initialize_relevant_quests(
+                    quest_templates_store,
+                    quest_relations_by_game_object,
+                );
 
                 Ok(template)
             })

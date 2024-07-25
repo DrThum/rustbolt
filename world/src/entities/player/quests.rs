@@ -164,6 +164,7 @@ impl Player {
             self.session.force_refresh_nearby_game_objects(
                 quest_template.entry,
                 PlayerQuestStatus::InProgress,
+                self,
             );
             self.try_complete_quest(quest_template);
         }
@@ -185,7 +186,7 @@ impl Player {
         drop(values_guard);
 
         self.session
-            .force_refresh_nearby_game_objects(quest_id, PlayerQuestStatus::Failed);
+            .force_refresh_nearby_game_objects(quest_id, PlayerQuestStatus::Failed, self);
     }
 
     pub fn try_complete_quest(&mut self, quest_template: &QuestTemplate) {
@@ -226,6 +227,7 @@ impl Player {
             self.session.force_refresh_nearby_game_objects(
                 quest_id,
                 PlayerQuestStatus::ObjectivesCompleted,
+                self,
             );
         }
     }
@@ -263,8 +265,11 @@ impl Player {
                 context.slot = None;
 
                 // Disable nearby GameObjects that depend on that quest
-                self.session
-                    .force_refresh_nearby_game_objects(quest_id, PlayerQuestStatus::TurnedIn);
+                self.session.force_refresh_nearby_game_objects(
+                    quest_id,
+                    PlayerQuestStatus::TurnedIn,
+                    self,
+                );
 
                 // Take required items
                 for (id, count) in quest_template.required_items() {

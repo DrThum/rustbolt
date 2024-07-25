@@ -234,19 +234,19 @@ impl QuestRepository {
         result.filter_map(|res| res.ok()).collect()
     }
 
-    // Note: only load creature quest relations for now (GameObjects and AreaTriggers not
-    // implemented yet)
-    pub fn load_relations(conn: &PooledConnection<SqliteConnectionManager>) -> Vec<QuestRelation> {
+    pub fn load_relations(
+        conn: &PooledConnection<SqliteConnectionManager>,
+        actor_type: QuestActorType,
+    ) -> Vec<QuestRelation> {
         let mut stmt = conn
             .prepare_cached(
                 "SELECT COUNT(actor_entry) FROM quest_relations WHERE actor_type = :actor_type",
             )
             .unwrap();
         let mut count = stmt
-            .query_map(
-                named_params! { ":actor_type": QuestActorType::Creature as u8 },
-                |row| row.get::<usize, u64>(0),
-            )
+            .query_map(named_params! { ":actor_type": actor_type as u8 }, |row| {
+                row.get::<usize, u64>(0)
+            })
             .unwrap();
 
         let count = count.next().unwrap().unwrap_or(0);

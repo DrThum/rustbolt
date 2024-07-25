@@ -15,7 +15,7 @@ use r2d2_sqlite::SqliteConnectionManager;
 use crate::{
     config::WorldConfig,
     datastore::{
-        data_types::{CreatureTemplate, NpcTextDbRecord, PlayerCreatePosition},
+        data_types::{CreatureTemplate, NpcTextDbRecord, PlayerCreatePosition, QuestActorType},
         dbc::Dbc,
     },
     repositories::{
@@ -80,6 +80,7 @@ pub struct DataStore {
     creature_templates: SqlStore<CreatureTemplate>,
     quest_templates: SqlStore<QuestTemplate>,
     quest_relations_by_creature: SqlMultiStore<QuestRelation>,
+    quest_relations_by_game_object: SqlMultiStore<QuestRelation>,
     npc_texts: SqlStore<NpcTextDbRecord>,
     gossip_menus: SqlMultiStore<GossipMenuDbRecord>,
     creature_model_info: SqlStore<CreatureModelInfo>,
@@ -186,8 +187,19 @@ impl DataStore {
         };
 
         let quest_relations_by_creature = {
-            info!("Loading quest relations...");
-            let quest_relations = QuestRepository::load_relations(conn);
+            info!("Loading creatures quest relations...");
+            let quest_relations = QuestRepository::load_relations(conn, QuestActorType::Creature);
+            let mut multimap: MultiMap<u32, QuestRelation> = MultiMap::new();
+            for relation in quest_relations {
+                let key = relation.actor_entry;
+                multimap.insert(key, relation);
+            }
+            multimap
+        };
+
+        let quest_relations_by_game_object = {
+            info!("Loading game object quest relations...");
+            let quest_relations = QuestRepository::load_relations(conn, QuestActorType::GameObject);
             let mut multimap: MultiMap<u32, QuestRelation> = MultiMap::new();
             for relation in quest_relations {
                 let key = relation.actor_entry;
@@ -323,8 +335,11 @@ impl DataStore {
 
         let game_object_templates = if config.world.dev.load_creature_templates {
             info!("Loading game object templates...");
-            let game_object_templates =
-                GameObjectRepository::load_templates(conn, &quest_templates);
+            let game_object_templates = GameObjectRepository::load_templates(
+                conn,
+                &quest_templates,
+                &quest_relations_by_game_object,
+            );
             let game_object_templates: SqlStore<GameObjectTemplate> = game_object_templates
                 .into_iter()
                 .map(|template| (template.entry, template))
@@ -357,6 +372,7 @@ impl DataStore {
             creature_templates,
             quest_templates,
             quest_relations_by_creature,
+            quest_relations_by_game_object,
             npc_texts,
             gossip_menus,
             creature_model_info,
@@ -505,6 +521,10 @@ impl DataStore {
 
     pub fn get_quest_relations_for_creature(&self, entry: u32) -> Option<&Vec<QuestRelation>> {
         self.quest_relations_by_creature.get_vec(&entry)
+    }
+
+    pub fn get_quest_relations_for_game_object(&self, entry: u32) -> Option<&Vec<QuestRelation>> {
+        self.quest_relations_by_game_object.get_vec(&entry)
     }
 
     pub fn get_npc_text(&self, id: u32) -> Option<&NpcTextDbRecord> {

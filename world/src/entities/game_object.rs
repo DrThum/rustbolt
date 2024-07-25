@@ -11,6 +11,7 @@ use crate::{
     shared::constants::{
         GameObjectDynamicLowFlags, HighGuidType, ObjectTypeId, ObjectTypeMask, PlayerQuestStatus,
     },
+    DataStore,
 };
 
 use super::{
@@ -27,7 +28,8 @@ use super::{
 #[derive(Component)]
 pub struct GameObject {
     guid: ObjectGuid,
-    relevant_quest_ids: Vec<u32>,
+    relevant_quest_ids: Vec<(u32, PlayerQuestStatus)>,
+    data_store: Arc<DataStore>,
     pub internal_values: Arc<RwLock<InternalValues>>,
     pub spawn_position: WorldPosition,
 }
@@ -102,6 +104,7 @@ impl GameObject {
                 GameObject {
                     guid,
                     relevant_quest_ids: template.quest_ids.clone(),
+                    data_store: world_context.data_store.clone(),
                     internal_values: Arc::new(RwLock::new(values)),
                     spawn_position,
                 }
@@ -120,11 +123,30 @@ impl GameObject {
             }
         }
 
-        // If player has a relevant quest active, make the GameObject Activate and Sparkle
-        for quest_id in &self.relevant_quest_ids {
-            if let Some(quest_log_context) = player.quest_status(quest_id) {
-                let activate = self.should_activate(*quest_id, quest_log_context.status);
-                Self::add_active_state_to_update(&mut update_builder, activate);
+        // Make the GameObject active and sparkling if player can interact with it (quest in the
+        // appropriate status or quest that can be taken in case of a QuestGiver GO)
+        for (quest_id, required_quest_status) in &self.relevant_quest_ids {
+            match required_quest_status {
+                PlayerQuestStatus::NotStarted => {
+                    // Special case: here, the GameObject activates if the player can start the quest
+                    let Some(quest_template) = self.data_store.get_quest_template(*quest_id) else {
+                        continue;
+                    };
+                    Self::add_active_state_to_update(
+                        &mut update_builder,
+                        player.can_start_quest(quest_template),
+                    );
+                }
+                _ => {
+                    if let Some(quest_log_context) = player.quest_status(quest_id) {
+                        let activate = self.should_activate(
+                            *quest_id,
+                            quest_log_context.status,
+                            *required_quest_status,
+                        );
+                        Self::add_active_state_to_update(&mut update_builder, activate);
+                    }
+                }
             }
         }
 
@@ -166,14 +188,31 @@ impl GameObject {
         &self,
         quest_id: u32,
         quest_status: PlayerQuestStatus,
+        player: &Player,
     ) -> Option<SmsgUpdateObject> {
-        if !self.relevant_quest_ids.contains(&quest_id) {
-            return None;
+        let (_, required_quest_status) = self
+            .relevant_quest_ids
+            .iter()
+            .find(|(this_quest_id, _)| *this_quest_id == quest_id)?;
+
+        let mut update_builder = UpdateBlockBuilder::new();
+
+        match required_quest_status {
+            PlayerQuestStatus::NotStarted => {
+                // Special case: here, the GameObject activates if the player can start the quest
+                if let Some(quest_template) = self.data_store.get_quest_template(quest_id) {
+                    Self::add_active_state_to_update(
+                        &mut update_builder,
+                        player.can_start_quest(quest_template),
+                    );
+                }
+            }
+            _ => {
+                let activate = self.should_activate(quest_id, quest_status, *required_quest_status);
+                Self::add_active_state_to_update(&mut update_builder, activate);
+            }
         }
 
-        let activate = self.should_activate(quest_id, quest_status);
-        let mut update_builder = UpdateBlockBuilder::new();
-        Self::add_active_state_to_update(&mut update_builder, activate);
         let blocks = update_builder.build();
 
         let update_data = vec![UpdateData {
@@ -189,15 +228,13 @@ impl GameObject {
         })
     }
 
-    fn should_activate(&self, _quest_id: u32, quest_status: PlayerQuestStatus) -> bool {
-        // TODO:
-        // - for GameObjectType::QuestGiver, activate if GO gives quest and player can take it, or
-        // if GO finishes quest and player has quest ready to turn in
-        // - for GameObjectType::Chest, activate if GO has quest loots for the player
-        // - for Generic, SpellFocus and Goober, activate if player has quest in InProgress state
-        let activate = quest_status == PlayerQuestStatus::InProgress; // FIXME
-
-        activate
+    fn should_activate(
+        &self,
+        _quest_id: u32,
+        player_quest_status: PlayerQuestStatus,
+        required_quest_status: PlayerQuestStatus,
+    ) -> bool {
+        player_quest_status == required_quest_status
     }
 
     fn add_active_state_to_update(update_builder: &mut UpdateBlockBuilder, activate: bool) {

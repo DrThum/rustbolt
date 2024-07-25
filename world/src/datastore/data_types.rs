@@ -11,9 +11,9 @@ use crate::{
     },
     shared::constants::{
         AbilityLearnType, ActionButtonType, CharacterClass, CharacterClassBit, CharacterRaceBit,
-        CreatureRank, Expansion, GameObjectType, InventorySlot, InventoryType, MapType, PowerType,
-        QuestFlag, SkillCategory, SkillRangeType, SkillType, SpellEffect,
-        FACTION_NUMBER_BASE_REPUTATION_MASKS, MAX_QUEST_CHOICE_REWARDS_COUNT,
+        CreatureRank, Expansion, GameObjectType, InventorySlot, InventoryType, MapType,
+        PlayerQuestStatus, PowerType, QuestFlag, SkillCategory, SkillRangeType, SkillType,
+        SpellEffect, FACTION_NUMBER_BASE_REPUTATION_MASKS, MAX_QUEST_CHOICE_REWARDS_COUNT,
         MAX_QUEST_OBJECTIVES_COUNT, MAX_QUEST_REWARDS_COUNT, MAX_QUEST_REWARDS_REPUT_COUNT,
         MAX_SPELL_EFFECTS, MAX_SPELL_REAGENTS, MAX_SPELL_TOTEMS, NPC_TEXT_EMOTE_COUNT,
         NPC_TEXT_TEXT_COUNT,
@@ -25,7 +25,7 @@ pub const GAME_TABLE_MAX_LEVEL: u32 = 100;
 
 use super::{
     dbc::{DbcRecord, DbcStringBlock},
-    SqlStore,
+    SqlMultiStore, SqlStore,
 };
 
 pub trait DbcTypedRecord {
@@ -1463,35 +1463,66 @@ pub struct GameObjectTemplate {
     pub raw_data: [u32; 24],
     pub min_money_loot: u32,
     pub max_money_loot: u32,
-    pub quest_ids: Vec<u32>,
+    pub quest_ids: Vec<(u32, PlayerQuestStatus)>,
 }
 
 impl GameObjectTemplate {
-    pub fn initialize_relevant_quests(&mut self, quest_templates_store: &SqlStore<QuestTemplate>) {
+    pub fn initialize_relevant_quests(
+        &mut self,
+        quest_templates_store: &SqlStore<QuestTemplate>,
+        quest_relations_store: &SqlMultiStore<QuestRelation>,
+    ) {
         use GameObjectData::*;
 
-        let mut quest_ids: Vec<u32> = vec![];
+        let mut quest_ids: Vec<(u32, PlayerQuestStatus)> = vec![];
 
         // 1. quest requiring the game_object
-        let quests_requiring_go: Vec<u32> = quest_templates_store
+        let quests_requiring_go: Vec<(u32, PlayerQuestStatus)> = quest_templates_store
             .iter()
-            .filter_map(|(id, template)| template.game_object_requirements(self.entry).map(|_| *id))
+            .filter_map(|(id, template)| {
+                template
+                    .game_object_requirements(self.entry)
+                    .map(|_| (*id, PlayerQuestStatus::InProgress))
+            })
             .collect();
 
         quest_ids.extend(quests_requiring_go);
 
         // 2. Type-dependent data
+        // - for GameObjectType::QuestGiver, activate if GO gives quest and player can take it, or
+        // if GO finishes quest and player has quest ready to turn in
+        // - for GameObjectType::Chest, activate if GO has quest loots for the player
+        // - for Generic, SpellFocus and Goober, activate if player has quest in InProgress state
         match self.data {
-            QuestGiver { .. } => (), // TODO: add data for GOs in quest_relations
+            QuestGiver { .. } => {
+                if let Some(quest_relations) = quest_relations_store.get_vec(&self.entry) {
+                    for relation in quest_relations {
+                        match relation.role {
+                            QuestActorRole::Start => quest_ids
+                                .extend([(relation.quest_id, PlayerQuestStatus::NotStarted)]),
+                            QuestActorRole::End => quest_ids.extend([(
+                                relation.quest_id,
+                                PlayerQuestStatus::ObjectivesCompleted,
+                            )]),
+                        }
+                    }
+                }
+            }
             Chest { questId, .. } => {
                 // TODO: implement GO loot tables
                 if questId != 0 {
-                    quest_ids.extend([questId]);
+                    quest_ids.extend([(questId, PlayerQuestStatus::InProgress)]);
                 }
             }
-            Generic { questId, .. } if questId != 0 => quest_ids.extend([questId]),
-            SpellFocus { questId, .. } if questId != 0 => quest_ids.extend([questId]),
-            Goober { questId, .. } if questId != 0 => quest_ids.extend([questId]),
+            Generic { questId, .. } if questId != 0 => {
+                quest_ids.extend([(questId, PlayerQuestStatus::InProgress)])
+            }
+            SpellFocus { questId, .. } if questId != 0 => {
+                quest_ids.extend([(questId, PlayerQuestStatus::InProgress)])
+            }
+            Goober { questId, .. } if questId != 0 => {
+                quest_ids.extend([(questId, PlayerQuestStatus::InProgress)])
+            }
             _ => (),
         }
 

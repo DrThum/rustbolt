@@ -500,6 +500,7 @@ impl WorldSession {
         &self,
         quest_id: u32,
         quest_status: PlayerQuestStatus,
+        player: &Player,
     ) {
         let Some(map) = self.current_map() else {
             return;
@@ -515,7 +516,9 @@ impl WorldSession {
                     continue;
                 };
 
-                if let Some(packet) = game_object.build_update_for_quest(quest_id, quest_status) {
+                if let Some(packet) =
+                    game_object.build_update_for_quest(quest_id, quest_status, player)
+                {
                     self.update_entity(packet);
                 }
             }

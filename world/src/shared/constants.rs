@@ -1560,6 +1560,7 @@ pub enum PlayerQuestStatus {
     ObjectivesCompleted = 1,
     TurnedIn = 2,
     Failed = 3,
+    NotStarted = 4, // Player has never taken the quest
 }
 
 // Sent in update fields

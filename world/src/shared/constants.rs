@@ -1014,6 +1014,7 @@ impl SpellEffect {
         match self {
             Self::SchoolDamage => false,
             Self::Heal => true,
+            Self::OpenLock => true,
             _ => {
                 warn!("implement whether spell effect {self:?} is positive or negative");
                 true

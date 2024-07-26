@@ -58,6 +58,10 @@ impl SpellEffectHandler {
                     SpellEffectHandler::handle_effect_school_damage
                 ),
                 define_handler!(SpellEffect::Heal, SpellEffectHandler::handle_effect_heal),
+                define_handler!(
+                    SpellEffect::OpenLock,
+                    SpellEffectHandler::handle_effect_open_lock
+                ),
             ]),
         }
     }

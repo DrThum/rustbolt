@@ -6,8 +6,12 @@ use shipyard::{AllStoragesViewMut, Get, View, ViewMut};
 use crate::{
     datastore::data_types::SpellRecord,
     ecs::components::{guid::Guid, powers::Powers, threat_list::ThreatList, unit::Unit},
-    entities::{creature::Creature, player::Player},
-    shared::constants::UnitDynamicFlag,
+    entities::{creature::Creature, game_object::GameObject, player::Player},
+    protocol::{
+        packets::{LootResponseItem, SmsgLootResponse},
+        server::ServerMessage,
+    },
+    shared::constants::{LootSlotType, LootType, UnitDynamicFlag, UnitFlags},
 };
 
 use super::{
@@ -101,5 +105,67 @@ impl SpellEffectHandler {
             let damage = _spell_record.calc_simple_value(effect_index);
             vm_powers[unit_target].apply_healing(damage as u32);
         });
+    }
+
+    pub fn handle_effect_open_lock(
+        world_context: Arc<WorldContext>,
+        spell: Arc<Spell>,
+        _map: Arc<Map>,
+        _spell_record: Arc<SpellRecord>,
+        _effect_index: usize,
+        all_storages: &AllStoragesViewMut,
+    ) {
+        all_storages.run(
+            |v_game_object: View<GameObject>,
+             v_unit: View<Unit>,
+             mut vm_player: ViewMut<Player>| {
+                let Some(game_object_target) = spell.game_object_target() else {
+                    warn!("spell effect OpenLock: no game object target");
+                    return;
+                };
+
+                if let Ok(game_object) = v_game_object.get(game_object_target) {
+                    // TODO: Check that the player can open this lock (CanOpenLock in MaNGOS)
+
+                    v_unit[spell.caster()].set_unit_flag(UnitFlags::Looting);
+                    vm_player[spell.caster()].set_looting(spell.game_object_target());
+
+                    game_object.generate_loot(false);
+
+                    let loot_items: Vec<LootResponseItem> = game_object
+                        .loot()
+                        .items()
+                        .iter()
+                        .map(|li| {
+                            if let Some(item_template) =
+                                world_context.data_store.get_item_template(li.item_id)
+                            {
+                                LootResponseItem {
+                                    index: li.index,
+                                    id: li.item_id,
+                                    count: li.count,
+                                    display_info_id: item_template.display_id,
+                                    random_suffix: li.random_suffix,
+                                    random_property_id: li.random_property_id,
+                                    slot_type: LootSlotType::Normal,
+                                }
+                            } else {
+                                panic!("found non-existing item when generating creature loot");
+                            }
+                        })
+                        .collect();
+
+                    let packet = ServerMessage::new(SmsgLootResponse::build(
+                        &game_object.guid(),
+                        LootType::Pickpocketing,
+                        0,
+                        loot_items,
+                    ));
+                    vm_player[spell.caster()].session.send(&packet).unwrap();
+
+                    // TODO: Increase this lock's skill (end of EffectOpenLock in MaNGOS)
+                }
+            },
+        );
     }
 }

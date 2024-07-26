@@ -5,6 +5,7 @@ use parking_lot::{RwLock, RwLockWriteGuard};
 use shipyard::Component;
 
 use crate::{
+    datastore::data_types::GameObjectTemplate,
     game::{loot::Loot, map_manager::MapKey, world_context::WorldContext},
     protocol::packets::{SmsgCreateObject, SmsgUpdateObject},
     repositories::game_object::GameObjectSpawnDbRecord,
@@ -28,11 +29,10 @@ use super::{
 #[derive(Component)]
 pub struct GameObject {
     guid: ObjectGuid,
-    relevant_quest_ids: Vec<(u32, PlayerQuestStatus)>,
+    template: GameObjectTemplate,
     data_store: Arc<DataStore>,
     pub internal_values: Arc<RwLock<InternalValues>>,
     pub spawn_position: WorldPosition,
-    loot_table_id: Option<u32>,
     loot: Arc<RwLock<Loot>>,
 }
 
@@ -105,14 +105,17 @@ impl GameObject {
 
                 GameObject {
                     guid,
-                    relevant_quest_ids: template.quest_ids.clone(),
+                    template: template.clone(),
                     data_store: world_context.data_store.clone(),
                     internal_values: Arc::new(RwLock::new(values)),
                     spawn_position,
-                    loot_table_id: template.loot_table_id,
                     loot: Arc::new(RwLock::new(Loot::new())),
                 }
             })
+    }
+
+    pub fn guid(&self) -> ObjectGuid {
+        self.guid
     }
 
     pub fn build_create_object_for(&self, player: &Player) -> SmsgCreateObject {
@@ -129,7 +132,7 @@ impl GameObject {
 
         // Make the GameObject active and sparkling if player can interact with it (quest in the
         // appropriate status or quest that can be taken in case of a QuestGiver GO)
-        for (quest_id, required_quest_status) in &self.relevant_quest_ids {
+        for (quest_id, required_quest_status) in &self.template.quest_ids {
             match required_quest_status {
                 PlayerQuestStatus::NotStarted => {
                     // Special case: here, the GameObject activates if the player can start the quest
@@ -195,7 +198,8 @@ impl GameObject {
         player: &Player,
     ) -> Option<SmsgUpdateObject> {
         let (_, required_quest_status) = self
-            .relevant_quest_ids
+            .template
+            .quest_ids
             .iter()
             .find(|(this_quest_id, _)| *this_quest_id == quest_id)?;
 
@@ -253,11 +257,16 @@ impl GameObject {
         update_builder.add(GameObjectFields::GameObjectDynFlags.into(), flags);
     }
 
-    pub fn generate_loot(&self) -> bool {
+    pub fn generate_loot(&self, replace_if_loot_non_empty: bool) -> bool {
+        if !self.loot().is_empty() && !replace_if_loot_non_empty {
+            return true;
+        }
+
         let mut loot = Loot::new();
 
         if let Some(loot_table) = self
-            .loot_table_id
+            .template
+            .loot_table_id()
             .and_then(|loot_table_id| self.data_store.get_loot_table(loot_table_id))
         {
             let items = loot_table.generate_loots();

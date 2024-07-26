@@ -1450,6 +1450,7 @@ pub struct GossipMenuOption {
 }
 
 #[allow(dead_code)]
+#[derive(Clone)]
 pub struct GameObjectTemplate {
     pub entry: u32,
     pub go_type: GameObjectType,
@@ -1462,7 +1463,6 @@ pub struct GameObjectTemplate {
     pub data: GameObjectData,
     pub raw_data: [u32; 24],
     pub quest_ids: Vec<(u32, PlayerQuestStatus)>,
-    pub loot_table_id: Option<u32>,
 }
 
 impl GameObjectTemplate {
@@ -1526,6 +1526,14 @@ impl GameObjectTemplate {
         }
 
         self.quest_ids = quest_ids;
+    }
+
+    pub fn loot_table_id(&self) -> Option<u32> {
+        match self.data {
+            GameObjectData::Chest { lootTemplateEntry, .. } => Some(lootTemplateEntry),
+            GameObjectData::FishingHole { lootTemplateEntry, .. } => Some(lootTemplateEntry),
+            _ => None,
+        }
     }
 }
 

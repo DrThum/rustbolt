@@ -5,7 +5,6 @@ use shipyard::{View, ViewMut};
 
 use crate::ecs::components::powers::Powers;
 use crate::ecs::components::spell_cast::SpellCast;
-use crate::ecs::components::unit::Unit;
 use crate::game::world_context::WorldContext;
 use crate::protocol::client::ClientMessage;
 use crate::protocol::packets::{
@@ -23,6 +22,13 @@ impl OpcodeHandler {
         data: Vec<u8>,
     ) {
         let cmsg: CmsgCastSpell = ClientMessage::read_as(data).unwrap();
+        let mut targets = cmsg.cast_targets.clone();
+        targets.update_internal_refs(
+            session
+                .current_map()
+                .expect("received CMSG_CAST_SPELL but player is not on a map")
+                .clone(),
+        );
 
         let spell_record = world_context.data_store.get_spell_record(cmsg.spell_id);
         if spell_record.is_none() {
@@ -40,8 +46,8 @@ impl OpcodeHandler {
                           player_entity_id,
                           ..
                       }| {
-            map.world().run(
-                |mut vm_spell: ViewMut<SpellCast>, v_unit: View<Unit>, v_powers: View<Powers>| {
+            map.world()
+                .run(|mut vm_spell: ViewMut<SpellCast>, v_powers: View<Powers>| {
                     if vm_spell[player_entity_id].current_ranged().is_some() {
                         let packet = ServerMessage::new(SmsgCastFailed {
                             spell_id: cmsg.spell_id,
@@ -68,14 +74,12 @@ impl OpcodeHandler {
                         powers.snapshot(),
                     );
 
-                    let target = v_unit[player_entity_id]
-                        .target()
-                        .unwrap_or(player_entity_id); // Target self by default
                     vm_spell[player_entity_id].set_current_ranged(
                         cmsg.spell_id,
                         spell_base_cast_time,
                         player_entity_id,
-                        target,
+                        targets.unit_target(),
+                        targets.game_object_target(),
                         power_cost,
                     );
 
@@ -97,8 +101,7 @@ impl OpcodeHandler {
                     });
 
                     session.send(&packet).unwrap();
-                },
-            );
+                });
         });
     }
 

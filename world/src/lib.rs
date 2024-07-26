@@ -60,6 +60,7 @@ pub mod game {
     pub mod movement_spline;
     pub mod quad_tree;
     pub mod spell;
+    pub mod spell_cast_target;
     pub mod spell_effect_handler;
     mod spell_effect_handlers;
     pub mod world_context;

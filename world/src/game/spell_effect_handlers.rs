@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use log::warn;
 use shipyard::{AllStoragesViewMut, Get, View, ViewMut};
 
 use crate::{
@@ -40,20 +41,25 @@ impl SpellEffectHandler {
              mut vm_player: ViewMut<Player>,
              v_creature: View<Creature>,
              v_unit: View<Unit>| {
+                let Some(unit_target) = spell.unit_target() else {
+                    warn!("handle_effect_school_damage: no unit target");
+                    return;
+                };
+
                 let damage = spell_record.calc_simple_value(effect_index);
-                let target_powers = &mut vm_powers[spell.target()];
+                let target_powers = &mut vm_powers[unit_target];
                 target_powers.apply_damage(damage as u32);
                 // TODO: Log damage somehow
 
                 if target_powers.is_alive() {
-                    if let Ok(mut threat_list) = (&mut vm_threat_list).get(spell.target()) {
+                    if let Ok(mut threat_list) = (&mut vm_threat_list).get(unit_target) {
                         threat_list.modify_threat(spell.caster(), damage as f32);
                     }
                 } else if let Ok(mut player) = (&mut vm_player).get(spell.caster()) {
                     // FIXME: This logic is duplicated in melee.rs
-                    let target_guid = v_guid[spell.target()].0;
+                    let target_guid = v_guid[unit_target].0;
                     let mut has_loot = false; // TODO: Handle player case (Insignia looting in PvP)
-                    if let Ok(creature) = v_creature.get(spell.target()) {
+                    if let Ok(creature) = v_creature.get(unit_target) {
                         let xp_gain = Experience::xp_gain_against(
                             &player,
                             creature,
@@ -66,7 +72,7 @@ impl SpellEffectHandler {
                         has_loot = creature.generate_loot();
                     }
 
-                    if let Ok(target_unit) = v_unit.get(spell.target()) {
+                    if let Ok(target_unit) = v_unit.get(unit_target) {
                         if has_loot {
                             target_unit.set_dynamic_flag(UnitDynamicFlag::Lootable);
                         }
@@ -80,15 +86,20 @@ impl SpellEffectHandler {
 
     pub fn handle_effect_heal(
         _world_context: Arc<WorldContext>,
-        _spell: Arc<Spell>,
+        spell: Arc<Spell>,
         _map: Arc<Map>,
         _spell_record: Arc<SpellRecord>,
         effect_index: usize,
         all_storages: &AllStoragesViewMut,
     ) {
         all_storages.run(|mut vm_powers: ViewMut<Powers>| {
+            let Some(unit_target) = spell.unit_target() else {
+                warn!("handle_effect_school_damage: no unit target");
+                return;
+            };
+
             let damage = _spell_record.calc_simple_value(effect_index);
-            vm_powers[_spell.target()].apply_healing(damage as u32);
+            vm_powers[unit_target].apply_healing(damage as u32);
         });
     }
 }

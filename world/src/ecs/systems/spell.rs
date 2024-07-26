@@ -133,7 +133,11 @@ fn handle_effects(
             if effect.is_negative() {
                 vm_all_storages.run(
                     |mut vm_player: ViewMut<Player>, v_guid: View<Guid>, v_powers: View<Powers>| {
-                        let Ok(target_powers) = v_powers.get(spell.target()) else {
+                        let Some(unit_target) = spell.unit_target() else {
+                            return;
+                        };
+
+                        let Ok(target_powers) = v_powers.get(unit_target) else {
                             return;
                         };
 
@@ -144,7 +148,7 @@ fn handle_effects(
                         let Ok(player) = (&mut vm_player).get(spell.caster()) else {
                             return;
                         };
-                        let Ok(target_guid) = v_guid.get(spell.target()) else {
+                        let Ok(target_guid) = v_guid.get(unit_target) else {
                             return;
                         };
 

@@ -1,17 +1,96 @@
 use std::time::Duration;
 
-use binrw::{binread, binwrite};
+use binrw::{binread, binwrite, BinRead, NullString};
+use enumflags2::{make_bitflags, BitFlags};
 use opcode_derive::server_opcode;
 
-use crate::entities::object_guid::PackedObjectGuid;
+use crate::entities::object_guid::{ObjectGuid, PackedObjectGuid};
+use crate::entities::position::Position;
+use crate::game::spell_cast_target::SpellCastTargets;
 use crate::protocol::opcodes::Opcode;
 use crate::protocol::server::ServerMessagePayload;
-use crate::shared::constants::SpellFailReason;
+use crate::shared::constants::{SpellCastTargetFlags, SpellFailReason};
+
+impl BinRead for SpellCastTargets {
+    type Args<'a> = ();
+
+    fn read_options<R: std::io::prelude::Read + std::io::prelude::Seek>(
+        reader: &mut R,
+        endian: binrw::Endian,
+        args: Self::Args<'_>,
+    ) -> binrw::prelude::BinResult<Self> {
+        let target_mask = <u32>::read_options(reader, endian, args)?;
+        let target_mask: BitFlags<SpellCastTargetFlags> =
+            BitFlags::from_bits(target_mask).expect("failed to parse CMSG_CAST_SPELL target_mask");
+
+        if target_mask.is_empty() {
+            return Ok(SpellCastTargets::new_self());
+        };
+
+        let mut unit_guid: Option<ObjectGuid> = None;
+        if target_mask.intersects(make_bitflags!(SpellCastTargetFlags::{Unit | Unk2})) {
+            unit_guid = <PackedObjectGuid>::read_options(reader, endian, args)
+                .ok()
+                .and_then(ObjectGuid::from_packed);
+        }
+
+        let mut game_object_guid: Option<ObjectGuid> = None;
+        if target_mask
+            .intersects(make_bitflags!(SpellCastTargetFlags::{Object | ObjectUnk | GameobjectItem}))
+        {
+            game_object_guid = <PackedObjectGuid>::read_options(reader, endian, args)
+                .ok()
+                .and_then(ObjectGuid::from_packed);
+        }
+
+        let mut item_guid: Option<ObjectGuid> = None;
+        if target_mask.intersects(make_bitflags!(SpellCastTargetFlags::{Item | TradeItem})) {
+            item_guid = <PackedObjectGuid>::read_options(reader, endian, args)
+                .ok()
+                .and_then(ObjectGuid::from_packed);
+        }
+
+        let mut source_position: Option<Position> = None;
+        if target_mask.intersects(make_bitflags!(SpellCastTargetFlags::{SourceLocation})) {
+            let x = <f32>::read_options(reader, endian, args)?;
+            let y = <f32>::read_options(reader, endian, args)?;
+            let z = <f32>::read_options(reader, endian, args)?;
+
+            source_position = Some(Position { x, y, z, o: 0. });
+        }
+
+        let mut destination_position: Option<Position> = None;
+        if target_mask.intersects(make_bitflags!(SpellCastTargetFlags::{DestLocation})) {
+            let x = <f32>::read_options(reader, endian, args)?;
+            let y = <f32>::read_options(reader, endian, args)?;
+            let z = <f32>::read_options(reader, endian, args)?;
+
+            destination_position = Some(Position { x, y, z, o: 0. });
+        }
+
+        let mut string: Option<String> = None;
+        if target_mask.intersects(make_bitflags!(SpellCastTargetFlags::{String})) {
+            string = <NullString>::read_options(reader, endian, args)
+                .ok()
+                .map(|null_string| null_string.to_string());
+        }
+
+        Ok(SpellCastTargets::new(
+            unit_guid,
+            game_object_guid,
+            item_guid,
+            source_position,
+            destination_position,
+            string,
+        ))
+    }
+}
 
 #[binread]
 pub struct CmsgCastSpell {
     pub spell_id: u32,
     pub cast_count: u8,
+    pub cast_targets: SpellCastTargets,
 }
 
 #[binwrite]

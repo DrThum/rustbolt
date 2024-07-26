@@ -1,6 +1,6 @@
 use std::hash::Hasher;
 
-use binrw::{binwrite, BinRead, BinWrite};
+use binrw::{binread, binwrite, BinRead, BinWrite};
 use fixedbitset::FixedBitSet;
 
 use crate::shared::constants::HighGuidType;
@@ -93,6 +93,21 @@ impl ObjectGuid {
         }
     }
 
+    pub fn from_packed(packed_guid: PackedObjectGuid) -> Option<Self> {
+        let mask = packed_guid.mask;
+        let mut bytes = packed_guid.bytes.clone();
+
+        let mut raw: u64 = 0;
+        for i in 0..8 {
+            if mask & (1 << i) != 0 {
+                let head = bytes.remove(0) as u64;
+                raw |= head << (i * 8);
+            }
+        }
+
+        Self::from_raw(raw)
+    }
+
     fn has_entry_part(high_guid_type: HighGuidType) -> bool {
         match high_guid_type {
             HighGuidType::ItemOrContainer
@@ -134,9 +149,11 @@ impl std::hash::Hash for ObjectGuid {
 //   byte in the full guid
 // - `bytes` contains the bytes to transmit from least to most significant
 #[binwrite]
+#[binread]
 #[derive(Debug, Clone)]
 pub struct PackedObjectGuid {
     mask: u8,
+    #[br(count = mask.count_ones())]
     bytes: Vec<u8>,
 }
 

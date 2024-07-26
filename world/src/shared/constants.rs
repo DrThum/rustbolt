@@ -1883,3 +1883,28 @@ pub enum GameObjectType {
     DestructibleBuilding = 33,
     GuildBank = 34,
 }
+
+#[allow(dead_code)]
+#[bitflags]
+#[repr(u32)]
+#[derive(Copy, Clone, Debug)]
+pub enum SpellCastTargetFlags {
+    // Self = 0x00000000,
+    Unused1 = 0x00000001, // not used in any spells (can be set dynamically)
+    Unit = 0x00000002,    // pguid
+    Unused2 = 0x00000004, // not used in any spells (can be set dynamically)
+    Unused3 = 0x00000008, // not used in any spells (can be set dynamically)
+    Item = 0x00000010,    // pguid
+    SourceLocation = 0x00000020, // 3 float
+    DestLocation = 0x00000040, // 3 float
+    ObjectUnk = 0x00000080, // used in 7 spells only
+    UnitUnk = 0x00000100, // looks like self target (389 spells)
+    PvpCorpse = 0x00000200, // pguid
+    UnitCorpse = 0x00000400, // 10 spells (gathering professions)
+    Object = 0x00000800,  // pguid, 0 spells
+    TradeItem = 0x00001000, // pguid, 0 spells
+    String = 0x00002000,  // string, 0 spells
+    GameobjectItem = 0x00004000, // 199 spells, opening object/lock
+    Corpse = 0x00008000,  // pguid, resurrection spells
+    Unk2 = 0x00010000,    // pguid, not used in any spells (can be set dynamically)
+}

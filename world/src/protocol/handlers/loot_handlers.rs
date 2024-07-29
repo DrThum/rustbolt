@@ -5,8 +5,10 @@ use shipyard::{Get, View, ViewMut};
 
 use crate::ecs::components::unit::Unit;
 use crate::entities::creature::Creature;
+use crate::entities::game_object::GameObject;
 use crate::entities::object_guid::ObjectGuid;
 use crate::entities::player::Player;
+use crate::game::loot::Loot;
 use crate::game::world_context::WorldContext;
 use crate::protocol::client::ClientMessage;
 use crate::protocol::packets::*;
@@ -26,12 +28,19 @@ impl OpcodeHandler {
         if let Some(target_guid) = ObjectGuid::from_raw(cmsg.target_guid) {
             if let Some(map) = session.current_map() {
                 if let Some(looted_entity_id) = map.lookup_entity_ecs(&target_guid) {
-                    let maybe_loot = map.world().run(|v_creature: View<Creature>| {
-                        v_creature
-                            .get(looted_entity_id)
-                            .ok()
-                            .map(|creature| creature.loot())
-                    });
+                    let maybe_loot: Option<Loot> = map.world().run(
+                        |v_creature: View<Creature>, v_game_object: View<GameObject>| {
+                            if let Ok(creature) = v_creature.get(looted_entity_id) {
+                                return Some(creature.loot());
+                            }
+
+                            if let Ok(game_object) = v_game_object.get(looted_entity_id) {
+                                return Some(game_object.loot());
+                            }
+
+                            None
+                        },
+                    );
 
                     if let Some(loot) = maybe_loot {
                         map.world()
@@ -162,13 +171,24 @@ impl OpcodeHandler {
 
         if let Some(map) = session.current_map() {
             map.world().run(
-                |mut vm_player: ViewMut<Player>, v_creature: View<Creature>| {
+                |mut vm_player: ViewMut<Player>,
+                 v_creature: View<Creature>,
+                 v_game_object: View<GameObject>| {
                     let player_entity_id = session.player_entity_id().unwrap();
                     let player = &mut vm_player[player_entity_id];
 
                     if let Some(looted_entity_id) = player.currently_looting() {
-                        if let Ok(creature) = v_creature.get(looted_entity_id) {
-                            let mut loot = creature.loot_mut();
+                        let maybe_loot = {
+                            if let Ok(creature) = v_creature.get(looted_entity_id) {
+                                Some(creature.loot_mut())
+                            } else if let Ok(game_object) = v_game_object.get(looted_entity_id) {
+                                Some(game_object.loot_mut())
+                            } else {
+                                None
+                            }
+                        };
+
+                        if let Some(mut loot) = maybe_loot {
                             if let Some(loot_item) = loot.get_item(cmsg.loot_index) {
                                 match player.auto_store_new_item(loot_item.item_id, loot_item.count)
                                 {

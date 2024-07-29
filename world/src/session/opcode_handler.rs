@@ -226,6 +226,7 @@ impl OpcodeHandler {
                     Opcode::CmsgGameObjectQuery,
                     OpcodeHandler::handle_cmsg_game_object_query
                 ),
+                define_handler!(Opcode::CmsgUseItem, OpcodeHandler::handle_cmsg_use_item),
             ]),
         }
     }

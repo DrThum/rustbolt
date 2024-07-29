@@ -1,8 +1,11 @@
 use std::sync::Arc;
 
 use binrw::NullString;
-use shipyard::{Get, ViewMut};
+use log::{error, warn};
+use shipyard::{Get, View, ViewMut};
 
+use crate::ecs::components::powers::Powers;
+use crate::ecs::components::spell_cast::SpellCast;
 use crate::entities::player::Player;
 use crate::game::world_context::WorldContext;
 use crate::protocol::client::ClientMessage;
@@ -10,6 +13,7 @@ use crate::protocol::packets::*;
 use crate::protocol::server::ServerMessage;
 use crate::session::opcode_handler::OpcodeHandler;
 use crate::session::world_session::{WSRunnableArgs, WorldSession};
+use crate::shared::constants::SpellFailReason;
 
 impl OpcodeHandler {
     pub(crate) fn handle_cmsg_item_query_single(
@@ -258,6 +262,110 @@ impl OpcodeHandler {
                     session.send(&packet).unwrap();
                 }
             });
+        });
+    }
+
+    pub(crate) fn handle_cmsg_use_item(
+        session: Arc<WorldSession>,
+        world_context: Arc<WorldContext>,
+        data: Vec<u8>,
+    ) {
+        let cmsg: CmsgUseItem = ClientMessage::read_as(data).unwrap();
+
+        // FIXME: This is duplicated from handle_cmsg_cast_spell
+        session.run(&|WSRunnableArgs {
+                          map,
+                          player_entity_id,
+                          ..
+                      }| {
+            let mut targets = cmsg.targets.clone();
+            targets.update_internal_refs(map.clone());
+
+            map.world().run(
+                |v_player: View<Player>,
+                 mut vm_spell: ViewMut<SpellCast>,
+                 v_powers: View<Powers>| {
+                    let Ok(player) = v_player.get(player_entity_id) else {
+                        error!("handle_cmsg_use_item: no player found");
+                        return;
+                    };
+
+                    let Some(item) = player.inventory().get(cmsg.bag_slot.into()) else {
+                        warn!("implement item not found in handle_cmsg_use_item");
+                        return;
+                    };
+
+                    let Some(item_template) =
+                        world_context.data_store.get_item_template(item.entry())
+                    else {
+                        error!("handle_cmsg_use_item: item template not found");
+                        return;
+                    };
+
+                    // TODO: We actually need to cast all spells in the template
+                    let spell_id = item_template.spells[0].id;
+
+                    if vm_spell[player_entity_id].current_ranged().is_some() {
+                        let packet = ServerMessage::new(SmsgCastFailed {
+                            spell_id,
+                            result: SpellFailReason::SpellInProgress,
+                            cast_count: cmsg.cast_count,
+                        });
+
+                        session.send(&packet).unwrap();
+
+                        return;
+                    }
+
+                    let Some(spell_record) = world_context.data_store.get_spell_record(spell_id)
+                    else {
+                        warn!("attempt to cast non-existing spell {}", spell_id);
+                        return;
+                    };
+
+                    let Some(spell_base_cast_time) =
+                        spell_record.base_cast_time(world_context.data_store.clone())
+                    else {
+                        error!("spell {} has no base cast time in DBC", spell_id);
+                        return;
+                    };
+
+                    let powers = &v_powers[player_entity_id];
+                    let power_cost = spell_record.calculate_power_cost(
+                        powers.base_health(),
+                        powers.base_mana(),
+                        powers.snapshot(),
+                    );
+
+                    vm_spell[player_entity_id].set_current_ranged(
+                        spell_id,
+                        spell_base_cast_time,
+                        player_entity_id,
+                        targets.unit_target(),
+                        targets.game_object_target(),
+                        power_cost,
+                    );
+
+                    let packet = ServerMessage::new(SmsgClearExtraAuraInfo {
+                        caster_guid: session.player_guid().unwrap().as_packed(),
+                        spell_id,
+                    });
+
+                    session.send(&packet).unwrap();
+
+                    let packet = ServerMessage::new(SmsgSpellStart {
+                        caster_entity_guid: session.player_guid().unwrap().as_packed(),
+                        caster_unit_guid: session.player_guid().unwrap().as_packed(),
+                        spell_id,
+                        cast_id: cmsg.cast_count,
+                        cast_flags: 0,
+                        cast_time: spell_base_cast_time,
+                        target_flags: 0,
+                    });
+
+                    session.send(&packet).unwrap();
+                },
+            );
         });
     }
 }

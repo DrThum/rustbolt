@@ -6,6 +6,7 @@ use rusqlite::types::{FromSql, FromSqlError};
 use crate::{
     datastore::data_types::ItemTemplate,
     entities::object_guid::ObjectGuid,
+    game::spell_cast_target::SpellCastTargets,
     protocol::{opcodes::Opcode, server::ServerMessagePayload},
     shared::constants::{AttributeModifier, InventoryResult},
 };
@@ -298,4 +299,15 @@ pub struct CmsgSplitItem {
     _destination_bag: u8,
     pub destination_slot: u8,
     pub count: u8,
+}
+
+#[binread]
+#[allow(dead_code)]
+pub struct CmsgUseItem {
+    pub bag_index: u8,
+    pub bag_slot: u8,
+    pub _spell_count: u8,
+    pub cast_count: u8,
+    pub item_guid: ObjectGuid,
+    pub targets: SpellCastTargets,
 }

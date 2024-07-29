@@ -62,6 +62,10 @@ impl SpellEffectHandler {
                     SpellEffect::OpenLock,
                     SpellEffectHandler::handle_effect_open_lock
                 ),
+                define_handler!(
+                    SpellEffect::OpenLockItem,
+                    SpellEffectHandler::handle_effect_open_lock
+                ),
             ]),
         }
     }

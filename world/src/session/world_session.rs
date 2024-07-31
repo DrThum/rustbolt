@@ -26,7 +26,7 @@ use crate::{
     entities::{
         game_object::GameObject,
         object_guid::ObjectGuid,
-        player::{player_data::QuestLogContext, Player},
+        player::Player,
         position::WorldPosition,
     },
     game::{map::Map, world_context::WorldContext},
@@ -498,12 +498,7 @@ impl WorldSession {
 
     // Make nearby GameObjects related to the quest active or inactive depending on player quest
     // status
-    pub fn force_refresh_nearby_game_objects(
-        &self,
-        quest_id: u32,
-        quest_log_context: QuestLogContext,
-        player: &Player,
-    ) {
+    pub fn force_refresh_nearby_game_objects(&self, quest_id: u32, player: &Player) {
         let Some(map) = self.current_map() else {
             return;
         };
@@ -518,8 +513,8 @@ impl WorldSession {
                     continue;
                 };
 
-                let packet =
-                    game_object.build_update_for_quest(quest_id, quest_log_context, player);
+                let packet = game_object.build_update_for_quest(quest_id, player);
+
                 self.update_entity(packet);
             }
         });

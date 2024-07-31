@@ -170,12 +170,7 @@ impl GameObject {
     // Upon quest changes (accept, turn in, abandon, ...), GameObjects around a player might change
     // state, only for that player. For example, if they accept a quest, nearby Chest GameObjects
     // that loot the quest item must active (again, only for that player).
-    pub fn build_update_for_quest(
-        &self,
-        quest_id: u32,
-        _quest_log_context: QuestLogContext,
-        player: &Player,
-    ) -> SmsgUpdateObject {
+    pub fn build_update_for_quest(&self, quest_id: u32, player: &Player) -> SmsgUpdateObject {
         let mut update_builder = UpdateBlockBuilder::new();
         Self::add_active_state_to_update(
             &mut update_builder,

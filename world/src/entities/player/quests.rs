@@ -126,7 +126,6 @@ impl Player {
             return;
         }
 
-        let new_quest_log_context: Option<QuestLogContext>;
         {
             let mut first_empty_slot: Option<usize> = None;
             let mut values_guard = self.internal_values.write();
@@ -164,7 +163,6 @@ impl Player {
                     status: PlayerQuestStatus::InProgress,
                     entity_counts: [0, 0, 0, 0],
                 };
-                new_quest_log_context = Some(quest_log_context);
                 self.quest_statuses
                     .insert(quest_template.entry, quest_log_context);
             } else {
@@ -173,14 +171,9 @@ impl Player {
             }
         }
 
-        if let Some(quest_log_context) = new_quest_log_context {
-            self.session.force_refresh_nearby_game_objects(
-                quest_template.entry,
-                quest_log_context,
-                self,
-            );
-            self.try_complete_quest(quest_template);
-        }
+        self.session
+            .force_refresh_nearby_game_objects(quest_template.entry, self);
+        self.try_complete_quest(quest_template);
     }
 
     pub fn remove_quest(&mut self, slot_to_remove: usize) {
@@ -198,13 +191,8 @@ impl Player {
         }
         drop(values_guard);
 
-        let fake_context = QuestLogContext {
-            slot: None,
-            status: PlayerQuestStatus::NotStarted,
-            entity_counts: [0, 0, 0, 0],
-        };
         self.session
-            .force_refresh_nearby_game_objects(quest_id, fake_context, self);
+            .force_refresh_nearby_game_objects(quest_id, self);
     }
 
     pub fn try_complete_quest(&mut self, quest_template: &QuestTemplate) {
@@ -243,7 +231,7 @@ impl Player {
             drop(values_guard);
 
             self.session
-                .force_refresh_nearby_game_objects(quest_id, *context, self);
+                .force_refresh_nearby_game_objects(quest_id, self);
         }
     }
 
@@ -281,7 +269,7 @@ impl Player {
 
                 // Disable nearby GameObjects that depend on that quest
                 self.session
-                    .force_refresh_nearby_game_objects(quest_id, context.clone(), self);
+                    .force_refresh_nearby_game_objects(quest_id, self);
 
                 // Take required items
                 for (id, count) in quest_template.required_items() {

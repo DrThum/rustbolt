@@ -1747,3 +1747,10 @@ pub enum GameObjectData {
     DestructibleBuilding,
     GuildBank,
 }
+
+#[allow(dead_code)]
+pub struct SeasonalEvent {
+    pub id: u32,
+    pub is_active: bool,
+    pub description: String,
+}

@@ -4,9 +4,12 @@ use miniz_oxide::deflate::CompressionLevel;
 use parking_lot::RwLock;
 use r2d2::PooledConnection;
 use r2d2_sqlite::SqliteConnectionManager;
-use shipyard::{EntityId, Get, View, ViewMut};
+use shipyard::{EntityId, View, ViewMut};
 use std::{
-    sync::{atomic::AtomicU32, Arc},
+    sync::{
+        atomic::{AtomicU32, Ordering},
+        Arc,
+    },
     time::Duration,
 };
 
@@ -23,12 +26,7 @@ use wow_srp::tbc_header::HeaderCrypto;
 
 use crate::{
     ecs::components::powers::Powers,
-    entities::{
-        game_object::GameObject,
-        object_guid::ObjectGuid,
-        player::Player,
-        position::WorldPosition,
-    },
+    entities::{object_guid::ObjectGuid, player::Player, position::WorldPosition},
     game::{map::Map, world_context::WorldContext},
     protocol::{
         client::ClientMessage,
@@ -498,26 +496,10 @@ impl WorldSession {
 
     // Make nearby GameObjects related to the quest active or inactive depending on player quest
     // status
-    pub fn force_refresh_nearby_game_objects(&self, quest_id: u32, player: &Player) {
-        let Some(map) = self.current_map() else {
-            return;
-        };
-
-        map.world().run(|v_game_object: View<GameObject>| {
-            for guid in &*self.known_guids.read() {
-                let Some(entity_id) = map.lookup_entity_ecs(guid) else {
-                    continue;
-                };
-
-                let Ok(game_object) = v_game_object.get(entity_id) else {
-                    continue;
-                };
-
-                let packet = game_object.build_update_for_quest(quest_id, player);
-
-                self.update_entity(packet);
-            }
-        });
+    pub fn force_refresh_nearby_game_objects(&self, player: &Player) {
+        player
+            .needs_nearby_game_objects_refresh
+            .store(true, Ordering::Relaxed);
     }
 }
 

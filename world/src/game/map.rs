@@ -102,7 +102,7 @@ impl Map {
         let workload = || {
             (
                 unwind::unwind_creatures,
-                updates::update_attributes_from_modifiers, // Must be before regenerate_powers
+                updates::update_player_environment, // Must be before regenerate_powers
                 movement::update_movement,
                 combat::update_combat_state,
                 behavior::tick,

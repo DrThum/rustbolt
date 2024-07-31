@@ -132,7 +132,7 @@ impl GameObject {
             }
         }
 
-        if self.should_activate_for_player(player, None) {
+        if self.should_activate_for_player(player) {
             Self::add_active_state_to_update(&mut update_builder, true);
         }
 
@@ -170,11 +170,11 @@ impl GameObject {
     // Upon quest changes (accept, turn in, abandon, ...), GameObjects around a player might change
     // state, only for that player. For example, if they accept a quest, nearby Chest GameObjects
     // that loot the quest item must active (again, only for that player).
-    pub fn build_update_for_quest(&self, quest_id: u32, player: &Player) -> SmsgUpdateObject {
+    pub fn build_update_for_player(&self, player: &Player) -> SmsgUpdateObject {
         let mut update_builder = UpdateBlockBuilder::new();
         Self::add_active_state_to_update(
             &mut update_builder,
-            self.should_activate_for_player(player, Some(quest_id)),
+            self.should_activate_for_player(player),
         );
 
         let blocks = update_builder.build();
@@ -192,7 +192,7 @@ impl GameObject {
         }
     }
 
-    fn should_activate_for_player(&self, player: &Player, specific_quest_id: Option<u32>) -> bool {
+    fn should_activate_for_player(&self, player: &Player) -> bool {
         fn should_activate_for_in_progress_quest(
             data_store: Arc<DataStore>,
             game_object_template: &GameObjectTemplate,
@@ -269,12 +269,7 @@ impl GameObject {
             }
         }
 
-        // Check either the specific quest or all of player's journal quests
-        let quests_to_check: Vec<u32> = specific_quest_id
-            .map(|quest_id| vec![quest_id])
-            .unwrap_or(player.get_active_quest_ids());
-
-        for quest_id in quests_to_check {
+        for quest_id in player.get_active_quest_ids() {
             let Some(quest_template) = self.data_store.get_quest_template(quest_id) else {
                 continue;
             };

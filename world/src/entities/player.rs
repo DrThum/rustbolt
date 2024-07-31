@@ -1,6 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
-    sync::Arc,
+    sync::{atomic::AtomicBool, Arc},
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
@@ -70,7 +70,8 @@ pub struct Player {
     #[allow(dead_code)]
     pub attribute_modifiers: Arc<RwLock<AttributeModifiers>>,
     pub has_just_leveled_up: Mutex<bool>, // TODO: Make this an AtomicBoolean with acquire to
-                                          // write, release to read
+    // write, release to read
+    pub needs_nearby_game_objects_refresh: AtomicBool,
 }
 
 impl Player {
@@ -644,6 +645,7 @@ impl Player {
             partial_regen_period_end: Instant::now(),
             attribute_modifiers,
             has_just_leveled_up: Mutex::new(false),
+            needs_nearby_game_objects_refresh: AtomicBool::new(false),
         }
     }
 

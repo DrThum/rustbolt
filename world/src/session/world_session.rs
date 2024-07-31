@@ -518,11 +518,9 @@ impl WorldSession {
                     continue;
                 };
 
-                if let Some(packet) =
-                    game_object.build_update_for_quest(quest_id, quest_log_context, player)
-                {
-                    self.update_entity(packet);
-                }
+                let packet =
+                    game_object.build_update_for_quest(quest_id, quest_log_context, player);
+                self.update_entity(packet);
             }
         });
     }

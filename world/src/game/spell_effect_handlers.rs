@@ -4,7 +4,7 @@ use log::warn;
 use shipyard::{AllStoragesViewMut, Get, View, ViewMut};
 
 use crate::{
-    datastore::data_types::SpellRecord,
+    datastore::data_types::{GameObjectData, SpellRecord},
     ecs::components::{guid::Guid, powers::Powers, threat_list::ThreatList, unit::Unit},
     entities::{creature::Creature, game_object::GameObject, player::Player},
     protocol::{
@@ -125,10 +125,11 @@ impl SpellEffectHandler {
                 };
 
                 if let Ok(game_object) = v_game_object.get(game_object_target) {
+                    let player = &mut vm_player[spell.caster()];
                     // TODO: Check that the player can open this lock (CanOpenLock in MaNGOS)
 
                     v_unit[spell.caster()].set_unit_flag(UnitFlags::Looting);
-                    vm_player[spell.caster()].set_looting(spell.game_object_target());
+                    player.set_looting(spell.game_object_target());
 
                     game_object.generate_loot(false);
 
@@ -161,7 +162,17 @@ impl SpellEffectHandler {
                         0,
                         loot_items,
                     ));
-                    vm_player[spell.caster()].session.send(&packet).unwrap();
+                    player.session.send(&packet).unwrap();
+
+                    // Type-specific handling
+                    #[allow(clippy::single_match)] // More types to come later
+                    match game_object.data {
+                        GameObjectData::Goober { .. } => player.notify_interacted_with_game_object(
+                            &game_object.guid(),
+                            game_object.entry,
+                        ),
+                        _ => (),
+                    }
 
                     // TODO: Increase this lock's skill (end of EffectOpenLock in MaNGOS)
                 }

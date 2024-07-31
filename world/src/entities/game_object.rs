@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{ops::Deref, sync::Arc};
 
 use enumflags2::make_bitflags;
 use log::warn;
@@ -175,7 +175,7 @@ impl GameObject {
         quest_id: u32,
         _quest_log_context: QuestLogContext,
         player: &Player,
-    ) -> Option<SmsgUpdateObject> {
+    ) -> SmsgUpdateObject {
         let mut update_builder = UpdateBlockBuilder::new();
         Self::add_active_state_to_update(
             &mut update_builder,
@@ -190,11 +190,11 @@ impl GameObject {
             blocks,
         }];
 
-        Some(SmsgUpdateObject {
+        SmsgUpdateObject {
             updates_count: update_data.len() as u32,
             has_transport: false,
             updates: update_data,
-        })
+        }
     }
 
     fn should_activate_for_player(&self, player: &Player, specific_quest_id: Option<u32>) -> bool {
@@ -348,5 +348,13 @@ impl GameObject {
 
     pub fn loot_mut(&self) -> RwLockWriteGuard<Loot> {
         self.loot.write()
+    }
+}
+
+impl Deref for GameObject {
+    type Target = GameObjectTemplate;
+
+    fn deref(&self) -> &Self::Target {
+        &self.template
     }
 }

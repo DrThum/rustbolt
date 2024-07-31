@@ -141,4 +141,58 @@ impl Player {
             self.try_complete_quest(&quest_template);
         }
     }
+
+    pub fn notify_interacted_with_game_object(
+        &mut self,
+        game_object_guid: &ObjectGuid,
+        game_object_entry: u32,
+    ) {
+        // Update quest "kills" counters
+        let mut updated_quests: Vec<QuestTemplate> = Vec::new();
+        self.quest_statuses.iter_mut().for_each(|(quest_id, ctx)| {
+            let quest_template = self
+                .world_context
+                .data_store
+                .get_quest_template(*quest_id)
+                .expect("player has non-existing quest in log");
+
+            if let Some((objective_index, required_count)) =
+                quest_template.game_object_requirements(game_object_entry)
+            {
+                if let (PlayerQuestStatus::InProgress, Some(slot)) = (ctx.status, ctx.slot) {
+                    let current_count = ctx.entity_counts[objective_index];
+                    if current_count < required_count {
+                        let new_count = (current_count + 1).min(required_count);
+                        ctx.entity_counts[objective_index] = new_count;
+
+                        {
+                            let mut values_guard = self.internal_values.write();
+                            let index = UnitFields::PlayerQuestLog1_1 as usize
+                                + (slot * QUEST_SLOT_OFFSETS_COUNT
+                                    + QuestSlotOffset::Counters as usize);
+
+                            values_guard.set_u8(index, objective_index, new_count as u8);
+                        }
+
+                        let packet = ServerMessage::new(SmsgQuestUpdateAddKill {
+                            quest_id: quest_template.entry,
+                            entity_id: game_object_entry | 0x80000000, // Expected by the client for GOs
+                            new_count,
+                            required_count,
+                            guid: game_object_guid.raw(),
+                        });
+
+                        self.session.send(&packet).unwrap();
+
+                        updated_quests.push(quest_template.clone());
+                    }
+                }
+            }
+        });
+
+        // Try to complete the affected quests
+        for quest_template in updated_quests {
+            self.try_complete_quest(&quest_template);
+        }
+    }
 }

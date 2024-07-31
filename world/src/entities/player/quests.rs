@@ -243,7 +243,7 @@ impl Player {
             drop(values_guard);
 
             self.session
-                .force_refresh_nearby_game_objects(quest_id, context.clone(), self);
+                .force_refresh_nearby_game_objects(quest_id, *context, self);
         }
     }
 

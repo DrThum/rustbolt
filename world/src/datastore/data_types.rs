@@ -1507,11 +1507,8 @@ impl GameObjectTemplate {
                     }
                 }
             }
-            Chest { questId, .. } => {
-                // TODO: implement GO loot tables
-                if questId != 0 {
-                    quest_ids.extend([(questId, PlayerQuestStatus::InProgress)]);
-                }
+            Chest { questId, .. } if questId != 0 => {
+                quest_ids.extend([(questId, PlayerQuestStatus::InProgress)]);
             }
             Generic { questId, .. } if questId != 0 => {
                 quest_ids.extend([(questId, PlayerQuestStatus::InProgress)])
@@ -1530,8 +1527,12 @@ impl GameObjectTemplate {
 
     pub fn loot_table_id(&self) -> Option<u32> {
         match self.data {
-            GameObjectData::Chest { lootTemplateEntry, .. } => Some(lootTemplateEntry),
-            GameObjectData::FishingHole { lootTemplateEntry, .. } => Some(lootTemplateEntry),
+            GameObjectData::Chest {
+                lootTemplateEntry, ..
+            } => Some(lootTemplateEntry),
+            GameObjectData::FishingHole {
+                lootTemplateEntry, ..
+            } => Some(lootTemplateEntry),
             _ => None,
         }
     }

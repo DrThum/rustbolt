@@ -35,7 +35,7 @@ impl FactionStanding {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct QuestLogContext {
     pub slot: Option<usize>,
     pub status: PlayerQuestStatus,

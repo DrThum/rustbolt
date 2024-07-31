@@ -1,16 +1,18 @@
 use std::sync::Arc;
 
 use enumflags2::make_bitflags;
+use log::warn;
 use parking_lot::{RwLock, RwLockWriteGuard};
 use shipyard::Component;
 
 use crate::{
-    datastore::data_types::GameObjectTemplate,
+    datastore::data_types::{GameObjectTemplate, QuestTemplate},
     game::{loot::Loot, map_manager::MapKey, world_context::WorldContext},
     protocol::packets::{SmsgCreateObject, SmsgUpdateObject},
     repositories::game_object::GameObjectSpawnDbRecord,
     shared::constants::{
         GameObjectDynamicLowFlags, HighGuidType, ObjectTypeId, ObjectTypeMask, PlayerQuestStatus,
+        MAX_QUEST_OBJECTIVES_COUNT,
     },
     DataStore,
 };
@@ -18,7 +20,7 @@ use crate::{
 use super::{
     internal_values::InternalValues,
     object_guid::ObjectGuid,
-    player::Player,
+    player::{player_data::QuestLogContext, Player},
     position::WorldPosition,
     update::{
         CreateData, PositionUpdateData, UpdateBlockBuilder, UpdateData, UpdateFlag, UpdateType,
@@ -130,31 +132,8 @@ impl GameObject {
             }
         }
 
-        // Make the GameObject active and sparkling if player can interact with it (quest in the
-        // appropriate status or quest that can be taken in case of a QuestGiver GO)
-        for (quest_id, required_quest_status) in &self.template.quest_ids {
-            match required_quest_status {
-                PlayerQuestStatus::NotStarted => {
-                    // Special case: here, the GameObject activates if the player can start the quest
-                    let Some(quest_template) = self.data_store.get_quest_template(*quest_id) else {
-                        continue;
-                    };
-                    Self::add_active_state_to_update(
-                        &mut update_builder,
-                        player.can_start_quest(quest_template),
-                    );
-                }
-                _ => {
-                    if let Some(quest_log_context) = player.quest_status(quest_id) {
-                        let activate = self.should_activate(
-                            *quest_id,
-                            quest_log_context.status,
-                            *required_quest_status,
-                        );
-                        Self::add_active_state_to_update(&mut update_builder, activate);
-                    }
-                }
-            }
+        if self.should_activate_for_player(player, None) {
+            Self::add_active_state_to_update(&mut update_builder, true);
         }
 
         drop(internal_values);
@@ -194,32 +173,14 @@ impl GameObject {
     pub fn build_update_for_quest(
         &self,
         quest_id: u32,
-        quest_status: PlayerQuestStatus,
+        _quest_log_context: QuestLogContext,
         player: &Player,
     ) -> Option<SmsgUpdateObject> {
-        let (_, required_quest_status) = self
-            .template
-            .quest_ids
-            .iter()
-            .find(|(this_quest_id, _)| *this_quest_id == quest_id)?;
-
         let mut update_builder = UpdateBlockBuilder::new();
-
-        match required_quest_status {
-            PlayerQuestStatus::NotStarted => {
-                // Special case: here, the GameObject activates if the player can start the quest
-                if let Some(quest_template) = self.data_store.get_quest_template(quest_id) {
-                    Self::add_active_state_to_update(
-                        &mut update_builder,
-                        player.can_start_quest(quest_template),
-                    );
-                }
-            }
-            _ => {
-                let activate = self.should_activate(quest_id, quest_status, *required_quest_status);
-                Self::add_active_state_to_update(&mut update_builder, activate);
-            }
-        }
+        Self::add_active_state_to_update(
+            &mut update_builder,
+            self.should_activate_for_player(player, Some(quest_id)),
+        );
 
         let blocks = update_builder.build();
 
@@ -236,13 +197,114 @@ impl GameObject {
         })
     }
 
-    fn should_activate(
-        &self,
-        _quest_id: u32,
-        player_quest_status: PlayerQuestStatus,
-        required_quest_status: PlayerQuestStatus,
-    ) -> bool {
-        player_quest_status == required_quest_status
+    fn should_activate_for_player(&self, player: &Player, specific_quest_id: Option<u32>) -> bool {
+        fn should_activate_for_in_progress_quest(
+            data_store: Arc<DataStore>,
+            game_object_template: &GameObjectTemplate,
+            quest_template: &QuestTemplate,
+            quest_log_context: &QuestLogContext,
+            player: &Player,
+        ) -> bool {
+            // Activate if the player still needs required entity from the template...
+            for i in 0..MAX_QUEST_OBJECTIVES_COUNT {
+                if quest_template.required_entity_ids[i] < 0
+                    && (-quest_template.required_entity_ids[i] as u32) == game_object_template.entry
+                    && quest_template.required_entity_counts[i] < quest_log_context.entity_counts[i]
+                {
+                    return true;
+                }
+            }
+            // ...Or if the GameObject can drop an item that the player needs for the quest
+            if let Some(loot_table) = game_object_template
+                .loot_table_id()
+                .and_then(|loot_table_id| data_store.get_loot_table(loot_table_id))
+            {
+                let all_possible_loot_ids = loot_table.get_all_possible_item_ids();
+
+                for i in 0..MAX_QUEST_OBJECTIVES_COUNT {
+                    let required_item_id = quest_template.required_item_ids[i];
+                    if all_possible_loot_ids.contains(&required_item_id)
+                        && player.inventory().get_item_count(required_item_id)
+                            < quest_template.required_item_counts[i]
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            false
+        }
+
+        // Make the GameObject active and sparkling if player can interact with it (quest in the
+        // appropriate status or quest that can be taken in case of a QuestGiver GO)
+        for (quest_id, required_quest_status) in &self.template.quest_ids {
+            let Some(quest_template) = self.data_store.get_quest_template(*quest_id) else {
+                continue;
+            };
+
+            match required_quest_status {
+                PlayerQuestStatus::NotStarted => {
+                    if player.can_start_quest(quest_template) {
+                        return true;
+                    }
+                }
+                PlayerQuestStatus::ObjectivesCompleted => {
+                    if let Some(quest_log_context) = player.quest_status(quest_id) {
+                        if quest_log_context.status == PlayerQuestStatus::ObjectivesCompleted {
+                            return true;
+                        }
+                    }
+                }
+                PlayerQuestStatus::InProgress => {
+                    if let Some(quest_log_context) = player.quest_status(quest_id) {
+                        if should_activate_for_in_progress_quest(
+                            self.data_store.clone(),
+                            &self.template,
+                            quest_template,
+                            quest_log_context,
+                            player,
+                        ) {
+                            return true;
+                        }
+                    }
+                }
+                status => warn!(
+                    "status {status:?} not implemented in GameObject::should_activate_for_player"
+                ),
+            }
+        }
+
+        // Check either the specific quest or all of player's journal quests
+        let quests_to_check: Vec<u32> = specific_quest_id
+            .map(|quest_id| vec![quest_id])
+            .unwrap_or(player.get_active_quest_ids());
+
+        for quest_id in quests_to_check {
+            let Some(quest_template) = self.data_store.get_quest_template(quest_id) else {
+                continue;
+            };
+
+            let Some(quest_log_context) = player.quest_status(&quest_id) else {
+                continue;
+            };
+
+            match quest_log_context.status {
+                PlayerQuestStatus::InProgress => {
+                    if should_activate_for_in_progress_quest(
+                        self.data_store.clone(),
+                        &self.template,
+                        quest_template,
+                        quest_log_context,
+                        player,
+                    ) {
+                        return true;
+                    }
+                }
+                _ => continue,
+            }
+        }
+
+        false
     }
 
     fn add_active_state_to_update(update_builder: &mut UpdateBlockBuilder, activate: bool) {

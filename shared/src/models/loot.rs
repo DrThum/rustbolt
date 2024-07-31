@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use rand::{
     distributions::{Distribution, WeightedIndex},
     Rng,
@@ -34,6 +36,14 @@ impl LootTable {
 
                 items
             })
+            .collect()
+    }
+
+    // NOTE: Maybe at some point we'll return a Vec<(ItemId, ConditionId)>
+    pub fn get_all_possible_item_ids(&self) -> HashSet<u32> {
+        self.groups
+            .iter()
+            .flat_map(|group| group.items.iter().map(|item| item.item_id))
             .collect()
     }
 }

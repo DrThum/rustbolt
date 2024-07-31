@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     sync::Arc,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
@@ -95,6 +95,21 @@ impl Player {
         &self.quest_statuses
     }
 
+    pub fn get_active_quest_ids(&self) -> Vec<u32> {
+        let mut active_quests: Vec<u32> = Vec::new();
+
+        let values_guard = self.internal_values.read();
+        for i in 0..MAX_QUESTS_IN_LOG {
+            active_quests.push(
+                values_guard.get_u32(
+                    UnitFields::PlayerQuestLog1_1 as usize + (i * QUEST_SLOT_OFFSETS_COUNT),
+                ),
+            );
+        }
+
+        active_quests
+    }
+
     pub fn can_turn_in_quest(&self, quest_id: &u32) -> bool {
         self.quest_status(quest_id)
             .is_some_and(|ctx| ctx.status == PlayerQuestStatus::ObjectivesCompleted)
@@ -111,7 +126,7 @@ impl Player {
             return;
         }
 
-        let quest_added: bool;
+        let new_quest_log_context: Option<QuestLogContext>;
         {
             let mut first_empty_slot: Option<usize> = None;
             let mut values_guard = self.internal_values.write();
@@ -144,26 +159,24 @@ impl Player {
                     );
                 }
 
-                self.quest_statuses.insert(
-                    quest_template.entry,
-                    QuestLogContext {
-                        slot: Some(slot),
-                        status: PlayerQuestStatus::InProgress,
-                        entity_counts: [0, 0, 0, 0],
-                    },
-                );
-
-                quest_added = true;
+                let quest_log_context = QuestLogContext {
+                    slot: Some(slot),
+                    status: PlayerQuestStatus::InProgress,
+                    entity_counts: [0, 0, 0, 0],
+                };
+                new_quest_log_context = Some(quest_log_context);
+                self.quest_statuses
+                    .insert(quest_template.entry, quest_log_context);
             } else {
                 error!("player quest log is full");
                 return;
             }
         }
 
-        if quest_added {
+        if let Some(quest_log_context) = new_quest_log_context {
             self.session.force_refresh_nearby_game_objects(
                 quest_template.entry,
-                PlayerQuestStatus::InProgress,
+                quest_log_context,
                 self,
             );
             self.try_complete_quest(quest_template);
@@ -185,8 +198,13 @@ impl Player {
         }
         drop(values_guard);
 
+        let fake_context = QuestLogContext {
+            slot: None,
+            status: PlayerQuestStatus::NotStarted,
+            entity_counts: [0, 0, 0, 0],
+        };
         self.session
-            .force_refresh_nearby_game_objects(quest_id, PlayerQuestStatus::Failed, self);
+            .force_refresh_nearby_game_objects(quest_id, fake_context, self);
     }
 
     pub fn try_complete_quest(&mut self, quest_template: &QuestTemplate) {
@@ -224,11 +242,8 @@ impl Player {
             );
             drop(values_guard);
 
-            self.session.force_refresh_nearby_game_objects(
-                quest_id,
-                PlayerQuestStatus::ObjectivesCompleted,
-                self,
-            );
+            self.session
+                .force_refresh_nearby_game_objects(quest_id, context.clone(), self);
         }
     }
 
@@ -265,11 +280,8 @@ impl Player {
                 context.slot = None;
 
                 // Disable nearby GameObjects that depend on that quest
-                self.session.force_refresh_nearby_game_objects(
-                    quest_id,
-                    PlayerQuestStatus::TurnedIn,
-                    self,
-                );
+                self.session
+                    .force_refresh_nearby_game_objects(quest_id, context.clone(), self);
 
                 // Take required items
                 for (id, count) in quest_template.required_items() {
@@ -301,5 +313,27 @@ impl Player {
 
         error!("attempt to reward an non-existing quest");
         None
+    }
+
+    pub fn get_all_needed_item_ids_for_quests(&self) -> HashSet<u32> {
+        let mut item_ids: HashSet<u32> = HashSet::new();
+        self.quest_statuses.iter().for_each(|(&quest_id, context)| {
+            let Some(quest_template) = self.world_context.data_store.get_quest_template(quest_id)
+            else {
+                return;
+            };
+
+            // If the player still needs an item for a quest, add its ID to the list
+            // If the quest is done or if the player has all of the items, don't
+            if context.status == PlayerQuestStatus::InProgress {
+                for i in 0..MAX_QUEST_OBJECTIVES_COUNT {
+                    if context.entity_counts[i] < quest_template.required_item_counts[i] {
+                        item_ids.insert(quest_template.required_item_ids[i]);
+                    }
+                }
+            }
+        });
+
+        item_ids
     }
 }

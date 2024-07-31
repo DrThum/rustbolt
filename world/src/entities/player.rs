@@ -63,13 +63,14 @@ pub struct Player {
     spells: Vec<u32>,
     action_buttons: HashMap<usize, ActionButton>,
     faction_standings: HashMap<u32, FactionStanding>,
-    quest_statuses: HashMap<u32, QuestLogContext>,
+    quest_statuses: HashMap<u32, QuestLogContext>, // <QuestId, QuestLogContext>
     in_combat_with: RwLock<HashSet<ObjectGuid>>,
     currently_looting: Option<EntityId>,
     partial_regen_period_end: Instant, // "Five Seconds Rule", partial mana regen before, full regen after
     #[allow(dead_code)]
     pub attribute_modifiers: Arc<RwLock<AttributeModifiers>>,
-    pub has_just_leveled_up: Mutex<bool>,
+    pub has_just_leveled_up: Mutex<bool>, // TODO: Make this an AtomicBoolean with acquire to
+                                          // write, release to read
 }
 
 impl Player {

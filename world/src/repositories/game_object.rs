@@ -112,9 +112,12 @@ impl GameObjectRepository {
         conn: &PooledConnection<SqliteConnectionManager>,
         map_id: u32,
     ) -> Vec<GameObjectSpawnDbRecord> {
+        // For now, load game objects not linked to any seasonal event
         let mut stmt = conn.prepare_cached("
             SELECT guid, entry, map, position_x, position_y, position_z, orientation, rotation0, rotation1, rotation2, rotation3
-            FROM game_object_spawns WHERE map = :map_id").unwrap();
+            FROM game_object_spawns
+            LEFT OUTER JOIN seasonal_event_game_objects ON game_object_spawns.guid = seasonal_event_game_objects.game_object_guid
+            WHERE map = :map_id AND seasonal_event_game_objects.event_id IS NULL").unwrap();
 
         let result = stmt
             .query_map(named_params! { ":map_id": map_id }, |row| {

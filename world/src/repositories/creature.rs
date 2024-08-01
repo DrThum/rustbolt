@@ -112,7 +112,11 @@ impl CreatureRepository {
         conn: &PooledConnection<SqliteConnectionManager>,
         map_id: u32,
     ) -> Vec<CreatureSpawnDbRecord> {
-        let mut stmt = conn.prepare_cached("SELECT guid, entry, map, position_x, position_y, position_z, orientation, movement_type_override, wander_radius FROM creature_spawns WHERE map = :map_id").unwrap();
+        let mut stmt = conn.prepare_cached("
+            SELECT guid, entry, map, position_x, position_y, position_z, orientation, movement_type_override, wander_radius
+            FROM creature_spawns
+            LEFT OUTER JOIN seasonal_event_creatures ON creature_spawns.guid = seasonal_event_creatures.creature_guid
+            WHERE map = :map_id AND seasonal_event_creatures.event_id IS NULL").unwrap();
 
         let result = stmt
             .query_map(named_params! { ":map_id": map_id }, |row| {

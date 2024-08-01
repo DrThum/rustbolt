@@ -84,7 +84,9 @@ fn action_aggro(ctx: &mut BTContext) -> NodeStatus {
             let mut current_closest = f32::MAX;
 
             ctx.neighbors.iter().for_each(|&neighbor_entity_id| {
-                if v_creature.get(neighbor_entity_id).is_ok() {
+                if v_creature.get(neighbor_entity_id).is_ok()
+                    || v_player.get(neighbor_entity_id).is_ok()
+                {
                     let neighbor_position = &v_wpos[neighbor_entity_id];
                     let neighbor_distance = my_position.distance_to(neighbor_position, true);
 

@@ -30,4 +30,6 @@ pub struct WowheadLootItem {
     pub icon_url: String,
     pub name: String,
     pub loot_percent_chance: f32,
+    pub min_count: Option<u32>,
+    pub max_count: Option<u32>,
 }

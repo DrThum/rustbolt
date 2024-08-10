@@ -56,7 +56,10 @@ fn browse_wowhead(
     let loot_percent_index = 12;
 
     let icon_regex = Regex::new(r"background-image: url\(&quot;(?<url>.*)&quot;\)").unwrap();
+    let item_count_regex =
+        Regex::new(r"<span [^>]*>(?<min_count>\d+)-(?<max_count>\d+)</span>").unwrap();
     let item_id_and_name_regex = Regex::new(r"item=(?<item_id>\d+)[^>]*>(?<name>[^<]*)").unwrap();
+    let loot_percent_chance_regex = Regex::new(r"(?<loot_chance>[\d.]+)").unwrap(); // Sometimes it's <span class="tip">50</span>
 
     // TODO: Handle pagination (see npc 11502)
     let table_elem = tab.wait_for_element("#tab-drops > .listview-scroller-horizontal > .listview-scroller-vertical > table.listview-mode-default")?;
@@ -68,22 +71,38 @@ fn browse_wowhead(
             let slice = row.as_slice();
 
             let icon = slice[icon_index].clone();
-            let name = slice[name_index].clone();
-            let loot_percent_chance = slice[loot_percent_index].clone();
-            let loot_percent_chance = loot_percent_chance.parse::<f32>().unwrap();
-            let loot_percent_chance = (loot_percent_chance * 100.).round() / 100.;
-
             let icon_url = &icon_regex.captures(&icon).unwrap()["url"];
+
+            let captures = item_count_regex.captures(&icon);
+            let (min_count, max_count) = captures
+                .map(|captures| {
+                    let min_count = captures["min_count"].parse::<u32>().unwrap();
+                    let max_count = captures["max_count"].parse::<u32>().unwrap();
+
+                    (Some(min_count), Some(max_count))
+                })
+                .unwrap_or((None, None));
+
+            let name = slice[name_index].clone();
             let item_id = &item_id_and_name_regex.captures(&name).unwrap()["item_id"]
                 .parse::<u32>()
                 .unwrap();
             let name = &item_id_and_name_regex.captures(&name).unwrap()["name"];
+
+            let loot_percent_chance = slice[loot_percent_index].clone();
+            let loot_percent_chance = &loot_percent_chance_regex
+                .captures(&loot_percent_chance)
+                .unwrap()["loot_chance"];
+            let loot_percent_chance = loot_percent_chance.parse::<f32>().unwrap();
+            let loot_percent_chance = (loot_percent_chance * 100.).round() / 100.;
 
             items.push(WowheadLootItem {
                 id: *item_id,
                 icon_url: icon_url.to_string(),
                 name: name.to_string(),
                 loot_percent_chance,
+                min_count,
+                max_count,
             });
         }
     }

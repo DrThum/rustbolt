@@ -9,8 +9,8 @@ pub struct WowheadCacheRepository {}
 impl WowheadCacheRepository {
     pub fn save(conn: &PooledConnection<SqliteConnectionManager>, loot_table: &WowheadLootTable) {
         let mut stmt = conn.prepare_cached("
-            INSERT INTO loot_items(entity_type, entity_id, item_id, icon_url, name, loot_percent_chance) VALUES
-            (:entity_type, :entity_id, :item_id, :icon_url, :name, :loot_percent_chance)
+            INSERT INTO loot_items(entity_type, entity_id, item_id, icon_url, name, loot_percent_chance, min_count, max_count) VALUES
+            (:entity_type, :entity_id, :item_id, :icon_url, :name, :loot_percent_chance, :min_count, :max_count)
         ").unwrap();
 
         for item in loot_table.items.iter() {
@@ -21,6 +21,8 @@ impl WowheadCacheRepository {
                 ":icon_url": item.icon_url,
                 ":name": item.name,
                 ":loot_percent_chance": item.loot_percent_chance,
+                ":min_count": item.min_count,
+                ":max_count": item.max_count,
             })
             .unwrap();
         }
@@ -34,7 +36,7 @@ impl WowheadCacheRepository {
         let mut stmt = conn
             .prepare_cached(
                 "
-            SELECT item_id, icon_url, name, ROUND(loot_percent_chance, 2)
+            SELECT item_id, icon_url, name, ROUND(loot_percent_chance, 2), min_count, max_count
             FROM loot_items
             WHERE entity_type = :entity_type AND entity_id = :entity_id
         ",
@@ -52,12 +54,16 @@ impl WowheadCacheRepository {
                     let icon_url: String = row.get(1).unwrap();
                     let name: String = row.get(2).unwrap();
                     let loot_percent_chance: f32 = row.get(3).unwrap();
+                    let min_count: Option<u32> = row.get(4).unwrap();
+                    let max_count: Option<u32> = row.get(5).unwrap();
 
                     Ok(WowheadLootItem {
                         id,
                         icon_url,
                         name,
                         loot_percent_chance,
+                        min_count,
+                        max_count,
                     })
                 },
             )

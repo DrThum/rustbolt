@@ -1,4 +1,4 @@
-use std::error::Error;
+use std::{error::Error, time::Duration};
 
 use headless_chrome::{Browser, LaunchOptionsBuilder};
 use r2d2::PooledConnection;
@@ -45,11 +45,24 @@ fn browse_wowhead(
             .unwrap(),
     )?;
     let tab = browser.new_tab()?;
+    tab.set_bounds(headless_chrome::types::Bounds::Normal {
+        left: Some(0),
+        top: Some(0),
+        width: Some(1920.),
+        height: Some(1080.),
+    })?;
 
     tab.navigate_to(&format!(
-        "https://www.wowhead.com/tbc/{}={}",
+        "https://www.wowhead.com/tbc/{}={}#drops",
         entity_type, id
     ))?;
+
+    // Close the cookie banner if it's present
+    if let Ok(reject_all_button) = tab.wait_for_element("#onetrust-reject-all-handler") {
+        // The banner has a 400 ms CSS animation during which the "Reject all" button is not active yet
+        std::thread::sleep(Duration::from_millis(3000));
+        reject_all_button.click()?;
+    }
 
     let icon_index = 1;
     let name_index = 2;
@@ -62,49 +75,68 @@ fn browse_wowhead(
     let loot_percent_chance_regex = Regex::new(r"(?<loot_chance>[\d.]+)").unwrap(); // Sometimes it's <span class="tip">50</span>
 
     // TODO: Handle pagination (see npc 11502)
-    let table_elem = tab.wait_for_element("#tab-drops > .listview-scroller-horizontal > .listview-scroller-vertical > table.listview-mode-default")?;
-    let table_html = table_elem.get_content()?;
-
     let mut items: Vec<WowheadLootItem> = Vec::new();
-    if let Some(table) = Table::find_first(&table_html) {
-        for row in &table {
-            let slice = row.as_slice();
+    'outer: loop {
+        let table_elem = tab.wait_for_element("#tab-drops > .listview-scroller-horizontal > .listview-scroller-vertical > table.listview-mode-default")?;
+        let table_html = table_elem.get_content()?;
 
-            let icon = slice[icon_index].clone();
-            let icon_url = &icon_regex.captures(&icon).unwrap()["url"];
+        if let Some(table) = Table::find_first(&table_html) {
+            for row in &table {
+                let slice = row.as_slice();
 
-            let captures = item_count_regex.captures(&icon);
-            let (min_count, max_count) = captures
-                .map(|captures| {
-                    let min_count = captures["min_count"].parse::<u32>().unwrap();
-                    let max_count = captures["max_count"].parse::<u32>().unwrap();
+                let icon = slice[icon_index].clone();
+                let icon_url = &icon_regex.captures(&icon).unwrap()["url"];
 
-                    (Some(min_count), Some(max_count))
-                })
-                .unwrap_or((None, None));
+                let captures = item_count_regex.captures(&icon);
+                let (min_count, max_count) = captures
+                    .map(|captures| {
+                        let min_count = captures["min_count"].parse::<u32>().unwrap();
+                        let max_count = captures["max_count"].parse::<u32>().unwrap();
 
-            let name = slice[name_index].clone();
-            let item_id = &item_id_and_name_regex.captures(&name).unwrap()["item_id"]
-                .parse::<u32>()
-                .unwrap();
-            let name = &item_id_and_name_regex.captures(&name).unwrap()["name"];
+                        (Some(min_count), Some(max_count))
+                    })
+                    .unwrap_or((None, None));
 
-            let loot_percent_chance = slice[loot_percent_index].clone();
-            let loot_percent_chance = &loot_percent_chance_regex
-                .captures(&loot_percent_chance)
-                .unwrap()["loot_chance"];
-            let loot_percent_chance = loot_percent_chance.parse::<f32>().unwrap();
-            let loot_percent_chance = (loot_percent_chance * 100.).round() / 100.;
+                let name = slice[name_index].clone();
+                let item_id = &item_id_and_name_regex.captures(&name).unwrap()["item_id"]
+                    .parse::<u32>()
+                    .unwrap();
+                let name = &item_id_and_name_regex.captures(&name).unwrap()["name"];
 
-            items.push(WowheadLootItem {
-                id: *item_id,
-                icon_url: icon_url.to_string(),
-                name: name.to_string(),
-                loot_percent_chance,
-                min_count,
-                max_count,
-            });
+                let loot_percent_chance = slice[loot_percent_index].clone();
+                let loot_percent_chance = &loot_percent_chance_regex
+                    .captures(&loot_percent_chance)
+                    .unwrap()["loot_chance"];
+                let loot_percent_chance = loot_percent_chance.parse::<f32>().unwrap();
+                let loot_percent_chance = (loot_percent_chance * 100.).round() / 100.;
+
+                items.push(WowheadLootItem {
+                    id: *item_id,
+                    icon_url: icon_url.to_string(),
+                    name: name.to_string(),
+                    loot_percent_chance,
+                    min_count,
+                    max_count,
+                });
+            }
         }
+
+        if let Ok(nav_buttons) =
+            tab.find_elements("#tab-drops .listview-band-top .listview-nav a[data-active=yes]")
+        {
+            for button in nav_buttons {
+                if button
+                    .get_inner_text()
+                    .map(|text| text.contains("Next"))
+                    .unwrap_or(false)
+                {
+                    button.click()?;
+                    continue 'outer; // On to the next page we go!
+                }
+            }
+        }
+
+        break;
     }
 
     Ok(WowheadLootTable {

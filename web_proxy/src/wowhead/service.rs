@@ -17,14 +17,29 @@ pub fn get_loot_table(
     entity_type: WowheadEntityType,
     id: u32,
 ) -> Option<WowheadLootTable> {
+    if WowheadCacheRepository::is_entity_ignored(conn, entity_type, id) {
+        println!("entity ignored, returning empty loot table");
+        return None;
+    }
+
     if let Some(from_cache) = WowheadCacheRepository::get(conn, entity_type, id) {
+        println!("served from cache");
         return Some(from_cache);
     }
 
     match browse_wowhead(entity_type, id) {
-        Ok(from_wowhead) => {
+        Ok(Some(from_wowhead)) => {
             WowheadCacheRepository::save(conn, &from_wowhead);
             Some(from_wowhead)
+        }
+        Ok(None) => {
+            WowheadCacheRepository::ignore_entity(
+                conn,
+                entity_type,
+                id,
+                String::from("loot table is empty"),
+            );
+            None
         }
         Err(e) => {
             println!("error fetching the loot table from wowhead: {e:?}");
@@ -36,7 +51,7 @@ pub fn get_loot_table(
 fn browse_wowhead(
     entity_type: WowheadEntityType,
     id: u32,
-) -> Result<WowheadLootTable, Box<dyn Error>> {
+) -> Result<Option<WowheadLootTable>, Box<dyn Error>> {
     let browser = Browser::new(
         LaunchOptionsBuilder::default()
             .headless(true)
@@ -52,6 +67,8 @@ fn browse_wowhead(
         height: Some(1080.),
     })?;
 
+    println!("Fetching data for {entity_type} {id}");
+
     tab.navigate_to(&format!(
         "https://www.wowhead.com/tbc/{}={}#drops",
         entity_type, id
@@ -64,6 +81,14 @@ fn browse_wowhead(
         reject_all_button.click()?;
     }
 
+    if tab
+        .wait_for_element_with_custom_timeout("#tab-drops", Duration::from_secs(1))
+        .is_err()
+    {
+        // No loot on this entity
+        return Ok(None);
+    }
+
     let icon_index = 1;
     let name_index = 2;
     let loot_percent_index = 12;
@@ -74,7 +99,6 @@ fn browse_wowhead(
     let item_id_and_name_regex = Regex::new(r"item=(?<item_id>\d+)[^>]*>(?<name>[^<]*)").unwrap();
     let loot_percent_chance_regex = Regex::new(r"(?<loot_chance>[\d.]+)").unwrap(); // Sometimes it's <span class="tip">50</span>
 
-    // TODO: Handle pagination (see npc 11502)
     let mut items: Vec<WowheadLootItem> = Vec::new();
     'outer: loop {
         let table_elem = tab.wait_for_element("#tab-drops > .listview-scroller-horizontal > .listview-scroller-vertical > table.listview-mode-default")?;
@@ -121,6 +145,8 @@ fn browse_wowhead(
             }
         }
 
+        println!("Found {} items", items.len());
+
         if let Ok(nav_buttons) =
             tab.find_elements("#tab-drops .listview-band-top .listview-nav a[data-active=yes]")
         {
@@ -139,9 +165,9 @@ fn browse_wowhead(
         break;
     }
 
-    Ok(WowheadLootTable {
+    Ok(Some(WowheadLootTable {
         entity_type,
         id,
         items,
-    })
+    }))
 }

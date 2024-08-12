@@ -8,10 +8,7 @@ use shared::{
     models::loot::{LootTable, UpdateLootTable},
     repositories::loot::LootRepository,
 };
-use web_proxy::{
-    wowhead::{self, models::WowheadEntityType},
-    WorldDb, WowheadCacheDb,
-};
+use web_proxy::{wowhead, WorldDb, WowheadCacheDb};
 
 enum CreatureSpawnColumnIndex {
     Guid,
@@ -198,25 +195,28 @@ async fn update_loot_table(
         .body(serde_json::to_string(&updated_loot_table).unwrap()))
 }
 
-#[get("/wowhead/{entity_type}/{id}")]
+#[get("/{entity_type}/{id}/referenceLootTable")]
 async fn fetch_loot_table_from_wowhead(
     db_pool: web::Data<WowheadCacheDb>,
     path: web::Path<(String, u32)>,
 ) -> actix_web::Result<impl Responder> {
     let (entity_type, id) = path.into_inner();
 
-    web::block(move || {
+    let maybe_loot_table = web::block(move || {
         let conn = db_pool
             .0
             .get()
             .expect("couldn't get db connection from pool");
-        let maybe_loot_table =
-            wowhead::service::get_loot_table(&conn, WowheadEntityType::Npc /* TODO */, id);
-        println!("controller: table is found {}", maybe_loot_table.is_some());
+        wowhead::service::get_loot_table(&conn, entity_type.try_into().unwrap(), id)
     })
     .await?;
 
-    Ok(HttpResponse::Ok())
+    match maybe_loot_table {
+        Some(loot_table) => Ok(HttpResponse::Ok()
+            .content_type(ContentType::json())
+            .body(serde_json::to_string(&loot_table).unwrap())),
+        None => Ok(HttpResponse::NotFound().into()),
+    }
 }
 
 mod embedded_wowhead_cache {

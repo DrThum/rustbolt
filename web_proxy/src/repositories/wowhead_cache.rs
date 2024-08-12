@@ -81,4 +81,53 @@ impl WowheadCacheRepository {
             })
         }
     }
+
+    pub fn ignore_entity(
+        conn: &PooledConnection<SqliteConnectionManager>,
+        entity_type: WowheadEntityType,
+        entity_id: u32,
+        reason: String,
+    ) {
+        let mut stmt = conn
+            .prepare_cached(
+                "
+            INSERT INTO ignored_loot_tables (entity_type, entity_id, ignore_reason)
+            VALUES (:entity_type, :entity_id, :reason)",
+            )
+            .unwrap();
+
+        stmt.execute(named_params! {
+            ":entity_type": entity_type.to_string(),
+            ":entity_id": entity_id,
+            ":reason": reason,
+        })
+        .unwrap();
+    }
+
+    pub fn is_entity_ignored(
+        conn: &PooledConnection<SqliteConnectionManager>,
+        entity_type: WowheadEntityType,
+        entity_id: u32,
+    ) -> bool {
+        let mut stmt = conn
+            .prepare_cached(
+                "
+            SELECT COUNT(*) FROM ignored_loot_tables
+            WHERE entity_type = :entity_type AND entity_id = :entity_id
+        ",
+            )
+            .unwrap();
+
+        let mut result = stmt
+            .query_map(
+                named_params! {
+                    ":entity_type": entity_type.to_string(),
+                    ":entity_id": entity_id
+                },
+                |row| Ok(row.get::<usize, u32>(0)),
+            )
+            .unwrap();
+
+        result.next().unwrap().unwrap().unwrap() == 1 // lol, FIXME at some point
+    }
 }

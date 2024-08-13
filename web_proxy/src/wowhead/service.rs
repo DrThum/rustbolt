@@ -89,10 +89,6 @@ fn browse_wowhead(
         return Ok(None);
     }
 
-    let icon_index = 1;
-    let name_index = 2;
-    let loot_percent_index = 12;
-
     let icon_regex = Regex::new(r"background-image: url\(&quot;(?<url>.*)&quot;\)").unwrap();
     let item_count_regex =
         Regex::new(r"<span [^>]*>(?<min_count>\d+)-(?<max_count>\d+)</span>").unwrap();
@@ -105,9 +101,19 @@ fn browse_wowhead(
         let table_html = table_elem.get_content()?;
 
         if let Some(table) = Table::find_first(&table_html) {
+            let headers = table.headers();
+
+            let icon_index = *headers
+                .get("<div><a class=\"static\"><span><span>Name</span></span></a></div>")
+                .unwrap();
+            let name_index = icon_index + 1; // There's a colspan=2 in there
+            let loot_percent_index = *headers
+                .get("<div><a class=\"static\"><span><span>%</span></span></a></div>")
+                .unwrap()
+                + 1;
+
             for row in &table {
                 let slice = row.as_slice();
-
                 let icon = slice[icon_index].clone();
                 let icon_url = &icon_regex.captures(&icon).unwrap()["url"];
 

@@ -103,14 +103,18 @@ fn browse_wowhead(
         if let Some(table) = Table::find_first(&table_html) {
             let headers = table.headers();
 
-            let icon_index = *headers
-                .get("<div><a class=\"static\"><span><span>Name</span></span></a></div>")
-                .unwrap();
-            let name_index = icon_index + 1; // There's a colspan=2 in there
-            let loot_percent_index = *headers
-                .get("<div><a class=\"static\"><span><span>%</span></span></a></div>")
-                .unwrap()
-                + 1;
+            let mut icon_index: usize = 1;
+            let mut name_index: usize = 2;
+            let mut loot_percent_index: usize = 12;
+
+            for (header, value) in headers {
+                if header.contains("Name") {
+                    icon_index = *value;
+                    name_index = icon_index + 1;
+                } else if header.contains('%') {
+                    loot_percent_index = *value + 1;
+                }
+            }
 
             for row in &table {
                 let slice = row.as_slice();

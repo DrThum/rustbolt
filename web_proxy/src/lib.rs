@@ -3,6 +3,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 use shared::models::loot::LootTable;
 
 pub mod controllers {
+    pub mod loot_tables;
     pub mod spawns;
 }
 

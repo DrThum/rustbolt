@@ -1,9 +1,6 @@
 use actix_web::{get, http::header::ContentType, web, HttpResponse, Responder};
 
-use crate::{
-    repositories::spawns::SpawnsRepository, Bounds, CreatureSpawnDbRecord, CreatureTemplate,
-    WorldDb,
-};
+use crate::{repositories::creature, Bounds, CreatureSpawnDbRecord, CreatureTemplate, WorldDb};
 
 #[get("/spawns")]
 pub async fn get_spawns(
@@ -20,7 +17,7 @@ pub async fn get_spawns(
             .get()
             .expect("couldn't get db connection from pool");
 
-        SpawnsRepository::get_spawns_in_bounds(&conn, &bounds)
+        creature::get_creature_spawns_in_bounds(&conn, &bounds)
     })
     .await?;
 
@@ -40,7 +37,7 @@ async fn get_template(
             .get()
             .expect("couldn't get db connection from pool");
 
-        SpawnsRepository::get_creature_template(&conn, path.into_inner())
+        creature::get_creature_template(&conn, path.into_inner())
     })
     .await?;
 

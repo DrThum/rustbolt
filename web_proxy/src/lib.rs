@@ -8,8 +8,14 @@ pub mod controllers {
 }
 
 pub mod repositories {
-    pub mod spawns;
+    pub mod creature;
+    pub mod game_object;
+    pub mod loot;
     pub mod wowhead_cache;
+}
+
+pub mod services {
+    pub mod loot;
 }
 
 pub mod wowhead {

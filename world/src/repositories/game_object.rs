@@ -222,23 +222,9 @@ impl GameObjectRepository {
                 isAffectedByStealth: raw_data[11] != 0,
                 openTextId: raw_data[12],
             },
-            Chair => GameObjectData::Chest {
-                openLockId: raw_data[0],
-                lootTemplateEntry: raw_data[1],
-                restockTimerSecs: raw_data[2],
-                isConsumable: raw_data[3] != 0,
-                minLootAttempt: raw_data[4],
-                maxLootAttempt: raw_data[5],
-                lootedEventId: raw_data[6],
-                linkedTrapGameObjectEntry: raw_data[7],
-                questId: raw_data[8],
-                minLevelToOpen: raw_data[9],
-                isLineOfSightOK: raw_data[10] != 0,
-                isLeaveLoot: raw_data[11] != 0,
-                notInCombat: raw_data[12] != 0,
-                shouldLogLoot: raw_data[13] != 0,
-                openTextId: raw_data[14],
-                usesGroupLootRules: raw_data[15] != 0,
+            Chair => GameObjectData::Chair {
+                slots: raw_data[0],
+                orientation: raw_data[1]
             },
             SpellFocus => GameObjectData::SpellFocus {
                 spellFocusType: raw_data[0],

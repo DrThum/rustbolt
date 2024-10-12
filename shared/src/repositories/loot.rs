@@ -138,7 +138,7 @@ impl LootRepository {
         Ok(result_groups)
     }
 
-    pub fn update_loot_table(
+    pub fn replace_loot_table(
         conn: &mut PooledConnection<SqliteConnectionManager>,
         template_id: u32,
         loot_table: UpdateLootTable,

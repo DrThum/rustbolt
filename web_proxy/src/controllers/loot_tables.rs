@@ -1,10 +1,43 @@
-use actix_web::{get, http::header::ContentType, put, web, HttpResponse, Responder};
+use actix_web::{get, http::header::ContentType, post, put, web, HttpResponse, Responder};
 use shared::{
-    models::loot::{LootTable, UpdateLootTable},
+    models::loot::{CreateLootTable, LootTable, UpdateLootTable},
     repositories::loot::LootRepository,
 };
 
-use crate::{wowhead, WorldDb, WowheadCacheDb};
+use crate::{services, wowhead, WorldDb, WowheadCacheDb};
+
+#[post("/{entity_type}/{entry}/lootTable")]
+pub async fn create_loot_table(
+    db_pool: web::Data<WorldDb>,
+    path: web::Path<(String, u32)>,
+    loot_table: web::Json<CreateLootTable>,
+) -> actix_web::Result<impl Responder> {
+    let (entity_type, entity_id) = path.into_inner();
+
+    let loot_table: LootTable = web::block(move || {
+        let mut conn = db_pool
+            .0
+            .get()
+            .expect("couldn't get db connection from pool");
+        let next_loot_table_id =
+            services::loot::get_next_loot_table_id(&conn, &entity_type, entity_id);
+        println!("selected table id: {next_loot_table_id}");
+
+        let db_payload = UpdateLootTable {
+            id: next_loot_table_id,
+            groups: loot_table.0.groups,
+        };
+
+        LootRepository::replace_loot_table(&mut conn, entity_id, db_payload);
+        LootRepository::fetch_loot_table_by_id(&conn, next_loot_table_id).unwrap()
+    })
+    .await?
+    .expect("cannot find the loot table that we just updated");
+
+    Ok(HttpResponse::Ok()
+        .content_type(ContentType::json())
+        .body(serde_json::to_string(&loot_table).unwrap()))
+}
 
 #[put("/spawn/{entry}/lootTable")]
 pub async fn update_loot_table(
@@ -20,7 +53,7 @@ pub async fn update_loot_table(
             .expect("couldn't get db connection from pool");
         let loot_table_id = loot_table.0.id;
 
-        LootRepository::update_loot_table(&mut conn, template_id, loot_table.0);
+        LootRepository::replace_loot_table(&mut conn, template_id, loot_table.0);
         LootRepository::fetch_loot_table_by_id(&conn, loot_table_id).unwrap()
     })
     .await?

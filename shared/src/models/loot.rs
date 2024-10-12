@@ -94,3 +94,8 @@ pub struct UpdateLootTable {
     pub id: u32,
     pub groups: Vec<UpdateLootGroup>,
 }
+
+#[derive(Deserialize, Debug)]
+pub struct CreateLootTable {
+    pub groups: Vec<UpdateLootGroup>,
+}

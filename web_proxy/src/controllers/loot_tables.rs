@@ -21,7 +21,6 @@ pub async fn create_loot_table(
             .expect("couldn't get db connection from pool");
         let next_loot_table_id =
             services::loot::get_next_loot_table_id(&conn, &entity_type, entity_id);
-        println!("selected table id: {next_loot_table_id}");
 
         let db_payload = UpdateLootTable {
             id: next_loot_table_id,
@@ -32,7 +31,7 @@ pub async fn create_loot_table(
         LootRepository::fetch_loot_table_by_id(&conn, next_loot_table_id).unwrap()
     })
     .await?
-    .expect("cannot find the loot table that we just updated");
+    .expect("cannot find the loot table that we just created");
 
     Ok(HttpResponse::Ok()
         .content_type(ContentType::json())

@@ -2,7 +2,7 @@ use actix_web::{web, App, HttpServer};
 use r2d2_sqlite::SqliteConnectionManager;
 use web_proxy::{
     controllers::{
-        loot_tables::{fetch_loot_table_from_wowhead, update_loot_table},
+        loot_tables::{create_loot_table, fetch_loot_table_from_wowhead, update_loot_table},
         spawns::{get_spawns, get_template},
     },
     WorldDb, WowheadCacheDb,
@@ -33,6 +33,7 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::Data::new(WowheadCacheDb(cache_db_pool.clone())))
             .service(get_spawns)
             .service(get_template)
+            .service(create_loot_table)
             .service(update_loot_table)
             .service(fetch_loot_table_from_wowhead)
     })

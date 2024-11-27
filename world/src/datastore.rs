@@ -323,7 +323,7 @@ impl DataStore {
         };
 
         let loot_tables = {
-            info!("Loading creature loot tables...");
+            info!("Loading loot tables...");
             let loot_tables = LootRepository::load_loot_tables(conn);
             let loot_tables: SqlStore<LootTable> = loot_tables
                 .unwrap()

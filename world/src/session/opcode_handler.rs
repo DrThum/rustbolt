@@ -227,6 +227,7 @@ impl OpcodeHandler {
                     OpcodeHandler::handle_cmsg_game_object_query
                 ),
                 define_handler!(Opcode::CmsgUseItem, OpcodeHandler::handle_cmsg_use_item),
+                define_handler!(Opcode::MsgMoveTeleportAck, OpcodeHandler::handle_msg_move_teleport_ack),
             ]),
         }
     }

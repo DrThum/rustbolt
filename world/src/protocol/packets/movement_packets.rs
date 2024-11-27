@@ -1,4 +1,4 @@
-use binrw::binwrite;
+use binrw::{binread, binwrite};
 use enumflags2::BitFlags;
 use opcode_derive::server_opcode;
 use shared::models::terrain_info::Vector3;
@@ -7,6 +7,8 @@ use crate::entities::object_guid::{ObjectGuid, PackedObjectGuid};
 use crate::protocol::opcodes::Opcode;
 use crate::protocol::server::ServerMessagePayload;
 use crate::shared::constants::SplineFlag;
+
+use super::MovementInfo;
 
 #[binwrite]
 #[server_opcode]
@@ -38,6 +40,21 @@ impl SmsgMoveUnsetCanFly {
             counter: 0,
         } // TODO: Implement ACK etc
     }
+}
+
+#[binwrite]
+#[server_opcode]
+pub struct MsgMoveTeleportAck {
+    pub packed_guid: PackedObjectGuid,
+    pub unk_counter: u32,
+    pub movement_info: MovementInfo,
+}
+
+#[binread]
+pub struct MsgMoveTeleportAckFromClient {
+    pub _guid: ObjectGuid,
+    pub _counter: u32,
+    pub _time: u32,
 }
 
 // https://gist.github.com/LordJZ/1355974#file-monstermove-cs-L118

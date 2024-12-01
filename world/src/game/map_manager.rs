@@ -4,6 +4,7 @@ use atomic_counter::{AtomicCounter, RelaxedCounter};
 use log::info;
 use parking_lot::RwLock;
 use shared::models::terrain_info::{Terrain, TerrainBlock, MAP_WIDTH_IN_BLOCKS};
+use shipyard::EntityId;
 
 use crate::{
     config::WorldConfig,
@@ -176,6 +177,26 @@ impl MapManager {
             if let Some(origin_map) = origin_map {
                 origin_map.remove_player(player_guid);
             }
+        }
+    }
+
+    pub fn transfer_player(&self, player_entity_id: EntityId, from_map_key: MapKey, to_map_key: MapKey) {
+        // let origin_map = self.maps.read().get_mut(&from_map_key);
+        // let destination_map = self.maps.read().get(&to_map_key);
+        //
+        // match (origin_map, destination_map) {
+        //     (Some(origin_map), Some(destination_map)) => {
+        //         origin_map.world().move_entity(other, entity)
+        //     },
+        //     _ => panic!("missing map when transfering (TODO)"),
+        // }
+        unsafe {
+            let mut guard = self.maps.write();
+            let origin_map = guard.get_mut(&from_map_key).unwrap() as *mut Arc<Map>;
+            let destination_map = guard.get_mut(&to_map_key).unwrap() as *mut Arc<Map>;
+
+            (&mut (*origin_map).world_mut()).lock().move_entity(&mut (*destination_map).world_mut().lock(), player_entity_id);
+            
         }
     }
 

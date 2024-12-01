@@ -1,8 +1,5 @@
 use std::{
-    collections::{HashMap, HashSet, VecDeque},
-    sync::Arc,
-    thread,
-    time::{Duration, Instant},
+    collections::{HashMap, HashSet, VecDeque}, sync::Arc, thread, time::{Duration, Instant}
 };
 
 use log::{error, info, warn};
@@ -74,7 +71,7 @@ pub const HEIGHT_MEASUREMENT_TOLERANCE: f32 = 1.;
 
 pub struct Map {
     key: MapKey,
-    world: Arc<ReentrantMutex<World>>,
+    world: ReentrantMutex<World>,
     world_context: Arc<WorldContext>,
     sessions: RwLock<HashMap<ObjectGuid, Arc<WorldSession>>>,
     ecs_entities: RwLock<HashMap<ObjectGuid, EntityId>>,
@@ -117,11 +114,11 @@ impl Map {
         };
         world.add_workload(workload);
 
-        let world = Arc::new(ReentrantMutex::new(world));
+        let world = ReentrantMutex::new(world);
 
         let map = Map {
             key,
-            world: world.clone(),
+            world,
             world_context: world_context.clone(),
             sessions: RwLock::new(HashMap::new()),
             ecs_entities: RwLock::new(HashMap::new()),
@@ -224,8 +221,16 @@ impl Map {
         self.world.lock()
     }
 
+    pub fn world_mut(&mut self) -> &mut World {
+        self.world.get_mut()
+    }
+
     pub fn id(&self) -> u32 {
         self.key.map_id
+    }
+
+    pub fn key(&self) -> MapKey {
+        self.key
     }
 
     pub fn lookup_entity_ecs(&self, guid: &ObjectGuid) -> Option<EntityId> {

@@ -57,6 +57,25 @@ pub struct MsgMoveTeleportAckFromClient {
     pub _time: u32,
 }
 
+#[binwrite]
+#[server_opcode]
+pub struct SmsgTransferPending {
+    pub destination_map_id: u32,
+    // TODO: transport stuff
+    // transport_entry: u32,
+    // current_map_id: u32,
+}
+
+#[binwrite]
+#[server_opcode]
+pub struct SmsgNewWorld {
+    pub map_id: u32,
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+    pub o: f32,
+}
+
 // https://gist.github.com/LordJZ/1355974#file-monstermove-cs-L118
 #[binwrite]
 #[server_opcode]

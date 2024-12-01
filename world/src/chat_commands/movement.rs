@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
-use clap::{builder::BoolishValueParser, Arg, Command};
+use clap::{builder::BoolishValueParser, value_parser, Arg, Command};
 use shipyard::{View, ViewMut};
 
-use crate::{ecs::components::movement::Movement, entities::{player::Player, position::{Position, WorldPosition}}, protocol::{packets::MsgMoveTeleportAck, server::ServerMessage}};
+use crate::{ecs::components::movement::Movement, entities::{player::Player, position::{Position, WorldPosition}}, game::map_manager::MapKey, protocol::{packets::{MsgMoveTeleportAck, SmsgNewWorld, SmsgTransferPending}, server::ServerMessage}};
 
 use super::{ChatCommandResult, ChatCommands, CommandContext, CommandHandler, CommandMap};
 
@@ -43,36 +43,80 @@ fn handle_teleport(ctx: CommandContext) -> ChatCommandResult {
     // --xyz f32 f32 f32 <optional u32 mapId>, orientation is kept
     // --poi followed by a name, coords are kept in a database table
     // --player followed by a player name
-    let command = Command::new(COMMAND_TELEPORT);
+    let command = Command::new(COMMAND_TELEPORT).arg(
+        Arg::new("xyz")
+            .long("xyz")
+            .num_args(3..=4)
+            .value_delimiter(' ')
+            .value_parser(value_parser!(f32))
+            .allow_hyphen_values(true)
+    );
 
-    ChatCommands::process(command, &ctx, &|_matches| {
+    ChatCommands::process(command, &ctx, &|matches| {
+        let coords: Option<Vec<f32>> = matches.get_many("xyz").map(|values| values.copied().collect());
+
         if let Some(ref map) = ctx.session.current_map() {
             if let Some(player_ecs_entity_id) = ctx.session.player_entity_id() {
                 map.world().run(|mut vm_player: ViewMut<Player>, v_movement: View<Movement>, v_wpos: View<WorldPosition>| {
                     let player = &mut vm_player[player_ecs_entity_id];
                     let movement = &v_movement[player_ecs_entity_id];
-                    let wpos = &mut v_wpos[player_ecs_entity_id].clone();
-                    let position = Position { // Undercity entrance
-                        x: 1968.12,
-                        y: 309.62,
-                        z: 41.57,
-                        o: 1.67,
-                    };
-                    wpos.update_local(&position);
-                    player.set_teleport_destination(*wpos);
+                    let player_curr_pos = &mut v_wpos[player_ecs_entity_id].clone();
 
-                    // Near teleport
-                    let packet = ServerMessage::new(MsgMoveTeleportAck {
-                        packed_guid: player.guid().as_packed(),
-                        unk_counter: 0,
-                        movement_info: movement.info(ctx.world_context.clone(), &position),
-                    });
+                    if let Some(coords) = coords {
+                        if coords.len() == 3 { // Teleport on the same map
+                            let position = Position {
+                                x: coords[0],
+                                y: coords[1],
+                                z: coords[2],
+                                o: player_curr_pos.o,
+                            };
+                            player_curr_pos.update_local(&position);
+                            player.set_teleport_destination(*player_curr_pos);
 
-                    ctx.session.send(&packet).unwrap();
+                            // Near teleport
+                            let packet = ServerMessage::new(MsgMoveTeleportAck {
+                                packed_guid: player.guid().as_packed(),
+                                unk_counter: 0,
+                                movement_info: movement.info(ctx.world_context.clone(), &position),
+                            });
 
-                    // For far teleport (on another map), use SmsgTransferPending for the loading
-                    // screen then SmsgNewWorld for the actual teleport
-                    // Then the response is MsgMoveWorldportAck
+                            ctx.session.send(&packet).unwrap();
+                        } else { // Teleport on another map
+                            // For far teleport (on another map), use SmsgTransferPending for the loading
+                            // screen then SmsgNewWorld for the actual teleport
+                            // Then the response is MsgMoveWorldportAck
+                            let position = Position {
+                                x: coords[0],
+                                y: coords[1],
+                                z: coords[2],
+                                o: player_curr_pos.o,
+                            };
+                            let map_key = MapKey::new(coords[3].round() as u32, None);
+                            let destination_map_id = map_key.map_id;
+                            player_curr_pos.update_local(&position);
+                            player_curr_pos.map_key = map_key;
+                            player.set_teleport_destination(*player_curr_pos);
+
+                            let packet = ServerMessage::new(SmsgTransferPending {
+                                destination_map_id,
+                            });
+                            ctx.session.send(&packet).unwrap();
+
+                            let packet = ServerMessage::new(SmsgNewWorld {
+                                map_id: destination_map_id,
+                                x: coords[0],
+                                y: coords[1],
+                                z: coords[2],
+                                o: player_curr_pos.o,
+                            });
+                            ctx.session.send(&packet).unwrap();
+
+                            // TODO: implement player moving from one map to another
+                            // ctx.world_context.map_manager.remove_player_from_map(&player.guid(), ctx.session.current_map().map(|m| m.key()));
+                            // ctx.world_context.map_manager.get_map(MapKey::new(destination_map_id, None)).unwrap().add_player_on_login(ctx.session, char_data)
+                            // TODO: implement MsgMoveWorldportAck
+                        }
+                    }
                 });
             }
         }

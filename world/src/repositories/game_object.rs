@@ -136,8 +136,7 @@ impl GameObjectRepository {
                     position_y: row.get(PositionY as usize).unwrap(),
                     position_z: row.get(PositionZ as usize).unwrap(),
                     orientation: row.get(Orientation as usize).unwrap(),
-                    rotation: Quaternion::new(rotation3, rotation0, rotation1, rotation2)
-                        .normalize(),
+                    rotation: Quaternion::new(rotation3, rotation0, rotation1, rotation2),
                 })
             })
             .unwrap();
@@ -224,7 +223,7 @@ impl GameObjectRepository {
             },
             Chair => GameObjectData::Chair {
                 slots: raw_data[0],
-                orientation: raw_data[1]
+                orientation: raw_data[1],
             },
             SpellFocus => GameObjectData::SpellFocus {
                 spellFocusType: raw_data[0],

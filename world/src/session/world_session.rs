@@ -13,7 +13,7 @@ use std::{
     time::Duration,
 };
 
-use log::trace;
+use log::{error, trace};
 use tokio::{
     net::TcpStream,
     sync::{
@@ -123,9 +123,14 @@ impl WorldSession {
                     .get_handler(client_message.header.opcode);
 
                 match processing_mode {
-                    // OpcodeProcessingMode::ProcessInMap => todo!(),
-                    OpcodeProcessingMode::ProcessImmediately
-                    | OpcodeProcessingMode::ProcessInMap => {
+                    OpcodeProcessingMode::ProcessInMap => {
+                        if let Some(map) = session_clone.current_map() {
+                            map.queue_packet(session_clone.clone(), client_message);
+                        } else {
+                            error!("received a packet that must be processed on the map but player is not on a map! ({:?} - {:#X})", Opcode::n(client_message.header.opcode).unwrap(), client_message.header.opcode)
+                        }
+                    }
+                    OpcodeProcessingMode::ProcessImmediately => {
                         handler(
                             session_clone.clone(),
                             world_context_clone.clone(),

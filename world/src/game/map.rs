@@ -35,7 +35,10 @@ use crate::{
             unwind::Unwind,
         },
         resources::DeltaTime,
-        systems::{behavior, combat, inventory, melee, movement, powers, spell, unwind, updates},
+        systems::{
+            behavior, combat, inventory, melee, movement, packets::process_packets, powers, spell,
+            unwind, updates,
+        },
     },
     entities::{
         creature::Creature,
@@ -47,6 +50,7 @@ use crate::{
     },
     protocol::{
         self,
+        client::ClientMessage,
         opcodes::Opcode,
         packets::{MovementInfo, SmsgCreateObject},
         server::ServerMessage,
@@ -81,6 +85,7 @@ pub struct Map {
     terrain: Arc<HashMap<TerrainBlockCoords, Terrain>>,
     entities_tree: RwLock<QuadTree>,
     visibility_distance: f32,
+    pending_packets: RwLock<VecDeque<(Arc<WorldSession>, ClientMessage)>>,
 }
 
 impl Map {
@@ -99,7 +104,7 @@ impl Map {
         ));
         world.add_unique(WrappedWorldContext(world_context.clone()));
 
-        let workload = || {
+        let map_update_workload = || {
             (
                 unwind::unwind_creatures,
                 updates::update_player_environment, // Must be before regenerate_powers
@@ -115,7 +120,7 @@ impl Map {
             )
                 .into_workload()
         };
-        world.add_workload(workload);
+        world.add_workload(map_update_workload);
 
         let world = Arc::new(ReentrantMutex::new(world));
 
@@ -130,6 +135,7 @@ impl Map {
                 super::quad_tree::QUADTREE_DEFAULT_NODE_CAPACITY,
             )),
             visibility_distance: DEFAULT_VISIBILITY_DISTANCE,
+            pending_packets: RwLock::new(VecDeque::new()),
         };
 
         for spawn in creature_spawns {
@@ -191,7 +197,8 @@ impl Map {
                         world_guard.run(|mut dt: UniqueViewMut<DeltaTime>| {
                             *dt = DeltaTime(elapsed_since_last_tick);
                         });
-                        world_guard.run_workload(workload).unwrap();
+                        world_guard.run(process_packets);
+                        world_guard.run_workload(map_update_workload).unwrap();
                     }
 
                     let tick_duration = Instant::now().duration_since(tick_start_time);
@@ -1158,6 +1165,20 @@ impl Map {
         point.z = z;
 
         point
+    }
+
+    pub fn queue_packet(&self, world_session: Arc<WorldSession>, packet: ClientMessage) {
+        self.pending_packets
+            .write()
+            .push_back((world_session, packet));
+    }
+
+    pub fn get_and_reset_queued_packets(&self) -> VecDeque<(Arc<WorldSession>, ClientMessage)> {
+        let mut guard = self.pending_packets.write();
+        let packets = (*guard).clone();
+        *guard = VecDeque::new();
+
+        packets
     }
 }
 

@@ -3,7 +3,7 @@ use binrw::{binread, BinRead, BinReaderExt};
 use wow_srp::tbc_header::ClientHeader;
 
 #[binread]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ClientMessageHeader {
     #[br(big)]
     pub size: u16,
@@ -19,6 +19,7 @@ impl From<ClientHeader> for ClientMessageHeader {
     }
 }
 
+#[derive(Clone)]
 pub struct ClientMessage {
     pub header: ClientMessageHeader,
     pub payload: Vec<u8>,

@@ -45,7 +45,7 @@ use crate::{
     WorldSocketError,
 };
 
-use super::world_socket::WorldSocket;
+use super::{opcode_handler::OpcodeProcessingMode, world_socket::WorldSocket};
 
 #[derive(PartialEq, Eq)]
 pub enum WorldSessionState {
@@ -118,15 +118,22 @@ impl WorldSession {
         let session_clone = session.clone();
         tokio::spawn(async move {
             while let Some(client_message) = socket_to_session_rx.recv().await {
-                let handler = world_context_clone
+                let (processing_mode, handler) = world_context_clone
                     .opcode_handler
                     .get_handler(client_message.header.opcode);
 
-                handler(
-                    session_clone.clone(),
-                    world_context_clone.clone(),
-                    client_message.payload,
-                );
+                match processing_mode {
+                    // OpcodeProcessingMode::ProcessInMap => todo!(),
+                    OpcodeProcessingMode::ProcessImmediately
+                    | OpcodeProcessingMode::ProcessInMap => {
+                        handler(
+                            session_clone.clone(),
+                            world_context_clone.clone(),
+                            client_message.payload,
+                        );
+                    }
+                    OpcodeProcessingMode::Ignore => (),
+                }
             }
         });
 

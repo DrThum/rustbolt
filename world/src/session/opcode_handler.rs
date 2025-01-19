@@ -15,10 +15,13 @@ use super::world_session::WorldSession;
 pub type PacketHandler = Box<dyn Send + Sync + Fn(Arc<WorldSession>, Arc<WorldContext>, Vec<u8>)>;
 
 macro_rules! define_handler {
-    ($opcode:expr, $handler:expr) => {
+    ($opcode:expr, $processing_mode:expr, $handler:expr) => {
         (
             $opcode as u32,
-            Box::new(|session, ctx, data| $handler(session, ctx, data)) as PacketHandler,
+            (
+                $processing_mode,
+                Box::new(|session, ctx, data| $handler(session, ctx, data)) as PacketHandler,
+            ),
         )
     };
 }
@@ -27,15 +30,18 @@ macro_rules! define_movement_handler {
     ($opcode:expr) => {
         (
             $opcode as u32,
-            Box::new(|session, ctx, data| {
-                OpcodeHandler::handle_movement_packet($opcode)(session, ctx, data)
-            }) as PacketHandler,
+            (
+                OpcodeProcessingMode::ProcessInMap,
+                Box::new(|session, ctx, data| {
+                    OpcodeHandler::handle_movement_packet($opcode)(session, ctx, data)
+                }) as PacketHandler,
+            ),
         )
     };
 }
 
 pub struct OpcodeHandler {
-    handlers: HashMap<u32, PacketHandler>,
+    handlers: HashMap<u32, (OpcodeProcessingMode, PacketHandler)>,
 }
 
 impl Default for OpcodeHandler {
@@ -44,45 +50,77 @@ impl Default for OpcodeHandler {
     }
 }
 
+pub enum OpcodeProcessingMode {
+    ProcessInMap,
+    ProcessImmediately,
+    Ignore,
+}
+
 impl OpcodeHandler {
     pub fn new() -> Self {
+        use OpcodeProcessingMode::*;
+
         Self {
             handlers: HashMap::from([
-                define_handler!(Opcode::MsgNullAction, OpcodeHandler::unhandled),
+                define_handler!(Opcode::MsgNullAction, Ignore, OpcodeHandler::unhandled),
                 define_handler!(
                     Opcode::CmsgCharCreate,
+                    ProcessImmediately,
                     OpcodeHandler::handle_cmsg_char_create
                 ),
-                define_handler!(Opcode::CmsgCharEnum, OpcodeHandler::handle_cmsg_char_enum),
+                define_handler!(
+                    Opcode::CmsgCharEnum,
+                    ProcessImmediately,
+                    OpcodeHandler::handle_cmsg_char_enum
+                ),
                 define_handler!(
                     Opcode::CmsgCharDelete,
+                    ProcessImmediately,
                     OpcodeHandler::handle_cmsg_char_delete
                 ),
                 define_handler!(
                     Opcode::CmsgPlayerLogin,
+                    ProcessImmediately,
                     OpcodeHandler::handle_cmsg_player_login
                 ),
-                define_handler!(Opcode::CmsgPing, OpcodeHandler::handle_cmsg_ping),
+                define_handler!(
+                    Opcode::CmsgPing,
+                    ProcessImmediately,
+                    OpcodeHandler::handle_cmsg_ping
+                ),
                 define_handler!(
                     Opcode::CmsgRealmSplit,
+                    ProcessImmediately,
                     OpcodeHandler::handle_cmsg_realm_split
                 ),
                 define_handler!(
                     Opcode::CmsgLogoutRequest,
+                    ProcessImmediately,
                     OpcodeHandler::handle_cmsg_logout_request
                 ),
                 define_handler!(
                     Opcode::CmsgItemQuerySingle,
+                    ProcessImmediately,
                     OpcodeHandler::handle_cmsg_item_query_single
                 ),
-                define_handler!(Opcode::CmsgNameQuery, OpcodeHandler::handle_cmsg_name_query),
-                define_handler!(Opcode::CmsgQueryTime, OpcodeHandler::handle_cmsg_query_time),
+                define_handler!(
+                    Opcode::CmsgNameQuery,
+                    ProcessImmediately,
+                    OpcodeHandler::handle_cmsg_name_query
+                ),
+                define_handler!(
+                    Opcode::CmsgQueryTime,
+                    ProcessImmediately,
+                    OpcodeHandler::handle_cmsg_query_time
+                ),
                 define_handler!(
                     Opcode::CmsgUpdateAccountData,
+                    ProcessImmediately,
                     OpcodeHandler::handle_cmsg_update_account_data
                 ),
                 define_handler!(
                     Opcode::CmsgTimeSyncResp,
+                    ProcessImmediately,
                     OpcodeHandler::handle_time_sync_resp
                 ),
                 define_movement_handler!(Opcode::MsgMoveStartForward),
@@ -114,129 +152,184 @@ impl OpcodeHandler {
                 define_movement_handler!(Opcode::MsgMoveStartDescend),
                 define_handler!(
                     Opcode::CmsgStandStateChange,
+                    ProcessInMap,
                     OpcodeHandler::handle_cmsg_stand_state_change
                 ),
                 define_handler!(
                     Opcode::CmsgSetSheathed,
+                    ProcessInMap,
                     OpcodeHandler::handle_cmsg_set_sheathed
                 ),
-                define_handler!(Opcode::CmsgSetActiveVoiceChannel, OpcodeHandler::unhandled),
+                define_handler!(
+                    Opcode::CmsgSetActiveVoiceChannel,
+                    Ignore,
+                    OpcodeHandler::unhandled
+                ),
                 define_handler!(
                     Opcode::CmsgMessageChat,
+                    ProcessImmediately, // TODO: This should actually be process immediately first then
+                    // forwarded to the map if it's a local message (say, yell, ...)
                     OpcodeHandler::handle_cmsg_message_chat
                 ),
-                define_handler!(Opcode::CmsgTextEmote, OpcodeHandler::handle_cmsg_text_emote),
+                define_handler!(
+                    Opcode::CmsgTextEmote,
+                    ProcessInMap,
+                    OpcodeHandler::handle_cmsg_text_emote
+                ),
                 define_handler!(
                     Opcode::CmsgCreatureQuery,
+                    ProcessImmediately,
                     OpcodeHandler::handle_cmsg_creature_query
                 ),
                 define_handler!(
                     Opcode::CmsgAttackSwing,
+                    ProcessInMap,
                     OpcodeHandler::handle_cmsg_attack_swing
                 ),
                 define_handler!(
                     Opcode::CmsgSetSelection,
+                    ProcessInMap,
                     OpcodeHandler::handle_cmsg_set_selection
                 ),
                 define_handler!(
                     Opcode::CmsgAttackStop,
+                    ProcessInMap,
                     OpcodeHandler::handle_cmsg_attack_stop
                 ),
-                define_handler!(Opcode::CmsgCastSpell, OpcodeHandler::handle_cmsg_cast_spell),
+                define_handler!(
+                    Opcode::CmsgCastSpell,
+                    ProcessInMap,
+                    OpcodeHandler::handle_cmsg_cast_spell
+                ),
                 define_handler!(
                     Opcode::CmsgCancelCast,
+                    ProcessInMap,
                     OpcodeHandler::handle_cmsg_cancel_cast
                 ),
                 define_handler!(
                     Opcode::CmsgQuestGiverStatusQuery,
+                    ProcessInMap,
                     OpcodeHandler::handle_cmsg_quest_giver_status_query
                 ),
                 define_handler!(
                     Opcode::CmsgQuestGiverHello,
+                    ProcessInMap,
                     OpcodeHandler::handle_cmsg_quest_giver_hello
                 ),
                 define_handler!(
                     Opcode::CmsgNpcTextQuery,
+                    ProcessImmediately,
                     OpcodeHandler::handle_cmsg_npc_text_query
                 ),
                 define_handler!(
                     Opcode::CmsgQuestGiverQueryQuest,
+                    ProcessImmediately,
                     OpcodeHandler::handle_cmsg_quest_giver_query_quest
                 ),
                 define_handler!(
                     Opcode::CmsgQuestGiverAcceptQuest,
+                    ProcessInMap,
                     OpcodeHandler::handle_cmsg_quest_giver_accept_quest
                 ),
                 define_handler!(
                     Opcode::CmsgQuestGiverStatusMultipleQuery,
+                    ProcessInMap,
                     OpcodeHandler::handle_cmsg_quest_giver_status_multiple_query
                 ),
                 define_handler!(
                     Opcode::CmsgQuestQuery,
+                    ProcessImmediately,
                     OpcodeHandler::handle_cmsg_quest_query
                 ),
                 define_handler!(
                     Opcode::CmsgQuestLogRemoveQuest,
+                    ProcessInMap,
                     OpcodeHandler::handle_cmsg_quest_log_remove_quest
                 ),
                 define_handler!(
                     Opcode::CmsgGossipHello,
+                    ProcessInMap,
                     OpcodeHandler::handle_cmsg_gossip_hello
                 ),
                 define_handler!(
                     Opcode::CmsgQuestGiverCompleteQuest,
+                    ProcessInMap,
                     OpcodeHandler::handle_cmsg_quest_giver_complete_quest
                 ),
                 define_handler!(
                     Opcode::CmsgQuestGiverChooseReward,
+                    ProcessInMap,
                     OpcodeHandler::handle_cmsg_quest_giver_choose_reward
                 ),
                 define_handler!(
                     Opcode::CmsgQuestGiverRequestReward,
+                    ProcessInMap,
                     OpcodeHandler::handle_cmsg_quest_giver_request_reward
                 ),
-                define_handler!(Opcode::CmsgLoot, OpcodeHandler::handle_cmsg_loot),
-                define_handler!(Opcode::CmsgLootMoney, OpcodeHandler::handle_cmsg_loot_money),
+                define_handler!(
+                    Opcode::CmsgLoot,
+                    ProcessInMap,
+                    OpcodeHandler::handle_cmsg_loot
+                ),
+                define_handler!(
+                    Opcode::CmsgLootMoney,
+                    ProcessInMap,
+                    OpcodeHandler::handle_cmsg_loot_money
+                ),
                 define_handler!(
                     Opcode::CmsgLootRelease,
+                    ProcessInMap,
                     OpcodeHandler::handle_cmsg_loot_release
                 ),
                 define_handler!(
                     Opcode::CmsgItemNameQuery,
+                    ProcessImmediately,
                     OpcodeHandler::handle_cmsg_item_name_query
                 ),
                 define_handler!(
                     Opcode::CmsgAutostoreLootItem,
+                    ProcessInMap,
                     OpcodeHandler::handle_cmsg_autostore_loot_item
                 ),
                 define_handler!(
                     Opcode::CmsgDestroyItem,
+                    ProcessInMap,
                     OpcodeHandler::handle_cmsg_destroy_item
                 ),
                 define_handler!(
                     Opcode::CmsgAutoEquipItem,
+                    ProcessInMap,
                     OpcodeHandler::handle_cmsg_auto_equip_item
                 ),
                 define_handler!(
                     Opcode::CmsgSwapInvItem,
+                    ProcessInMap,
                     OpcodeHandler::handle_cmsg_swap_inv_item
                 ),
-                define_handler!(Opcode::CmsgSplitItem, OpcodeHandler::handle_cmsg_split_item),
+                define_handler!(
+                    Opcode::CmsgSplitItem,
+                    ProcessInMap,
+                    OpcodeHandler::handle_cmsg_split_item
+                ),
                 define_handler!(
                     Opcode::CmsgGameObjectQuery,
+                    ProcessImmediately,
                     OpcodeHandler::handle_cmsg_game_object_query
                 ),
-                define_handler!(Opcode::CmsgUseItem, OpcodeHandler::handle_cmsg_use_item),
+                define_handler!(
+                    Opcode::CmsgUseItem,
+                    ProcessInMap,
+                    OpcodeHandler::handle_cmsg_use_item
+                ),
             ]),
         }
     }
 
-    pub fn get_handler(&self, opcode: u32) -> &PacketHandler {
+    pub fn get_handler(&self, opcode: u32) -> &(OpcodeProcessingMode, PacketHandler) {
         self.handlers
             .get(&opcode)
-            .map(|h| {
+            .inspect(|_| {
                 trace!("Received {:?} ({:#X})", Opcode::n(opcode).unwrap(), opcode);
-                h
             })
             .unwrap_or_else(|| {
                 error!(

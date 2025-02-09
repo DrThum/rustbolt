@@ -1,5 +1,5 @@
 use log::{error, trace};
-use shipyard::{Get, View};
+use shipyard::{AllStoragesViewMut, Get, View};
 use std::{collections::HashMap, sync::Arc};
 
 use crate::{
@@ -12,7 +12,9 @@ use crate::{
 
 use super::world_session::WorldSession;
 
-pub type PacketHandler = Box<dyn Send + Sync + Fn(Arc<WorldSession>, Arc<WorldContext>, Vec<u8>)>;
+pub type PacketHandler = Box<
+    dyn Send + Sync + Fn(Arc<WorldSession>, Arc<WorldContext>, Vec<u8>, Option<AllStoragesViewMut>),
+>;
 
 macro_rules! define_handler {
     ($opcode:expr, $processing_mode:expr, $handler:expr) => {
@@ -20,7 +22,9 @@ macro_rules! define_handler {
             $opcode as u32,
             (
                 $processing_mode,
-                Box::new(|session, ctx, data| $handler(session, ctx, data)) as PacketHandler,
+                Box::new(|session, ctx, data, all_storages| {
+                    $handler(session, ctx, data, all_storages)
+                }) as PacketHandler,
             ),
         )
     };
@@ -32,8 +36,13 @@ macro_rules! define_movement_handler {
             $opcode as u32,
             (
                 OpcodeProcessingMode::ProcessInMap,
-                Box::new(|session, ctx, data| {
-                    OpcodeHandler::handle_movement_packet($opcode)(session, ctx, data)
+                Box::new(|session, ctx, data, vm_all_storages| {
+                    OpcodeHandler::handle_movement_packet($opcode)(
+                        session,
+                        ctx,
+                        data,
+                        vm_all_storages,
+                    )
                 }) as PacketHandler,
             ),
         )

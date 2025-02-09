@@ -23,6 +23,7 @@ impl OpcodeHandler {
         session: Arc<WorldSession>,
         world_context: Arc<WorldContext>,
         data: Vec<u8>,
+        _vm_all_storages: Option<AllStoragesViewMut>,
     ) {
         let cmsg: CmsgCreatureQuery = ClientMessage::read_as(data).unwrap();
 
@@ -61,6 +62,7 @@ impl OpcodeHandler {
         session: Arc<WorldSession>,
         world_context: Arc<WorldContext>,
         data: Vec<u8>,
+        _vm_all_storages: Option<AllStoragesViewMut>,
     ) {
         let cmsg: CmsgGameObjectQuery = ClientMessage::read_as(data).unwrap();
 
@@ -99,6 +101,7 @@ impl OpcodeHandler {
         session: Arc<WorldSession>,
         world_context: Arc<WorldContext>,
         data: Vec<u8>,
+        _vm_all_storages: Option<AllStoragesViewMut>,
     ) {
         let cmsg: CmsgNpcTextQuery = ClientMessage::read_as(data).unwrap();
 
@@ -142,6 +145,7 @@ impl OpcodeHandler {
         session: Arc<WorldSession>,
         world_context: Arc<WorldContext>,
         data: Vec<u8>,
+        _vm_all_storages: Option<AllStoragesViewMut>,
     ) {
         let cmsg: CmsgQuestQuery = ClientMessage::read_as(data).unwrap();
 

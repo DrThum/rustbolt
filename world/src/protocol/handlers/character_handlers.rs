@@ -21,6 +21,7 @@ impl OpcodeHandler {
         session: Arc<WorldSession>,
         world_context: Arc<WorldContext>,
         data: Vec<u8>,
+        _vm_all_storages: Option<AllStoragesViewMut>,
     ) {
         let cmsg_char_create: CmsgCharCreate = ClientMessage::read_as(data).unwrap();
         let mut conn = world_context.database.characters.get().unwrap();
@@ -52,6 +53,7 @@ impl OpcodeHandler {
         session: Arc<WorldSession>,
         world_context: Arc<WorldContext>,
         _data: Vec<u8>,
+        _vm_all_storages: Option<AllStoragesViewMut>,
     ) {
         {
             let mut session_state = session.state.write();
@@ -77,6 +79,7 @@ impl OpcodeHandler {
         session: Arc<WorldSession>,
         world_context: Arc<WorldContext>,
         data: Vec<u8>,
+        _vm_all_storages: Option<AllStoragesViewMut>,
     ) {
         let cmsg_char_delete: CmsgCharDelete = ClientMessage::read_as(data).unwrap();
         let conn = world_context.database.characters.get().unwrap();
@@ -93,6 +96,7 @@ impl OpcodeHandler {
         session: Arc<WorldSession>,
         world_context: Arc<WorldContext>,
         data: Vec<u8>,
+        _vm_all_storages: Option<AllStoragesViewMut>,
     ) {
         let cmsg_player_login: CmsgPlayerLogin = ClientMessage::read_as(data).unwrap();
 
@@ -231,6 +235,7 @@ impl OpcodeHandler {
         session: Arc<WorldSession>,
         world_context: Arc<WorldContext>,
         _data: Vec<u8>,
+        _vm_all_storages: Option<AllStoragesViewMut>,
     ) {
         let packet = ServerMessage::new(SmsgLogoutResponse {
             reason: 0,
@@ -262,6 +267,7 @@ impl OpcodeHandler {
         session: Arc<WorldSession>,
         world_context: Arc<WorldContext>,
         data: Vec<u8>,
+        _vm_all_storages: Option<AllStoragesViewMut>,
     ) {
         let cmsg_name_query: CmsgNameQuery = ClientMessage::read_as(data).unwrap();
 
@@ -299,6 +305,7 @@ impl OpcodeHandler {
         session: Arc<WorldSession>,
         _world_context: Arc<WorldContext>,
         data: Vec<u8>,
+        _vm_all_storages: Option<AllStoragesViewMut>,
     ) {
         let cmsg_stand_state_change: CmsgStandStateChange = ClientMessage::read_as(data).unwrap();
         if let Some(map) = session.current_map() {
@@ -320,6 +327,7 @@ impl OpcodeHandler {
         session: Arc<WorldSession>,
         _world_context: Arc<WorldContext>,
         data: Vec<u8>,
+        _vm_all_storages: Option<AllStoragesViewMut>,
     ) {
         let cmsg_set_sheathed: CmsgSetSheathed = ClientMessage::read_as(data).unwrap();
         if let Some(map) = session.current_map() {

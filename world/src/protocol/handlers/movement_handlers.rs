@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use shipyard::{View, ViewMut};
+use shipyard::{AllStoragesViewMut, View, ViewMut};
 
 use crate::{
     ecs::components::{
@@ -19,7 +19,12 @@ use crate::{
 
 impl OpcodeHandler {
     pub fn handle_movement_packet(opcode: Opcode) -> PacketHandler {
-        fn handle_movement(opcode: Opcode, session: Arc<WorldSession>, data: Vec<u8>) {
+        fn handle_movement(
+            opcode: Opcode,
+            session: Arc<WorldSession>,
+            data: Vec<u8>,
+            _vm_all_storages: Option<AllStoragesViewMut>,
+        ) {
             let movement_info: MovementInfo = ClientMessage::read_as(data).unwrap();
             let player_guid = session.player_guid().unwrap();
 
@@ -61,6 +66,8 @@ impl OpcodeHandler {
             map.broadcast_movement(&player_guid, opcode, &movement_info);
         }
 
-        Box::new(move |session, _, data| handle_movement(opcode, session, data)) as PacketHandler
+        Box::new(move |session, _, data, vm_all_storages| {
+            handle_movement(opcode, session, data, vm_all_storages)
+        }) as PacketHandler
     }
 }

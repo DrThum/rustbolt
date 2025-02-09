@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+use shipyard::AllStoragesViewMut;
+
 use crate::game::world_context::WorldContext;
 use crate::session::opcode_handler::OpcodeHandler;
 use crate::session::world_session::WorldSession;
@@ -23,6 +25,7 @@ impl OpcodeHandler {
         _session: Arc<WorldSession>,
         _world_context: Arc<WorldContext>,
         _data: Vec<u8>,
+        _vm_all_storages: Option<AllStoragesViewMut>,
     ) {
     }
 }

@@ -20,6 +20,7 @@ impl OpcodeHandler {
         session: Arc<WorldSession>,
         world_context: Arc<WorldContext>,
         data: Vec<u8>,
+        _vm_all_storages: Option<AllStoragesViewMut>,
     ) {
         let cmsg: CmsgCastSpell = ClientMessage::read_as(data).unwrap();
         let mut targets = cmsg.cast_targets.clone();
@@ -109,6 +110,7 @@ impl OpcodeHandler {
         session: Arc<WorldSession>,
         _world_context: Arc<WorldContext>,
         data: Vec<u8>,
+        _vm_all_storages: Option<AllStoragesViewMut>,
     ) {
         let cmsg: CmsgCancelCast = ClientMessage::read_as(data).unwrap();
 

@@ -22,6 +22,7 @@ impl OpcodeHandler {
         session: Arc<WorldSession>,
         world_context: Arc<WorldContext>,
         data: Vec<u8>,
+        _vm_all_storages: Option<AllStoragesViewMut>,
     ) {
         let cmsg: CmsgLoot = ClientMessage::read_as(data).unwrap();
 
@@ -91,6 +92,7 @@ impl OpcodeHandler {
         session: Arc<WorldSession>,
         _world_context: Arc<WorldContext>,
         _data: Vec<u8>,
+        _vm_all_storages: Option<AllStoragesViewMut>,
     ) {
         session.run(&|WSRunnableArgs {
                           map,
@@ -124,6 +126,7 @@ impl OpcodeHandler {
         session: Arc<WorldSession>,
         _world_context: Arc<WorldContext>,
         data: Vec<u8>,
+        _vm_all_storages: Option<AllStoragesViewMut>,
     ) {
         let cmsg: CmsgLootRelease = ClientMessage::read_as(data).unwrap();
 
@@ -166,6 +169,7 @@ impl OpcodeHandler {
         session: Arc<WorldSession>,
         _world_context: Arc<WorldContext>,
         data: Vec<u8>,
+        _vm_all_storages: Option<AllStoragesViewMut>,
     ) {
         let cmsg: CmsgAutostoreLootItem = ClientMessage::read_as(data).unwrap();
 

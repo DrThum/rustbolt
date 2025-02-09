@@ -16,6 +16,7 @@ impl OpcodeHandler {
         session: Arc<WorldSession>,
         _world_context: Arc<WorldContext>,
         data: Vec<u8>,
+        _vm_all_storages: Option<AllStoragesViewMut>,
     ) {
         let cmsg_realm_split: CmsgRealmSplit = ClientMessage::read_as(data).unwrap();
 
@@ -32,6 +33,7 @@ impl OpcodeHandler {
         session: Arc<WorldSession>,
         _world_context: Arc<WorldContext>,
         data: Vec<u8>,
+        _vm_all_storages: Option<AllStoragesViewMut>,
     ) {
         let cmsg: CmsgSetSelection = ClientMessage::read_as(data).unwrap();
 

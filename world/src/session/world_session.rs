@@ -135,6 +135,7 @@ impl WorldSession {
                             session_clone.clone(),
                             world_context_clone.clone(),
                             client_message.payload,
+                            None,
                         );
                     }
                     OpcodeProcessingMode::Ignore => (),

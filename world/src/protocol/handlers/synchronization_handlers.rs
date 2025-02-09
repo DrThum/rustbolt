@@ -14,6 +14,7 @@ impl OpcodeHandler {
         session: Arc<WorldSession>,
         _world_context: Arc<WorldContext>,
         data: Vec<u8>,
+        _vm_all_storages: Option<AllStoragesViewMut>,
     ) {
         let cmsg_ping: CmsgPing = ClientMessage::read_as(data).unwrap();
 
@@ -30,6 +31,7 @@ impl OpcodeHandler {
         session: Arc<WorldSession>,
         _world_context: Arc<WorldContext>,
         _data: Vec<u8>,
+        _vm_all_storages: Option<AllStoragesViewMut>,
     ) {
         let now = SystemTime::now();
         let seconds_since_epoch = now
@@ -48,6 +50,7 @@ impl OpcodeHandler {
         session: Arc<WorldSession>,
         world_context: Arc<WorldContext>,
         data: Vec<u8>,
+        _vm_all_storages: Option<AllStoragesViewMut>,
     ) {
         let cmsg_time_sync_resp: CmsgTimeSyncResp = ClientMessage::read_as(data).unwrap();
         session.handle_time_sync_resp(

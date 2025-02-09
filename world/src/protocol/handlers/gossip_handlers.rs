@@ -11,6 +11,7 @@ impl OpcodeHandler {
         session: Arc<WorldSession>,
         world_context: Arc<WorldContext>,
         data: Vec<u8>,
+        _vm_all_storages: Option<AllStoragesViewMut>,
     ) {
         let cmsg: CmsgGossipHello = ClientMessage::read_as(data).unwrap();
 

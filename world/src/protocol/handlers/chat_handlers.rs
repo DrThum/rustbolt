@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use log::error;
-use shipyard::{Get, View};
+use shipyard::{AllStoragesViewMut, Get, View};
 
 use crate::{
     entities::{creature::Creature, object_guid::ObjectGuid, player::Player},
@@ -20,6 +20,7 @@ impl OpcodeHandler {
         session: Arc<WorldSession>,
         world_context: Arc<WorldContext>,
         data: Vec<u8>,
+        _vm_all_storages: Option<AllStoragesViewMut>,
     ) {
         let cmsg_message_chat: CmsgMessageChat = ClientMessage::read_as(data).unwrap();
 
@@ -70,6 +71,7 @@ impl OpcodeHandler {
         session: Arc<WorldSession>,
         world_context: Arc<WorldContext>,
         data: Vec<u8>,
+        _vm_all_storages: Option<AllStoragesViewMut>,
     ) {
         let cmsg_text_emote: CmsgTextEmote = ClientMessage::read_as(data).unwrap();
         if let Some(dbc_record) = world_context
@@ -109,8 +111,7 @@ impl OpcodeHandler {
                             .run(|v_player: View<Player>, v_creature: View<Creature>| {
                                 if let Ok(player) = v_player.get(target_entity_id) {
                                     player.name.clone()
-                                } else if let Ok(creature) = v_creature.get(target_entity_id)
-                                {
+                                } else if let Ok(creature) = v_creature.get(target_entity_id) {
                                     creature.name.clone()
                                 } else {
                                     "TODO_TARGET_NAME".to_owned()

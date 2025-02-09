@@ -19,6 +19,7 @@ impl OpcodeHandler {
         session: Arc<WorldSession>,
         _world_context: Arc<WorldContext>,
         data: Vec<u8>,
+        _vm_all_storages: Option<AllStoragesViewMut>,
     ) {
         let cmsg: CmsgAttackSwing = ClientMessage::read_as(data).unwrap();
         if let Some(ref map) = session.current_map() {
@@ -48,6 +49,7 @@ impl OpcodeHandler {
         session: Arc<WorldSession>,
         _world_context: Arc<WorldContext>,
         _data: Vec<u8>,
+        _vm_all_storages: Option<AllStoragesViewMut>,
     ) {
         if let Some(ref map) = session.current_map() {
             let player_guid = session.player_guid().unwrap();

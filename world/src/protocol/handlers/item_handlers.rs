@@ -20,6 +20,7 @@ impl OpcodeHandler {
         session: Arc<WorldSession>,
         world_context: Arc<WorldContext>,
         data: Vec<u8>,
+        _vm_all_storages: Option<AllStoragesViewMut>,
     ) {
         let cmsg_item_query_single: CmsgItemQuerySingle = ClientMessage::read_as(data).unwrap();
 
@@ -111,6 +112,7 @@ impl OpcodeHandler {
         session: Arc<WorldSession>,
         world_context: Arc<WorldContext>,
         data: Vec<u8>,
+        _vm_all_storages: Option<AllStoragesViewMut>,
     ) {
         let cmsg_item_name_query: CmsgItemNameQuery = ClientMessage::read_as(data).unwrap();
 
@@ -132,6 +134,7 @@ impl OpcodeHandler {
         session: Arc<WorldSession>,
         _world_context: Arc<WorldContext>,
         data: Vec<u8>,
+        _vm_all_storages: Option<AllStoragesViewMut>,
     ) {
         let cmsg_destroy_item: CmsgDestroyItem = ClientMessage::read_as(data).unwrap();
 
@@ -151,6 +154,7 @@ impl OpcodeHandler {
         session: Arc<WorldSession>,
         world_context: Arc<WorldContext>,
         data: Vec<u8>,
+        _vm_all_storages: Option<AllStoragesViewMut>,
     ) {
         let cmsg_auto_equip_item: CmsgAutoEquipItem = ClientMessage::read_as(data).unwrap();
         let slot = cmsg_auto_equip_item.slot as u32;
@@ -184,6 +188,7 @@ impl OpcodeHandler {
         session: Arc<WorldSession>,
         world_context: Arc<WorldContext>,
         data: Vec<u8>,
+        _vm_all_storages: Option<AllStoragesViewMut>,
     ) {
         let cmsg_swap_inv_item: CmsgSwapInvItem = ClientMessage::read_as(data).unwrap();
 
@@ -226,6 +231,7 @@ impl OpcodeHandler {
         session: Arc<WorldSession>,
         world_context: Arc<WorldContext>,
         data: Vec<u8>,
+        _vm_all_storages: Option<AllStoragesViewMut>,
     ) {
         let cmsg_split_item: CmsgSplitItem = ClientMessage::read_as(data).unwrap();
 
@@ -269,6 +275,7 @@ impl OpcodeHandler {
         session: Arc<WorldSession>,
         world_context: Arc<WorldContext>,
         data: Vec<u8>,
+        _vm_all_storages: Option<AllStoragesViewMut>,
     ) {
         let cmsg: CmsgUseItem = ClientMessage::read_as(data).unwrap();
 

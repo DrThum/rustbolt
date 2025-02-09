@@ -12,6 +12,7 @@ impl OpcodeHandler {
         session: Arc<WorldSession>,
         _world_context: Arc<WorldContext>,
         data: Vec<u8>,
+        _vm_all_storages: Option<AllStoragesViewMut>,
     ) {
         let cmsg_update_account_data: CmsgUpdateAccountData = ClientMessage::read_as(data).unwrap();
 

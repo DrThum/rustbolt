@@ -21,6 +21,7 @@ impl OpcodeHandler {
         session: Arc<WorldSession>,
         world_context: Arc<WorldContext>,
         data: Vec<u8>,
+        _vm_all_storages: Option<AllStoragesViewMut>,
     ) {
         let cmsg: CmsgQuestGiverStatusQuery = ClientMessage::read_as(data).unwrap();
 
@@ -53,6 +54,7 @@ impl OpcodeHandler {
         session: Arc<WorldSession>,
         world_context: Arc<WorldContext>,
         data: Vec<u8>,
+        _vm_all_storages: Option<AllStoragesViewMut>,
     ) {
         let cmsg: CmsgQuestGiverHello = ClientMessage::read_as(data).unwrap();
 
@@ -63,6 +65,7 @@ impl OpcodeHandler {
         session: Arc<WorldSession>,
         world_context: Arc<WorldContext>,
         data: Vec<u8>,
+        _vm_all_storages: Option<AllStoragesViewMut>,
     ) {
         let cmsg: CmsgQuestGiverQueryQuest = ClientMessage::read_as(data).unwrap();
 
@@ -86,6 +89,7 @@ impl OpcodeHandler {
         session: Arc<WorldSession>,
         world_context: Arc<WorldContext>,
         data: Vec<u8>,
+        _vm_all_storages: Option<AllStoragesViewMut>,
     ) {
         let cmsg: CmsgQuestGiverAcceptQuest = ClientMessage::read_as(data).unwrap();
 
@@ -102,6 +106,7 @@ impl OpcodeHandler {
         session: Arc<WorldSession>,
         world_context: Arc<WorldContext>,
         _data: Vec<u8>,
+        _vm_all_storages: Option<AllStoragesViewMut>,
     ) {
         let map = session.current_map().unwrap();
         let mut statuses: Vec<QuestGiverStatusMultipleEntry> = Vec::new();
@@ -136,6 +141,7 @@ impl OpcodeHandler {
         session: Arc<WorldSession>,
         _world_context: Arc<WorldContext>,
         data: Vec<u8>,
+        _vm_all_storages: Option<AllStoragesViewMut>,
     ) {
         let cmsg: CmsgQuestLogRemoveQuest = ClientMessage::read_as(data).unwrap();
 
@@ -149,6 +155,7 @@ impl OpcodeHandler {
         session: Arc<WorldSession>,
         world_context: Arc<WorldContext>,
         data: Vec<u8>,
+        _vm_all_storages: Option<AllStoragesViewMut>,
     ) {
         let cmsg: CmsgQuestGiverCompleteQuest = ClientMessage::read_as(data).unwrap();
 
@@ -201,6 +208,7 @@ impl OpcodeHandler {
         session: Arc<WorldSession>,
         world_context: Arc<WorldContext>,
         data: Vec<u8>,
+        _vm_all_storages: Option<AllStoragesViewMut>,
     ) {
         let cmsg: CmsgQuestGiverRequestReward = ClientMessage::read_as(data).unwrap();
 
@@ -232,6 +240,7 @@ impl OpcodeHandler {
         session: Arc<WorldSession>,
         world_context: Arc<WorldContext>,
         data: Vec<u8>,
+        _vm_all_storages: Option<AllStoragesViewMut>,
     ) {
         let cmsg: CmsgQuestGiverChooseReward = ClientMessage::read_as(data).unwrap();
 

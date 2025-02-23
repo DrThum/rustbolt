@@ -10,6 +10,8 @@ use tools_shared::mpq_manager::MPQManager;
 
 use super::{bounds::Bounds, tile_info::TileInfo};
 
+use serde::Serialize;
+
 pub struct Minimap {
     pub tiles: Vec<TileInfo>,
     pub bounds: Bounds,
@@ -54,7 +56,7 @@ impl Minimap {
 
         let mut stitched = DynamicImage::new_rgba16(stitched_width_px, stitched_height_px);
 
-        let mut metadata = HashMap::new();
+        let mut tiles = HashMap::new();
 
         for tile in self.tiles.iter() {
             let full_path = format!("textures\\Minimap\\{}", tile.hashed_file_name);
@@ -77,7 +79,7 @@ impl Minimap {
                     ))
                     .unwrap();
 
-                metadata.insert(format!("tile_{}_{}_exists", tile.tile_x, tile.tile_y), true);
+                tiles.insert(format!("tile_{}_{}_exists", tile.tile_x, tile.tile_y), true);
             }
 
             if extract_stitched {
@@ -97,7 +99,17 @@ impl Minimap {
                 .unwrap();
         }
 
-        if !metadata.is_empty() {
+        if !tiles.is_empty() {
+            let metadata = Metadata {
+                tiles,
+                bounds: HashMap::from([
+                    ("min_x".to_string(), self.bounds.start_x),
+                    ("max_x".to_string(), self.bounds.end_x),
+                    ("min_y".to_string(), self.bounds.start_y),
+                    ("max_y".to_string(), self.bounds.end_y),
+                ]),
+            };
+
             let file = File::create(format!(
                 "{}/{}/{}.metadata.json",
                 output_dir, map_name, map_name
@@ -112,4 +124,10 @@ impl Minimap {
 
         println!("\tDone");
     }
+}
+
+#[derive(Serialize)]
+struct Metadata {
+    tiles: HashMap<String, bool>,
+    bounds: HashMap<String, u32>,
 }

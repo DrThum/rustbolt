@@ -171,6 +171,7 @@ impl Map {
         let map = Arc::new(map);
 
         map.world.lock().add_unique(WrappedMap(map.clone()));
+        map.world.lock().add_unique(HasPlayers(false));
 
         let map_id = key.map_id;
         let target_tick_time = config.world.game.target_tick_time_ms;

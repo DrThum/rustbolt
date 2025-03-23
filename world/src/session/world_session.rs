@@ -178,7 +178,9 @@ impl WorldSession {
             self.player_entity_id.write().take();
             self.player_guid.write().take();
 
-            world_context.session_holder.remove_session(self.account_id);
+            world_context
+                .session_holder
+                .remove_session(&self.account_id);
         }
     }
 

@@ -57,6 +57,7 @@ use crate::{
     },
     session::world_session::WorldSession,
     shared::constants::{HighGuidType, NpcFlags, WeaponAttackType},
+    SessionHolder,
 };
 
 use super::{
@@ -76,7 +77,7 @@ pub struct Map {
     key: MapKey,
     world: Arc<ReentrantMutex<World>>,
     world_context: Arc<WorldContext>,
-    sessions: RwLock<HashMap<ObjectGuid, Arc<WorldSession>>>,
+    session_holder: SessionHolder<ObjectGuid>,
     ecs_entities: RwLock<HashMap<ObjectGuid, EntityId>>,
     terrain: Arc<HashMap<TerrainBlockCoords, Terrain>>,
     spatial_grid: SpatialGrid,
@@ -123,7 +124,7 @@ impl Map {
             key,
             world: world.clone(),
             world_context: world_context.clone(),
-            sessions: RwLock::new(HashMap::new()),
+            session_holder: SessionHolder::new(),
             ecs_entities: RwLock::new(HashMap::new()),
             terrain,
             spatial_grid: SpatialGrid::new(),
@@ -242,14 +243,14 @@ impl Map {
     pub fn add_player_on_login(&self, session: Arc<WorldSession>, char_data: &CharacterRecord) {
         let player_guid = ObjectGuid::from_raw(char_data.guid).unwrap();
 
+        if let Some(previous_session) = self
+            .session_holder
+            .insert_session(player_guid, session.clone())
         {
-            let mut guard = self.sessions.write();
-            if let Some(previous_session) = guard.insert(player_guid, session.clone()) {
-                warn!(
-                    "session from account {} was already on map {}",
-                    previous_session.account_id, self.key
-                );
-            }
+            warn!(
+                "session from account {} was already on map {}",
+                previous_session.account_id, self.key
+            );
         }
 
         let player_entity_id = self.world.lock().run(
@@ -392,7 +393,7 @@ impl Map {
                     .world()
                     .run(|v_guid: View<Guid>| v_guid[other_entity_id].0);
                 // Broadcast the new player to nearby players
-                let other_session = self.sessions.read().get(&other_entity_guid).cloned();
+                let other_session = self.session_holder.get_session(&other_entity_guid);
                 if let Some(other_session) = other_session {
                     let smsg_create_object: SmsgCreateObject;
                     {
@@ -501,12 +502,7 @@ impl Map {
             self.spatial_grid.delete(&player_entity_id);
         }
 
-        {
-            let mut guard = self.sessions.write();
-            if guard.remove(player_guid).is_none() {
-                warn!("player guid {:?} was not on map {}", player_guid, self.key);
-            }
-        }
+        self.session_holder.remove_session(player_guid);
     }
 
     pub fn add_creature(
@@ -736,9 +732,8 @@ impl Map {
 
             for other_entity_id in appeared_for {
                 let other_guid = v_guid[other_entity_id].0;
-                let other_session = self.sessions.read().get(&other_guid).cloned();
                 // Make the moving entity appear for the other player
-                if let Some(other_session) = other_session {
+                if let Some(other_session) = self.session_holder.get_session(&other_guid) {
                     // Construct the SMSG the first time that it's needed
                     if moving_entity_smsg_create_object.is_none() {
                         let movement = v_movement
@@ -799,8 +794,7 @@ impl Map {
 
             for other_entity_id in disappeared_for {
                 let other_guid = v_guid[other_entity_id].0;
-                let other_session = self.sessions.read().get(&other_guid).cloned();
-                if let Some(other_session) = other_session {
+                if let Some(other_session) = self.session_holder.get_session(&other_guid) {
                     // Destroy the moving player for the other player
                     other_session.destroy_entity(entity_guid);
                 }
@@ -945,19 +939,13 @@ impl Map {
             .map(|(entity_id, _)| entity_id)
             .collect();
 
-        self.sessions
-            .read()
-            .iter()
-            .filter_map(|(guid, session)| {
-                if let Some(entity_id) = self.lookup_entity_ecs(guid) {
-                    if entity_ids.contains(&entity_id) {
-                        return Some(session.clone());
-                    }
-                }
+        self.session_holder.get_matching_sessions(|guid| {
+            if let Some(entity_id) = self.lookup_entity_ecs(guid) {
+                return entity_ids.contains(&entity_id);
+            }
 
-                None
-            })
-            .collect()
+            false
+        })
     }
 
     pub fn sessions_nearby_position(
@@ -971,19 +959,13 @@ impl Map {
             self.spatial_grid
                 .search_ids_around_position(position, range, search_in_3d, exclude_id);
 
-        self.sessions
-            .read()
-            .iter()
-            .filter_map(|(guid, session)| {
-                if let Some(entity_id) = self.lookup_entity_ecs(guid) {
-                    if entity_ids.contains(&entity_id) {
-                        return Some(session.clone());
-                    }
-                }
+        self.session_holder.get_matching_sessions(|guid| {
+            if let Some(entity_id) = self.lookup_entity_ecs(guid) {
+                return entity_ids.contains(&entity_id);
+            }
 
-                None
-            })
-            .collect()
+            false
+        })
     }
 
     pub fn get_ground_or_floor_height(
@@ -1097,7 +1079,7 @@ impl Map {
     }
 
     pub fn get_session(&self, player_guid: &ObjectGuid) -> Option<Arc<WorldSession>> {
-        self.sessions.read().get(player_guid).cloned()
+        self.session_holder.get_session(player_guid)
     }
 
     pub fn get_random_point_around(&self, origin: &Vector3, radius: f32) -> Vector3 {

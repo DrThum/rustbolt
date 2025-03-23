@@ -1,36 +1,63 @@
+use core::fmt;
 use std::{collections::HashMap, sync::Arc};
 
 use parking_lot::RwLock;
 
 use super::world_session::WorldSession;
 
-pub struct SessionHolder {
-    sessions: RwLock<HashMap<u32, Arc<WorldSession>>>,
+pub struct SessionHolder<Key: Eq + std::hash::Hash + fmt::Debug> {
+    sessions: RwLock<HashMap<Key, Arc<WorldSession>>>,
 }
 
-impl Default for SessionHolder {
+impl<Key> Default for SessionHolder<Key>
+where
+    Key: Eq + std::hash::Hash + fmt::Debug,
+{
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl SessionHolder {
+impl<Key> SessionHolder<Key>
+where
+    Key: Eq + std::hash::Hash + fmt::Debug,
+{
     pub fn new() -> Self {
         Self {
             sessions: RwLock::new(HashMap::new()),
         }
     }
 
-    pub fn insert_session(&self, session: Arc<WorldSession>) -> Option<Arc<WorldSession>> {
-        let account_id = session.account_id;
-        self.sessions.write().insert(account_id, session)
+    pub fn insert_session(
+        &self,
+        key: Key,
+        session: Arc<WorldSession>,
+    ) -> Option<Arc<WorldSession>> {
+        self.sessions.write().insert(key, session)
     }
 
-    pub fn remove_session(&self, account_id: u32) {
-        self.sessions.write().remove(&account_id);
+    pub fn remove_session(&self, key: &Key) {
+        if self.sessions.write().remove(key).is_none() {
+            log::warn!(
+                "trying to remove a non-existent session: account id or player guid = {:?}",
+                key
+            );
+        }
     }
 
-    pub fn get_session_for_account(&self, account_id: u32) -> Option<Arc<WorldSession>> {
-        self.sessions.read().get(&account_id).cloned()
+    pub fn get_session(&self, key: &Key) -> Option<Arc<WorldSession>> {
+        self.sessions.read().get(key).cloned()
+    }
+
+    pub fn get_matching_sessions(
+        &self,
+        predicate: impl Fn(&Key) -> bool,
+    ) -> Vec<Arc<WorldSession>> {
+        self.sessions
+            .read()
+            .iter()
+            .filter(|(key, _session)| predicate(key))
+            .map(|(_, session)| session.clone())
+            .collect()
     }
 }

@@ -211,7 +211,7 @@ impl WorldSocketState<ServerSentAuthChallenge> {
 
     async fn handle_auth_session(
         mut self,
-        session_holder: Arc<SessionHolder>,
+        session_holder: Arc<SessionHolder<u32>>,
     ) -> Result<WorldSocketState<ServerSentAuthResponse>, WorldSocketError> {
         let auth_session_client_message = self.read_socket_plain().await?;
         let payload_clone = auth_session_client_message.payload.clone();
@@ -267,14 +267,14 @@ impl WorldSocketState<ServerSentAuthChallenge> {
 
         session.send(&packet).unwrap();
 
-        if let Some(previous_session) = session_holder.insert_session(session) {
+        if let Some(previous_session) = session_holder.insert_session(session.account_id, session) {
             previous_session.shutdown(
                 &mut self.state.world_context.database.characters.get().unwrap(),
                 self.state.world_context.clone(),
             );
         }
 
-        if let Some(session) = session_holder.get_session_for_account(account_id) {
+        if let Some(session) = session_holder.get_session(&account_id) {
             Ok(WorldSocketState {
                 state: ServerSentAuthResponse {
                     session: session.clone(),
@@ -334,7 +334,7 @@ impl WorldSocketState<ServerSentAuthChallenge> {
 pub async fn process(
     socket: TcpStream,
     world_context: Arc<WorldContext>,
-    session_holder: Arc<SessionHolder>,
+    session_holder: Arc<SessionHolder<u32>>,
 ) -> Result<(), WorldSocketError> {
     let state = WorldSocketState {
         state: SocketOpened {

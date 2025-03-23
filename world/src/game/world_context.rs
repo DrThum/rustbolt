@@ -18,7 +18,7 @@ pub struct WorldContext {
     pub spell_effect_handler: Arc<SpellEffectHandler>,
     pub config: Arc<WorldConfig>,
     pub start_time: Instant,
-    pub session_holder: Arc<SessionHolder>,
+    pub session_holder: Arc<SessionHolder<u32>>,
     pub map_manager: Arc<MapManager>,
     pub chat_commands: ChatCommands,
     pub next_item_guid_counter: RelaxedCounter,

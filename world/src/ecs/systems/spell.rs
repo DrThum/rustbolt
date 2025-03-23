@@ -9,7 +9,7 @@ use crate::{
     },
     entities::player::Player,
     game::{
-        map::{Map, WrappedMap},
+        map::{HasPlayers, Map, WrappedMap},
         spell::Spell,
         spell_effect_handler::{SpellEffectHandler, WrappedSpellEffectHandler},
         world_context::{WorldContext, WrappedWorldContext},
@@ -21,12 +21,13 @@ use crate::{
 pub fn update_spell(vm_all_storages: AllStoragesViewMut) {
     vm_all_storages.run(
         |map: UniqueView<WrappedMap>,
+         has_players: UniqueView<HasPlayers>,
          world_context: UniqueView<WrappedWorldContext>,
          spell_effect_handler: UniqueView<WrappedSpellEffectHandler>,
          mut vm_spell: ViewMut<SpellCast>,
          v_guid: View<Guid>,
          v_nearby_players: View<NearbyPlayers>| {
-            if !map.0.has_players() {
+            if !has_players.0 {
                 return;
             }
 

@@ -188,9 +188,17 @@ impl Map {
 
                     {
                         let world_guard = world.lock();
-                        world_guard.run(|mut dt: UniqueViewMut<DeltaTime>| {
-                            *dt = DeltaTime(elapsed_since_last_tick);
-                        });
+                        world_guard.run(
+                            |mut dt: UniqueViewMut<DeltaTime>,
+                             mut hp: UniqueViewMut<HasPlayers>| {
+                                // Update the delta time
+                                *dt = DeltaTime(elapsed_since_last_tick);
+                                // Update whether the map has players
+                                *hp = HasPlayers(
+                                    !world_guard.borrow::<View<Player>>().unwrap().is_empty(),
+                                );
+                            },
+                        );
                         world_guard.run_workload(workload).unwrap();
                     }
 
@@ -230,10 +238,6 @@ impl Map {
 
     pub fn lookup_entity_ecs(&self, guid: &ObjectGuid) -> Option<EntityId> {
         self.ecs_entities.read().get(guid).copied()
-    }
-
-    pub fn has_players(&self) -> bool {
-        !self.sessions.read().is_empty()
     }
 
     pub fn add_player_on_login(&self, session: Arc<WorldSession>, char_data: &CharacterRecord) {
@@ -1171,3 +1175,6 @@ struct VisibilityChangesAfterMovement {
     pub entities_in_range_before: HashSet<EntityId>,
     pub entities_in_range_now: HashSet<EntityId>,
 }
+
+#[derive(Unique)]
+pub struct HasPlayers(pub bool);

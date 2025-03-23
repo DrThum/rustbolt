@@ -6,12 +6,19 @@ use crate::{
         unit::Unit,
     },
     entities::{creature::Creature, player::Player, position::WorldPosition},
-    game::{map::WrappedMap, world_context::WrappedWorldContext},
+    game::{
+        map::{HasPlayers, WrappedMap},
+        world_context::WrappedWorldContext,
+    },
 };
 
 // TODO: Move to systems/combat?
 pub fn attempt_melee_attack(
-    (map, world_context): (UniqueView<WrappedMap>, UniqueView<WrappedWorldContext>),
+    (has_players, map, world_context): (
+        UniqueView<HasPlayers>,
+        UniqueView<WrappedMap>,
+        UniqueView<WrappedWorldContext>,
+    ),
     v_guid: View<Guid>,
     mut vm_powers: ViewMut<Powers>,
     mut vm_melee: ViewMut<Melee>,
@@ -22,7 +29,7 @@ pub fn attempt_melee_attack(
     v_spell: View<SpellCast>,
     v_creature: View<Creature>,
 ) {
-    if !map.0.has_players() {
+    if !has_players.0 {
         return;
     }
 

@@ -23,12 +23,16 @@ use crate::{
         player::Player,
         position::{Position, WorldPosition},
     },
-    game::{map::WrappedMap, movement_spline::MovementSplineState},
+    game::{
+        map::{HasPlayers, WrappedMap},
+        movement_spline::MovementSplineState,
+    },
     shared::constants::{CREATURE_LEASH_DISTANCE, MAX_CHASE_LEEWAY},
 };
 
 pub fn update_movement(
     dt: UniqueView<DeltaTime>,
+    has_players: UniqueView<HasPlayers>,
     map: UniqueView<WrappedMap>,
     v_guid: View<Guid>,
     (v_player, v_creature, v_game_object): (View<Player>, View<Creature>, View<GameObject>),
@@ -51,7 +55,7 @@ pub fn update_movement(
         ViewMut<Unwind>,
     ),
 ) {
-    if !map.0.has_players() {
+    if !has_players.0 {
         return;
     }
 

@@ -23,15 +23,18 @@ use crate::{
         player::Player,
         position::WorldPosition,
     },
-    game::{map::WrappedMap, world_context::WrappedWorldContext},
+    game::{
+        map::{HasPlayers, WrappedMap},
+        world_context::WrappedWorldContext,
+    },
     shared::constants::{CREATURE_AGGRO_DISTANCE_MAX, MAX_CHASE_LEEWAY},
 };
 
 pub fn tick(vm_all_storage: AllStoragesViewMut) {
     // Don't run on maps with no player
     {
-        let map = vm_all_storage.borrow::<UniqueView<WrappedMap>>().unwrap();
-        if !map.0.has_players() {
+        let has_players = vm_all_storage.borrow::<UniqueView<HasPlayers>>().unwrap();
+        if !has_players.0 {
             return;
         }
     }

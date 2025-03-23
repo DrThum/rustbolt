@@ -6,17 +6,17 @@ use crate::{
         unit::Unit,
     },
     entities::player::Player,
-    game::map::WrappedMap,
+    game::map::HasPlayers,
 };
 
 pub fn update_combat_state(
     v_player: View<Player>,
-    map: UniqueView<WrappedMap>,
+    has_players: UniqueView<HasPlayers>,
     vm_unit: ViewMut<Unit>,
     v_threat_list: View<ThreatList>,
     v_powers: View<Powers>,
 ) {
-    if !map.0.has_players() {
+    if !has_players.0 {
         return;
     }
 
@@ -64,13 +64,13 @@ pub fn update_combat_state(
 // TODO: 130%/110% rule for taking aggro if there's already a target
 pub fn select_target(
     v_powers: View<Powers>,
-    map: UniqueView<WrappedMap>,
+    has_players: UniqueView<HasPlayers>,
     mut vm_unit: ViewMut<Unit>,
     mut vm_threat_list: ViewMut<ThreatList>,
     v_nearby_players: View<NearbyPlayers>,
     v_guid: View<Guid>,
 ) {
-    if !map.0.has_players() {
+    if !has_players.0 {
         return;
     }
 

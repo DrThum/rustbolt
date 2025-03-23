@@ -11,19 +11,20 @@ use crate::{
         position::WorldPosition,
         update::{UpdateBlockBuilder, UpdateData, UpdateType},
     },
-    game::map::WrappedMap,
+    game::map::{HasPlayers, WrappedMap},
     protocol::packets::SmsgUpdateObject,
     shared::constants::{AttributeModifier, PowerType, SpellSchool, UnitAttribute},
 };
 
 pub fn send_entity_update(
     map: UniqueView<WrappedMap>,
+    has_players: UniqueView<HasPlayers>,
     v_guid: View<Guid>,
     v_int_vals: View<WrappedInternalValues>,
     v_wpos: View<WorldPosition>,
     v_nearby_players: View<NearbyPlayers>,
 ) {
-    if !map.0.has_players() {
+    if !has_players.0 {
         return;
     }
 
@@ -69,10 +70,11 @@ pub fn send_entity_update(
 
 pub fn update_player_environment(
     map: UniqueView<WrappedMap>,
+    has_players: UniqueView<HasPlayers>,
     v_player: View<Player>,
     v_game_object: View<GameObject>,
 ) {
-    if !map.0.has_players() {
+    if !has_players.0 {
         return;
     }
 

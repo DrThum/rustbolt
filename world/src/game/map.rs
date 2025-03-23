@@ -7,12 +7,8 @@ use std::{
 
 use log::{error, info, warn};
 use parking_lot::{ReentrantMutex, ReentrantMutexGuard, RwLock};
-use parry3d::{
-    math::{Isometry, Point},
-    query::{Ray, RayCast},
-};
 use rand::Rng;
-use shared::models::terrain_info::{Terrain, Vector3, BLOCK_WIDTH, MAP_WIDTH_IN_BLOCKS};
+use shared::models::terrain_info::Vector3;
 use shipyard::{
     AllStoragesViewMut, EntitiesViewMut, EntityId, Get, IntoWorkload, Unique, UniqueViewMut, View,
     ViewMut, World,
@@ -61,17 +57,14 @@ use crate::{
 };
 
 use super::{
-    map_manager::{MapKey, TerrainBlockCoords},
+    map_manager::MapKey,
     spatial_grid::SpatialGrid,
     spell_effect_handler::WrappedSpellEffectHandler,
+    terrain_manager::TerrainManager,
     world_context::{WorldContext, WrappedWorldContext},
 };
 
 pub const DEFAULT_VISIBILITY_DISTANCE: f32 = 90.0;
-// Add a safety margin when calculating ground height to account for rounding when generating
-// terrain data and ensure that our ray (when we are within a WMO) starts from high enough to
-// actually hit the floor.
-pub const HEIGHT_MEASUREMENT_TOLERANCE: f32 = 1.;
 
 pub struct Map {
     key: MapKey,
@@ -79,7 +72,7 @@ pub struct Map {
     world_context: Arc<WorldContext>,
     session_holder: SessionHolder<ObjectGuid>,
     ecs_entities: RwLock<HashMap<ObjectGuid, EntityId>>,
-    terrain: Arc<HashMap<TerrainBlockCoords, Terrain>>,
+    terrain_manager: Arc<TerrainManager>,
     spatial_grid: SpatialGrid,
     visibility_distance: f32,
 }
@@ -88,7 +81,7 @@ impl Map {
     pub fn new(
         key: MapKey,
         world_context: Arc<WorldContext>,
-        terrain: Arc<HashMap<TerrainBlockCoords, Terrain>>,
+        terrain_manager: Arc<TerrainManager>,
         creature_spawns: Vec<CreatureSpawnDbRecord>,
         game_object_spawns: Vec<GameObjectSpawnDbRecord>,
         config: Arc<WorldConfig>,
@@ -126,7 +119,7 @@ impl Map {
             world_context: world_context.clone(),
             session_holder: SessionHolder::new(),
             ecs_entities: RwLock::new(HashMap::new()),
-            terrain,
+            terrain_manager,
             spatial_grid: SpatialGrid::new(),
             visibility_distance: DEFAULT_VISIBILITY_DISTANCE,
         };
@@ -342,6 +335,7 @@ impl Map {
                         WorldPosition {
                             map_key: self.key,
                             zone: self
+                                .terrain_manager
                                 .get_area_id(char_data.position.x, char_data.position.y)
                                 .unwrap_or(0),
                             x: char_data.position.x,
@@ -384,7 +378,7 @@ impl Map {
         {
             let entities_around: Vec<EntityId> = self.spatial_grid.search_ids_around_position(
                 &char_data.position.as_position(),
-                self.visibility_distance(),
+                self.visibility_distance,
                 true,
                 Some(&player_entity_id),
             );
@@ -491,7 +485,7 @@ impl Map {
         if let Some(player_entity_id) = maybe_player_entity_id {
             let other_sessions = self.sessions_nearby_entity(
                 &player_entity_id,
-                self.visibility_distance(),
+                self.visibility_distance,
                 false,
                 false,
             );
@@ -626,12 +620,9 @@ impl Map {
             .insert(wpos.as_position(), creature_entity_id);
 
         // TODO: Don't attempt this during startup, it's pointless
-        for session in self.sessions_nearby_position(
-            &wpos.as_position(),
-            self.visibility_distance(),
-            true,
-            None,
-        ) {
+        for session in
+            self.sessions_nearby_position(&wpos.as_position(), self.visibility_distance, true, None)
+        {
             // Broadcast the new creature to nearby players
             let smsg_create_object: SmsgCreateObject;
             {
@@ -968,70 +959,6 @@ impl Map {
         })
     }
 
-    pub fn get_ground_or_floor_height(
-        &self,
-        position_x: f32,
-        position_y: f32,
-        position_z: f32,
-    ) -> Option<f32> {
-        let offset: f32 = MAP_WIDTH_IN_BLOCKS as f32 / 2.0;
-        let block_row = (offset - (position_x / BLOCK_WIDTH)).floor() as usize;
-        let block_col = (offset - (position_y / BLOCK_WIDTH)).floor() as usize;
-        let terrain_block_coords = TerrainBlockCoords {
-            row: block_row,
-            col: block_col,
-        };
-
-        self.terrain.get(&terrain_block_coords).and_then(|terrain| {
-            // Check if we are within a WMO first
-            let ray = Ray::new(
-                Point::new(
-                    position_x,
-                    position_y,
-                    position_z + HEIGHT_MEASUREMENT_TOLERANCE,
-                ),
-                -parry3d::na::Vector3::z(),
-            );
-            let time_of_impact = terrain
-                .collision_mesh
-                .as_ref()
-                .and_then(|mesh| mesh.cast_ray(&Isometry::identity(), &ray, f32::MAX, false));
-
-            let intersection_point = time_of_impact.map(|toi| ray.origin + ray.dir * toi);
-            let wmo_height = intersection_point
-                .map(|ip| ip[2])
-                .filter(|&h| h <= (position_z + HEIGHT_MEASUREMENT_TOLERANCE));
-
-            // Fallback on the ground
-            let ground_height = terrain
-                .ground
-                .get_height(position_x, position_y)
-                .filter(|&h| h <= (position_z + HEIGHT_MEASUREMENT_TOLERANCE));
-
-            match (wmo_height, ground_height) {
-                (None, None) => None,
-                (None, Some(_)) => ground_height,
-                (Some(_), None) => wmo_height,
-                (Some(wmo), Some(ground)) => Some(wmo.max(ground)),
-            }
-        })
-    }
-
-    pub fn get_area_id(&self, position_x: f32, position_y: f32) -> Option<u32> {
-        let offset: f32 = MAP_WIDTH_IN_BLOCKS as f32 / 2.0;
-        let block_row = (offset - (position_x / BLOCK_WIDTH)).floor() as usize;
-        let block_col = (offset - (position_y / BLOCK_WIDTH)).floor() as usize;
-        let terrain_block_coords = TerrainBlockCoords {
-            row: block_row,
-            col: block_col,
-        };
-
-        self.terrain.get(&terrain_block_coords).map(|terrain| {
-            // TODO: Area ID might come from the WMO
-            terrain.ground.get_area_id(position_x, position_y)
-        })
-    }
-
     pub fn visibility_distance(&self) -> f32 {
         self.visibility_distance
     }
@@ -1045,7 +972,7 @@ impl Map {
         if let Some(origin_entity_id) = self.lookup_entity_ecs(origin_guid) {
             for session in self.sessions_nearby_entity(
                 &origin_entity_id,
-                self.visibility_distance(),
+                self.visibility_distance,
                 true,
                 false,
             ) {
@@ -1069,7 +996,7 @@ impl Map {
         if let Some(origin_entity_id) = self.lookup_entity_ecs(origin_guid) {
             for session in self.sessions_nearby_entity(
                 &origin_entity_id,
-                range.unwrap_or(self.visibility_distance()),
+                range.unwrap_or(self.visibility_distance),
                 true,
                 include_self,
             ) {
@@ -1094,6 +1021,7 @@ impl Map {
         let random_x = origin.x + distance * angle.cos();
         let random_y = origin.y + distance * angle.sin();
         let z = self
+            .terrain_manager
             .get_ground_or_floor_height(random_x, random_y, origin.z)
             .unwrap_or(origin.z);
 
@@ -1110,6 +1038,7 @@ impl Map {
         let y = origin.y + distance * angle.sin();
 
         let z = self
+            .terrain_manager
             .get_ground_or_floor_height(x, y, origin.z)
             .unwrap_or(origin.z);
 

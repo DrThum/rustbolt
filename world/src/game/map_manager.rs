@@ -3,18 +3,16 @@ use std::{collections::HashMap, fmt::Display, sync::Arc};
 use atomic_counter::{AtomicCounter, RelaxedCounter};
 use log::info;
 use parking_lot::RwLock;
-use shared::models::terrain_info::{Terrain, TerrainBlock, MAP_WIDTH_IN_BLOCKS};
 
 use crate::{
     config::WorldConfig,
-    entities::{object_guid::ObjectGuid, position::WorldPosition},
+    entities::object_guid::ObjectGuid,
     protocol::{self, server::ServerMessage},
     repositories::{creature::CreatureRepository, game_object::GameObjectRepository},
-    session::world_session::WorldSession,
     DataStore,
 };
 
-use super::{map::Map, world_context::WorldContext};
+use super::{map::Map, terrain_manager::TerrainManager, world_context::WorldContext};
 
 pub enum MapManagerError {
     UnknownMapId,
@@ -32,7 +30,7 @@ pub struct MapManager {
     maps: RwLock<HashMap<MapKey, Arc<Map>>>,
     data_store: Arc<DataStore>,
     next_instance_id: RelaxedCounter,
-    terrains: RwLock<HashMap<u32, Arc<HashMap<TerrainBlockCoords, Terrain>>>>,
+    terrains: RwLock<HashMap<u32, Arc<TerrainManager>>>,
 }
 
 impl MapManager {
@@ -59,31 +57,17 @@ impl MapManager {
             .get_all_map_records()
             .filter(|m| m.is_continent())
         {
-            let mut map_terrains: HashMap<TerrainBlockCoords, Terrain> = HashMap::new();
-
-            if config.world.dev.load_terrain {
+            let map_terrain_manager = Arc::new(if config.world.dev.load_terrain {
                 // Load terrain for this map
-                for row in 0..MAP_WIDTH_IN_BLOCKS {
-                    for col in 0..MAP_WIDTH_IN_BLOCKS {
-                        let maybe_terrain = TerrainBlock::load_from_disk(
-                            &config.common.data.directory,
-                            &map.internal_name,
-                            row,
-                            col,
-                        );
-
-                        if let Some(terrain_block) = maybe_terrain {
-                            let key = TerrainBlockCoords { row, col };
-                            map_terrains.insert(key, terrain_block);
-                        }
-                    }
-                }
+                TerrainManager::load(&config.common.data.directory, &map.internal_name)
             } else {
                 info!("Terrain loading disabled in configuration");
-            }
+                TerrainManager::empty()
+            });
 
-            let map_terrains = Arc::new(map_terrains);
-            self.terrains.write().insert(map.id, map_terrains.clone());
+            self.terrains
+                .write()
+                .insert(map.id, map_terrain_manager.clone());
 
             let creature_spawns = CreatureRepository::load_creature_spawns(conn, map.id);
             let game_object_spawns = GameObjectRepository::load_game_object_spawns(conn, map.id);
@@ -94,7 +78,7 @@ impl MapManager {
                 Map::new(
                     key,
                     world_context.clone(),
-                    map_terrains,
+                    map_terrain_manager,
                     creature_spawns,
                     game_object_spawns,
                     config.clone(),
@@ -117,28 +101,12 @@ impl MapManager {
                 } else {
                     // Load terrain for this map, or get it from the cache
                     let mut terrain_guard = self.terrains.write();
-                    let map_terrain: &mut Arc<HashMap<TerrainBlockCoords, Terrain>> =
+                    let map_terrain_manager: &mut Arc<TerrainManager> =
                         terrain_guard.entry(map_id).or_insert_with(|| {
-                            let mut map_terrains: HashMap<TerrainBlockCoords, Terrain> =
-                                HashMap::new();
-
-                            for row in 0..MAP_WIDTH_IN_BLOCKS {
-                                for col in 0..MAP_WIDTH_IN_BLOCKS {
-                                    let maybe_terrain = TerrainBlock::load_from_disk(
-                                        &self.config.common.data.directory,
-                                        &map_record.internal_name,
-                                        row,
-                                        col,
-                                    );
-
-                                    if let Some(terrain) = maybe_terrain {
-                                        let key = TerrainBlockCoords { row, col };
-                                        map_terrains.insert(key, terrain);
-                                    }
-                                }
-                            }
-
-                            Arc::new(map_terrains)
+                            Arc::new(TerrainManager::load(
+                                &self.config.common.data.directory,
+                                &map_record.internal_name,
+                            ))
                         });
 
                     let mut map_guard = self.maps.write();
@@ -152,7 +120,7 @@ impl MapManager {
                     let map = Map::new(
                         map_key,
                         world_context.clone(),
-                        map_terrain.clone(),
+                        map_terrain_manager.clone(),
                         creature_spawns,
                         game_object_spawns,
                         self.config.clone(),
@@ -196,23 +164,6 @@ impl MapManager {
                 map.broadcast_packet(origin_guid, packet, None, include_self);
             }
         }
-    }
-
-    pub fn nearby_sessions(&self, world_position: &WorldPosition) -> Vec<Arc<WorldSession>> {
-        let mut result = Vec::new();
-
-        let maps_guard = self.maps.read();
-        if let Some(map) = maps_guard.get(&world_position.map_key) {
-            let sessions = &mut map.sessions_nearby_position(
-                &world_position.as_position(),
-                map.visibility_distance(),
-                true,
-                None,
-            );
-            result.append(sessions);
-        }
-
-        result
     }
 }
 

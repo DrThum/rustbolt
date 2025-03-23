@@ -59,11 +59,12 @@ pub mod game {
     pub mod map_manager;
     pub mod movement_spline;
     pub mod quad_tree;
-    pub mod spatial_grid;
+    mod spatial_grid;
     pub mod spell;
     pub mod spell_cast_target;
     pub mod spell_effect_handler;
     mod spell_effect_handlers;
+    mod terrain_manager;
     pub mod world_context;
 }
 mod protocol {

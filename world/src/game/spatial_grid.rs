@@ -67,17 +67,4 @@ impl SpatialGrid {
             .read()
             .search_around_entity(entity_id, radius, search_in_3d, exclude_id)
     }
-
-    pub fn search_ids_around_entity(
-        &self,
-        entity_id: &EntityId,
-        radius: f32,
-        search_in_3d: bool,
-        exclude_id: Option<&EntityId>,
-    ) -> Vec<EntityId> {
-        self.search_around_entity(entity_id, radius, search_in_3d, exclude_id)
-            .into_iter()
-            .map(|(entity_id, _)| entity_id)
-            .collect()
-    }
 }

@@ -59,6 +59,7 @@ pub mod game {
     pub mod map_manager;
     pub mod movement_spline;
     pub mod quad_tree;
+    pub mod spatial_grid;
     pub mod spell;
     pub mod spell_cast_target;
     pub mod spell_effect_handler;

@@ -61,7 +61,7 @@ use crate::{
 
 use super::{
     map_manager::{MapKey, TerrainBlockCoords},
-    quad_tree::QuadTree,
+    spatial_grid::SpatialGrid,
     spell_effect_handler::WrappedSpellEffectHandler,
     world_context::{WorldContext, WrappedWorldContext},
 };
@@ -79,7 +79,7 @@ pub struct Map {
     sessions: RwLock<HashMap<ObjectGuid, Arc<WorldSession>>>,
     ecs_entities: RwLock<HashMap<ObjectGuid, EntityId>>,
     terrain: Arc<HashMap<TerrainBlockCoords, Terrain>>,
-    entities_tree: RwLock<QuadTree>,
+    spatial_grid: SpatialGrid,
     visibility_distance: f32,
 }
 
@@ -126,9 +126,7 @@ impl Map {
             sessions: RwLock::new(HashMap::new()),
             ecs_entities: RwLock::new(HashMap::new()),
             terrain,
-            entities_tree: RwLock::new(QuadTree::new(
-                super::quad_tree::QUADTREE_DEFAULT_NODE_CAPACITY,
-            )),
+            spatial_grid: SpatialGrid::new(),
             visibility_distance: DEFAULT_VISIBILITY_DISTANCE,
         };
 
@@ -379,19 +377,17 @@ impl Map {
             },
         );
 
-        {
-            let mut tree = self.entities_tree.write();
-            tree.insert(char_data.position.as_position(), player_entity_id);
-        }
+        self.spatial_grid
+            .insert(char_data.position.as_position(), player_entity_id);
 
         {
-            let entities_around = self.entities_tree.read().search_around_position(
+            let entities_around: Vec<EntityId> = self.spatial_grid.search_ids_around_position(
                 &char_data.position.as_position(),
                 self.visibility_distance(),
                 true,
                 Some(&player_entity_id),
             );
-            for (other_entity_id, _) in entities_around {
+            for other_entity_id in entities_around {
                 let other_entity_guid = self
                     .world()
                     .run(|v_guid: View<Guid>| v_guid[other_entity_id].0);
@@ -502,8 +498,7 @@ impl Map {
                 other_session.destroy_entity(player_guid);
             }
 
-            let mut tree = self.entities_tree.write();
-            tree.delete(&player_entity_id);
+            self.spatial_grid.delete(&player_entity_id);
         }
 
         {
@@ -631,10 +626,8 @@ impl Map {
             },
         );
 
-        {
-            let mut tree = self.entities_tree.write();
-            tree.insert(wpos.as_position(), creature_entity_id);
-        }
+        self.spatial_grid
+            .insert(wpos.as_position(), creature_entity_id);
 
         // TODO: Don't attempt this during startup, it's pointless
         for session in self.sessions_nearby_position(
@@ -693,10 +686,7 @@ impl Map {
             },
         );
 
-        {
-            let mut tree = self.entities_tree.write();
-            tree.insert(wpos.as_position(), entity_id);
-        }
+        self.spatial_grid.insert(wpos.as_position(), entity_id);
 
         self.ecs_entities
             .write()
@@ -722,11 +712,7 @@ impl Map {
         vm_unwind: &mut ViewMut<Unwind>,
     ) {
         let is_moving_entity_a_player = origin_session.is_some();
-        let previous_position: Option<Position>;
-        {
-            let mut tree = self.entities_tree.write();
-            previous_position = tree.update(new_position, &mover_entity_id);
-        }
+        let previous_position = self.spatial_grid.update(new_position, &mover_entity_id);
 
         if let Some(previous_position) = previous_position {
             if previous_position.is_same_spot(new_position) {
@@ -868,7 +854,7 @@ impl Map {
             // both the old and new positions circles (which are going to mostly overlap)
             let center = previous_position.center_between(new_position);
             let search_radius = visibility_distance + traveled_distance / 2.;
-            let in_range_all = self.entities_tree.read().search_around_position(
+            let in_range_all = self.spatial_grid.search_around_position(
                 &center,
                 search_radius,
                 true,
@@ -903,21 +889,14 @@ impl Map {
                 })
                 .collect();
         } else {
-            in_range_before = self
-                .entities_tree
-                .read()
-                .search_around_position(
-                    &previous_position,
-                    visibility_distance,
-                    true,
-                    Some(&mover_entity_id),
-                )
-                .into_iter()
-                .map(|(entity_id, _)| entity_id)
-                .collect();
+            in_range_before = self.spatial_grid.search_ids_around_position(
+                &previous_position,
+                visibility_distance,
+                true,
+                Some(&mover_entity_id),
+            );
             in_range_now = self
-                .entities_tree
-                .read()
+                .spatial_grid
                 .search_around_position(
                     &new_position,
                     visibility_distance,
@@ -951,8 +930,7 @@ impl Map {
         include_self: bool,
     ) -> Vec<Arc<WorldSession>> {
         let entity_ids: Vec<EntityId> = self
-            .entities_tree
-            .read()
+            .spatial_grid
             .search_around_entity(
                 source_entity_id,
                 range,
@@ -989,13 +967,9 @@ impl Map {
         search_in_3d: bool,
         exclude_id: Option<&EntityId>,
     ) -> Vec<Arc<WorldSession>> {
-        let entity_ids: Vec<EntityId> = self
-            .entities_tree
-            .read()
-            .search_around_position(position, range, search_in_3d, exclude_id)
-            .into_iter()
-            .map(|(entity_id, _)| entity_id)
-            .collect();
+        let entity_ids: Vec<EntityId> =
+            self.spatial_grid
+                .search_ids_around_position(position, range, search_in_3d, exclude_id);
 
         self.sessions
             .read()

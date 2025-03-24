@@ -15,7 +15,7 @@ impl OpcodeHandler {
         PacketHandlerArgs { session, data, .. }: PacketHandlerArgs,
     ) {
         let cmsg: CmsgAttackSwing = ClientMessage::read_as(data).unwrap();
-        if let Some(ref map) = session.current_map() {
+        if let Some(map) = session.current_map() {
             if let Some(player_ecs_entity) = session.player_entity_id() {
                 map.world()
                     .run(|mut vm_melee: ViewMut<Melee>, vm_player: ViewMut<Player>| {
@@ -39,7 +39,7 @@ impl OpcodeHandler {
     }
 
     pub(crate) fn handle_cmsg_attack_stop(PacketHandlerArgs { session, .. }: PacketHandlerArgs) {
-        if let Some(ref map) = session.current_map() {
+        if let Some(map) = session.current_map() {
             let player_guid = session.player_guid().unwrap();
             if let Some(player_ecs_entity) = map.lookup_entity_ecs(&player_guid) {
                 let target_guid = map.world().run(

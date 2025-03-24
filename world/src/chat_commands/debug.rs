@@ -31,7 +31,7 @@ fn handle_gps(ctx: CommandContext) -> ChatCommandResult {
     );
 
     ChatCommands::process(command, &ctx, &|matches| {
-        if let Some(ref map) = ctx.session.current_map() {
+        if let Some(map) = ctx.session.current_map() {
             if let Some(player_ecs_entity) = ctx.session.player_entity_id() {
                 map.world().run(|v_wpos: View<WorldPosition>| {
                     let wpos = v_wpos[player_ecs_entity];
@@ -58,7 +58,7 @@ fn handle_come(ctx: CommandContext) -> ChatCommandResult {
     let command = Command::new(COMMAND_COME);
 
     ChatCommands::process(command, &ctx, &|_| {
-        if let Some(ref map) = ctx.session.current_map() {
+        if let Some(map) = ctx.session.current_map() {
             if let Some(player_ecs_entity) = ctx.session.player_entity_id() {
                 map.world().run(
                     |v_wpos: View<WorldPosition>,
@@ -111,7 +111,7 @@ fn handle_threat(ctx: CommandContext) -> ChatCommandResult {
     );
 
     ChatCommands::process(command, &ctx, &|matches| {
-        if let Some(ref map) = ctx.session.current_map() {
+        if let Some(map) = ctx.session.current_map() {
             if let Some(player_ecs_entity) = ctx.session.player_entity_id() {
                 map.world().run(
                     |v_unit: View<Unit>,
@@ -177,7 +177,7 @@ fn handle_item(ctx: CommandContext) -> ChatCommandResult {
 
     ChatCommands::process(command.clone(), &ctx, &|matches| {
         if let Some(subcommand_add) = matches.subcommand_matches("add") {
-            if let Some(ref map) = ctx.session.current_map() {
+            if let Some(map) = ctx.session.current_map() {
                 if let Some(player_ecs_entity) = ctx.session.player_entity_id() {
                     return map.world().run(|mut vm_player: ViewMut<Player>| {
                         if let Ok(mut player) = (&mut vm_player).get(player_ecs_entity) {

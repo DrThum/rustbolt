@@ -81,7 +81,7 @@ impl Map {
         creature_spawns: Vec<CreatureSpawnDbRecord>,
         game_object_spawns: Vec<GameObjectSpawnDbRecord>,
         config: Arc<WorldConfig>,
-    ) -> Arc<Map> {
+    ) -> Map {
         // TODO: pass this as a parameter?
         let visibility_distance = DEFAULT_VISIBILITY_DISTANCE;
 
@@ -124,6 +124,7 @@ impl Map {
         world.add_unique(WrappedTerrainManager(terrain_manager.clone()));
         world.add_unique(WrappedSessionHolder(session_holder.clone()));
         world.add_unique(map_record);
+        world.add_unique(HasPlayers(false));
 
         let workload = || {
             (
@@ -192,10 +193,6 @@ impl Map {
 
             map.add_game_object(&guid, game_object, &position);
         }
-
-        let map = Arc::new(map);
-
-        map.world.lock().add_unique(HasPlayers(false));
 
         let map_id = key.map_id;
         let target_tick_time = config.world.game.target_tick_time_ms;

@@ -75,14 +75,14 @@ impl MapManager {
             let key = MapKey::for_continent(map.id);
             self.maps.write().insert(
                 key,
-                Map::new(
+                Arc::new(Map::new(
                     key,
                     world_context.clone(),
                     map_terrain_manager,
                     creature_spawns,
                     game_object_spawns,
                     config.clone(),
-                ),
+                )),
             );
         }
     }
@@ -117,14 +117,14 @@ impl MapManager {
                         GameObjectRepository::load_game_object_spawns(conn, map_id);
 
                     let map_key = MapKey::for_instance(map_id, instance_id);
-                    let map = Map::new(
+                    let map = Arc::new(Map::new(
                         map_key,
                         world_context.clone(),
                         map_terrain_manager.clone(),
                         creature_spawns,
                         game_object_spawns,
                         self.config.clone(),
-                    );
+                    ));
                     map_guard.insert(map_key, map.clone());
 
                     Ok(map)

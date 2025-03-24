@@ -7,7 +7,6 @@ use parking_lot::RwLock;
 use crate::{
     config::WorldConfig,
     entities::object_guid::ObjectGuid,
-    protocol::{self, server::ServerMessage},
     repositories::{creature::CreatureRepository, game_object::GameObjectRepository},
     DataStore,
 };
@@ -143,25 +142,6 @@ impl MapManager {
             let origin_map = self.maps.read().get(&from_map_key).cloned();
             if let Some(origin_map) = origin_map {
                 origin_map.remove_player(player_guid);
-            }
-        }
-    }
-
-    pub fn broadcast_packet<
-        const OPCODE: u16,
-        Payload: protocol::server::ServerMessagePayload<OPCODE>,
-    >(
-        &self,
-        origin_guid: &ObjectGuid,
-        map_key: Option<MapKey>,
-        packet: &ServerMessage<OPCODE, Payload>,
-        include_self: bool,
-    ) {
-        if let Some(current_map_key) = map_key {
-            let map: Option<Arc<Map>> = self.maps.read().get(&current_map_key).cloned();
-
-            if let Some(map) = map {
-                map.broadcast_packet(origin_guid, packet, None, include_self);
             }
         }
     }

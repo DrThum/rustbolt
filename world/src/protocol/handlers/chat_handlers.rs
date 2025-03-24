@@ -54,7 +54,6 @@ impl OpcodeHandler {
                 };
 
                 // Broadcast to nearby players
-                // TODO: Implement WorldSession::broadcast_packet
                 session.current_map().unwrap().broadcast_packet(
                     &session.player_guid().unwrap(),
                     &smsg_message_chat,

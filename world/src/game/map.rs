@@ -7,8 +7,6 @@ use std::{
 
 use log::{error, info, warn};
 use parking_lot::{ReentrantMutex, ReentrantMutexGuard};
-use rand::Rng;
-use shared::models::terrain_info::Vector3;
 use shipyard::{
     AllStoragesViewMut, EntitiesViewMut, EntityId, Get, IntoWorkload, Unique, UniqueViewMut, View,
     ViewMut, World,
@@ -62,7 +60,7 @@ use super::{
     packet_broadcaster::{PacketBroadcaster, WrappedPacketBroadcaster},
     spatial_grid::{SpatialGrid, WrappedSpatialGrid},
     spell_effect_handler::WrappedSpellEffectHandler,
-    terrain_manager::TerrainManager,
+    terrain_manager::{TerrainManager, WrappedTerrainManager},
     world_context::{WorldContext, WrappedWorldContext},
 };
 
@@ -114,6 +112,7 @@ impl Map {
         world.add_unique(WrappedEntityManager(entity_manager.clone()));
         world.add_unique(VisibilityDistance(visibility_distance));
         world.add_unique(WrappedPacketBroadcaster(packet_broadcaster.clone()));
+        world.add_unique(WrappedTerrainManager(terrain_manager.clone()));
 
         let workload = || {
             (
@@ -971,47 +970,6 @@ impl Map {
 
     pub fn get_session(&self, player_guid: &ObjectGuid) -> Option<Arc<WorldSession>> {
         self.session_holder.get_session(player_guid)
-    }
-
-    pub fn get_random_point_around(&self, origin: &Vector3, radius: f32) -> Vector3 {
-        if radius <= 0. {
-            return *origin;
-        }
-
-        let mut rng = rand::thread_rng();
-        let angle: f32 = rng.gen_range(0.0..2. * std::f32::consts::PI);
-        let distance = rng.gen_range(0.0..=radius);
-
-        let random_x = origin.x + distance * angle.cos();
-        let random_y = origin.y + distance * angle.sin();
-        let z = self
-            .terrain_manager
-            .get_ground_or_floor_height(random_x, random_y, origin.z)
-            .unwrap_or(origin.z);
-
-        Vector3::new(random_x, random_y, z)
-    }
-
-    pub fn get_point_around_at_angle(
-        &self,
-        origin: &WorldPosition,
-        distance: f32,
-        angle: f32,
-    ) -> WorldPosition {
-        let x = origin.x + distance * angle.cos();
-        let y = origin.y + distance * angle.sin();
-
-        let z = self
-            .terrain_manager
-            .get_ground_or_floor_height(x, y, origin.z)
-            .unwrap_or(origin.z);
-
-        let mut point = *origin;
-        point.x = x;
-        point.y = y;
-        point.z = z;
-
-        point
     }
 }
 

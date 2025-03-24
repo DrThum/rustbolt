@@ -25,6 +25,7 @@ use crate::{
     },
     game::{
         map::{HasPlayers, WrappedMap},
+        terrain_manager::WrappedTerrainManager,
         world_context::WrappedWorldContext,
     },
     shared::constants::{CREATURE_AGGRO_DISTANCE_MAX, MAX_CHASE_LEEWAY},
@@ -220,8 +221,9 @@ fn action_chase_target(ctx: &mut BTContext) -> NodeStatus {
     };
 
     ctx.all_storages.run(
-        |(map, v_unit, v_wpos, mut vm_movement, v_guid): (
+        |(map, terrain_manager, v_unit, v_wpos, mut vm_movement, v_guid): (
             UniqueView<WrappedMap>,
+            UniqueView<WrappedTerrainManager>,
             View<Unit>,
             View<WorldPosition>,
             ViewMut<Movement>,
@@ -265,6 +267,7 @@ fn action_chase_target(ctx: &mut BTContext) -> NodeStatus {
                         target_entity_id,
                         chase_distance,
                         map.0.clone(),
+                        terrain_manager.clone(),
                         &my_current_position,
                         target_position,
                         speed,

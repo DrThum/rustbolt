@@ -26,6 +26,7 @@ use crate::{
     game::{
         map::{HasPlayers, WrappedMap},
         movement_spline::MovementSplineState,
+        terrain_manager::WrappedTerrainManager,
     },
     shared::constants::{CREATURE_LEASH_DISTANCE, MAX_CHASE_LEEWAY},
 };
@@ -33,7 +34,7 @@ use crate::{
 pub fn update_movement(
     dt: UniqueView<DeltaTime>,
     has_players: UniqueView<HasPlayers>,
-    map: UniqueView<WrappedMap>,
+    (map, terrain_manager): (UniqueView<WrappedMap>, UniqueView<WrappedTerrainManager>),
     v_guid: View<Guid>,
     (v_player, v_creature, v_game_object): (View<Player>, View<Creature>, View<GameObject>),
     v_powers: View<Powers>,
@@ -102,7 +103,7 @@ pub fn update_movement(
                 } else if *cooldown_end <= Instant::now() {
                     let current_pos = my_wpos.vec3();
                     let around = creature.spawn_position.vec3();
-                    let destination = map.0.get_random_point_around(
+                    let destination = terrain_manager.get_random_point_around(
                         &around,
                         creature.wander_radius.expect(
                             "expected an existing wander radius on creature with random movement",
@@ -159,6 +160,7 @@ pub fn update_movement(
                                 target_entity_id,
                                 chase_distance,
                                 map.0.clone(),
+                                terrain_manager.clone(),
                                 my_wpos,
                                 *target_position,
                                 speed,

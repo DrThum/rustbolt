@@ -2,10 +2,10 @@
 macro_rules! create_wrapped_resource {
     ($wrapper:ident, $inner:ty) => {
         #[derive(shipyard::Unique)]
-        pub struct $wrapper(pub Arc<$inner>);
+        pub struct $wrapper(pub std::sync::Arc<$inner>);
 
         impl std::ops::Deref for $wrapper {
-            type Target = Arc<$inner>;
+            type Target = std::sync::Arc<$inner>;
 
             fn deref(&self) -> &Self::Target {
                 &self.0

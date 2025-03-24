@@ -18,6 +18,7 @@ use crate::{
     game::{
         map::Map,
         movement_spline::{MovementSpline, MovementSplineState},
+        terrain_manager::TerrainManager,
         world_context::WorldContext,
     },
     protocol::{
@@ -191,12 +192,13 @@ impl Movement {
         target_entity_id: EntityId,
         chase_distance: f32,
         map: Arc<Map>,
+        terrain_manager: Arc<TerrainManager>,
         starting_position: &WorldPosition,
         target_position: WorldPosition,
         velocity: f32,
         linear: bool,
     ) -> Duration {
-        let destination = map.get_point_around_at_angle(
+        let destination = terrain_manager.get_point_around_at_angle(
             &target_position,
             chase_distance,
             target_position.get_2d_angle_with(starting_position),

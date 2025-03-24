@@ -4,7 +4,12 @@ use parry3d::{
     math::{Isometry, Point},
     query::{Ray, RayCast},
 };
-use shared::models::terrain_info::{Terrain, TerrainBlock, BLOCK_WIDTH, MAP_WIDTH_IN_BLOCKS};
+use rand::Rng;
+use shared::models::terrain_info::{
+    Terrain, TerrainBlock, Vector3, BLOCK_WIDTH, MAP_WIDTH_IN_BLOCKS,
+};
+
+use crate::{create_wrapped_resource, entities::position::WorldPosition};
 
 use super::map_manager::TerrainBlockCoords;
 
@@ -107,4 +112,45 @@ impl TerrainManager {
             terrain.ground.get_area_id(position_x, position_y)
         })
     }
+
+    pub fn get_random_point_around(&self, origin: &Vector3, radius: f32) -> Vector3 {
+        if radius <= 0. {
+            return *origin;
+        }
+
+        let mut rng = rand::thread_rng();
+        let angle: f32 = rng.gen_range(0.0..2. * std::f32::consts::PI);
+        let distance = rng.gen_range(0.0..=radius);
+
+        let random_x = origin.x + distance * angle.cos();
+        let random_y = origin.y + distance * angle.sin();
+        let z = self
+            .get_ground_or_floor_height(random_x, random_y, origin.z)
+            .unwrap_or(origin.z);
+
+        Vector3::new(random_x, random_y, z)
+    }
+
+    pub fn get_point_around_at_angle(
+        &self,
+        origin: &WorldPosition,
+        distance: f32,
+        angle: f32,
+    ) -> WorldPosition {
+        let x = origin.x + distance * angle.cos();
+        let y = origin.y + distance * angle.sin();
+
+        let z = self
+            .get_ground_or_floor_height(x, y, origin.z)
+            .unwrap_or(origin.z);
+
+        let mut point = *origin;
+        point.x = x;
+        point.y = y;
+        point.z = z;
+
+        point
+    }
 }
+
+create_wrapped_resource!(WrappedTerrainManager, TerrainManager);

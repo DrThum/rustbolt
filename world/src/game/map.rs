@@ -1,12 +1,12 @@
 use std::{
-    collections::{HashMap, HashSet, VecDeque},
+    collections::{HashSet, VecDeque},
     sync::Arc,
     thread,
     time::{Duration, Instant},
 };
 
 use log::{error, info, warn};
-use parking_lot::{ReentrantMutex, ReentrantMutexGuard, RwLock};
+use parking_lot::{ReentrantMutex, ReentrantMutexGuard};
 use rand::Rng;
 use shared::models::terrain_info::Vector3;
 use shipyard::{
@@ -57,6 +57,7 @@ use crate::{
 };
 
 use super::{
+    entity_manager::EntityManager,
     map_manager::MapKey,
     spatial_grid::SpatialGrid,
     spell_effect_handler::WrappedSpellEffectHandler,
@@ -71,7 +72,7 @@ pub struct Map {
     world: Arc<ReentrantMutex<World>>,
     world_context: Arc<WorldContext>,
     session_holder: SessionHolder<ObjectGuid>,
-    ecs_entities: RwLock<HashMap<ObjectGuid, EntityId>>,
+    entity_manager: EntityManager,
     terrain_manager: Arc<TerrainManager>,
     spatial_grid: SpatialGrid,
     visibility_distance: f32,
@@ -118,7 +119,7 @@ impl Map {
             world: world.clone(),
             world_context: world_context.clone(),
             session_holder: SessionHolder::new(),
-            ecs_entities: RwLock::new(HashMap::new()),
+            entity_manager: EntityManager::new(),
             terrain_manager,
             spatial_grid: SpatialGrid::new(),
             visibility_distance: DEFAULT_VISIBILITY_DISTANCE,
@@ -230,7 +231,7 @@ impl Map {
     }
 
     pub fn lookup_entity_ecs(&self, guid: &ObjectGuid) -> Option<EntityId> {
-        self.ecs_entities.read().get(guid).copied()
+        self.entity_manager.lookup(guid)
     }
 
     pub fn add_player_on_login(&self, session: Arc<WorldSession>, char_data: &CharacterRecord) {
@@ -351,7 +352,7 @@ impl Map {
                     ),
                 );
 
-                self.ecs_entities.write().insert(player_guid, entity_id);
+                self.entity_manager.insert(player_guid, entity_id);
 
                 session.set_player_entity_id(entity_id);
 
@@ -470,7 +471,7 @@ impl Map {
             self.world
                 .lock()
                 .run(|mut all_storages: AllStoragesViewMut| {
-                    if let Some(entity_id) = self.ecs_entities.write().remove(player_guid) {
+                    if let Some(entity_id) = self.entity_manager.remove(player_guid) {
                         all_storages.delete_entity(entity_id);
                         Some(entity_id)
                     } else {
@@ -603,7 +604,7 @@ impl Map {
 
                 entities.add_component(entity_id, &mut vm_creature, creature);
 
-                self.ecs_entities.write().insert(*creature_guid, entity_id);
+                self.entity_manager.insert(*creature_guid, entity_id);
 
                 vm_creature
                     .get(entity_id)
@@ -675,9 +676,7 @@ impl Map {
 
         self.spatial_grid.insert(wpos.as_position(), entity_id);
 
-        self.ecs_entities
-            .write()
-            .insert(*game_object_guid, entity_id);
+        self.entity_manager.insert(*game_object_guid, entity_id);
 
         // TODO: Notify nearby players if map.has_players
     }

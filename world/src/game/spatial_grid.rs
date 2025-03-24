@@ -1,28 +1,44 @@
-use std::sync::Arc;
+use log::error;
+use std::{collections::HashSet, sync::Arc};
 
 use parking_lot::RwLock;
 use shared::models::terrain_info::Vector3;
-use shipyard::EntityId;
+use shipyard::{EntityId, Get, View, ViewMut};
 
 use crate::{
     create_wrapped_resource,
-    entities::{object_guid::ObjectGuid, position::Position},
+    ecs::components::{
+        behavior::Behavior, guid::Guid, movement::Movement, nearby_players::NearbyPlayers,
+        unwind::Unwind,
+    },
+    entities::{
+        creature::Creature,
+        game_object::GameObject,
+        object_guid::ObjectGuid,
+        player::Player,
+        position::{Position, WorldPosition},
+    },
+    protocol::packets::SmsgCreateObject,
     session::world_session::WorldSession,
     SessionHolder,
 };
 
-use super::{entity_manager::EntityManager, quad_tree::QuadTree};
+use super::{entity_manager::EntityManager, quad_tree::QuadTree, world_context::WorldContext};
 
 pub struct SpatialGrid {
     entities_tree: RwLock<QuadTree>,
     session_holder: Arc<SessionHolder<ObjectGuid>>,
     entity_manager: Arc<EntityManager>,
+    world_context: Arc<WorldContext>,
+    visibility_distance: f32,
 }
 
 impl SpatialGrid {
     pub fn new(
         session_holder: Arc<SessionHolder<ObjectGuid>>,
         entity_manager: Arc<EntityManager>,
+        world_context: Arc<WorldContext>,
+        visibility_distance: f32,
     ) -> Self {
         Self {
             entities_tree: RwLock::new(QuadTree::new(
@@ -30,6 +46,8 @@ impl SpatialGrid {
             )),
             session_holder,
             entity_manager,
+            world_context,
+            visibility_distance,
         }
     }
 
@@ -131,6 +149,234 @@ impl SpatialGrid {
             false
         })
     }
+
+    pub fn update_entity_position(
+        &self,
+        entity_guid: &ObjectGuid,
+        mover_entity_id: EntityId,
+        origin_session: Option<Arc<WorldSession>>, // Must be defined if entity is a player
+        new_position: &Position,                   // FIXME: remove the &
+        v_movement: &View<Movement>,
+        v_player: &View<Player>,
+        v_creature: &View<Creature>,
+        v_game_object: &View<GameObject>,
+        v_guid: &View<Guid>,
+        vm_wpos: &mut ViewMut<WorldPosition>,
+        vm_behavior: &mut ViewMut<Behavior>,
+        vm_nearby_players: &mut ViewMut<NearbyPlayers>,
+        vm_unwind: &mut ViewMut<Unwind>,
+    ) {
+        let is_moving_entity_a_player = origin_session.is_some();
+        let previous_position = self.update(new_position, &mover_entity_id);
+
+        if let Some(previous_position) = previous_position {
+            if previous_position.is_same_spot(new_position) {
+                return;
+            }
+
+            vm_wpos[mover_entity_id].update_local(new_position);
+
+            let VisibilityChangesAfterMovement {
+                moving_entity_appeared_for: appeared_for,
+                moving_entity_disappeared_for: disappeared_for,
+                entities_in_range_now: in_range_now,
+                ..
+            } = self.get_visibility_changes_for_entities(
+                previous_position,
+                *new_position,
+                mover_entity_id,
+            );
+
+            let mut moving_entity_smsg_create_object: Option<SmsgCreateObject> = None;
+
+            for other_entity_id in appeared_for {
+                let other_guid = v_guid[other_entity_id].0;
+                // Make the moving entity appear for the other player
+                if let Some(other_session) = self.session_holder.get_session(&other_guid) {
+                    // Construct the SMSG the first time that it's needed
+                    if moving_entity_smsg_create_object.is_none() {
+                        let movement = v_movement
+                            .get(mover_entity_id)
+                            .ok()
+                            .map(|m| m.build_update(self.world_context.clone(), new_position));
+
+                        if let Ok(player) = v_player.get(mover_entity_id) {
+                            moving_entity_smsg_create_object =
+                                Some(player.build_create_object(movement, false));
+                        } else if let Ok(creature) = v_creature.get(mover_entity_id) {
+                            moving_entity_smsg_create_object =
+                                Some(creature.build_create_object(movement));
+                        }
+                    }
+
+                    other_session.create_entity(
+                        entity_guid,
+                        moving_entity_smsg_create_object.as_ref().unwrap().clone(),
+                    );
+                }
+
+                // Make the entity (player or otherwise) appear for the moving player
+                if let Some(origin_session) = origin_session.as_ref() {
+                    let smsg_create_object: SmsgCreateObject = {
+                        let movement = v_movement.get(other_entity_id).ok().map(|m| {
+                            m.build_update(
+                                self.world_context.clone(),
+                                &vm_wpos[other_entity_id].as_position(),
+                            )
+                        });
+
+                        if let Ok(player) = v_player.get(other_entity_id) {
+                            player.build_create_object(movement, false)
+                        } else if let Ok(creature) = v_creature.get(other_entity_id) {
+                            creature.build_create_object(movement)
+                        } else if let Ok(game_object) = v_game_object.get(other_entity_id) {
+                            game_object.build_create_object_for(&v_player[mover_entity_id])
+                        } else {
+                            unreachable!("cannot generate SMSG_CREATE_OBJECT for this entity type");
+                        }
+                    };
+
+                    origin_session.create_entity(&other_guid, smsg_create_object);
+                }
+
+                // If a player appeared, increment the NearbyPlayers counter for the
+                // creature/gameobject
+                if is_moving_entity_a_player {
+                    NearbyPlayers::increment(other_entity_id, vm_nearby_players);
+                }
+                // If a creature moved within visibility distance of a player, increment the
+                // NearbyPlayers counter for the creature/gameobject
+                else if v_player.get(other_entity_id).is_ok() {
+                    NearbyPlayers::increment(mover_entity_id, vm_nearby_players);
+                }
+            }
+
+            for other_entity_id in disappeared_for {
+                let other_guid = v_guid[other_entity_id].0;
+                if let Some(other_session) = self.session_holder.get_session(&other_guid) {
+                    // Destroy the moving player for the other player
+                    other_session.destroy_entity(entity_guid);
+                }
+
+                // Destroy the other entity for the moving player
+                if let Some(os) = origin_session.as_ref() {
+                    os.destroy_entity(&other_guid)
+                }
+
+                // If a player moved away, decrement the NearbyPlayers counter for the creature
+                if is_moving_entity_a_player {
+                    NearbyPlayers::decrement(other_entity_id, vm_nearby_players, vm_unwind);
+                }
+                // If a creature moved away from a player, decrement the NearbyPlayers counter for
+                // the creature
+                else if v_player.get(other_entity_id).is_ok() {
+                    NearbyPlayers::decrement(mover_entity_id, vm_nearby_players, vm_unwind);
+                }
+            }
+
+            // If a creature is involved (whether it moved or it witnessed another entity moving),
+            // inform its behavior tree that a neighbor has moved (for aggro, script, etc)
+            for &neighbor in in_range_now.iter() {
+                if let Ok(mut source_behavior) = vm_behavior.get(mover_entity_id) {
+                    source_behavior.neighbor_moved(neighbor);
+                }
+
+                if let Ok(mut neighbor_behavior) = vm_behavior.get(neighbor) {
+                    neighbor_behavior.neighbor_moved(mover_entity_id);
+                }
+            }
+        } else {
+            error!("updating position for entity not on map");
+        }
+    }
+
+    fn get_visibility_changes_for_entities(
+        &self,
+        previous_position: Position,
+        new_position: Position,
+        mover_entity_id: EntityId,
+    ) -> VisibilityChangesAfterMovement {
+        let visibility_distance = self.visibility_distance;
+        let in_range_before: Vec<EntityId>;
+        let in_range_now: Vec<EntityId>;
+
+        let traveled_distance = previous_position.distance_to(new_position, true);
+        if traveled_distance <= visibility_distance {
+            // Most of the moves are going to be small (entity just walking around), so in these
+            // cases we can perform a single search in the quadtree, in a circle that will include
+            // both the old and new positions circles (which are going to mostly overlap)
+            let center = previous_position.center_between(new_position);
+            let search_radius = visibility_distance + traveled_distance / 2.;
+            let in_range_all =
+                self.search_around_position(&center, search_radius, true, Some(&mover_entity_id));
+
+            let previous_vec3 = previous_position.vec3();
+            let new_vec3 = new_position.vec3();
+            in_range_before = in_range_all
+                .iter()
+                .filter_map(|(entity_id, vec3)| {
+                    if vec3.square_distance_3d(&previous_vec3)
+                        <= visibility_distance * visibility_distance
+                    {
+                        Some(*entity_id)
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+
+            in_range_now = in_range_all
+                .iter()
+                .filter_map(|(entity_id, vec3)| {
+                    if vec3.square_distance_3d(&new_vec3)
+                        <= visibility_distance * visibility_distance
+                    {
+                        Some(*entity_id)
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+        } else {
+            in_range_before = self.search_ids_around_position(
+                &previous_position,
+                visibility_distance,
+                true,
+                Some(&mover_entity_id),
+            );
+            in_range_now = self
+                .search_around_position(
+                    &new_position,
+                    visibility_distance,
+                    true,
+                    Some(&mover_entity_id),
+                )
+                .into_iter()
+                .map(|(entity_id, _)| entity_id)
+                .collect();
+        }
+
+        let in_range_now: HashSet<EntityId> = in_range_now.into_iter().collect();
+        let in_range_before: HashSet<EntityId> = in_range_before.into_iter().collect();
+
+        let appeared_for = &in_range_now - &in_range_before;
+        let disappeared_for = &in_range_before - &in_range_now;
+
+        VisibilityChangesAfterMovement {
+            moving_entity_appeared_for: appeared_for,
+            moving_entity_disappeared_for: disappeared_for,
+            entities_in_range_before: in_range_before,
+            entities_in_range_now: in_range_now,
+        }
+    }
 }
 
 create_wrapped_resource!(WrappedSpatialGrid, SpatialGrid);
+
+#[allow(dead_code)]
+struct VisibilityChangesAfterMovement {
+    pub moving_entity_appeared_for: HashSet<EntityId>,
+    pub moving_entity_disappeared_for: HashSet<EntityId>,
+    pub entities_in_range_before: HashSet<EntityId>,
+    pub entities_in_range_now: HashSet<EntityId>,
+}

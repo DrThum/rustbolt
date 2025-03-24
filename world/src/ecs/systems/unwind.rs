@@ -12,11 +12,11 @@ use crate::{
         player::Player,
         position::{Position, WorldPosition},
     },
-    game::map::WrappedMap,
+    game::spatial_grid::WrappedSpatialGrid,
 };
 
 pub fn unwind_creatures(
-    map: UniqueView<WrappedMap>,
+    spatial_grid: UniqueView<WrappedSpatialGrid>,
     v_guid: View<Guid>,
     v_creature: View<Creature>,
     v_player: View<Player>,
@@ -52,7 +52,7 @@ pub fn unwind_creatures(
     // Teleport back to our spawn
     let movement_as_view = vm_movement.as_view();
     for (my_guid, my_entity_id, my_position) in unwinding_update_data {
-        map.0.update_entity_position(
+        spatial_grid.update_entity_position(
             &my_guid,
             my_entity_id,
             None,

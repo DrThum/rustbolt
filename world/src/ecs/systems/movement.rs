@@ -24,9 +24,8 @@ use crate::{
         position::{Position, WorldPosition},
     },
     game::{
-        map::{HasPlayers, WrappedMap},
-        movement_spline::MovementSplineState,
-        packet_broadcaster::WrappedPacketBroadcaster,
+        map::HasPlayers, movement_spline::MovementSplineState,
+        packet_broadcaster::WrappedPacketBroadcaster, spatial_grid::WrappedSpatialGrid,
         terrain_manager::WrappedTerrainManager,
     },
     shared::constants::{CREATURE_LEASH_DISTANCE, MAX_CHASE_LEEWAY},
@@ -35,8 +34,8 @@ use crate::{
 pub fn update_movement(
     dt: UniqueView<DeltaTime>,
     has_players: UniqueView<HasPlayers>,
-    (map, packet_broadcaster, terrain_manager): (
-        UniqueView<WrappedMap>,
+    (spatial_grid, packet_broadcaster, terrain_manager): (
+        UniqueView<WrappedSpatialGrid>,
         UniqueView<WrappedPacketBroadcaster>,
         UniqueView<WrappedTerrainManager>,
     ),
@@ -234,7 +233,7 @@ pub fn update_movement(
     // borrows ViewMut<Movement>
     let v_movement = vm_movement.as_view();
     for (guid, entity_id, pos) in map_pending_updates {
-        map.0.update_entity_position(
+        spatial_grid.update_entity_position(
             guid,
             entity_id,
             None, // FIXME: Must be defined if it's a server-controlled player (feared for example)

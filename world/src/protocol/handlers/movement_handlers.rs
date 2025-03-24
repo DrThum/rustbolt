@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use shipyard::{View, ViewMut};
+use shipyard::{UniqueView, View, ViewMut};
 
 use crate::{
     ecs::components::{
@@ -10,6 +10,7 @@ use crate::{
     entities::{
         creature::Creature, game_object::GameObject, player::Player, position::WorldPosition,
     },
+    game::spatial_grid::WrappedSpatialGrid,
     protocol::{client::ClientMessage, opcodes::Opcode, packets::MovementInfo},
     session::{
         opcode_handler::{OpcodeHandler, PacketHandler},
@@ -30,7 +31,8 @@ impl OpcodeHandler {
             let map = session.current_map().unwrap();
             // Register new position
             map.world().run(
-                |v_movement: View<Movement>,
+                |spatial_grid: UniqueView<WrappedSpatialGrid>,
+                 v_movement: View<Movement>,
                  v_player: View<Player>,
                  v_creature: View<Creature>,
                  v_game_object: View<GameObject>,
@@ -39,7 +41,7 @@ impl OpcodeHandler {
                  mut vm_behavior: ViewMut<Behavior>,
                  mut vm_nearby_players: ViewMut<NearbyPlayers>,
                  mut vm_unwind: ViewMut<Unwind>| {
-                    map.update_entity_position(
+                    spatial_grid.update_entity_position(
                         &player_guid,
                         session.player_entity_id().unwrap(),
                         Some(session.clone()),

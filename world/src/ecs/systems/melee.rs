@@ -29,7 +29,7 @@ pub fn attempt_melee_attack(
     v_spell: View<SpellCast>,
     v_creature: View<Creature>,
 ) {
-    if !has_players.0 {
+    if !**has_players {
         return;
     }
 
@@ -37,7 +37,7 @@ pub fn attempt_melee_attack(
         match Melee::execute_attack(
             my_id,
             map.0.clone(),
-            world_context.0.data_store.clone(),
+            world_context.data_store.clone(),
             &v_guid,
             &v_wpos,
             &v_spell,

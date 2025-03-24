@@ -1,12 +1,12 @@
 use std::{sync::Arc, time::Duration};
 
 use atomic_counter::{AtomicCounter, RelaxedCounter};
-use shipyard::Unique;
 use tokio::time::Instant;
 
 use crate::{
-    chat_commands::ChatCommands, config::WorldConfig, database_context::DatabaseContext,
-    session::opcode_handler::OpcodeHandler, DataStore, SessionHolder,
+    chat_commands::ChatCommands, config::WorldConfig, create_wrapped_resource,
+    database_context::DatabaseContext, session::opcode_handler::OpcodeHandler, DataStore,
+    SessionHolder,
 };
 
 use super::{map_manager::MapManager, spell_effect_handler::SpellEffectHandler};
@@ -35,5 +35,4 @@ impl WorldContext {
     }
 }
 
-#[derive(Unique)]
-pub struct WrappedWorldContext(pub Arc<WorldContext>);
+create_wrapped_resource!(WrappedWorldContext, WorldContext);

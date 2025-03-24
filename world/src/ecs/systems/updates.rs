@@ -29,7 +29,7 @@ pub fn send_entity_update(
     v_wpos: View<WorldPosition>,
     v_nearby_players: View<NearbyPlayers>,
 ) {
-    if !has_players.0 {
+    if !**has_players {
         return;
     }
 
@@ -38,9 +38,9 @@ pub fn send_entity_update(
     {
         let mut internal_values = wrapped_int_vals.0.write();
         if internal_values.has_dirty() {
-            for session in spatial_grid.0.sessions_nearby_position(
+            for session in spatial_grid.sessions_nearby_position(
                 &wpos.as_position(),
-                visibility_distance.0,
+                **visibility_distance,
                 true,
                 None,
             ) {
@@ -79,7 +79,7 @@ pub fn update_player_environment(
     v_player: View<Player>,
     v_game_object: View<GameObject>,
 ) {
-    if !has_players.0 {
+    if !**has_players {
         return;
     }
 
@@ -92,7 +92,7 @@ pub fn update_player_environment(
             .is_ok()
         {
             for guid in &*player.session.known_guids() {
-                let Some(entity_id) = entity_manager.0.lookup(guid) else {
+                let Some(entity_id) = entity_manager.lookup(guid) else {
                     continue;
                 };
 

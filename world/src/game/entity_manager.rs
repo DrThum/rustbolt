@@ -1,9 +1,9 @@
 use std::{collections::HashMap, sync::Arc};
 
 use parking_lot::RwLock;
-use shipyard::{EntityId, Unique};
+use shipyard::EntityId;
 
-use crate::entities::object_guid::ObjectGuid;
+use crate::{create_wrapped_resource, entities::object_guid::ObjectGuid};
 
 pub struct EntityManager {
     ecs_entities: RwLock<HashMap<ObjectGuid, EntityId>>,
@@ -29,5 +29,4 @@ impl EntityManager {
     }
 }
 
-#[derive(Unique)]
-pub struct WrappedEntityManager(pub Arc<EntityManager>);
+create_wrapped_resource!(WrappedEntityManager, EntityManager);

@@ -2,9 +2,10 @@ use std::sync::Arc;
 
 use parking_lot::RwLock;
 use shared::models::terrain_info::Vector3;
-use shipyard::{EntityId, Unique};
+use shipyard::EntityId;
 
 use crate::{
+    create_wrapped_resource,
     entities::{object_guid::ObjectGuid, position::Position},
     session::world_session::WorldSession,
     SessionHolder,
@@ -132,5 +133,4 @@ impl SpatialGrid {
     }
 }
 
-#[derive(Unique)]
-pub struct WrappedSpatialGrid(pub Arc<SpatialGrid>);
+create_wrapped_resource!(WrappedSpatialGrid, SpatialGrid);

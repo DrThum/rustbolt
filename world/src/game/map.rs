@@ -1029,5 +1029,33 @@ struct VisibilityChangesAfterMovement {
 #[derive(Unique)]
 pub struct HasPlayers(pub bool);
 
+impl std::ops::Deref for HasPlayers {
+    type Target = bool;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl std::ops::DerefMut for HasPlayers {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
 #[derive(Unique)]
 pub struct VisibilityDistance(pub f32);
+
+impl std::ops::Deref for VisibilityDistance {
+    type Target = f32;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl std::ops::DerefMut for VisibilityDistance {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}

@@ -1,9 +1,11 @@
 use std::{collections::HashMap, sync::Arc};
 
 use log::{error, trace};
-use shipyard::{AllStoragesViewMut, Unique};
+use shipyard::AllStoragesViewMut;
 
-use crate::{datastore::data_types::SpellRecord, shared::constants::SpellEffect};
+use crate::{
+    create_wrapped_resource, datastore::data_types::SpellRecord, shared::constants::SpellEffect,
+};
 
 use super::{map::Map, spell::Spell, world_context::WorldContext};
 
@@ -84,5 +86,4 @@ impl SpellEffectHandler {
     }
 }
 
-#[derive(Unique)]
-pub struct WrappedSpellEffectHandler(pub Arc<SpellEffectHandler>);
+create_wrapped_resource!(WrappedSpellEffectHandler, SpellEffectHandler);

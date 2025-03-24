@@ -16,7 +16,7 @@ pub fn update_combat_state(
     v_threat_list: View<ThreatList>,
     v_powers: View<Powers>,
 ) {
-    if !has_players.0 {
+    if !**has_players {
         return;
     }
 
@@ -70,7 +70,7 @@ pub fn select_target(
     v_nearby_players: View<NearbyPlayers>,
     v_guid: View<Guid>,
 ) {
-    if !has_players.0 {
+    if !**has_players {
         return;
     }
 

@@ -55,7 +55,7 @@ pub fn update_movement(
         ViewMut<Unwind>,
     ),
 ) {
-    if !has_players.0 {
+    if !**has_players {
         return;
     }
 
@@ -85,7 +85,7 @@ pub fn update_movement(
                 let creature = &v_creature[entity_id];
 
                 if movement.is_moving() {
-                    let (new_position, spline_state) = movement.update(dt.0);
+                    let (new_position, spline_state) = movement.update(**dt);
 
                     let new_position = Position {
                         x: new_position.x,
@@ -165,7 +165,7 @@ pub fn update_movement(
                                 true,
                             );
                         } else if movement.is_moving() {
-                            let (new_position, _spline_state) = movement.update(dt.0);
+                            let (new_position, _spline_state) = movement.update(**dt);
 
                             let new_position = Position {
                                 x: new_position.x,
@@ -204,7 +204,7 @@ pub fn update_movement(
                 }
             }
             MovementKind::ReturnHome => {
-                let (new_position, spline_state) = movement.update(dt.0);
+                let (new_position, spline_state) = movement.update(**dt);
 
                 let new_position = Position {
                     x: new_position.x,

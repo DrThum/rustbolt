@@ -1,8 +1,7 @@
 use std::sync::Arc;
 
-use shipyard::Unique;
-
 use crate::{
+    create_wrapped_resource,
     entities::object_guid::ObjectGuid,
     protocol::{self, server::ServerMessage},
 };
@@ -51,5 +50,4 @@ impl PacketBroadcaster {
     }
 }
 
-#[derive(Unique)]
-pub struct WrappedPacketBroadcaster(pub Arc<PacketBroadcaster>);
+create_wrapped_resource!(WrappedPacketBroadcaster, PacketBroadcaster);

@@ -98,6 +98,8 @@ mod shared {
     pub mod response_codes;
 }
 
+mod utils;
+
 // TypeState pattern (https://yoric.github.io/post/rust-typestate/)
 struct SocketOpened {
     socket: TcpStream,

@@ -34,7 +34,7 @@ pub fn tick(vm_all_storage: AllStoragesViewMut) {
     // Don't run on maps with no player
     {
         let has_players = vm_all_storage.borrow::<UniqueView<HasPlayers>>().unwrap();
-        if !has_players.0 {
+        if !**has_players {
             return;
         }
     }
@@ -192,7 +192,7 @@ fn action_attack_in_melee(ctx: &mut BTContext) -> NodeStatus {
             match Melee::execute_attack(
                 my_id,
                 map.0.clone(),
-                world_context.0.data_store.clone(),
+                world_context.data_store.clone(),
                 &v_guid,
                 &v_wpos,
                 &v_spell,

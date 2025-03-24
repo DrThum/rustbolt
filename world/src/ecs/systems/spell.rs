@@ -29,7 +29,7 @@ pub fn update_spell(vm_all_storages: AllStoragesViewMut) {
          mut vm_spell: ViewMut<SpellCast>,
          v_guid: View<Guid>,
          v_nearby_players: View<NearbyPlayers>| {
-            if !has_players.0 {
+            if !**has_players {
                 return;
             }
 
@@ -83,14 +83,12 @@ pub fn update_spell(vm_all_storages: AllStoragesViewMut) {
                             target_count: 0,
                         });
 
-                        packet_broadcaster
-                            .0
-                            .broadcast_packet(&guid.0, &packet, None, true);
+                        packet_broadcaster.broadcast_packet(&guid.0, &packet, None, true);
 
                         handle_effects(
-                            world_context.0.clone(),
+                            world_context.clone(),
                             current_ranged.clone(),
-                            spell_effect_handler.0.clone(),
+                            spell_effect_handler.clone(),
                             map.0.clone(),
                             &vm_all_storages,
                         );

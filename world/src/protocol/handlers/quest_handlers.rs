@@ -7,20 +7,22 @@ use crate::datastore::data_types::QuestTemplate;
 use crate::ecs::components::quest_actor::QuestActor;
 use crate::entities::object_guid::ObjectGuid;
 use crate::entities::player::Player;
-use crate::game::world_context::WorldContext;
 use crate::protocol::client::ClientMessage;
 use crate::protocol::packets::*;
 use crate::protocol::server::ServerMessage;
-use crate::session::opcode_handler::OpcodeHandler;
+use crate::session::opcode_handler::{OpcodeHandler, PacketHandlerArgs};
 use crate::session::world_session::WorldSession;
 use crate::shared::constants::PlayerQuestStatus;
 use crate::DataStore;
 
 impl OpcodeHandler {
     pub(crate) fn handle_cmsg_quest_giver_status_query(
-        session: Arc<WorldSession>,
-        world_context: Arc<WorldContext>,
-        data: Vec<u8>,
+        PacketHandlerArgs {
+            session,
+            world_context,
+            data,
+            ..
+        }: PacketHandlerArgs,
     ) {
         let cmsg: CmsgQuestGiverStatusQuery = ClientMessage::read_as(data).unwrap();
 
@@ -50,9 +52,12 @@ impl OpcodeHandler {
     }
 
     pub(crate) fn handle_cmsg_quest_giver_hello(
-        session: Arc<WorldSession>,
-        world_context: Arc<WorldContext>,
-        data: Vec<u8>,
+        PacketHandlerArgs {
+            session,
+            world_context,
+            data,
+            ..
+        }: PacketHandlerArgs,
     ) {
         let cmsg: CmsgQuestGiverHello = ClientMessage::read_as(data).unwrap();
 
@@ -60,9 +65,12 @@ impl OpcodeHandler {
     }
 
     pub(crate) fn handle_cmsg_quest_giver_query_quest(
-        session: Arc<WorldSession>,
-        world_context: Arc<WorldContext>,
-        data: Vec<u8>,
+        PacketHandlerArgs {
+            session,
+            world_context,
+            data,
+            ..
+        }: PacketHandlerArgs,
     ) {
         let cmsg: CmsgQuestGiverQueryQuest = ClientMessage::read_as(data).unwrap();
 
@@ -83,9 +91,12 @@ impl OpcodeHandler {
 
     // Note: the quest giver can be a player in case of quest sharing
     pub(crate) fn handle_cmsg_quest_giver_accept_quest(
-        session: Arc<WorldSession>,
-        world_context: Arc<WorldContext>,
-        data: Vec<u8>,
+        PacketHandlerArgs {
+            session,
+            world_context,
+            data,
+            ..
+        }: PacketHandlerArgs,
     ) {
         let cmsg: CmsgQuestGiverAcceptQuest = ClientMessage::read_as(data).unwrap();
 
@@ -99,9 +110,11 @@ impl OpcodeHandler {
     }
 
     pub(crate) fn handle_cmsg_quest_giver_status_multiple_query(
-        session: Arc<WorldSession>,
-        world_context: Arc<WorldContext>,
-        _data: Vec<u8>,
+        PacketHandlerArgs {
+            session,
+            world_context,
+            ..
+        }: PacketHandlerArgs,
     ) {
         let map = session.current_map().unwrap();
         let mut statuses: Vec<QuestGiverStatusMultipleEntry> = Vec::new();
@@ -133,9 +146,7 @@ impl OpcodeHandler {
     }
 
     pub(crate) fn handle_cmsg_quest_log_remove_quest(
-        session: Arc<WorldSession>,
-        _world_context: Arc<WorldContext>,
-        data: Vec<u8>,
+        PacketHandlerArgs { session, data, .. }: PacketHandlerArgs,
     ) {
         let cmsg: CmsgQuestLogRemoveQuest = ClientMessage::read_as(data).unwrap();
 
@@ -146,9 +157,12 @@ impl OpcodeHandler {
     }
 
     pub(crate) fn handle_cmsg_quest_giver_complete_quest(
-        session: Arc<WorldSession>,
-        world_context: Arc<WorldContext>,
-        data: Vec<u8>,
+        PacketHandlerArgs {
+            session,
+            world_context,
+            data,
+            ..
+        }: PacketHandlerArgs,
     ) {
         let cmsg: CmsgQuestGiverCompleteQuest = ClientMessage::read_as(data).unwrap();
 
@@ -198,9 +212,12 @@ impl OpcodeHandler {
     }
 
     pub(crate) fn handle_cmsg_quest_giver_request_reward(
-        session: Arc<WorldSession>,
-        world_context: Arc<WorldContext>,
-        data: Vec<u8>,
+        PacketHandlerArgs {
+            session,
+            world_context,
+            data,
+            ..
+        }: PacketHandlerArgs,
     ) {
         let cmsg: CmsgQuestGiverRequestReward = ClientMessage::read_as(data).unwrap();
 
@@ -229,9 +246,12 @@ impl OpcodeHandler {
     }
 
     pub(crate) fn handle_cmsg_quest_giver_choose_reward(
-        session: Arc<WorldSession>,
-        world_context: Arc<WorldContext>,
-        data: Vec<u8>,
+        PacketHandlerArgs {
+            session,
+            world_context,
+            data,
+            ..
+        }: PacketHandlerArgs,
     ) {
         let cmsg: CmsgQuestGiverChooseReward = ClientMessage::read_as(data).unwrap();
 

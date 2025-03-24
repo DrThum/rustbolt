@@ -1,20 +1,12 @@
-use std::sync::Arc;
-
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use crate::game::world_context::WorldContext;
 use crate::protocol::client::ClientMessage;
 use crate::protocol::packets::*;
 use crate::protocol::server::ServerMessage;
-use crate::session::opcode_handler::OpcodeHandler;
-use crate::session::world_session::WorldSession;
+use crate::session::opcode_handler::{OpcodeHandler, PacketHandlerArgs};
 
 impl OpcodeHandler {
-    pub(crate) fn handle_cmsg_ping(
-        session: Arc<WorldSession>,
-        _world_context: Arc<WorldContext>,
-        data: Vec<u8>,
-    ) {
+    pub(crate) fn handle_cmsg_ping(PacketHandlerArgs { session, data, .. }: PacketHandlerArgs) {
         let cmsg_ping: CmsgPing = ClientMessage::read_as(data).unwrap();
 
         session.update_client_latency(cmsg_ping.latency);
@@ -26,11 +18,7 @@ impl OpcodeHandler {
         session.send(&packet).unwrap();
     }
 
-    pub(crate) fn handle_cmsg_query_time(
-        session: Arc<WorldSession>,
-        _world_context: Arc<WorldContext>,
-        _data: Vec<u8>,
-    ) {
+    pub(crate) fn handle_cmsg_query_time(PacketHandlerArgs { session, .. }: PacketHandlerArgs) {
         let now = SystemTime::now();
         let seconds_since_epoch = now
             .duration_since(UNIX_EPOCH)
@@ -45,9 +33,12 @@ impl OpcodeHandler {
     }
 
     pub(crate) fn handle_time_sync_resp(
-        session: Arc<WorldSession>,
-        world_context: Arc<WorldContext>,
-        data: Vec<u8>,
+        PacketHandlerArgs {
+            session,
+            world_context,
+            data,
+            ..
+        }: PacketHandlerArgs,
     ) {
         let cmsg_time_sync_resp: CmsgTimeSyncResp = ClientMessage::read_as(data).unwrap();
         session.handle_time_sync_resp(

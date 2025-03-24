@@ -13,7 +13,7 @@ use crate::{
     game::spatial_grid::WrappedSpatialGrid,
     protocol::{client::ClientMessage, opcodes::Opcode, packets::MovementInfo},
     session::{
-        opcode_handler::{OpcodeHandler, PacketHandler},
+        opcode_handler::{OpcodeHandler, PacketHandler, PacketHandlerArgs},
         world_session::WorldSession,
     },
 };
@@ -63,6 +63,10 @@ impl OpcodeHandler {
             map.broadcast_movement(&player_guid, opcode, &movement_info);
         }
 
-        Box::new(move |session, _, data| handle_movement(opcode, session, data)) as PacketHandler
+        Box::new(
+            move |PacketHandlerArgs { session, data, .. }: PacketHandlerArgs| {
+                handle_movement(opcode, session, data)
+            },
+        ) as PacketHandler
     }
 }

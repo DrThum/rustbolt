@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use shipyard::{View, ViewMut};
 
 use crate::ecs::components::guid::Guid;
@@ -7,18 +5,14 @@ use crate::ecs::components::melee::Melee;
 use crate::ecs::components::unit::Unit;
 use crate::entities::object_guid::ObjectGuid;
 use crate::entities::player::Player;
-use crate::game::world_context::WorldContext;
 use crate::protocol::client::ClientMessage;
 use crate::protocol::packets::*;
 use crate::protocol::server::ServerMessage;
-use crate::session::opcode_handler::OpcodeHandler;
-use crate::session::world_session::WorldSession;
+use crate::session::opcode_handler::{OpcodeHandler, PacketHandlerArgs};
 
 impl OpcodeHandler {
     pub(crate) fn handle_cmsg_attack_swing(
-        session: Arc<WorldSession>,
-        _world_context: Arc<WorldContext>,
-        data: Vec<u8>,
+        PacketHandlerArgs { session, data, .. }: PacketHandlerArgs,
     ) {
         let cmsg: CmsgAttackSwing = ClientMessage::read_as(data).unwrap();
         if let Some(ref map) = session.current_map() {
@@ -44,11 +38,7 @@ impl OpcodeHandler {
         }
     }
 
-    pub(crate) fn handle_cmsg_attack_stop(
-        session: Arc<WorldSession>,
-        _world_context: Arc<WorldContext>,
-        _data: Vec<u8>,
-    ) {
+    pub(crate) fn handle_cmsg_attack_stop(PacketHandlerArgs { session, .. }: PacketHandlerArgs) {
         if let Some(ref map) = session.current_map() {
             let player_guid = session.player_guid().unwrap();
             if let Some(player_ecs_entity) = map.lookup_entity_ecs(&player_guid) {

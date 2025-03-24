@@ -1,26 +1,27 @@
 use binrw::NullString;
 use chrono::{Datelike, Timelike};
 use shipyard::ViewMut;
-use std::sync::Arc;
 
 use crate::ecs::components::melee::Melee;
 use crate::ecs::components::unit::Unit;
 use crate::entities::object_guid::ObjectGuid;
 use crate::entities::player::Player;
-use crate::game::world_context::WorldContext;
 use crate::protocol::client::ClientMessage;
 use crate::protocol::packets::*;
 use crate::protocol::server::ServerMessage;
 use crate::repositories::character::CharacterRepository;
-use crate::session::opcode_handler::OpcodeHandler;
+use crate::session::opcode_handler::{OpcodeHandler, PacketHandlerArgs};
 use crate::session::world_session::{WorldSession, WorldSessionState};
 use crate::shared::response_codes::ResponseCodes;
 
 impl OpcodeHandler {
     pub(crate) fn handle_cmsg_char_create(
-        session: Arc<WorldSession>,
-        world_context: Arc<WorldContext>,
-        data: Vec<u8>,
+        PacketHandlerArgs {
+            session,
+            world_context,
+            data,
+            ..
+        }: PacketHandlerArgs,
     ) {
         let cmsg_char_create: CmsgCharCreate = ClientMessage::read_as(data).unwrap();
         let mut conn = world_context.database.characters.get().unwrap();
@@ -49,9 +50,11 @@ impl OpcodeHandler {
     }
 
     pub(crate) fn handle_cmsg_char_enum(
-        session: Arc<WorldSession>,
-        world_context: Arc<WorldContext>,
-        _data: Vec<u8>,
+        PacketHandlerArgs {
+            session,
+            world_context,
+            ..
+        }: PacketHandlerArgs,
     ) {
         {
             let mut session_state = session.state.write();
@@ -74,9 +77,12 @@ impl OpcodeHandler {
     }
 
     pub(crate) fn handle_cmsg_char_delete(
-        session: Arc<WorldSession>,
-        world_context: Arc<WorldContext>,
-        data: Vec<u8>,
+        PacketHandlerArgs {
+            session,
+            world_context,
+            data,
+            ..
+        }: PacketHandlerArgs,
     ) {
         let cmsg_char_delete: CmsgCharDelete = ClientMessage::read_as(data).unwrap();
         let conn = world_context.database.characters.get().unwrap();
@@ -90,9 +96,12 @@ impl OpcodeHandler {
     }
 
     pub(crate) fn handle_cmsg_player_login(
-        session: Arc<WorldSession>,
-        world_context: Arc<WorldContext>,
-        data: Vec<u8>,
+        PacketHandlerArgs {
+            session,
+            world_context,
+            data,
+            ..
+        }: PacketHandlerArgs,
     ) {
         let cmsg_player_login: CmsgPlayerLogin = ClientMessage::read_as(data).unwrap();
 
@@ -228,9 +237,11 @@ impl OpcodeHandler {
     }
 
     pub(crate) fn handle_cmsg_logout_request(
-        session: Arc<WorldSession>,
-        world_context: Arc<WorldContext>,
-        _data: Vec<u8>,
+        PacketHandlerArgs {
+            session,
+            world_context,
+            ..
+        }: PacketHandlerArgs,
     ) {
         let packet = ServerMessage::new(SmsgLogoutResponse {
             reason: 0,
@@ -249,7 +260,7 @@ impl OpcodeHandler {
             world_context.clone(),
         );
 
-        if let Some(ref map) = session.current_map() {
+        if let Some(map) = session.current_map() {
             let player_guid = &session
                 .player_guid()
                 .expect("attempt to logout from a session with no player");
@@ -259,9 +270,12 @@ impl OpcodeHandler {
     }
 
     pub(crate) fn handle_cmsg_name_query(
-        session: Arc<WorldSession>,
-        world_context: Arc<WorldContext>,
-        data: Vec<u8>,
+        PacketHandlerArgs {
+            session,
+            world_context,
+            data,
+            ..
+        }: PacketHandlerArgs,
     ) {
         let cmsg_name_query: CmsgNameQuery = ClientMessage::read_as(data).unwrap();
 
@@ -296,9 +310,7 @@ impl OpcodeHandler {
     }
 
     pub(crate) fn handle_cmsg_stand_state_change(
-        session: Arc<WorldSession>,
-        _world_context: Arc<WorldContext>,
-        data: Vec<u8>,
+        PacketHandlerArgs { session, data, .. }: PacketHandlerArgs,
     ) {
         let cmsg_stand_state_change: CmsgStandStateChange = ClientMessage::read_as(data).unwrap();
         if let Some(map) = session.current_map() {
@@ -317,9 +329,7 @@ impl OpcodeHandler {
     }
 
     pub(crate) fn handle_cmsg_set_sheathed(
-        session: Arc<WorldSession>,
-        _world_context: Arc<WorldContext>,
-        data: Vec<u8>,
+        PacketHandlerArgs { session, data, .. }: PacketHandlerArgs,
     ) {
         let cmsg_set_sheathed: CmsgSetSheathed = ClientMessage::read_as(data).unwrap();
         if let Some(map) = session.current_map() {

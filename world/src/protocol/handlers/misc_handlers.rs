@@ -1,21 +1,15 @@
-use std::sync::Arc;
-
 use shipyard::ViewMut;
 
 use crate::ecs::components::unit::Unit;
 use crate::entities::object_guid::ObjectGuid;
-use crate::game::world_context::WorldContext;
 use crate::protocol::client::ClientMessage;
 use crate::protocol::packets::*;
 use crate::protocol::server::ServerMessage;
-use crate::session::opcode_handler::OpcodeHandler;
-use crate::session::world_session::WorldSession;
+use crate::session::opcode_handler::{OpcodeHandler, PacketHandlerArgs};
 
 impl OpcodeHandler {
     pub(crate) fn handle_cmsg_realm_split(
-        session: Arc<WorldSession>,
-        _world_context: Arc<WorldContext>,
-        data: Vec<u8>,
+        PacketHandlerArgs { session, data, .. }: PacketHandlerArgs,
     ) {
         let cmsg_realm_split: CmsgRealmSplit = ClientMessage::read_as(data).unwrap();
 
@@ -29,9 +23,7 @@ impl OpcodeHandler {
     }
 
     pub(crate) fn handle_cmsg_set_selection(
-        session: Arc<WorldSession>,
-        _world_context: Arc<WorldContext>,
-        data: Vec<u8>,
+        PacketHandlerArgs { session, data, .. }: PacketHandlerArgs,
     ) {
         let cmsg: CmsgSetSelection = ClientMessage::read_as(data).unwrap();
 

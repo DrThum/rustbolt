@@ -12,13 +12,18 @@ use crate::{
 
 use super::world_session::WorldSession;
 
-pub type PacketHandler = Box<dyn Send + Sync + Fn(Arc<WorldSession>, Arc<WorldContext>, Vec<u8>)>;
+pub struct PacketHandlerArgs {
+    pub session: Arc<WorldSession>,
+    pub world_context: Arc<WorldContext>,
+    pub data: Vec<u8>,
+}
+pub type PacketHandler = Box<dyn Send + Sync + Fn(PacketHandlerArgs)>;
 
 macro_rules! define_handler {
     ($opcode:expr, $handler:expr) => {
         (
             $opcode as u32,
-            Box::new(|session, ctx, data| $handler(session, ctx, data)) as PacketHandler,
+            Box::new(|args| $handler(args)) as PacketHandler,
         )
     };
 }
@@ -27,9 +32,7 @@ macro_rules! define_movement_handler {
     ($opcode:expr) => {
         (
             $opcode as u32,
-            Box::new(|session, ctx, data| {
-                OpcodeHandler::handle_movement_packet($opcode)(session, ctx, data)
-            }) as PacketHandler,
+            Box::new(|args| OpcodeHandler::handle_movement_packet($opcode)(args)) as PacketHandler,
         )
     };
 }

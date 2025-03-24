@@ -1,25 +1,25 @@
-use std::sync::Arc;
-
 use log::{error, warn};
 use shipyard::{View, ViewMut};
 
 use crate::ecs::components::powers::Powers;
 use crate::ecs::components::spell_cast::SpellCast;
-use crate::game::world_context::WorldContext;
 use crate::protocol::client::ClientMessage;
 use crate::protocol::packets::{
     CmsgCancelCast, CmsgCastSpell, SmsgCastFailed, SmsgClearExtraAuraInfo, SmsgSpellStart,
 };
 use crate::protocol::server::ServerMessage;
-use crate::session::opcode_handler::OpcodeHandler;
-use crate::session::world_session::{WSRunnableArgs, WorldSession};
+use crate::session::opcode_handler::{OpcodeHandler, PacketHandlerArgs};
+use crate::session::world_session::WSRunnableArgs;
 use crate::shared::constants::SpellFailReason;
 
 impl OpcodeHandler {
     pub(crate) fn handle_cmsg_cast_spell(
-        session: Arc<WorldSession>,
-        world_context: Arc<WorldContext>,
-        data: Vec<u8>,
+        PacketHandlerArgs {
+            session,
+            world_context,
+            data,
+            ..
+        }: PacketHandlerArgs,
     ) {
         let cmsg: CmsgCastSpell = ClientMessage::read_as(data).unwrap();
         let mut targets = cmsg.cast_targets.clone();
@@ -106,9 +106,7 @@ impl OpcodeHandler {
     }
 
     pub(crate) fn handle_cmsg_cancel_cast(
-        session: Arc<WorldSession>,
-        _world_context: Arc<WorldContext>,
-        data: Vec<u8>,
+        PacketHandlerArgs { session, data, .. }: PacketHandlerArgs,
     ) {
         let cmsg: CmsgCancelCast = ClientMessage::read_as(data).unwrap();
 

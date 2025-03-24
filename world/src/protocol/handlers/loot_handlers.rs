@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use log::{error, warn};
 use shipyard::{Get, View, ViewMut};
 
@@ -9,19 +7,21 @@ use crate::entities::game_object::GameObject;
 use crate::entities::object_guid::ObjectGuid;
 use crate::entities::player::Player;
 use crate::game::loot::Loot;
-use crate::game::world_context::WorldContext;
 use crate::protocol::client::ClientMessage;
 use crate::protocol::packets::*;
 use crate::protocol::server::ServerMessage;
-use crate::session::opcode_handler::OpcodeHandler;
-use crate::session::world_session::{WSRunnableArgs, WorldSession};
+use crate::session::opcode_handler::{OpcodeHandler, PacketHandlerArgs};
+use crate::session::world_session::WSRunnableArgs;
 use crate::shared::constants::{LootSlotType, LootType, UnitDynamicFlag, UnitFlags};
 
 impl OpcodeHandler {
     pub(crate) fn handle_cmsg_loot(
-        session: Arc<WorldSession>,
-        world_context: Arc<WorldContext>,
-        data: Vec<u8>,
+        PacketHandlerArgs {
+            session,
+            world_context,
+            data,
+            ..
+        }: PacketHandlerArgs,
     ) {
         let cmsg: CmsgLoot = ClientMessage::read_as(data).unwrap();
 
@@ -87,11 +87,7 @@ impl OpcodeHandler {
         }
     }
 
-    pub(crate) fn handle_cmsg_loot_money(
-        session: Arc<WorldSession>,
-        _world_context: Arc<WorldContext>,
-        _data: Vec<u8>,
-    ) {
+    pub(crate) fn handle_cmsg_loot_money(PacketHandlerArgs { session, .. }: PacketHandlerArgs) {
         session.run(&|WSRunnableArgs {
                           map,
                           player_entity_id,
@@ -121,9 +117,7 @@ impl OpcodeHandler {
     }
 
     pub(crate) fn handle_cmsg_loot_release(
-        session: Arc<WorldSession>,
-        _world_context: Arc<WorldContext>,
-        data: Vec<u8>,
+        PacketHandlerArgs { session, data, .. }: PacketHandlerArgs,
     ) {
         let cmsg: CmsgLootRelease = ClientMessage::read_as(data).unwrap();
 
@@ -163,9 +157,7 @@ impl OpcodeHandler {
     }
 
     pub(crate) fn handle_cmsg_autostore_loot_item(
-        session: Arc<WorldSession>,
-        _world_context: Arc<WorldContext>,
-        data: Vec<u8>,
+        PacketHandlerArgs { session, data, .. }: PacketHandlerArgs,
     ) {
         let cmsg: CmsgAutostoreLootItem = ClientMessage::read_as(data).unwrap();
 

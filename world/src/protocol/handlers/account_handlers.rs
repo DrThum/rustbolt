@@ -1,17 +1,11 @@
-use std::sync::Arc;
-
-use crate::game::world_context::WorldContext;
 use crate::protocol::client::ClientMessage;
 use crate::protocol::packets::*;
 use crate::protocol::server::ServerMessage;
-use crate::session::opcode_handler::OpcodeHandler;
-use crate::session::world_session::WorldSession;
+use crate::session::opcode_handler::{OpcodeHandler, PacketHandlerArgs};
 
 impl OpcodeHandler {
     pub(crate) fn handle_cmsg_update_account_data(
-        session: Arc<WorldSession>,
-        _world_context: Arc<WorldContext>,
-        data: Vec<u8>,
+        PacketHandlerArgs { session, data, .. }: PacketHandlerArgs,
     ) {
         let cmsg_update_account_data: CmsgUpdateAccountData = ClientMessage::read_as(data).unwrap();
 

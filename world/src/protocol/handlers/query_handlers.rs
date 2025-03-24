@@ -1,10 +1,7 @@
-use std::sync::Arc;
-
 use binrw::NullString;
 use log::error;
 
 use crate::{
-    game::world_context::WorldContext,
     protocol::{
         client::ClientMessage,
         packets::{
@@ -15,14 +12,17 @@ use crate::{
         },
         server::ServerMessage,
     },
-    session::{opcode_handler::OpcodeHandler, world_session::WorldSession},
+    session::opcode_handler::{OpcodeHandler, PacketHandlerArgs},
 };
 
 impl OpcodeHandler {
     pub(crate) fn handle_cmsg_creature_query(
-        session: Arc<WorldSession>,
-        world_context: Arc<WorldContext>,
-        data: Vec<u8>,
+        PacketHandlerArgs {
+            session,
+            world_context,
+            data,
+            ..
+        }: PacketHandlerArgs,
     ) {
         let cmsg: CmsgCreatureQuery = ClientMessage::read_as(data).unwrap();
 
@@ -58,9 +58,12 @@ impl OpcodeHandler {
     }
 
     pub(crate) fn handle_cmsg_game_object_query(
-        session: Arc<WorldSession>,
-        world_context: Arc<WorldContext>,
-        data: Vec<u8>,
+        PacketHandlerArgs {
+            session,
+            world_context,
+            data,
+            ..
+        }: PacketHandlerArgs,
     ) {
         let cmsg: CmsgGameObjectQuery = ClientMessage::read_as(data).unwrap();
 
@@ -96,9 +99,12 @@ impl OpcodeHandler {
     }
 
     pub(crate) fn handle_cmsg_npc_text_query(
-        session: Arc<WorldSession>,
-        world_context: Arc<WorldContext>,
-        data: Vec<u8>,
+        PacketHandlerArgs {
+            session,
+            world_context,
+            data,
+            ..
+        }: PacketHandlerArgs,
     ) {
         let cmsg: CmsgNpcTextQuery = ClientMessage::read_as(data).unwrap();
 
@@ -139,9 +145,12 @@ impl OpcodeHandler {
     }
 
     pub(crate) fn handle_cmsg_quest_query(
-        session: Arc<WorldSession>,
-        world_context: Arc<WorldContext>,
-        data: Vec<u8>,
+        PacketHandlerArgs {
+            session,
+            world_context,
+            data,
+            ..
+        }: PacketHandlerArgs,
     ) {
         let cmsg: CmsgQuestQuery = ClientMessage::read_as(data).unwrap();
 

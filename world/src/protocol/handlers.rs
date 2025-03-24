@@ -1,8 +1,4 @@
-use std::sync::Arc;
-
-use crate::game::world_context::WorldContext;
-use crate::session::opcode_handler::OpcodeHandler;
-use crate::session::world_session::WorldSession;
+use crate::session::opcode_handler::{OpcodeHandler, PacketHandlerArgs};
 
 mod account_handlers;
 mod character_handlers;
@@ -19,10 +15,5 @@ mod spell_handlers;
 mod synchronization_handlers;
 
 impl OpcodeHandler {
-    pub fn unhandled(
-        _session: Arc<WorldSession>,
-        _world_context: Arc<WorldContext>,
-        _data: Vec<u8>,
-    ) {
-    }
+    pub fn unhandled(_args: PacketHandlerArgs) {}
 }

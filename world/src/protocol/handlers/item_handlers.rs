@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use binrw::NullString;
 use log::{error, warn};
 use shipyard::{Get, View, ViewMut};
@@ -7,19 +5,21 @@ use shipyard::{Get, View, ViewMut};
 use crate::ecs::components::powers::Powers;
 use crate::ecs::components::spell_cast::SpellCast;
 use crate::entities::player::Player;
-use crate::game::world_context::WorldContext;
 use crate::protocol::client::ClientMessage;
 use crate::protocol::packets::*;
 use crate::protocol::server::ServerMessage;
-use crate::session::opcode_handler::OpcodeHandler;
-use crate::session::world_session::{WSRunnableArgs, WorldSession};
+use crate::session::opcode_handler::{OpcodeHandler, PacketHandlerArgs};
+use crate::session::world_session::WSRunnableArgs;
 use crate::shared::constants::SpellFailReason;
 
 impl OpcodeHandler {
     pub(crate) fn handle_cmsg_item_query_single(
-        session: Arc<WorldSession>,
-        world_context: Arc<WorldContext>,
-        data: Vec<u8>,
+        PacketHandlerArgs {
+            session,
+            world_context,
+            data,
+            ..
+        }: PacketHandlerArgs,
     ) {
         let cmsg_item_query_single: CmsgItemQuerySingle = ClientMessage::read_as(data).unwrap();
 
@@ -108,9 +108,12 @@ impl OpcodeHandler {
     }
 
     pub(crate) fn handle_cmsg_item_name_query(
-        session: Arc<WorldSession>,
-        world_context: Arc<WorldContext>,
-        data: Vec<u8>,
+        PacketHandlerArgs {
+            session,
+            world_context,
+            data,
+            ..
+        }: PacketHandlerArgs,
     ) {
         let cmsg_item_name_query: CmsgItemNameQuery = ClientMessage::read_as(data).unwrap();
 
@@ -129,9 +132,7 @@ impl OpcodeHandler {
     }
 
     pub(crate) fn handle_cmsg_destroy_item(
-        session: Arc<WorldSession>,
-        _world_context: Arc<WorldContext>,
-        data: Vec<u8>,
+        PacketHandlerArgs { session, data, .. }: PacketHandlerArgs,
     ) {
         let cmsg_destroy_item: CmsgDestroyItem = ClientMessage::read_as(data).unwrap();
 
@@ -148,9 +149,12 @@ impl OpcodeHandler {
     }
 
     pub(crate) fn handle_cmsg_auto_equip_item(
-        session: Arc<WorldSession>,
-        world_context: Arc<WorldContext>,
-        data: Vec<u8>,
+        PacketHandlerArgs {
+            session,
+            world_context,
+            data,
+            ..
+        }: PacketHandlerArgs,
     ) {
         let cmsg_auto_equip_item: CmsgAutoEquipItem = ClientMessage::read_as(data).unwrap();
         let slot = cmsg_auto_equip_item.slot as u32;
@@ -181,9 +185,12 @@ impl OpcodeHandler {
     }
 
     pub(crate) fn handle_cmsg_swap_inv_item(
-        session: Arc<WorldSession>,
-        world_context: Arc<WorldContext>,
-        data: Vec<u8>,
+        PacketHandlerArgs {
+            session,
+            world_context,
+            data,
+            ..
+        }: PacketHandlerArgs,
     ) {
         let cmsg_swap_inv_item: CmsgSwapInvItem = ClientMessage::read_as(data).unwrap();
 
@@ -223,9 +230,12 @@ impl OpcodeHandler {
     }
 
     pub(crate) fn handle_cmsg_split_item(
-        session: Arc<WorldSession>,
-        world_context: Arc<WorldContext>,
-        data: Vec<u8>,
+        PacketHandlerArgs {
+            session,
+            world_context,
+            data,
+            ..
+        }: PacketHandlerArgs,
     ) {
         let cmsg_split_item: CmsgSplitItem = ClientMessage::read_as(data).unwrap();
 
@@ -266,9 +276,12 @@ impl OpcodeHandler {
     }
 
     pub(crate) fn handle_cmsg_use_item(
-        session: Arc<WorldSession>,
-        world_context: Arc<WorldContext>,
-        data: Vec<u8>,
+        PacketHandlerArgs {
+            session,
+            world_context,
+            data,
+            ..
+        }: PacketHandlerArgs,
     ) {
         let cmsg: CmsgUseItem = ClientMessage::read_as(data).unwrap();
 

@@ -45,7 +45,7 @@ use crate::{
     WorldSocketError,
 };
 
-use super::world_socket::WorldSocket;
+use super::{opcode_handler::PacketHandlerArgs, world_socket::WorldSocket};
 
 #[derive(PartialEq, Eq)]
 pub enum WorldSessionState {
@@ -122,11 +122,11 @@ impl WorldSession {
                     .opcode_handler
                     .get_handler(client_message.header.opcode);
 
-                handler(
-                    session_clone.clone(),
-                    world_context_clone.clone(),
-                    client_message.payload,
-                );
+                handler(PacketHandlerArgs {
+                    session: session_clone.clone(),
+                    world_context: world_context_clone.clone(),
+                    data: client_message.payload,
+                });
             }
         });
 

@@ -49,7 +49,7 @@ use crate::{
         character::CharacterRecord, creature::CreatureSpawnDbRecord,
         game_object::GameObjectSpawnDbRecord,
     },
-    session::world_session::WorldSession,
+    session::{session_holder::WrappedSessionHolder, world_session::WorldSession},
     shared::constants::{HighGuidType, NpcFlags, WeaponAttackType},
     SessionHolder,
 };
@@ -125,6 +125,7 @@ impl Map {
         world.add_unique(VisibilityDistance(visibility_distance));
         world.add_unique(WrappedPacketBroadcaster(packet_broadcaster.clone()));
         world.add_unique(WrappedTerrainManager(terrain_manager.clone()));
+        world.add_unique(WrappedSessionHolder(session_holder.clone()));
         world.add_unique(map_record);
 
         let workload = || {

@@ -3,6 +3,8 @@ use std::{collections::HashMap, sync::Arc};
 
 use parking_lot::RwLock;
 
+use crate::{create_wrapped_resource, entities::object_guid::ObjectGuid};
+
 use super::world_session::WorldSession;
 
 pub struct SessionHolder<Key: Eq + std::hash::Hash + fmt::Debug> {
@@ -61,3 +63,5 @@ where
             .collect()
     }
 }
+
+create_wrapped_resource!(WrappedSessionHolder, SessionHolder<ObjectGuid>);

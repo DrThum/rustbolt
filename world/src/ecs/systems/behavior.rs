@@ -26,8 +26,10 @@ use crate::{
     },
     game::{
         map::{HasPlayers, WrappedMap},
+        packet_broadcaster::{WrappedPacketBroadcaster},
         terrain_manager::WrappedTerrainManager,
     },
+    session::session_holder::WrappedSessionHolder,
     shared::constants::{CREATURE_AGGRO_DISTANCE_MAX, MAX_CHASE_LEEWAY},
 };
 
@@ -168,7 +170,8 @@ fn action_attack_in_melee(ctx: &mut BTContext) -> NodeStatus {
 
     ctx.all_storages.run(
         |(
-            (map, map_record),
+            map_record,
+            (packet_broadcaster, session_holder),
             v_guid,
             v_wpos,
             v_spell,
@@ -178,7 +181,11 @@ fn action_attack_in_melee(ctx: &mut BTContext) -> NodeStatus {
             mut vm_melee,
             mut vm_threat_list,
         ): (
-            (UniqueView<WrappedMap>, UniqueView<MapRecord>),
+            UniqueView<MapRecord>,
+            (
+                UniqueView<WrappedPacketBroadcaster>,
+                UniqueView<WrappedSessionHolder>,
+            ),
             View<Guid>,
             View<WorldPosition>,
             View<SpellCast>,
@@ -190,7 +197,8 @@ fn action_attack_in_melee(ctx: &mut BTContext) -> NodeStatus {
         )| {
             match Melee::execute_attack(
                 my_id,
-                map.0.clone(),
+                packet_broadcaster.0.clone(),
+                session_holder.0.clone(),
                 &map_record,
                 &v_guid,
                 &v_wpos,

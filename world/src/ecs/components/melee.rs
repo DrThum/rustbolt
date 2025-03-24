@@ -11,10 +11,10 @@ use shipyard::{Component, EntityId, Get, View, ViewMut};
 use crate::{
     datastore::data_types::MapRecord,
     entities::{
-        creature::Creature, internal_values::InternalValues, player::Player,
-        position::WorldPosition, update_fields::UnitFields,
+        creature::Creature, internal_values::InternalValues, object_guid::ObjectGuid,
+        player::Player, position::WorldPosition, update_fields::UnitFields,
     },
-    game::{experience::Experience, map::Map},
+    game::{experience::Experience, packet_broadcaster::PacketBroadcaster},
     protocol::{
         packets::{SmsgAttackStop, SmsgAttackSwingNotInRange, SmsgAttackerStateUpdate},
         server::ServerMessage,
@@ -24,6 +24,7 @@ use crate::{
         MeleeAttackError, SheathState, UnitDynamicFlag, WeaponAttackType, ATTACK_DISPLAY_DELAY,
         BASE_MELEE_RANGE_OFFSET, NUMBER_WEAPON_ATTACK_TYPES,
     },
+    SessionHolder,
 };
 
 use super::{
@@ -170,7 +171,8 @@ impl Melee {
 
     pub fn execute_attack(
         attacker_id: EntityId,
-        map: Arc<Map>,
+        packet_broadcaster: Arc<PacketBroadcaster>,
+        session_holder: Arc<SessionHolder<ObjectGuid>>,
         map_record: &MapRecord,
         v_guid: &View<Guid>,
         v_wpos: &View<WorldPosition>,
@@ -220,7 +222,7 @@ impl Melee {
                         })
                     };
 
-                    map.broadcast_packet(&guid, &packet, None, true);
+                    packet_broadcaster.broadcast_packet(&guid, &packet, None, true);
 
                     melee.is_attacking = false;
 
@@ -232,7 +234,7 @@ impl Melee {
                     target_position,
                     target_melee_reach,
                 ) {
-                    let my_session = map.get_session(&guid);
+                    let my_session = session_holder.get_session(&guid);
                     melee.set_error(MeleeAttackError::NotInRange, my_session);
 
                     melee
@@ -262,7 +264,7 @@ impl Melee {
                         damage_blocked_amount: 0,
                     });
 
-                    map.broadcast_packet(&guid, &packet, None, true);
+                    packet_broadcaster.broadcast_packet(&guid, &packet, None, true);
 
                     melee.reset_attack_type(WeaponAttackType::MainHand);
                     melee.ensure_attack_time(WeaponAttackType::OffHand, ATTACK_DISPLAY_DELAY);

@@ -7,15 +7,17 @@ use crate::{
         unit::Unit,
     },
     entities::{creature::Creature, player::Player, position::WorldPosition},
-    game::map::{HasPlayers, WrappedMap},
+    game::{map::HasPlayers, packet_broadcaster::WrappedPacketBroadcaster},
+    session::session_holder::WrappedSessionHolder,
 };
 
 // TODO: Move to systems/combat?
 pub fn attempt_melee_attack(
-    (has_players, map, map_record): (
+    (has_players, map_record, packet_broadcaster, session_holder): (
         UniqueView<HasPlayers>,
-        UniqueView<WrappedMap>,
         UniqueView<MapRecord>,
+        UniqueView<WrappedPacketBroadcaster>,
+        UniqueView<WrappedSessionHolder>,
     ),
     v_guid: View<Guid>,
     mut vm_powers: ViewMut<Powers>,
@@ -34,7 +36,8 @@ pub fn attempt_melee_attack(
     for (my_id, mut player) in (&mut vm_player).iter().with_id() {
         match Melee::execute_attack(
             my_id,
-            map.0.clone(),
+            packet_broadcaster.0.clone(),
+            session_holder.0.clone(),
             &map_record,
             &v_guid,
             &v_wpos,

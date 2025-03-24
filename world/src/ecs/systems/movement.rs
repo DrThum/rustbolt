@@ -26,6 +26,7 @@ use crate::{
     game::{
         map::{HasPlayers, WrappedMap},
         movement_spline::MovementSplineState,
+        packet_broadcaster::WrappedPacketBroadcaster,
         terrain_manager::WrappedTerrainManager,
     },
     shared::constants::{CREATURE_LEASH_DISTANCE, MAX_CHASE_LEEWAY},
@@ -34,7 +35,11 @@ use crate::{
 pub fn update_movement(
     dt: UniqueView<DeltaTime>,
     has_players: UniqueView<HasPlayers>,
-    (map, terrain_manager): (UniqueView<WrappedMap>, UniqueView<WrappedTerrainManager>),
+    (map, packet_broadcaster, terrain_manager): (
+        UniqueView<WrappedMap>,
+        UniqueView<WrappedPacketBroadcaster>,
+        UniqueView<WrappedTerrainManager>,
+    ),
     v_guid: View<Guid>,
     (v_player, v_creature, v_game_object): (View<Player>, View<Creature>, View<GameObject>),
     v_powers: View<Powers>,
@@ -113,7 +118,7 @@ pub fn update_movement(
                     let speed = movement.speed_run;
                     movement.start_random_movement(
                         &guid.0,
-                        map.0.clone(),
+                        (**packet_broadcaster).clone(),
                         &current_pos,
                         destination,
                         speed,
@@ -159,7 +164,7 @@ pub fn update_movement(
                                 &target_guid,
                                 target_entity_id,
                                 chase_distance,
-                                map.0.clone(),
+                                (**packet_broadcaster).clone(),
                                 terrain_manager.clone(),
                                 my_wpos,
                                 *target_position,
@@ -195,7 +200,7 @@ pub fn update_movement(
                         let speed = movement.speed_run;
                         movement.go_to_home(
                             &guid.0,
-                            map.0.clone(),
+                            (**packet_broadcaster).clone(),
                             &my_wpos.vec3(),
                             creature.spawn_position,
                             speed,

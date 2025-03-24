@@ -36,8 +36,8 @@ pub fn attempt_melee_attack(
     for (my_id, mut player) in (&mut vm_player).iter().with_id() {
         match Melee::execute_attack(
             my_id,
-            packet_broadcaster.0.clone(),
-            session_holder.0.clone(),
+            (**packet_broadcaster).clone(),
+            (**session_holder).clone(),
             &map_record,
             &v_guid,
             &v_wpos,

@@ -25,8 +25,7 @@ use crate::{
         position::WorldPosition,
     },
     game::{
-        map::{HasPlayers, WrappedMap},
-        packet_broadcaster::{WrappedPacketBroadcaster},
+        map::HasPlayers, packet_broadcaster::WrappedPacketBroadcaster,
         terrain_manager::WrappedTerrainManager,
     },
     session::session_holder::WrappedSessionHolder,
@@ -197,8 +196,8 @@ fn action_attack_in_melee(ctx: &mut BTContext) -> NodeStatus {
         )| {
             match Melee::execute_attack(
                 my_id,
-                packet_broadcaster.0.clone(),
-                session_holder.0.clone(),
+                (**packet_broadcaster).clone(),
+                (**session_holder).clone(),
                 &map_record,
                 &v_guid,
                 &v_wpos,
@@ -227,8 +226,8 @@ fn action_chase_target(ctx: &mut BTContext) -> NodeStatus {
     };
 
     ctx.all_storages.run(
-        |(map, terrain_manager, v_unit, v_wpos, mut vm_movement, v_guid): (
-            UniqueView<WrappedMap>,
+        |(packet_broadcaster, terrain_manager, v_unit, v_wpos, mut vm_movement, v_guid): (
+            UniqueView<WrappedPacketBroadcaster>,
             UniqueView<WrappedTerrainManager>,
             View<Unit>,
             View<WorldPosition>,
@@ -272,7 +271,7 @@ fn action_chase_target(ctx: &mut BTContext) -> NodeStatus {
                         &v_guid[target_entity_id].0,
                         target_entity_id,
                         chase_distance,
-                        map.0.clone(),
+                        (**packet_broadcaster).clone(),
                         terrain_manager.clone(),
                         &my_current_position,
                         target_position,

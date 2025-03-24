@@ -16,8 +16,8 @@ use crate::{
         update::{CurrentMovementData, MovementUpdateData},
     },
     game::{
-        map::Map,
         movement_spline::{MovementSpline, MovementSplineState},
+        packet_broadcaster::PacketBroadcaster,
         terrain_manager::TerrainManager,
         world_context::WorldContext,
     },
@@ -121,7 +121,7 @@ impl Movement {
     pub fn start_movement(
         &mut self,
         mover_guid: &ObjectGuid,
-        map: Arc<Map>,
+        packet_broadcaster: Arc<PacketBroadcaster>,
         starting_position: &Vector3,
         path: &[Vector3],
         velocity: f32,
@@ -141,14 +141,14 @@ impl Movement {
             spline_duration.as_millis() as u32,
         ));
 
-        map.broadcast_packet(mover_guid, &packet, None, true);
+        packet_broadcaster.broadcast_packet(mover_guid, &packet, None, true);
         spline_duration
     }
 
     pub fn start_random_movement(
         &mut self,
         mover_guid: &ObjectGuid,
-        map: Arc<Map>,
+        packet_broadcaster: Arc<PacketBroadcaster>,
         starting_position: &Vector3,
         destination: Vector3,
         velocity: f32,
@@ -162,7 +162,7 @@ impl Movement {
 
         let duration = self.start_movement(
             mover_guid,
-            map,
+            packet_broadcaster,
             starting_position,
             &[destination],
             velocity,
@@ -191,7 +191,7 @@ impl Movement {
         target_guid: &ObjectGuid,
         target_entity_id: EntityId,
         chase_distance: f32,
-        map: Arc<Map>,
+        packet_broadcaster: Arc<PacketBroadcaster>,
         terrain_manager: Arc<TerrainManager>,
         starting_position: &WorldPosition,
         target_position: WorldPosition,
@@ -212,7 +212,7 @@ impl Movement {
         });
         self.start_movement(
             mover_guid,
-            map,
+            packet_broadcaster,
             &starting_position.vec3(),
             &[destination.vec3()],
             velocity,
@@ -223,7 +223,7 @@ impl Movement {
     pub fn go_to_home(
         &mut self,
         mover_guid: &ObjectGuid,
-        map: Arc<Map>,
+        packet_broadcaster: Arc<PacketBroadcaster>,
         starting_position: &Vector3,
         destination: WorldPosition, // TODO: Find a way to remove this parameter
         velocity: f32,
@@ -232,7 +232,7 @@ impl Movement {
         self.current_movement_kinds.push(MovementKind::ReturnHome);
         self.start_movement(
             mover_guid,
-            map,
+            packet_broadcaster,
             starting_position,
             &[destination.vec3()],
             velocity,

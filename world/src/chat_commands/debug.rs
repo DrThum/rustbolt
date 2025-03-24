@@ -2,11 +2,12 @@ use std::collections::HashMap;
 
 use clap::{Arg, ArgAction, Command};
 use log::info;
-use shipyard::{Get, View, ViewMut};
+use shipyard::{Get, UniqueView, View, ViewMut};
 
 use crate::{
     ecs::components::{guid::Guid, movement::Movement, threat_list::ThreatList, unit::Unit},
     entities::{creature::Creature, player::Player, position::WorldPosition},
+    game::packet_broadcaster::WrappedPacketBroadcaster,
 };
 
 use super::{ChatCommandResult, ChatCommands, CommandContext, CommandHandler, CommandMap};
@@ -63,6 +64,7 @@ fn handle_come(ctx: CommandContext) -> ChatCommandResult {
                     |v_wpos: View<WorldPosition>,
                      v_unit: View<Unit>,
                      v_guid: View<Guid>,
+                     packet_broadcaster: UniqueView<WrappedPacketBroadcaster>,
                      mut vm_movement: ViewMut<Movement>| {
                         let player_wpos = v_wpos[player_ecs_entity];
                         let player_target = v_unit[player_ecs_entity].target();
@@ -81,7 +83,7 @@ fn handle_come(ctx: CommandContext) -> ChatCommandResult {
                         let speed = vm_movement[target_entity_id].speed_run;
                         vm_movement[target_entity_id].start_movement(
                             &v_guid[target_entity_id].0,
-                            map.clone(),
+                            (**packet_broadcaster).clone(),
                             &target_wpos.vec3(),
                             &path,
                             speed,

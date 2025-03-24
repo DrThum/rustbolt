@@ -1,59 +1,45 @@
-use std::sync::Arc;
-
-use log::warn;
-
 use crate::{
+    datastore::data_types::MapRecord,
     entities::{creature::Creature, player::Player},
     shared::constants::Expansion,
-    DataStore,
 };
 
 pub struct Experience;
 
 impl Experience {
-    pub fn xp_gain_against(
-        player: &Player,
-        creature: &Creature,
-        map_id: u32,
-        data_store: Arc<DataStore>,
-    ) -> u32 {
-        if let Some(map_dbc_entry) = data_store.get_map_record(map_id) {
-            // TODO: 0 if creature is critter/totem/pet
-            let player_level = player.level();
-            let creature_level = creature.level_against(player_level);
-            let base_xp = match map_dbc_entry.expansion {
-                Expansion::Vanilla => 45,
-                Expansion::Tbc => 235,
-            };
+    pub fn xp_gain_against(player: &Player, creature: &Creature, map_record: &MapRecord) -> u32 {
+        // TODO: 0 if creature is critter/totem/pet
+        let player_level = player.level();
+        let creature_level = creature.level_against(player_level);
+        let base_xp = match map_record.expansion {
+            Expansion::Vanilla => 45,
+            Expansion::Tbc => 235,
+        };
 
-            let mut xp_gain = if creature_level >= player_level {
-                let level_diff = (creature_level - player_level).min(4);
-                ((player_level * 5 + base_xp) * (20 + level_diff) / 10 + 1) / 2
-            } else {
-                match Self::gray_level(player_level) {
-                    gray_level if creature_level > gray_level => {
-                        let zd = Self::zero_difference(player_level);
-                        (player_level * 5 + base_xp) * (zd + creature_level - player_level) / zd
-                    }
-                    _ => 0,
-                }
-            };
-
-            if creature.template.rank.is_elite() {
-                if map_dbc_entry.is_dungeon() {
-                    xp_gain = (xp_gain as f32 * 2.75) as u32;
-                } else {
-                    xp_gain = (xp_gain as f32 * 2.) as u32;
-                }
-            }
-
-            xp_gain = (xp_gain as f32 * creature.template.experience_multiplier) as u32;
-
-            xp_gain
+        let mut xp_gain = if creature_level >= player_level {
+            let level_diff = (creature_level - player_level).min(4);
+            ((player_level * 5 + base_xp) * (20 + level_diff) / 10 + 1) / 2
         } else {
-            warn!("attempt to calculate xp gain on unknown map");
-            0
+            match Self::gray_level(player_level) {
+                gray_level if creature_level > gray_level => {
+                    let zd = Self::zero_difference(player_level);
+                    (player_level * 5 + base_xp) * (zd + creature_level - player_level) / zd
+                }
+                _ => 0,
+            }
+        };
+
+        if creature.template.rank.is_elite() {
+            if map_record.is_dungeon() {
+                xp_gain = (xp_gain as f32 * 2.75) as u32;
+            } else {
+                xp_gain = (xp_gain as f32 * 2.) as u32;
+            }
         }
+
+        xp_gain = (xp_gain as f32 * creature.template.experience_multiplier) as u32;
+
+        xp_gain
     }
 
     /*

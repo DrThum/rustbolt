@@ -4,10 +4,12 @@ use log::{error, trace};
 use shipyard::AllStoragesViewMut;
 
 use crate::{
-    create_wrapped_resource, datastore::data_types::SpellRecord, shared::constants::SpellEffect,
+    create_wrapped_resource,
+    datastore::data_types::{MapRecord, SpellRecord},
+    shared::constants::SpellEffect,
 };
 
-use super::{map::Map, spell::Spell, world_context::WorldContext};
+use super::{spell::Spell, world_context::WorldContext};
 
 pub type EffectHandler = Box<
     dyn Send
@@ -15,7 +17,7 @@ pub type EffectHandler = Box<
         + for<'a, 'b> Fn(
             Arc<WorldContext>,
             Arc<Spell>,
-            Arc<Map>,
+            &'a MapRecord,
             Arc<SpellRecord>,
             usize,
             &'a AllStoragesViewMut<'b>,
@@ -27,13 +29,20 @@ macro_rules! define_handler {
         (
             $effect,
             Box::new(
-                |world_context,
-                 spell,
-                 map,
-                 record,
-                 eff_index,
-                 all_storages: &AllStoragesViewMut| {
-                    $handler(world_context, spell, map, record, eff_index, all_storages)
+                move |world_context: Arc<WorldContext>,
+                      spell: Arc<Spell>,
+                      map_record: &MapRecord,
+                      record: Arc<SpellRecord>,
+                      eff_index: usize,
+                      all_storages: &AllStoragesViewMut| {
+                    $handler(
+                        world_context,
+                        spell,
+                        map_record,
+                        record,
+                        eff_index,
+                        all_storages,
+                    )
                 },
             ) as EffectHandler,
         )

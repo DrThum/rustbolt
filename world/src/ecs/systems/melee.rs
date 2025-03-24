@@ -1,23 +1,21 @@
 use shipyard::{IntoIter, IntoWithId, UniqueView, View, ViewMut};
 
 use crate::{
+    datastore::data_types::MapRecord,
     ecs::components::{
         guid::Guid, melee::Melee, powers::Powers, spell_cast::SpellCast, threat_list::ThreatList,
         unit::Unit,
     },
     entities::{creature::Creature, player::Player, position::WorldPosition},
-    game::{
-        map::{HasPlayers, WrappedMap},
-        world_context::WrappedWorldContext,
-    },
+    game::map::{HasPlayers, WrappedMap},
 };
 
 // TODO: Move to systems/combat?
 pub fn attempt_melee_attack(
-    (has_players, map, world_context): (
+    (has_players, map, map_record): (
         UniqueView<HasPlayers>,
         UniqueView<WrappedMap>,
-        UniqueView<WrappedWorldContext>,
+        UniqueView<MapRecord>,
     ),
     v_guid: View<Guid>,
     mut vm_powers: ViewMut<Powers>,
@@ -37,7 +35,7 @@ pub fn attempt_melee_attack(
         match Melee::execute_attack(
             my_id,
             map.0.clone(),
-            world_context.data_store.clone(),
+            &map_record,
             &v_guid,
             &v_wpos,
             &v_spell,

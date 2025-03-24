@@ -9,6 +9,7 @@ use shared::utils::value_range::ValueRange;
 use shipyard::{Component, EntityId, Get, View, ViewMut};
 
 use crate::{
+    datastore::data_types::MapRecord,
     entities::{
         creature::Creature, internal_values::InternalValues, player::Player,
         position::WorldPosition, update_fields::UnitFields,
@@ -23,7 +24,6 @@ use crate::{
         MeleeAttackError, SheathState, UnitDynamicFlag, WeaponAttackType, ATTACK_DISPLAY_DELAY,
         BASE_MELEE_RANGE_OFFSET, NUMBER_WEAPON_ATTACK_TYPES,
     },
-    DataStore,
 };
 
 use super::{
@@ -171,7 +171,7 @@ impl Melee {
     pub fn execute_attack(
         attacker_id: EntityId,
         map: Arc<Map>,
-        data_store: Arc<DataStore>,
+        map_record: &MapRecord,
         v_guid: &View<Guid>,
         v_wpos: &View<WorldPosition>,
         v_spell: &View<SpellCast>,
@@ -275,12 +275,7 @@ impl Melee {
                     } else if let Some(player) = player_attacker {
                         let mut has_loot = false; // TODO: Handle player case (Insignia looting in PvP)
                         if let Ok(creature) = v_creature.get(target_id) {
-                            let xp_gain = Experience::xp_gain_against(
-                                player,
-                                creature,
-                                map.id(),
-                                data_store.clone(),
-                            );
+                            let xp_gain = Experience::xp_gain_against(player, creature, map_record);
                             player.give_experience(xp_gain, Some(target_guid));
                             player.notify_killed_creature(creature.guid(), creature.template.entry);
 

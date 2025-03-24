@@ -102,6 +102,18 @@ impl Map {
             visibility_distance,
         ));
 
+        let map_record = world_context
+            .data_store
+            .get_map_record(key.map_id)
+            .expect(
+                format!(
+                    "unable to find map record for map id {}, cannot instanciate map",
+                    key.map_id
+                )
+                .as_str(),
+            )
+            .clone();
+
         let world = World::new();
         world.add_unique(DeltaTime::default());
         world.add_unique(WrappedSpellEffectHandler(
@@ -113,6 +125,7 @@ impl Map {
         world.add_unique(VisibilityDistance(visibility_distance));
         world.add_unique(WrappedPacketBroadcaster(packet_broadcaster.clone()));
         world.add_unique(WrappedTerrainManager(terrain_manager.clone()));
+        world.add_unique(map_record);
 
         let workload = || {
             (

@@ -3,6 +3,7 @@ use shipyard::{
 };
 
 use crate::{
+    datastore::data_types::MapRecord,
     ecs::{
         components::{
             behavior::{Action, Behavior},
@@ -26,7 +27,6 @@ use crate::{
     game::{
         map::{HasPlayers, WrappedMap},
         terrain_manager::WrappedTerrainManager,
-        world_context::WrappedWorldContext,
     },
     shared::constants::{CREATURE_AGGRO_DISTANCE_MAX, MAX_CHASE_LEEWAY},
 };
@@ -168,8 +168,7 @@ fn action_attack_in_melee(ctx: &mut BTContext) -> NodeStatus {
 
     ctx.all_storages.run(
         |(
-            map,
-            world_context,
+            (map, map_record),
             v_guid,
             v_wpos,
             v_spell,
@@ -179,8 +178,7 @@ fn action_attack_in_melee(ctx: &mut BTContext) -> NodeStatus {
             mut vm_melee,
             mut vm_threat_list,
         ): (
-            UniqueView<WrappedMap>,
-            UniqueView<WrappedWorldContext>,
+            (UniqueView<WrappedMap>, UniqueView<MapRecord>),
             View<Guid>,
             View<WorldPosition>,
             View<SpellCast>,
@@ -193,7 +191,7 @@ fn action_attack_in_melee(ctx: &mut BTContext) -> NodeStatus {
             match Melee::execute_attack(
                 my_id,
                 map.0.clone(),
-                world_context.data_store.clone(),
+                &map_record,
                 &v_guid,
                 &v_wpos,
                 &v_spell,

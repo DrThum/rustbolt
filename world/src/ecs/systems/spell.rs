@@ -3,13 +3,13 @@ use std::{sync::Arc, time::Instant};
 use shipyard::{AllStoragesViewMut, Get, IntoIter, IntoWithId, UniqueView, View, ViewMut};
 
 use crate::{
-    datastore::data_types::SpellRecord,
+    datastore::data_types::{MapRecord, SpellRecord},
     ecs::components::{
         guid::Guid, nearby_players::NearbyPlayers, powers::Powers, spell_cast::SpellCast,
     },
     entities::player::Player,
     game::{
-        map::{HasPlayers, Map, WrappedMap},
+        map::HasPlayers,
         packet_broadcaster::WrappedPacketBroadcaster,
         spell::Spell,
         spell_effect_handler::{SpellEffectHandler, WrappedSpellEffectHandler},
@@ -21,7 +21,7 @@ use crate::{
 
 pub fn update_spell(vm_all_storages: AllStoragesViewMut) {
     vm_all_storages.run(
-        |map: UniqueView<WrappedMap>,
+        |map_record: UniqueView<MapRecord>,
          packet_broadcaster: UniqueView<WrappedPacketBroadcaster>,
          has_players: UniqueView<HasPlayers>,
          world_context: UniqueView<WrappedWorldContext>,
@@ -89,7 +89,7 @@ pub fn update_spell(vm_all_storages: AllStoragesViewMut) {
                             world_context.clone(),
                             current_ranged.clone(),
                             spell_effect_handler.clone(),
-                            map.0.clone(),
+                            &map_record,
                             &vm_all_storages,
                         );
 
@@ -105,7 +105,7 @@ fn handle_effects(
     world_context: Arc<WorldContext>,
     spell: Arc<Spell>,
     spell_effect_handler: Arc<SpellEffectHandler>,
-    map: Arc<Map>,
+    map_record: &MapRecord,
     vm_all_storages: &AllStoragesViewMut,
 ) {
     let spell_record: Arc<SpellRecord> = Arc::new(
@@ -126,7 +126,7 @@ fn handle_effects(
             handler(
                 world_context.clone(),
                 spell.clone(),
-                map.clone(),
+                map_record,
                 spell_record.clone(),
                 effect_index,
                 vm_all_storages,

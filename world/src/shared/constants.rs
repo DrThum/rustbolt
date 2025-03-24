@@ -637,7 +637,7 @@ pub enum SheathState {
 }
 
 #[allow(dead_code)]
-#[derive(Debug, N)]
+#[derive(Debug, N, Copy, Clone)]
 pub enum MapType {
     Common = 0,
     Instance = 1,
@@ -1714,7 +1714,7 @@ pub const BASE_ATTACK_TIME: Duration = Duration::from_millis(2000);
 pub const BASE_DAMAGE: f32 = 2.;
 
 #[allow(dead_code)]
-#[derive(N, Debug)]
+#[derive(N, Debug, Clone, Copy)]
 pub enum Expansion {
     Vanilla,
     Tbc,

@@ -4,7 +4,7 @@ use log::warn;
 use shipyard::{AllStoragesViewMut, Get, View, ViewMut};
 
 use crate::{
-    datastore::data_types::{GameObjectData, SpellRecord},
+    datastore::data_types::{GameObjectData, MapRecord, SpellRecord},
     ecs::components::{guid::Guid, powers::Powers, threat_list::ThreatList, unit::Unit},
     entities::{creature::Creature, game_object::GameObject, player::Player},
     protocol::{
@@ -15,7 +15,7 @@ use crate::{
 };
 
 use super::{
-    experience::Experience, map::Map, spell::Spell, spell_effect_handler::SpellEffectHandler,
+    experience::Experience, spell::Spell, spell_effect_handler::SpellEffectHandler,
     world_context::WorldContext,
 };
 
@@ -23,7 +23,7 @@ impl SpellEffectHandler {
     pub(crate) fn unhandled(
         _world_context: Arc<WorldContext>,
         _spell: Arc<Spell>,
-        _map: Arc<Map>,
+        _map_record: &MapRecord,
         _spell_record: Arc<SpellRecord>,
         _effect_index: usize,
         _all_storages: &AllStoragesViewMut,
@@ -31,9 +31,9 @@ impl SpellEffectHandler {
     }
 
     pub fn handle_effect_school_damage(
-        world_context: Arc<WorldContext>,
+        _world_context: Arc<WorldContext>,
         spell: Arc<Spell>,
-        map: Arc<Map>,
+        map_record: &MapRecord,
         spell_record: Arc<SpellRecord>,
         effect_index: usize,
         all_storages: &AllStoragesViewMut,
@@ -64,12 +64,7 @@ impl SpellEffectHandler {
                     let target_guid = v_guid[unit_target].0;
                     let mut has_loot = false; // TODO: Handle player case (Insignia looting in PvP)
                     if let Ok(creature) = v_creature.get(unit_target) {
-                        let xp_gain = Experience::xp_gain_against(
-                            &player,
-                            creature,
-                            map.id(),
-                            world_context.data_store.clone(),
-                        );
+                        let xp_gain = Experience::xp_gain_against(&player, creature, map_record);
                         player.give_experience(xp_gain, Some(target_guid));
                         player.notify_killed_creature(creature.guid(), creature.template.entry);
 
@@ -91,7 +86,7 @@ impl SpellEffectHandler {
     pub fn handle_effect_heal(
         _world_context: Arc<WorldContext>,
         spell: Arc<Spell>,
-        _map: Arc<Map>,
+        _map_record: &MapRecord,
         _spell_record: Arc<SpellRecord>,
         effect_index: usize,
         all_storages: &AllStoragesViewMut,
@@ -110,7 +105,7 @@ impl SpellEffectHandler {
     pub fn handle_effect_open_lock(
         world_context: Arc<WorldContext>,
         spell: Arc<Spell>,
-        _map: Arc<Map>,
+        _map_record: &MapRecord,
         _spell_record: Arc<SpellRecord>,
         _effect_index: usize,
         all_storages: &AllStoragesViewMut,

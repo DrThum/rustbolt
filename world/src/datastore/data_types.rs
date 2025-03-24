@@ -3,6 +3,7 @@ use std::{sync::Arc, time::Duration};
 use binrw::binwrite;
 use enumflags2::BitFlags;
 use enumn::N;
+use shipyard::Unique;
 
 use crate::{
     ecs::components::{movement::MovementKind, powers::PowersSnapshot},
@@ -367,7 +368,7 @@ pub struct PlayerCreateActionButton {
     pub action_value: u32,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Unique, Clone)]
 pub struct MapRecord {
     pub id: u32,
     pub internal_name: String,

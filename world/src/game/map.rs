@@ -57,9 +57,10 @@ use crate::{
 };
 
 use super::{
-    entity_manager::EntityManager,
+    entity_manager::{EntityManager, WrappedEntityManager},
     map_manager::MapKey,
-    spatial_grid::SpatialGrid,
+    packet_broadcaster::{PacketBroadcaster, WrappedPacketBroadcaster},
+    spatial_grid::{SpatialGrid, WrappedSpatialGrid},
     spell_effect_handler::WrappedSpellEffectHandler,
     terrain_manager::TerrainManager,
     world_context::{WorldContext, WrappedWorldContext},
@@ -71,10 +72,11 @@ pub struct Map {
     key: MapKey,
     world: Arc<ReentrantMutex<World>>,
     world_context: Arc<WorldContext>,
-    session_holder: SessionHolder<ObjectGuid>,
-    entity_manager: EntityManager,
+    session_holder: Arc<SessionHolder<ObjectGuid>>,
+    entity_manager: Arc<EntityManager>,
     terrain_manager: Arc<TerrainManager>,
-    spatial_grid: SpatialGrid,
+    spatial_grid: Arc<SpatialGrid>,
+    packet_broadcaster: Arc<PacketBroadcaster>,
     visibility_distance: f32,
 }
 
@@ -87,12 +89,31 @@ impl Map {
         game_object_spawns: Vec<GameObjectSpawnDbRecord>,
         config: Arc<WorldConfig>,
     ) -> Arc<Map> {
+        // TODO: pass this as a parameter?
+        let visibility_distance = DEFAULT_VISIBILITY_DISTANCE;
+
+        let session_holder = Arc::new(SessionHolder::new());
+        let entity_manager = Arc::new(EntityManager::new());
+        let spatial_grid = Arc::new(SpatialGrid::new(
+            session_holder.clone(),
+            entity_manager.clone(),
+        ));
+        let packet_broadcaster = Arc::new(PacketBroadcaster::new(
+            spatial_grid.clone(),
+            entity_manager.clone(),
+            visibility_distance,
+        ));
+
         let world = World::new();
         world.add_unique(DeltaTime::default());
         world.add_unique(WrappedSpellEffectHandler(
             world_context.spell_effect_handler.clone(),
         ));
         world.add_unique(WrappedWorldContext(world_context.clone()));
+        world.add_unique(WrappedSpatialGrid(spatial_grid.clone()));
+        world.add_unique(WrappedEntityManager(entity_manager.clone()));
+        world.add_unique(VisibilityDistance(visibility_distance));
+        world.add_unique(WrappedPacketBroadcaster(packet_broadcaster.clone()));
 
         let workload = || {
             (
@@ -118,11 +139,12 @@ impl Map {
             key,
             world: world.clone(),
             world_context: world_context.clone(),
-            session_holder: SessionHolder::new(),
-            entity_manager: EntityManager::new(),
+            session_holder: session_holder.clone(),
+            entity_manager: entity_manager.clone(),
             terrain_manager,
-            spatial_grid: SpatialGrid::new(),
-            visibility_distance: DEFAULT_VISIBILITY_DISTANCE,
+            spatial_grid: spatial_grid.clone(),
+            packet_broadcaster,
+            visibility_distance,
         };
 
         for spawn in creature_spawns {
@@ -484,7 +506,7 @@ impl Map {
                 });
 
         if let Some(player_entity_id) = maybe_player_entity_id {
-            let other_sessions = self.sessions_nearby_entity(
+            let other_sessions = self.spatial_grid.sessions_nearby_entity(
                 &player_entity_id,
                 self.visibility_distance,
                 false,
@@ -621,9 +643,12 @@ impl Map {
             .insert(wpos.as_position(), creature_entity_id);
 
         // TODO: Don't attempt this during startup, it's pointless
-        for session in
-            self.sessions_nearby_position(&wpos.as_position(), self.visibility_distance, true, None)
-        {
+        for session in self.spatial_grid.sessions_nearby_position(
+            &wpos.as_position(),
+            self.visibility_distance,
+            true,
+            None,
+        ) {
             // Broadcast the new creature to nearby players
             let smsg_create_object: SmsgCreateObject;
             {
@@ -906,58 +931,6 @@ impl Map {
         }
     }
 
-    pub fn sessions_nearby_entity(
-        &self,
-        source_entity_id: &EntityId,
-        range: f32,
-        search_in_3d: bool,
-        include_self: bool,
-    ) -> Vec<Arc<WorldSession>> {
-        let entity_ids: Vec<EntityId> = self
-            .spatial_grid
-            .search_around_entity(
-                source_entity_id,
-                range,
-                search_in_3d,
-                if include_self {
-                    None
-                } else {
-                    Some(source_entity_id)
-                },
-            )
-            .into_iter()
-            .map(|(entity_id, _)| entity_id)
-            .collect();
-
-        self.session_holder.get_matching_sessions(|guid| {
-            if let Some(entity_id) = self.lookup_entity_ecs(guid) {
-                return entity_ids.contains(&entity_id);
-            }
-
-            false
-        })
-    }
-
-    pub fn sessions_nearby_position(
-        &self,
-        position: &Position,
-        range: f32,
-        search_in_3d: bool,
-        exclude_id: Option<&EntityId>,
-    ) -> Vec<Arc<WorldSession>> {
-        let entity_ids: Vec<EntityId> =
-            self.spatial_grid
-                .search_ids_around_position(position, range, search_in_3d, exclude_id);
-
-        self.session_holder.get_matching_sessions(|guid| {
-            if let Some(entity_id) = self.lookup_entity_ecs(guid) {
-                return entity_ids.contains(&entity_id);
-            }
-
-            false
-        })
-    }
-
     pub fn visibility_distance(&self) -> f32 {
         self.visibility_distance
     }
@@ -969,7 +942,7 @@ impl Map {
         movement_info: &MovementInfo,
     ) {
         if let Some(origin_entity_id) = self.lookup_entity_ecs(origin_guid) {
-            for session in self.sessions_nearby_entity(
+            for session in self.spatial_grid.sessions_nearby_entity(
                 &origin_entity_id,
                 self.visibility_distance,
                 true,
@@ -992,16 +965,8 @@ impl Map {
         range: Option<f32>,
         include_self: bool,
     ) {
-        if let Some(origin_entity_id) = self.lookup_entity_ecs(origin_guid) {
-            for session in self.sessions_nearby_entity(
-                &origin_entity_id,
-                range.unwrap_or(self.visibility_distance),
-                true,
-                include_self,
-            ) {
-                session.send(packet).unwrap();
-            }
-        }
+        self.packet_broadcaster
+            .broadcast_packet(origin_guid, packet, range, include_self);
     }
 
     pub fn get_session(&self, player_guid: &ObjectGuid) -> Option<Arc<WorldSession>> {
@@ -1063,3 +1028,6 @@ struct VisibilityChangesAfterMovement {
 
 #[derive(Unique)]
 pub struct HasPlayers(pub bool);
+
+#[derive(Unique)]
+pub struct VisibilityDistance(pub f32);

@@ -10,6 +10,7 @@ use crate::{
     entities::player::Player,
     game::{
         map::{HasPlayers, Map, WrappedMap},
+        packet_broadcaster::WrappedPacketBroadcaster,
         spell::Spell,
         spell_effect_handler::{SpellEffectHandler, WrappedSpellEffectHandler},
         world_context::{WorldContext, WrappedWorldContext},
@@ -21,6 +22,7 @@ use crate::{
 pub fn update_spell(vm_all_storages: AllStoragesViewMut) {
     vm_all_storages.run(
         |map: UniqueView<WrappedMap>,
+         packet_broadcaster: UniqueView<WrappedPacketBroadcaster>,
          has_players: UniqueView<HasPlayers>,
          world_context: UniqueView<WrappedWorldContext>,
          spell_effect_handler: UniqueView<WrappedSpellEffectHandler>,
@@ -81,7 +83,9 @@ pub fn update_spell(vm_all_storages: AllStoragesViewMut) {
                             target_count: 0,
                         });
 
-                        map.0.broadcast_packet(&guid.0, &packet, None, true);
+                        packet_broadcaster
+                            .0
+                            .broadcast_packet(&guid.0, &packet, None, true);
 
                         handle_effects(
                             world_context.0.clone(),

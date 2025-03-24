@@ -52,20 +52,21 @@ mod entities {
     pub mod behaviors;
 }
 pub mod game {
-    mod entity_manager;
+    pub mod entity_manager;
     pub mod experience;
     pub mod gossip;
     pub mod loot;
     pub mod map;
     pub mod map_manager;
     pub mod movement_spline;
+    pub mod packet_broadcaster;
     pub mod quad_tree;
-    mod spatial_grid;
+    pub mod spatial_grid;
     pub mod spell;
     pub mod spell_cast_target;
     pub mod spell_effect_handler;
-    mod spell_effect_handlers;
-    mod terrain_manager;
+    pub mod spell_effect_handlers;
+    pub mod terrain_manager;
     pub mod world_context;
 }
 mod protocol {

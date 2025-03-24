@@ -11,13 +11,18 @@ use crate::{
         position::WorldPosition,
         update::{UpdateBlockBuilder, UpdateData, UpdateType},
     },
-    game::map::{HasPlayers, WrappedMap},
+    game::{
+        entity_manager::WrappedEntityManager,
+        map::{HasPlayers, VisibilityDistance},
+        spatial_grid::WrappedSpatialGrid,
+    },
     protocol::packets::SmsgUpdateObject,
     shared::constants::{AttributeModifier, PowerType, SpellSchool, UnitAttribute},
 };
 
 pub fn send_entity_update(
-    map: UniqueView<WrappedMap>,
+    spatial_grid: UniqueView<WrappedSpatialGrid>,
+    visibility_distance: UniqueView<VisibilityDistance>,
     has_players: UniqueView<HasPlayers>,
     v_guid: View<Guid>,
     v_int_vals: View<WrappedInternalValues>,
@@ -33,9 +38,9 @@ pub fn send_entity_update(
     {
         let mut internal_values = wrapped_int_vals.0.write();
         if internal_values.has_dirty() {
-            for session in map.0.sessions_nearby_position(
+            for session in spatial_grid.0.sessions_nearby_position(
                 &wpos.as_position(),
-                map.0.visibility_distance(),
+                visibility_distance.0,
                 true,
                 None,
             ) {
@@ -69,7 +74,7 @@ pub fn send_entity_update(
 }
 
 pub fn update_player_environment(
-    map: UniqueView<WrappedMap>,
+    entity_manager: UniqueView<WrappedEntityManager>,
     has_players: UniqueView<HasPlayers>,
     v_player: View<Player>,
     v_game_object: View<GameObject>,
@@ -87,7 +92,7 @@ pub fn update_player_environment(
             .is_ok()
         {
             for guid in &*player.session.known_guids() {
-                let Some(entity_id) = map.0.lookup_entity_ecs(guid) else {
+                let Some(entity_id) = entity_manager.0.lookup(guid) else {
                     continue;
                 };
 

@@ -1,7 +1,7 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use parking_lot::RwLock;
-use shipyard::EntityId;
+use shipyard::{EntityId, Unique};
 
 use crate::entities::object_guid::ObjectGuid;
 
@@ -28,3 +28,6 @@ impl EntityManager {
         self.ecs_entities.write().remove(guid)
     }
 }
+
+#[derive(Unique)]
+pub struct WrappedEntityManager(pub Arc<EntityManager>);

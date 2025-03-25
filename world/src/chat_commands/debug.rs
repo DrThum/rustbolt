@@ -40,7 +40,7 @@ fn handle_gps(ctx: CommandContext) -> ChatCommandResult {
                         wpos.x, wpos.y, wpos.z, wpos.o,
                     );
 
-                    ctx.session.send_system_message(output.as_str());
+                    ctx.reply(output.as_str());
 
                     if matches.get_flag("dump") {
                         info!("GPS command output:\n {output}");
@@ -69,8 +69,7 @@ fn handle_come(ctx: CommandContext) -> ChatCommandResult {
                         let player_wpos = v_wpos[player_ecs_entity];
                         let player_target = v_unit[player_ecs_entity].target();
                         if player_target.is_none() {
-                            ctx.session
-                                .send_error_system_message("You must select a target");
+                            ctx.reply_error("You must select a target");
                             return ChatCommandResult::error();
                         }
 
@@ -121,7 +120,7 @@ fn handle_threat(ctx: CommandContext) -> ChatCommandResult {
                         if let Some(my_target) = v_unit[player_ecs_entity].target() {
                             if let Ok(tl) = v_threat_list.get(my_target) {
                                 if matches.get_flag("list") {
-                                    ctx.session.send_system_message("Threat list:");
+                                    ctx.reply("Threat list:");
                                     for (entity_id, threat_level) in tl.threat_list() {
                                         let mut target_name = "<unexpected entity type>";
 
@@ -131,7 +130,7 @@ fn handle_threat(ctx: CommandContext) -> ChatCommandResult {
                                             target_name = creature.name.as_str();
                                         }
 
-                                        ctx.session.send_system_message(
+                                        ctx.reply(
                                             format!("- {target_name} ({threat_level})").as_str(),
                                         );
                                     }
@@ -141,8 +140,7 @@ fn handle_threat(ctx: CommandContext) -> ChatCommandResult {
                             }
                         }
 
-                        ctx.session
-                            .send_error_system_message("You must select a creature target");
+                        ctx.reply_error("You must select a creature target");
                         ChatCommandResult::error()
                     },
                 )
@@ -190,7 +188,7 @@ fn handle_item(ctx: CommandContext) -> ChatCommandResult {
                                 .get_item_template(*item_id)
                                 .is_none()
                             {
-                                ctx.session.send_error_system_message(
+                                ctx.reply_error(
                                     format!("item template {item_id} does not exist").as_str(),
                                 );
                                 return ChatCommandResult::error();
@@ -199,7 +197,7 @@ fn handle_item(ctx: CommandContext) -> ChatCommandResult {
                             match player.auto_store_new_item(*item_id, *count) {
                                 Ok(_) => ChatCommandResult::HandledOk,
                                 Err(err) => {
-                                    ctx.session.send_error_system_message(
+                                    ctx.reply_error(
                                         format!("unable to add item ({err:?})").as_str(),
                                     );
                                     ChatCommandResult::error()

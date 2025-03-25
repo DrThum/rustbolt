@@ -120,5 +120,15 @@ struct CommandContext {
     pub world_context: Arc<WorldContext>,
 }
 
+impl CommandContext {
+    pub fn reply(&self, message: &str) {
+        self.session.send_system_message(message);
+    }
+
+    pub fn reply_error(&self, message: &str) {
+        self.session.send_error_system_message(message);
+    }
+}
+
 type CommandHandler = fn(CommandContext) -> ChatCommandResult;
 type CommandMap = HashMap<&'static str, CommandHandler>;

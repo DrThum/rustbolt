@@ -1,4 +1,3 @@
-use log::error;
 use std::{collections::HashSet, sync::Arc};
 
 use parking_lot::RwLock;
@@ -167,127 +166,52 @@ impl SpatialGrid {
         vm_unwind: &mut ViewMut<Unwind>,
     ) {
         let is_moving_entity_a_player = origin_session.is_some();
-        let previous_position = self.update(new_position, &mover_entity_id);
+        let previous_position = match self.update(new_position, &mover_entity_id) {
+            Some(prev_pos) if !prev_pos.is_same_spot(new_position) => prev_pos,
+            _ => return,
+        };
 
-        if let Some(previous_position) = previous_position {
-            if previous_position.is_same_spot(new_position) {
-                return;
-            }
+        vm_wpos[mover_entity_id].update_local(new_position);
 
-            vm_wpos[mover_entity_id].update_local(new_position);
+        let visibility_changes = self.get_visibility_changes_for_entities(
+            previous_position,
+            *new_position,
+            mover_entity_id,
+        );
 
-            let VisibilityChangesAfterMovement {
-                moving_entity_appeared_for: appeared_for,
-                moving_entity_disappeared_for: disappeared_for,
-                entities_in_range_now: in_range_now,
-                ..
-            } = self.get_visibility_changes_for_entities(
-                previous_position,
-                *new_position,
-                mover_entity_id,
-            );
+        self.handle_entity_appearances(
+            entity_guid,
+            mover_entity_id,
+            &origin_session,
+            new_position,
+            is_moving_entity_a_player,
+            &visibility_changes.moving_entity_appeared_for,
+            v_movement,
+            v_player,
+            v_creature,
+            v_game_object,
+            v_guid,
+            vm_wpos,
+            vm_nearby_players,
+        );
 
-            let mut moving_entity_smsg_create_object: Option<SmsgCreateObject> = None;
+        self.handle_entity_disappearances(
+            entity_guid,
+            mover_entity_id,
+            &origin_session,
+            is_moving_entity_a_player,
+            &visibility_changes.moving_entity_disappeared_for,
+            v_player,
+            v_guid,
+            vm_nearby_players,
+            vm_unwind,
+        );
 
-            for other_entity_id in appeared_for {
-                let other_guid = v_guid[other_entity_id].0;
-                // Make the moving entity appear for the other player
-                if let Some(other_session) = self.session_holder.get_session(&other_guid) {
-                    // Construct the SMSG the first time that it's needed
-                    if moving_entity_smsg_create_object.is_none() {
-                        let movement = v_movement
-                            .get(mover_entity_id)
-                            .ok()
-                            .map(|m| m.build_update(self.world_context.clone(), new_position));
-
-                        if let Ok(player) = v_player.get(mover_entity_id) {
-                            moving_entity_smsg_create_object =
-                                Some(player.build_create_object(movement, false));
-                        } else if let Ok(creature) = v_creature.get(mover_entity_id) {
-                            moving_entity_smsg_create_object =
-                                Some(creature.build_create_object(movement));
-                        }
-                    }
-
-                    other_session.create_entity(
-                        entity_guid,
-                        moving_entity_smsg_create_object.as_ref().unwrap().clone(),
-                    );
-                }
-
-                // Make the entity (player or otherwise) appear for the moving player
-                if let Some(origin_session) = origin_session.as_ref() {
-                    let smsg_create_object: SmsgCreateObject = {
-                        let movement = v_movement.get(other_entity_id).ok().map(|m| {
-                            m.build_update(
-                                self.world_context.clone(),
-                                &vm_wpos[other_entity_id].as_position(),
-                            )
-                        });
-
-                        if let Ok(player) = v_player.get(other_entity_id) {
-                            player.build_create_object(movement, false)
-                        } else if let Ok(creature) = v_creature.get(other_entity_id) {
-                            creature.build_create_object(movement)
-                        } else if let Ok(game_object) = v_game_object.get(other_entity_id) {
-                            game_object.build_create_object_for(&v_player[mover_entity_id])
-                        } else {
-                            unreachable!("cannot generate SMSG_CREATE_OBJECT for this entity type");
-                        }
-                    };
-
-                    origin_session.create_entity(&other_guid, smsg_create_object);
-                }
-
-                // If a player appeared, increment the NearbyPlayers counter for the
-                // creature/gameobject
-                if is_moving_entity_a_player {
-                    NearbyPlayers::increment(other_entity_id, vm_nearby_players);
-                }
-                // If a creature moved within visibility distance of a player, increment the
-                // NearbyPlayers counter for the creature/gameobject
-                else if v_player.get(other_entity_id).is_ok() {
-                    NearbyPlayers::increment(mover_entity_id, vm_nearby_players);
-                }
-            }
-
-            for other_entity_id in disappeared_for {
-                let other_guid = v_guid[other_entity_id].0;
-                if let Some(other_session) = self.session_holder.get_session(&other_guid) {
-                    // Destroy the moving player for the other player
-                    other_session.destroy_entity(entity_guid);
-                }
-
-                // Destroy the other entity for the moving player
-                if let Some(os) = origin_session.as_ref() {
-                    os.destroy_entity(&other_guid)
-                }
-
-                // If a player moved away, decrement the NearbyPlayers counter for the creature
-                if is_moving_entity_a_player {
-                    NearbyPlayers::decrement(other_entity_id, vm_nearby_players, vm_unwind);
-                }
-                // If a creature moved away from a player, decrement the NearbyPlayers counter for
-                // the creature
-                else if v_player.get(other_entity_id).is_ok() {
-                    NearbyPlayers::decrement(mover_entity_id, vm_nearby_players, vm_unwind);
-                }
-            }
-
-            // If a creature is involved (whether it moved or it witnessed another entity moving),
-            // inform its behavior tree that a neighbor has moved (for aggro, script, etc)
-            for &neighbor in in_range_now.iter() {
-                if let Ok(mut source_behavior) = vm_behavior.get(mover_entity_id) {
-                    source_behavior.neighbor_moved(neighbor);
-                }
-
-                if let Ok(mut neighbor_behavior) = vm_behavior.get(neighbor) {
-                    neighbor_behavior.neighbor_moved(mover_entity_id);
-                }
-            }
-        } else {
-            error!("updating position for entity not on map");
-        }
+        self.update_neighbor_behaviors(
+            mover_entity_id,
+            vm_behavior,
+            &visibility_changes.entities_in_range_now,
+        );
     }
 
     fn get_visibility_changes_for_entities(
@@ -367,6 +291,142 @@ impl SpatialGrid {
             moving_entity_disappeared_for: disappeared_for,
             entities_in_range_before: in_range_before,
             entities_in_range_now: in_range_now,
+        }
+    }
+
+    fn handle_entity_appearances(
+        &self,
+        entity_guid: &ObjectGuid,
+        mover_entity_id: EntityId,
+        origin_session: &Option<Arc<WorldSession>>, // Must be defined if entity is a player
+        new_position: &Position,                    // FIXME: remove the &
+        is_moving_entity_a_player: bool,
+        appeared_for: &HashSet<EntityId>,
+        v_movement: &View<Movement>,
+        v_player: &View<Player>,
+        v_creature: &View<Creature>,
+        v_game_object: &View<GameObject>,
+        v_guid: &View<Guid>,
+        vm_wpos: &mut ViewMut<WorldPosition>,
+        vm_nearby_players: &mut ViewMut<NearbyPlayers>,
+    ) {
+        let mut moving_entity_smsg_create_object: Option<SmsgCreateObject> = None;
+
+        for &other_entity_id in appeared_for {
+            let other_guid = v_guid[other_entity_id].0;
+            // Make the moving entity appear for the other player
+            if let Some(other_session) = self.session_holder.get_session(&other_guid) {
+                // Construct the SMSG the first time that it's needed
+                if moving_entity_smsg_create_object.is_none() {
+                    let movement = v_movement
+                        .get(mover_entity_id)
+                        .ok()
+                        .map(|m| m.build_update(self.world_context.clone(), new_position));
+
+                    if let Ok(player) = v_player.get(mover_entity_id) {
+                        moving_entity_smsg_create_object =
+                            Some(player.build_create_object(movement, false));
+                    } else if let Ok(creature) = v_creature.get(mover_entity_id) {
+                        moving_entity_smsg_create_object =
+                            Some(creature.build_create_object(movement));
+                    }
+                }
+
+                other_session.create_entity(
+                    entity_guid,
+                    moving_entity_smsg_create_object.as_ref().unwrap().clone(),
+                );
+            }
+
+            // Make the entity (player or otherwise) appear for the moving player
+            if let Some(origin_session) = origin_session.as_ref() {
+                let smsg_create_object: SmsgCreateObject = {
+                    let movement = v_movement.get(other_entity_id).ok().map(|m| {
+                        m.build_update(
+                            self.world_context.clone(),
+                            &vm_wpos[other_entity_id].as_position(),
+                        )
+                    });
+
+                    if let Ok(player) = v_player.get(other_entity_id) {
+                        player.build_create_object(movement, false)
+                    } else if let Ok(creature) = v_creature.get(other_entity_id) {
+                        creature.build_create_object(movement)
+                    } else if let Ok(game_object) = v_game_object.get(other_entity_id) {
+                        game_object.build_create_object_for(&v_player[mover_entity_id])
+                    } else {
+                        unreachable!("cannot generate SMSG_CREATE_OBJECT for this entity type");
+                    }
+                };
+
+                origin_session.create_entity(&other_guid, smsg_create_object);
+            }
+
+            // If a player appeared, increment the NearbyPlayers counter for the
+            // creature/gameobject
+            if is_moving_entity_a_player {
+                NearbyPlayers::increment(other_entity_id, vm_nearby_players);
+            }
+            // If a creature moved within visibility distance of a player, increment the
+            // NearbyPlayers counter for the creature/gameobject
+            else if v_player.get(other_entity_id).is_ok() {
+                NearbyPlayers::increment(mover_entity_id, vm_nearby_players);
+            }
+        }
+    }
+
+    fn handle_entity_disappearances(
+        &self,
+        entity_guid: &ObjectGuid,
+        mover_entity_id: EntityId,
+        origin_session: &Option<Arc<WorldSession>>, // Must be defined if entity is a player
+        is_moving_entity_a_player: bool,
+        disappeared_for: &HashSet<EntityId>,
+        v_player: &View<Player>,
+        v_guid: &View<Guid>,
+        vm_nearby_players: &mut ViewMut<NearbyPlayers>,
+        vm_unwind: &mut ViewMut<Unwind>,
+    ) {
+        for &other_entity_id in disappeared_for {
+            let other_guid = v_guid[other_entity_id].0;
+            if let Some(other_session) = self.session_holder.get_session(&other_guid) {
+                // Destroy the moving player for the other player
+                other_session.destroy_entity(entity_guid);
+            }
+
+            // Destroy the other entity for the moving player
+            if let Some(os) = origin_session.as_ref() {
+                os.destroy_entity(&other_guid)
+            }
+
+            // If a player moved away, decrement the NearbyPlayers counter for the creature
+            if is_moving_entity_a_player {
+                NearbyPlayers::decrement(other_entity_id, vm_nearby_players, vm_unwind);
+            }
+            // If a creature moved away from a player, decrement the NearbyPlayers counter for
+            // the creature
+            else if v_player.get(other_entity_id).is_ok() {
+                NearbyPlayers::decrement(mover_entity_id, vm_nearby_players, vm_unwind);
+            }
+        }
+    }
+
+    fn update_neighbor_behaviors(
+        &self,
+        mover_entity_id: EntityId,
+        vm_behavior: &mut ViewMut<Behavior>,
+        in_range_now: &HashSet<EntityId>,
+    ) {
+        // If a creature is involved (whether it moved or it witnessed another entity moving),
+        // inform its behavior tree that a neighbor has moved (for aggro, script, etc)
+        for &neighbor in in_range_now.iter() {
+            if let Ok(mut source_behavior) = vm_behavior.get(mover_entity_id) {
+                source_behavior.neighbor_moved(neighbor);
+            }
+
+            if let Ok(mut neighbor_behavior) = vm_behavior.get(neighbor) {
+                neighbor_behavior.neighbor_moved(mover_entity_id);
+            }
         }
     }
 }

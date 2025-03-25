@@ -5,12 +5,14 @@ use log::info;
 use shipyard::{Get, UniqueView, View, ViewMut};
 
 use crate::{
-    ecs::components::{guid::Guid, movement::Movement, threat_list::ThreatList, unit::Unit},
+    ecs::components::{guid::Guid, movement::Movement, threat_list::ThreatList},
     entities::{creature::Creature, player::Player, position::WorldPosition},
     game::packet_broadcaster::WrappedPacketBroadcaster,
 };
 
-use super::{ChatCommandResult, ChatCommands, CommandContext, CommandHandler, CommandMap};
+use super::{
+    ChatCommandError, ChatCommandResult, ChatCommands, CommandContext, CommandHandler, CommandMap,
+};
 
 pub(super) fn commands() -> CommandMap {
     HashMap::from([
@@ -45,37 +47,29 @@ fn handle_gps(ctx: CommandContext) -> ChatCommandResult {
             }
         });
 
-        ChatCommandResult::ok()
+        Ok(())
     })
 }
 
 static COMMAND_COME: &str = "come";
 fn handle_come(ctx: CommandContext) -> ChatCommandResult {
+    let player_target = ctx.require_target()?;
     let command = Command::new(COMMAND_COME);
 
     ChatCommands::process(command, &ctx, &|_| {
         ctx.map.world().run(
             |v_wpos: View<WorldPosition>,
-             v_unit: View<Unit>,
              v_guid: View<Guid>,
              packet_broadcaster: UniqueView<WrappedPacketBroadcaster>,
              mut vm_movement: ViewMut<Movement>| {
                 let player_wpos = v_wpos[ctx.my_entity_id];
-                let player_target = v_unit[ctx.my_entity_id].target();
-                if player_target.is_none() {
-                    ctx.reply_error("You must select a target");
-                    return ChatCommandResult::error();
-                }
-
-                let target_entity_id = player_target.unwrap();
-                let target_wpos = v_wpos[target_entity_id];
-
+                let target_wpos = v_wpos[player_target];
                 let path = vec![player_wpos.vec3()];
 
                 // TODO: Select speed depending on move flags (implement in Movement)
-                let speed = vm_movement[target_entity_id].speed_run;
-                vm_movement[target_entity_id].start_movement(
-                    &v_guid[target_entity_id].0,
+                let speed = vm_movement[player_target].speed_run;
+                vm_movement[player_target].start_movement(
+                    &v_guid[player_target].0,
                     (**packet_broadcaster).clone(),
                     &target_wpos.vec3(),
                     &path,
@@ -83,16 +77,15 @@ fn handle_come(ctx: CommandContext) -> ChatCommandResult {
                     true,
                 );
 
-                ChatCommandResult::ok()
+                Ok(())
             },
-        );
-
-        ChatCommandResult::error()
+        )
     })
 }
 
 static COMMAND_THREAT: &str = "threat";
 fn handle_threat(ctx: CommandContext) -> ChatCommandResult {
+    let player_target = ctx.require_target()?;
     let command = Command::new(COMMAND_THREAT).arg(
         Arg::new("list")
             .short('l')
@@ -103,33 +96,30 @@ fn handle_threat(ctx: CommandContext) -> ChatCommandResult {
 
     ChatCommands::process(command, &ctx, &|matches| {
         ctx.map.world().run(
-            |v_unit: View<Unit>,
-             v_threat_list: View<ThreatList>,
+            |v_threat_list: View<ThreatList>,
              v_player: View<Player>,
              v_creature: View<Creature>| {
-                if let Some(my_target) = v_unit[ctx.my_entity_id].target() {
-                    if let Ok(tl) = v_threat_list.get(my_target) {
-                        if matches.get_flag("list") {
-                            ctx.reply("Threat list:");
-                            for (entity_id, threat_level) in tl.threat_list() {
-                                let mut target_name = "<unexpected entity type>";
+                if let Ok(tl) = v_threat_list.get(player_target) {
+                    if matches.get_flag("list") {
+                        ctx.reply("Threat list:");
+                        for (entity_id, threat_level) in tl.threat_list() {
+                            let mut target_name = "<unexpected entity type>";
 
-                                if let Ok(player) = v_player.get(entity_id) {
-                                    target_name = player.name.as_str();
-                                } else if let Ok(creature) = v_creature.get(entity_id) {
-                                    target_name = creature.name.as_str();
-                                }
-
-                                ctx.reply(format!("- {target_name} ({threat_level})").as_str());
+                            if let Ok(player) = v_player.get(entity_id) {
+                                target_name = player.name.as_str();
+                            } else if let Ok(creature) = v_creature.get(entity_id) {
+                                target_name = creature.name.as_str();
                             }
 
-                            return ChatCommandResult::ok();
+                            ctx.reply(format!("- {target_name} ({threat_level})").as_str());
                         }
+
+                        return Ok(());
                     }
                 }
 
-                ctx.reply_error("You must select a creature target");
-                ChatCommandResult::error()
+                ctx.reply_error("target has no threat list");
+                Err(ChatCommandError::GenericError)
             },
         )
     })
@@ -158,33 +148,33 @@ fn handle_item(ctx: CommandContext) -> ChatCommandResult {
     ChatCommands::process(command.clone(), &ctx, &|matches| {
         if let Some(subcommand_add) = matches.subcommand_matches("add") {
             return ctx.map.world().run(|mut vm_player: ViewMut<Player>| {
-                if let Ok(mut player) = (&mut vm_player).get(ctx.my_entity_id) {
-                    let item_id: &u32 = subcommand_add.get_one("id").unwrap();
-                    let count: &u32 = subcommand_add.get_one("count").unwrap();
+                let Ok(mut player) = (&mut vm_player).get(ctx.my_entity_id) else {
+                    return Err(ChatCommandError::GenericError);
+                };
 
-                    if ctx
-                        .world_context
-                        .data_store
-                        .get_item_template(*item_id)
-                        .is_none()
-                    {
-                        ctx.reply_error(format!("item template {item_id} does not exist").as_str());
-                        return ChatCommandResult::error();
-                    }
+                let item_id: &u32 = subcommand_add.get_one("id").unwrap();
+                let count: &u32 = subcommand_add.get_one("count").unwrap();
 
-                    match player.auto_store_new_item(*item_id, *count) {
-                        Ok(_) => ChatCommandResult::HandledOk,
-                        Err(err) => {
-                            ctx.reply_error(format!("unable to add item ({err:?})").as_str());
-                            ChatCommandResult::error()
-                        }
+                if ctx
+                    .world_context
+                    .data_store
+                    .get_item_template(*item_id)
+                    .is_none()
+                {
+                    ctx.reply_error(format!("item template {item_id} does not exist").as_str());
+                    return Err(ChatCommandError::GenericError);
+                }
+
+                match player.auto_store_new_item(*item_id, *count) {
+                    Ok(_) => Ok(()),
+                    Err(err) => {
+                        ctx.reply_error(format!("unable to add item ({err:?})").as_str());
+                        Err(ChatCommandError::GenericError)
                     }
-                } else {
-                    ChatCommandResult::error()
                 }
             });
         }
 
-        ChatCommandResult::error()
+        Err(ChatCommandError::InvalidArguments)
     })
 }

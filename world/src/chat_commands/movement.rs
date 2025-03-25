@@ -20,12 +20,12 @@ fn handle_fly(ctx: CommandContext) -> ChatCommandResult {
     );
 
     ChatCommands::process(command, &ctx, &|matches| {
-        let flying = matches.get_one::<bool>("flying").unwrap();
+        let &flying = matches.get_one::<bool>("flying").unwrap();
 
         ctx.map.world().run(|mut vm_movement: ViewMut<Movement>| {
-            vm_movement[ctx.my_entity_id].set_flying(*flying, ctx.session.clone());
+            vm_movement[ctx.my_entity_id].set_flying(flying, ctx.session.clone());
         });
 
-        ChatCommandResult::ok()
+        Ok(())
     })
 }

@@ -32,7 +32,7 @@ impl ChatCommands {
         Self { commands }
     }
 
-    pub fn try_process(
+    pub fn consume(
         &self,
         input: &str,
         session: Arc<WorldSession>,
@@ -54,17 +54,19 @@ impl ChatCommands {
                 return false;
             };
 
-            handler(CommandContext {
+            let _ = handler(CommandContext {
                 input,
                 session,
                 world_context,
                 map: map.clone(),
                 my_entity_id,
                 target_entity_id: Self::extract_target_entity_id(map.clone(), my_entity_id),
-            }) != ChatCommandResult::Unhandled
-        } else {
-            false
+            });
+
+            return true;
         }
+
+        false
     }
 
     fn replace_ansi_escape_sequences(input: String) -> String {
@@ -105,7 +107,7 @@ impl ChatCommands {
                 let error_message = ChatCommands::replace_ansi_escape_sequences(error_message);
                 ctx.session.send_system_message(error_message.as_str());
 
-                ChatCommandResult::error()
+                Err(ChatCommandError::InvalidArguments)
             }
         }
     }
@@ -116,25 +118,12 @@ impl ChatCommands {
     }
 }
 
-#[derive(PartialEq)]
-pub enum ChatCommandResult {
-    HandledOk,
-    HandledWithError,
-    Unhandled,
-}
+type ChatCommandResult = Result<(), ChatCommandError>;
 
-impl ChatCommandResult {
-    pub fn ok() -> Self {
-        Self::HandledOk
-    }
-
-    pub fn error() -> Self {
-        Self::HandledWithError
-    }
-
-    pub fn unhandled() -> Self {
-        Self::Unhandled
-    }
+enum ChatCommandError {
+    RequiresTarget,
+    InvalidArguments,
+    GenericError,
 }
 
 struct CommandContext {
@@ -143,7 +132,7 @@ struct CommandContext {
     pub world_context: Arc<WorldContext>,
     pub map: Arc<Map>,
     pub my_entity_id: EntityId,
-    pub target_entity_id: Option<EntityId>,
+    target_entity_id: Option<EntityId>,
 }
 
 impl CommandContext {
@@ -153,6 +142,13 @@ impl CommandContext {
 
     pub fn reply_error(&self, message: &str) {
         self.session.send_error_system_message(message);
+    }
+
+    pub fn require_target(&self) -> Result<EntityId, ChatCommandError> {
+        self.target_entity_id.ok_or_else(|| {
+            self.reply_error("You must select a target");
+            ChatCommandError::RequiresTarget
+        })
     }
 }
 

@@ -218,14 +218,12 @@ impl Player {
             // TODO: Check exploration etc
 
             context.status = PlayerQuestStatus::ObjectivesCompleted;
-            let mut values_guard = self.internal_values.write();
             let base_index = UnitFields::PlayerQuestLog1_1 as usize
                 + (context.slot.unwrap() * QUEST_SLOT_OFFSETS_COUNT);
-            values_guard.set_u32(
+            self.internal_values.write().set_u32(
                 base_index + QuestSlotOffset::State as usize,
                 QuestSlotState::Completed as u32,
             );
-            drop(values_guard);
 
             self.session.force_refresh_nearby_game_objects(self);
         }

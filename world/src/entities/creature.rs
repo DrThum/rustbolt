@@ -59,17 +59,15 @@ impl Creature {
                     creature_spawn.entry,
                     creature_spawn.guid,
                 );
-                let mut values = InternalValues::new(UNIT_END as usize);
-                values.set_u64(ObjectFields::ObjectFieldGuid.into(), guid.raw());
-
                 let object_type = make_bitflags!(ObjectTypeMask::{Object | Unit}).bits();
-                values.set_u32(ObjectFields::ObjectFieldType.into(), object_type);
 
-                values.set_u32(ObjectFields::ObjectFieldEntry.into(), template.entry);
-
-                values.set_f32(ObjectFields::ObjectFieldScaleX.into(), template.scale);
-
-                values.set_u8(UnitFields::UnitFieldBytes0.into(), 1, template.unit_class as u8);
+                let mut values = InternalValues::new(UNIT_END as usize);
+                values
+                    .set_u64(ObjectFields::ObjectFieldGuid.into(), guid.raw())
+                    .set_u32(ObjectFields::ObjectFieldType.into(), object_type)
+                    .set_u32(ObjectFields::ObjectFieldEntry.into(), template.entry)
+                    .set_f32(ObjectFields::ObjectFieldScaleX.into(), template.scale)
+                    .set_u8(UnitFields::UnitFieldBytes0.into(), 1, template.unit_class as u8);
 
                 let selected_level = rng.gen_range(template.min_level..=template.max_level);
 
@@ -94,14 +92,15 @@ impl Creature {
 
                 // Set power type based on unit class
                 match template.unit_class {
-                    CharacterClass::Warrior => values.set_u8(UnitFields::UnitFieldBytes0.into(), 3, PowerType::Rage as u8),
-                    CharacterClass::Rogue => values.set_u8(UnitFields::UnitFieldBytes0.into(), 3, PowerType::Energy as u8),
+                    CharacterClass::Warrior => { values.set_u8(UnitFields::UnitFieldBytes0.into(), 3, PowerType::Rage as u8); },
+                    CharacterClass::Rogue => { values.set_u8(UnitFields::UnitFieldBytes0.into(), 3, PowerType::Energy as u8); },
                     CharacterClass::Paladin | CharacterClass::Mage => {
                         values.set_u8(UnitFields::UnitFieldBytes0.into(), 3, PowerType::Mana as u8);
                         if let Some(attrs) = data_store.get_creature_base_attributes(template.unit_class, selected_level) {
-                            values.set_u32(UnitFields::UnitFieldBaseMana.into(), attrs.mana);
-                            values.set_u32(UnitFields::UnitFieldPower1.into(), attrs.mana);
-                            values.set_u32(UnitFields::UnitFieldMaxPower1.into(), attrs.mana);
+                            values
+                                .set_u32(UnitFields::UnitFieldBaseMana.into(), attrs.mana)
+                                .set_u32(UnitFields::UnitFieldPower1.into(), attrs.mana)
+                                .set_u32(UnitFields::UnitFieldMaxPower1.into(), attrs.mana);
                         };
                     },
 
@@ -116,22 +115,25 @@ impl Creature {
                 let existing_model_ids: Vec<&u32> =
                     template.model_ids.iter().filter(|&&id| id != 0).collect();
                 let display_id = existing_model_ids.choose(&mut rng).expect("rng error");
-                values.set_u32(UnitFields::UnitFieldDisplayid.into(), **display_id);
-                values.set_u32(UnitFields::UnitFieldNativedisplayid.into(), **display_id);
+                values
+                    .set_u32(UnitFields::UnitFieldDisplayid.into(), **display_id)
+                    .set_u32(UnitFields::UnitFieldNativedisplayid.into(), **display_id);
+
                 let model_info = data_store
                     .get_creature_model_info(**display_id)
                     .unwrap_or_else(|| panic!("creature entry {} has invalid model id {}", template.entry, **display_id));
-                values.set_f32(UnitFields::UnitFieldCombatReach.into(), model_info.combat_reach);
-                values.set_f32(UnitFields::UnitFieldBoundingRadius.into(), template.scale * model_info.bounding_radius);
+                values
+                    .set_f32(UnitFields::UnitFieldCombatReach.into(), model_info.combat_reach)
+                    .set_f32(UnitFields::UnitFieldBoundingRadius.into(), template.scale * model_info.bounding_radius)
+                    .set_u32(
+                        UnitFields::UnitFieldFactionTemplate.into(),
+                        template.faction_template_id,
+                    );
 
-                values.set_u32(
-                    UnitFields::UnitFieldFactionTemplate.into(),
-                    template.faction_template_id,
-                );
-
-                values.set_u32(UnitFields::UnitNpcFlags.into(), template.npc_flags);
-                values.set_u32(UnitFields::UnitFieldFlags.into(), template.unit_flags);
-                values.set_u32(UnitFields::UnitDynamicFlags.into(), template.dynamic_flags);
+                values
+                    .set_u32(UnitFields::UnitNpcFlags.into(), template.npc_flags)
+                    .set_u32(UnitFields::UnitFieldFlags.into(), template.unit_flags)
+                    .set_u32(UnitFields::UnitDynamicFlags.into(), template.dynamic_flags);
 
                 let mut default_movement_kind = creature_spawn
                     .movement_type_override

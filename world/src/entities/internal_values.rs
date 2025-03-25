@@ -45,11 +45,12 @@ impl InternalValues {
         self.dirty_indexes.clear();
     }
 
-    pub fn set_u32(&mut self, index: usize, value: u32) {
+    pub fn set_u32(&mut self, index: usize, value: u32) -> &mut Self {
         assert!(index < self.size, "index is too high");
 
         self.mark_dirty(index);
         self.values[index] = Value { as_u32: value };
+        self
     }
 
     pub fn get_u32(&self, index: usize) -> u32 {
@@ -58,7 +59,7 @@ impl InternalValues {
         unsafe { self.values[index].as_u32 }
     }
 
-    pub fn set_u8(&mut self, index: usize, offset: usize, value: u8) {
+    pub fn set_u8(&mut self, index: usize, offset: usize, value: u8) -> &mut Self {
         assert!(index < self.size, "index is too high");
         assert!(offset < 4, "offset is too high");
 
@@ -78,6 +79,8 @@ impl InternalValues {
             let updated_as_u32 = updated_as_u32 | ((value as u32) << (offset * 8));
             self.set_u32(index, updated_as_u32);
         }
+
+        self
     }
 
     pub fn get_u8(&self, index: usize, offset: u8) -> u8 {
@@ -88,7 +91,7 @@ impl InternalValues {
     }
 
     #[allow(dead_code)]
-    pub fn set_u16(&mut self, index: usize, offset: u8, value: u16) {
+    pub fn set_u16(&mut self, index: usize, offset: u8, value: u16) -> &mut Self {
         assert!(index < self.size, "index is too high");
         assert!(offset < 2, "offset is too high");
 
@@ -106,6 +109,8 @@ impl InternalValues {
             let updated_as_u32 = updated_as_u32 | ((value as u32) << (offset * 16));
             self.set_u32(index, updated_as_u32);
         }
+
+        self
     }
 
     #[allow(dead_code)]
@@ -116,11 +121,12 @@ impl InternalValues {
         unsafe { ((self.values[index].as_u32 >> (offset * 16)) & 0xFFFF) as u16 }
     }
 
-    pub fn set_u64(&mut self, index: usize, value: u64) {
+    pub fn set_u64(&mut self, index: usize, value: u64) -> &mut Self {
         assert!(index < (self.size - 1), "index is too high");
 
         self.set_u32(index, (value & 0xFFFFFFFF) as u32);
         self.set_u32(index + 1, ((value >> 32) & 0xFFFFFFFF) as u32);
+        self
     }
 
     #[allow(dead_code)]
@@ -131,15 +137,17 @@ impl InternalValues {
     }
 
     #[allow(dead_code)]
-    pub fn set_guid(&mut self, index: usize, value: &ObjectGuid) {
+    pub fn set_guid(&mut self, index: usize, value: &ObjectGuid) -> &mut Self {
         self.set_u64(index, value.raw());
+        self
     }
 
-    pub fn set_f32(&mut self, index: usize, value: f32) {
+    pub fn set_f32(&mut self, index: usize, value: f32) -> &mut Self {
         assert!(index < self.size, "index is too high");
 
         self.mark_dirty(index);
         self.values[index] = Value { as_f32: value };
+        self
     }
 
     #[allow(dead_code)]
@@ -149,11 +157,12 @@ impl InternalValues {
         unsafe { self.values[index].as_f32 }
     }
 
-    pub fn set_i32(&mut self, index: usize, value: i32) {
+    pub fn set_i32(&mut self, index: usize, value: i32) -> &mut Self {
         assert!(index < self.size, "index is too high");
 
         self.mark_dirty(index);
         self.values[index] = Value { as_i32: value };
+        self
     }
 
     #[allow(dead_code)]
@@ -164,7 +173,7 @@ impl InternalValues {
     }
 
     #[allow(dead_code)]
-    pub fn set_flag_u32(&mut self, index: usize, flag: u32) {
+    pub fn set_flag_u32(&mut self, index: usize, flag: u32) -> &mut Self {
         assert!(index < self.size, "index is too high");
 
         let current = self.get_u32(index);
@@ -173,10 +182,12 @@ impl InternalValues {
         if current != new {
             self.set_u32(index, new);
         }
+
+        self
     }
 
     #[allow(dead_code)]
-    pub fn unset_flag_u32(&mut self, index: usize, flag: u32) {
+    pub fn unset_flag_u32(&mut self, index: usize, flag: u32) -> &mut Self {
         assert!(index < self.size, "index is too high");
 
         let current = self.get_u32(index);
@@ -185,6 +196,8 @@ impl InternalValues {
         if current != new {
             self.set_u32(index, new);
         }
+
+        self
     }
 
     #[allow(dead_code)]

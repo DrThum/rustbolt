@@ -39,11 +39,10 @@ impl Powers {
         base_health: u32,
         base_mana: u32,
     ) -> Self {
-        {
-            let mut values = internal_values.write();
-            values.set_u32(UnitFields::UnitFieldBaseHealth.into(), base_health);
-            values.set_u32(UnitFields::UnitFieldBaseMana.into(), base_mana);
-        }
+        internal_values
+            .write()
+            .set_u32(UnitFields::UnitFieldBaseHealth.into(), base_health)
+            .set_u32(UnitFields::UnitFieldBaseMana.into(), base_mana);
 
         Self {
             internal_values,

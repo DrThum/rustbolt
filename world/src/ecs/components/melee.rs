@@ -53,30 +53,28 @@ impl Melee {
     ) -> Self {
         let now = Instant::now();
 
-        {
-            let mut guard = internal_values.write();
-            guard.set_u8(
+        internal_values
+            .write()
+            .set_u8(
                 UnitFields::UnitFieldBytes2.into(),
                 0,
                 SheathState::Unarmed as u8,
-            );
-
+            )
             // TODO: multiply these by modifiers
-            guard.set_u32(
+            .set_u32(
                 UnitFields::UnitFieldBaseAttackTime.into(),
                 attack_intervals[0].as_millis() as u32,
-            );
-            guard.set_u32(
+            )
+            .set_u32(
                 UnitFields::UnitFieldBaseAttackTime as usize + 1,
                 attack_intervals[1].as_millis() as u32,
-            );
-            guard.set_u32(
+            )
+            .set_u32(
                 UnitFields::UnitFieldRangedAttackTime.into(),
                 attack_intervals[2].as_millis() as u32,
-            );
-            guard.set_f32(UnitFields::UnitFieldMinDamage.into(), damage_min);
-            guard.set_f32(UnitFields::UnitFieldMaxDamage.into(), damage_max);
-        }
+            )
+            .set_f32(UnitFields::UnitFieldMinDamage.into(), damage_min)
+            .set_f32(UnitFields::UnitFieldMaxDamage.into(), damage_max);
 
         Self {
             internal_values,

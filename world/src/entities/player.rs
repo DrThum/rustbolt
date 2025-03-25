@@ -593,14 +593,18 @@ impl Player {
             values.set_u32(base_index, quest_template.entry);
 
             match context.status {
-                PlayerQuestStatus::ObjectivesCompleted => values.set_u32(
-                    base_index + QuestSlotOffset::State as usize,
-                    QuestSlotState::Completed as u32,
-                ),
-                PlayerQuestStatus::Failed => values.set_u32(
-                    base_index + QuestSlotOffset::State as usize,
-                    QuestSlotState::Failed as u32,
-                ),
+                PlayerQuestStatus::ObjectivesCompleted => {
+                    values.set_u32(
+                        base_index + QuestSlotOffset::State as usize,
+                        QuestSlotState::Completed as u32,
+                    );
+                }
+                PlayerQuestStatus::Failed => {
+                    values.set_u32(
+                        base_index + QuestSlotOffset::State as usize,
+                        QuestSlotState::Failed as u32,
+                    );
+                }
                 _ => (),
             }
 

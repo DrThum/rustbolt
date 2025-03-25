@@ -29,13 +29,15 @@ impl Item {
 
         let mut values = InternalValues::new(ITEM_END as usize);
 
-        values.set_u64(ObjectFields::ObjectFieldGuid.into(), guid.raw());
-        values.set_u32(ObjectFields::ObjectFieldType.into(), object_type);
-        values.set_u32(ObjectFields::ObjectFieldEntry.into(), entry);
-        values.set_f32(ObjectFields::ObjectFieldScaleX.into(), 1.0);
-        values.set_u64(ItemFields::ItemFieldOwner.into(), owner_guid);
-        values.set_u64(ItemFields::ItemFieldContained.into(), owner_guid); // Not in all cases
-        values.set_u32(ItemFields::ItemFieldStackCount.into(), stack_count);
+        values
+            .set_u64(ObjectFields::ObjectFieldGuid.into(), guid.raw())
+            .set_u32(ObjectFields::ObjectFieldType.into(), object_type)
+            .set_u32(ObjectFields::ObjectFieldEntry.into(), entry)
+            .set_f32(ObjectFields::ObjectFieldScaleX.into(), 1.0)
+            .set_u64(ItemFields::ItemFieldOwner.into(), owner_guid)
+            // TODO: Not in all cases
+            .set_u64(ItemFields::ItemFieldContained.into(), owner_guid)
+            .set_u32(ItemFields::ItemFieldStackCount.into(), stack_count);
 
         Item {
             guid,

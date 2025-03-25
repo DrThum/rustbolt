@@ -153,20 +153,19 @@ impl Player {
             );
         }
 
-        {
-            let mut guard = self.internal_values.write();
-            guard.set_u32(UnitFields::UnitFieldLevel.into(), next_level);
-            guard.set_u32(UnitFields::PlayerNextLevelXp.into(), next_level_xp);
-            guard.set_u32(UnitFields::PlayerXp.into(), 0);
-            guard.set_u32(
+        self.internal_values
+            .write()
+            .set_u32(UnitFields::UnitFieldLevel.into(), next_level)
+            .set_u32(UnitFields::PlayerNextLevelXp.into(), next_level_xp)
+            .set_u32(UnitFields::PlayerXp.into(), 0)
+            .set_u32(
                 UnitFields::UnitFieldBaseHealth.into(),
                 next_level_base_health_mana.base_health,
-            );
-            guard.set_u32(
+            )
+            .set_u32(
                 UnitFields::UnitFieldBaseMana.into(),
                 next_level_base_health_mana.base_mana,
             );
-        }
 
         *self.has_just_leveled_up.lock() = true;
     }

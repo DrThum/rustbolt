@@ -64,46 +64,50 @@ impl GameObject {
                 let object_type = make_bitflags!(ObjectTypeMask::{Object | Gameobject}).bits();
                 values.set_u32(ObjectFields::ObjectFieldType.into(), object_type);
 
-                values.set_u32(ObjectFields::ObjectFieldEntry.into(), template.entry);
-                values.set_f32(ObjectFields::ObjectFieldScaleX.into(), template.size);
-                values.set_u32(
-                    GameObjectFields::GameObjectDisplayid.into(),
-                    template.display_id,
-                );
-                values.set_u8(GameObjectFields::GameObjectState.into(), 0, 1); // TODO: Enum GO_STATE
-                values.set_u32(
-                    GameObjectFields::GameObjectTypeId.into(),
-                    template.go_type as u32,
-                );
-                values.set_u32(GameObjectFields::GameObjectAnimprogress.into(), 100); // FIXME: animprogress in DB
+                values
+                    .set_u32(ObjectFields::ObjectFieldEntry.into(), template.entry)
+                    .set_f32(ObjectFields::ObjectFieldScaleX.into(), template.size)
+                    .set_u32(
+                        GameObjectFields::GameObjectDisplayid.into(),
+                        template.display_id,
+                    )
+                    // TODO: Enum GO_STATE
+                    .set_u8(GameObjectFields::GameObjectState.into(), 0, 1)
+                    .set_u32(
+                        GameObjectFields::GameObjectTypeId.into(),
+                        template.go_type as u32,
+                    )
+                    // FIXME: animprogress in DB
+                    .set_u32(GameObjectFields::GameObjectAnimprogress.into(), 100);
 
-                values.set_f32(GameObjectFields::GameObjectPosX.into(), spawn.position_x);
-                values.set_f32(GameObjectFields::GameObjectPosY.into(), spawn.position_y);
-                values.set_f32(GameObjectFields::GameObjectPosZ.into(), spawn.position_z);
+                values
+                    .set_f32(GameObjectFields::GameObjectPosX.into(), spawn.position_x)
+                    .set_f32(GameObjectFields::GameObjectPosY.into(), spawn.position_y)
+                    .set_f32(GameObjectFields::GameObjectPosZ.into(), spawn.position_z)
+                    .set_f32(
+                        GameObjectFields::GameObjectRotation.into(),
+                        spawn.rotation.i,
+                    )
+                    .set_f32(
+                        GameObjectFields::GameObjectRotation as usize + 1,
+                        spawn.rotation.j,
+                    )
+                    .set_f32(
+                        GameObjectFields::GameObjectRotation as usize + 2,
+                        spawn.rotation.k,
+                    )
+                    .set_f32(
+                        GameObjectFields::GameObjectRotation as usize + 3,
+                        spawn.rotation.w,
+                    )
+                    .set_f32(
+                        GameObjectFields::GameObjectFacing.into(),
+                        spawn.get_orientation_from_rotation(),
+                    );
 
-                values.set_f32(
-                    GameObjectFields::GameObjectRotation.into(),
-                    spawn.rotation.i,
-                );
-                values.set_f32(
-                    GameObjectFields::GameObjectRotation as usize + 1,
-                    spawn.rotation.j,
-                );
-                values.set_f32(
-                    GameObjectFields::GameObjectRotation as usize + 2,
-                    spawn.rotation.k,
-                );
-                values.set_f32(
-                    GameObjectFields::GameObjectRotation as usize + 3,
-                    spawn.rotation.w,
-                );
-                values.set_f32(
-                    GameObjectFields::GameObjectFacing.into(),
-                    spawn.get_orientation_from_rotation(),
-                );
-
-                values.set_u32(GameObjectFields::GameObjectFaction.into(), template.faction);
-                values.set_u32(GameObjectFields::GameObjectFlags.into(), template.flags);
+                values
+                    .set_u32(GameObjectFields::GameObjectFaction.into(), template.faction)
+                    .set_u32(GameObjectFields::GameObjectFlags.into(), template.flags);
 
                 GameObject {
                     guid,

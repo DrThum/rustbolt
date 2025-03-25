@@ -98,7 +98,9 @@ mod shared {
     pub mod response_codes;
 }
 
-mod utils;
+mod utils {
+    mod macros;
+}
 
 // TypeState pattern (https://yoric.github.io/post/rust-typestate/)
 struct SocketOpened {

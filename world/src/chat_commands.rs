@@ -1,11 +1,16 @@
 use clap::{ArgMatches, Command};
 use lazy_static::lazy_static;
-use log::warn;
+use log::{error, warn};
+use shipyard::{EntityId, View};
 use std::{collections::HashMap, sync::Arc};
 
 use regex::Regex;
 
-use crate::{game::world_context::WorldContext, session::world_session::WorldSession};
+use crate::{
+    ecs::components::unit::Unit,
+    game::{map::Map, world_context::WorldContext},
+    session::world_session::WorldSession,
+};
 
 mod debug;
 mod movement;
@@ -39,10 +44,23 @@ impl ChatCommands {
         }
 
         if let Some(handler) = self.commands.get(input[0].as_str()) {
+            let Some(map) = session.current_map() else {
+                error!("chat command: player has not current map");
+                return false;
+            };
+
+            let Some(my_entity_id) = session.player_entity_id() else {
+                error!("chat command: player has no entity id");
+                return false;
+            };
+
             handler(CommandContext {
                 input,
                 session,
                 world_context,
+                map: map.clone(),
+                my_entity_id,
+                target_entity_id: Self::extract_target_entity_id(map.clone(), my_entity_id),
             }) != ChatCommandResult::Unhandled
         } else {
             false
@@ -91,6 +109,11 @@ impl ChatCommands {
             }
         }
     }
+
+    fn extract_target_entity_id(map: Arc<Map>, player_entity_id: EntityId) -> Option<EntityId> {
+        map.world()
+            .run(|v_unit: View<Unit>| v_unit[player_entity_id].target())
+    }
 }
 
 #[derive(PartialEq)]
@@ -118,6 +141,9 @@ struct CommandContext {
     pub input: Vec<String>,
     pub session: Arc<WorldSession>,
     pub world_context: Arc<WorldContext>,
+    pub map: Arc<Map>,
+    pub my_entity_id: EntityId,
+    pub target_entity_id: Option<EntityId>,
 }
 
 impl CommandContext {

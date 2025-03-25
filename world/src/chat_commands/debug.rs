@@ -31,23 +31,19 @@ fn handle_gps(ctx: CommandContext) -> ChatCommandResult {
     );
 
     ChatCommands::process(command, &ctx, &|matches| {
-        if let Some(map) = ctx.session.current_map() {
-            if let Some(player_ecs_entity) = ctx.session.player_entity_id() {
-                map.world().run(|v_wpos: View<WorldPosition>| {
-                    let wpos = v_wpos[player_ecs_entity];
-                    let output = format!(
-                        "Player position: {}, {}, {}, {}",
-                        wpos.x, wpos.y, wpos.z, wpos.o,
-                    );
+        ctx.map.world().run(|v_wpos: View<WorldPosition>| {
+            let wpos = v_wpos[ctx.my_entity_id];
+            let output = format!(
+                "Player position: {}, {}, {}, {}",
+                wpos.x, wpos.y, wpos.z, wpos.o,
+            );
 
-                    ctx.reply(output.as_str());
+            ctx.reply(output.as_str());
 
-                    if matches.get_flag("dump") {
-                        info!("GPS command output:\n {output}");
-                    }
-                });
+            if matches.get_flag("dump") {
+                info!("GPS command output:\n {output}");
             }
-        }
+        });
 
         ChatCommandResult::ok()
     })
@@ -58,42 +54,38 @@ fn handle_come(ctx: CommandContext) -> ChatCommandResult {
     let command = Command::new(COMMAND_COME);
 
     ChatCommands::process(command, &ctx, &|_| {
-        if let Some(map) = ctx.session.current_map() {
-            if let Some(player_ecs_entity) = ctx.session.player_entity_id() {
-                map.world().run(
-                    |v_wpos: View<WorldPosition>,
-                     v_unit: View<Unit>,
-                     v_guid: View<Guid>,
-                     packet_broadcaster: UniqueView<WrappedPacketBroadcaster>,
-                     mut vm_movement: ViewMut<Movement>| {
-                        let player_wpos = v_wpos[player_ecs_entity];
-                        let player_target = v_unit[player_ecs_entity].target();
-                        if player_target.is_none() {
-                            ctx.reply_error("You must select a target");
-                            return ChatCommandResult::error();
-                        }
+        ctx.map.world().run(
+            |v_wpos: View<WorldPosition>,
+             v_unit: View<Unit>,
+             v_guid: View<Guid>,
+             packet_broadcaster: UniqueView<WrappedPacketBroadcaster>,
+             mut vm_movement: ViewMut<Movement>| {
+                let player_wpos = v_wpos[ctx.my_entity_id];
+                let player_target = v_unit[ctx.my_entity_id].target();
+                if player_target.is_none() {
+                    ctx.reply_error("You must select a target");
+                    return ChatCommandResult::error();
+                }
 
-                        let target_entity_id = player_target.unwrap();
-                        let target_wpos = v_wpos[target_entity_id];
+                let target_entity_id = player_target.unwrap();
+                let target_wpos = v_wpos[target_entity_id];
 
-                        let path = vec![player_wpos.vec3()];
+                let path = vec![player_wpos.vec3()];
 
-                        // TODO: Select speed depending on move flags (implement in Movement)
-                        let speed = vm_movement[target_entity_id].speed_run;
-                        vm_movement[target_entity_id].start_movement(
-                            &v_guid[target_entity_id].0,
-                            (**packet_broadcaster).clone(),
-                            &target_wpos.vec3(),
-                            &path,
-                            speed,
-                            true,
-                        );
-
-                        ChatCommandResult::ok()
-                    },
+                // TODO: Select speed depending on move flags (implement in Movement)
+                let speed = vm_movement[target_entity_id].speed_run;
+                vm_movement[target_entity_id].start_movement(
+                    &v_guid[target_entity_id].0,
+                    (**packet_broadcaster).clone(),
+                    &target_wpos.vec3(),
+                    &path,
+                    speed,
+                    true,
                 );
-            }
-        }
+
+                ChatCommandResult::ok()
+            },
+        );
 
         ChatCommandResult::error()
     })
@@ -110,46 +102,36 @@ fn handle_threat(ctx: CommandContext) -> ChatCommandResult {
     );
 
     ChatCommands::process(command, &ctx, &|matches| {
-        if let Some(map) = ctx.session.current_map() {
-            if let Some(player_ecs_entity) = ctx.session.player_entity_id() {
-                map.world().run(
-                    |v_unit: View<Unit>,
-                     v_threat_list: View<ThreatList>,
-                     v_player: View<Player>,
-                     v_creature: View<Creature>| {
-                        if let Some(my_target) = v_unit[player_ecs_entity].target() {
-                            if let Ok(tl) = v_threat_list.get(my_target) {
-                                if matches.get_flag("list") {
-                                    ctx.reply("Threat list:");
-                                    for (entity_id, threat_level) in tl.threat_list() {
-                                        let mut target_name = "<unexpected entity type>";
+        ctx.map.world().run(
+            |v_unit: View<Unit>,
+             v_threat_list: View<ThreatList>,
+             v_player: View<Player>,
+             v_creature: View<Creature>| {
+                if let Some(my_target) = v_unit[ctx.my_entity_id].target() {
+                    if let Ok(tl) = v_threat_list.get(my_target) {
+                        if matches.get_flag("list") {
+                            ctx.reply("Threat list:");
+                            for (entity_id, threat_level) in tl.threat_list() {
+                                let mut target_name = "<unexpected entity type>";
 
-                                        if let Ok(player) = v_player.get(entity_id) {
-                                            target_name = player.name.as_str();
-                                        } else if let Ok(creature) = v_creature.get(entity_id) {
-                                            target_name = creature.name.as_str();
-                                        }
-
-                                        ctx.reply(
-                                            format!("- {target_name} ({threat_level})").as_str(),
-                                        );
-                                    }
-
-                                    return ChatCommandResult::ok();
+                                if let Ok(player) = v_player.get(entity_id) {
+                                    target_name = player.name.as_str();
+                                } else if let Ok(creature) = v_creature.get(entity_id) {
+                                    target_name = creature.name.as_str();
                                 }
-                            }
-                        }
 
-                        ctx.reply_error("You must select a creature target");
-                        ChatCommandResult::error()
-                    },
-                )
-            } else {
+                                ctx.reply(format!("- {target_name} ({threat_level})").as_str());
+                            }
+
+                            return ChatCommandResult::ok();
+                        }
+                    }
+                }
+
+                ctx.reply_error("You must select a creature target");
                 ChatCommandResult::error()
-            }
-        } else {
-            ChatCommandResult::error()
-        }
+            },
+        )
     })
 }
 
@@ -175,40 +157,32 @@ fn handle_item(ctx: CommandContext) -> ChatCommandResult {
 
     ChatCommands::process(command.clone(), &ctx, &|matches| {
         if let Some(subcommand_add) = matches.subcommand_matches("add") {
-            if let Some(map) = ctx.session.current_map() {
-                if let Some(player_ecs_entity) = ctx.session.player_entity_id() {
-                    return map.world().run(|mut vm_player: ViewMut<Player>| {
-                        if let Ok(mut player) = (&mut vm_player).get(player_ecs_entity) {
-                            let item_id: &u32 = subcommand_add.get_one("id").unwrap();
-                            let count: &u32 = subcommand_add.get_one("count").unwrap();
+            return ctx.map.world().run(|mut vm_player: ViewMut<Player>| {
+                if let Ok(mut player) = (&mut vm_player).get(ctx.my_entity_id) {
+                    let item_id: &u32 = subcommand_add.get_one("id").unwrap();
+                    let count: &u32 = subcommand_add.get_one("count").unwrap();
 
-                            if ctx
-                                .world_context
-                                .data_store
-                                .get_item_template(*item_id)
-                                .is_none()
-                            {
-                                ctx.reply_error(
-                                    format!("item template {item_id} does not exist").as_str(),
-                                );
-                                return ChatCommandResult::error();
-                            }
+                    if ctx
+                        .world_context
+                        .data_store
+                        .get_item_template(*item_id)
+                        .is_none()
+                    {
+                        ctx.reply_error(format!("item template {item_id} does not exist").as_str());
+                        return ChatCommandResult::error();
+                    }
 
-                            match player.auto_store_new_item(*item_id, *count) {
-                                Ok(_) => ChatCommandResult::HandledOk,
-                                Err(err) => {
-                                    ctx.reply_error(
-                                        format!("unable to add item ({err:?})").as_str(),
-                                    );
-                                    ChatCommandResult::error()
-                                }
-                            }
-                        } else {
+                    match player.auto_store_new_item(*item_id, *count) {
+                        Ok(_) => ChatCommandResult::HandledOk,
+                        Err(err) => {
+                            ctx.reply_error(format!("unable to add item ({err:?})").as_str());
                             ChatCommandResult::error()
                         }
-                    });
+                    }
+                } else {
+                    ChatCommandResult::error()
                 }
-            }
+            });
         }
 
         ChatCommandResult::error()

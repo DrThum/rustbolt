@@ -73,7 +73,7 @@ pub fn send_entity_update(
     }
 }
 
-pub fn update_player_environment(
+pub fn update_player_surroundings(
     entity_manager: UniqueView<WrappedEntityManager>,
     has_players: UniqueView<HasPlayers>,
     v_player: View<Player>,

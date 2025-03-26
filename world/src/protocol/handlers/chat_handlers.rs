@@ -37,6 +37,9 @@ impl OpcodeHandler {
             }
         }
 
+        // TODO: chat packets are currently marked as ProcessImmediately. In reality, location-dependent chats (say, yell, emotes, ...) should be
+        // queued in the map to be processed during the update tick.
+
         match cmsg_message_chat.chat_type {
             ChatMessageType::Say | ChatMessageType::Yell | ChatMessageType::Emote => {
                 let smsg_message_chat = ServerMessage::new(session.build_chat_packet(

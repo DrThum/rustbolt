@@ -749,10 +749,6 @@ impl Map {
         self.packet_broadcaster
             .broadcast_packet(origin_guid, packet, range, include_self);
     }
-
-    pub fn get_session(&self, player_guid: &ObjectGuid) -> Option<Arc<WorldSession>> {
-        self.session_holder.get_session(player_guid)
-    }
 }
 
 #[derive(Unique)]

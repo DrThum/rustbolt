@@ -1,25 +1,25 @@
 use std::collections::HashMap;
 
-use clap::{builder::BoolishValueParser, Arg, Command};
+use clap::{builder::BoolishValueParser, Arg, ArgMatches, Command};
 use shipyard::ViewMut;
 
 use crate::ecs::components::movement::Movement;
 
-use super::{ChatCommandResult, ChatCommands, CommandContext, CommandHandler, CommandMap};
+use super::{ChatCommandResult, CommandContext, CommandHandler, CommandMap};
 
 pub(super) fn commands() -> CommandMap {
-    HashMap::from([(COMMAND_FLY, handle_fly as CommandHandler)])
+    HashMap::from([setup_fly_command()])
 }
 
-static COMMAND_FLY: &str = "fly";
-fn handle_fly(ctx: CommandContext) -> ChatCommandResult {
-    let command = Command::new(COMMAND_FLY).arg(
+fn setup_fly_command() -> (&'static str, (Command, CommandHandler)) {
+    let command_name = "fly";
+    let command = Command::new(command_name).arg(
         Arg::new("flying")
             .required(true)
             .value_parser(BoolishValueParser::new()),
     );
 
-    ChatCommands::process(command, &ctx, &|matches| {
+    fn handler(ctx: CommandContext, matches: ArgMatches) -> ChatCommandResult {
         let &flying = matches.get_one::<bool>("flying").unwrap();
 
         ctx.map.world().run(|mut vm_movement: ViewMut<Movement>| {
@@ -27,5 +27,7 @@ fn handle_fly(ctx: CommandContext) -> ChatCommandResult {
         });
 
         Ok(())
-    })
+    }
+
+    (command_name, (command, handler))
 }

@@ -43,7 +43,7 @@ impl ChatCommands {
             return false;
         }
 
-        if let Some(handler) = self.commands.get(input[0].as_str()) {
+        if let Some((command, handler)) = self.commands.get(input[0].as_str()) {
             let Some(map) = session.current_map() else {
                 error!("chat command: player has not current map");
                 return false;
@@ -54,14 +54,35 @@ impl ChatCommands {
                 return false;
             };
 
-            let _ = handler(CommandContext {
-                input,
-                session,
-                world_context,
-                map: map.clone(),
-                my_entity_id,
-                target_entity_id: Self::extract_target_entity_id(map.clone(), my_entity_id),
-            });
+            match command.clone().try_get_matches_from(input.clone()) {
+                Ok(matches) => {
+                    let command_context = CommandContext {
+                        session: session.clone(),
+                        world_context,
+                        map: map.clone(),
+                        my_entity_id,
+                        target_entity_id: Self::extract_target_entity_id(map.clone(), my_entity_id),
+                    };
+
+                    match handler(command_context, matches) {
+                        Ok(_) => {}
+                        Err(ChatCommandError::RequiresTarget) => {
+                            session.send_error_system_message("You must select a target");
+                        }
+                        Err(ChatCommandError::InvalidArguments) => {
+                            session.send_error_system_message("Invalid arguments");
+                        }
+                        Err(ChatCommandError::GenericError) => {
+                            session.send_error_system_message("An error occurred");
+                        }
+                    }
+                }
+                Err(err) => {
+                    let error_message = err.render().ansi().to_string();
+                    let error_message = ChatCommands::replace_ansi_escape_sequences(error_message);
+                    session.send_system_message(error_message.as_str());
+                }
+            }
 
             return true;
         }
@@ -95,23 +116,6 @@ impl ChatCommands {
         output
     }
 
-    fn process(
-        command: Command,
-        ctx: &CommandContext,
-        f: &dyn Fn(ArgMatches) -> ChatCommandResult,
-    ) -> ChatCommandResult {
-        match command.try_get_matches_from(ctx.input.clone()) {
-            Ok(matches) => f(matches),
-            Err(err) => {
-                let error_message = err.render().ansi().to_string();
-                let error_message = ChatCommands::replace_ansi_escape_sequences(error_message);
-                ctx.session.send_system_message(error_message.as_str());
-
-                Err(ChatCommandError::InvalidArguments)
-            }
-        }
-    }
-
     fn extract_target_entity_id(map: Arc<Map>, player_entity_id: EntityId) -> Option<EntityId> {
         map.world()
             .run(|v_unit: View<Unit>| v_unit[player_entity_id].target())
@@ -127,7 +131,6 @@ enum ChatCommandError {
 }
 
 struct CommandContext {
-    pub input: Vec<String>,
     pub session: Arc<WorldSession>,
     pub world_context: Arc<WorldContext>,
     pub map: Arc<Map>,
@@ -145,12 +148,10 @@ impl CommandContext {
     }
 
     pub fn require_target(&self) -> Result<EntityId, ChatCommandError> {
-        self.target_entity_id.ok_or_else(|| {
-            self.reply_error("You must select a target");
-            ChatCommandError::RequiresTarget
-        })
+        self.target_entity_id
+            .ok_or(ChatCommandError::RequiresTarget)
     }
 }
 
-type CommandHandler = fn(CommandContext) -> ChatCommandResult;
-type CommandMap = HashMap<&'static str, CommandHandler>;
+type CommandHandler = fn(CommandContext, ArgMatches) -> ChatCommandResult;
+type CommandMap = HashMap<&'static str, (Command, CommandHandler)>;

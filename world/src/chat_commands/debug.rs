@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use clap::{Arg, ArgAction, Command};
+use clap::{Arg, ArgAction, ArgMatches, Command};
 use log::info;
 use shipyard::{Get, UniqueView, View, ViewMut};
 
@@ -10,29 +10,27 @@ use crate::{
     game::packet_broadcaster::WrappedPacketBroadcaster,
 };
 
-use super::{
-    ChatCommandError, ChatCommandResult, ChatCommands, CommandContext, CommandHandler, CommandMap,
-};
+use super::{ChatCommandError, ChatCommandResult, CommandContext, CommandHandler, CommandMap};
 
 pub(super) fn commands() -> CommandMap {
     HashMap::from([
-        (COMMAND_GPS, handle_gps as CommandHandler),
-        (COMMAND_COME, handle_come as CommandHandler),
-        (COMMAND_THREAT, handle_threat as CommandHandler),
-        (COMMAND_ITEM, handle_item as CommandHandler),
+        setup_gps_command(),
+        setup_come_command(),
+        setup_threat_command(),
+        setup_item_command(),
     ])
 }
 
-static COMMAND_GPS: &str = "gps";
-fn handle_gps(ctx: CommandContext) -> ChatCommandResult {
-    let command = Command::new(COMMAND_GPS).arg(
+fn setup_gps_command() -> (&'static str, (Command, CommandHandler)) {
+    let command_name = "gps";
+    let command = Command::new(command_name).arg(
         Arg::new("dump")
             .short('d')
             .long("dump")
             .action(ArgAction::SetTrue),
     );
 
-    ChatCommands::process(command, &ctx, &|matches| {
+    fn handler(ctx: CommandContext, matches: ArgMatches) -> ChatCommandResult {
         ctx.map.world().run(|v_wpos: View<WorldPosition>| {
             let wpos = v_wpos[ctx.my_entity_id];
             let output = format!(
@@ -48,15 +46,18 @@ fn handle_gps(ctx: CommandContext) -> ChatCommandResult {
         });
 
         Ok(())
-    })
+    }
+
+    (command_name, (command, handler))
 }
 
-static COMMAND_COME: &str = "come";
-fn handle_come(ctx: CommandContext) -> ChatCommandResult {
-    let player_target = ctx.require_target()?;
-    let command = Command::new(COMMAND_COME);
+fn setup_come_command() -> (&'static str, (Command, CommandHandler)) {
+    let command_name = "come";
+    let command = Command::new(command_name);
 
-    ChatCommands::process(command, &ctx, &|_| {
+    fn handler(ctx: CommandContext, _matches: ArgMatches) -> ChatCommandResult {
+        let player_target = ctx.require_target()?;
+
         ctx.map.world().run(
             |v_wpos: View<WorldPosition>,
              v_guid: View<Guid>,
@@ -80,13 +81,14 @@ fn handle_come(ctx: CommandContext) -> ChatCommandResult {
                 Ok(())
             },
         )
-    })
+    }
+
+    (command_name, (command, handler))
 }
 
-static COMMAND_THREAT: &str = "threat";
-fn handle_threat(ctx: CommandContext) -> ChatCommandResult {
-    let player_target = ctx.require_target()?;
-    let command = Command::new(COMMAND_THREAT).arg(
+fn setup_threat_command() -> (&'static str, (Command, CommandHandler)) {
+    let command_name = "threat";
+    let command = Command::new(command_name).arg(
         Arg::new("list")
             .short('l')
             .long("list")
@@ -94,7 +96,9 @@ fn handle_threat(ctx: CommandContext) -> ChatCommandResult {
             .required(true), // Make this an ArgGroup when we implement threat modification
     );
 
-    ChatCommands::process(command, &ctx, &|matches| {
+    fn handler(ctx: CommandContext, matches: ArgMatches) -> ChatCommandResult {
+        let player_target = ctx.require_target()?;
+
         ctx.map.world().run(
             |v_threat_list: View<ThreatList>,
              v_player: View<Player>,
@@ -118,17 +122,19 @@ fn handle_threat(ctx: CommandContext) -> ChatCommandResult {
                     }
                 }
 
-                ctx.reply_error("target has no threat list");
+                ctx.reply_error("Target has no threat list");
                 Err(ChatCommandError::GenericError)
             },
         )
-    })
+    }
+
+    (command_name, (command, handler))
 }
 
 // TODO: Move to item.rs ?
-static COMMAND_ITEM: &str = "item";
-fn handle_item(ctx: CommandContext) -> ChatCommandResult {
-    let command: Command = Command::new(COMMAND_ITEM)
+fn setup_item_command() -> (&'static str, (Command, CommandHandler)) {
+    let command_name = "item";
+    let command: Command = Command::new(command_name)
         .subcommand_required(true)
         .subcommand(
             Command::new("add").args([
@@ -145,7 +151,7 @@ fn handle_item(ctx: CommandContext) -> ChatCommandResult {
             ]),
         );
 
-    ChatCommands::process(command.clone(), &ctx, &|matches| {
+    fn handler(ctx: CommandContext, matches: ArgMatches) -> ChatCommandResult {
         if let Some(subcommand_add) = matches.subcommand_matches("add") {
             return ctx.map.world().run(|mut vm_player: ViewMut<Player>| {
                 let Ok(mut player) = (&mut vm_player).get(ctx.my_entity_id) else {
@@ -161,14 +167,14 @@ fn handle_item(ctx: CommandContext) -> ChatCommandResult {
                     .get_item_template(*item_id)
                     .is_none()
                 {
-                    ctx.reply_error(format!("item template {item_id} does not exist").as_str());
+                    ctx.reply_error(format!("Item template {item_id} does not exist").as_str());
                     return Err(ChatCommandError::GenericError);
                 }
 
                 match player.auto_store_new_item(*item_id, *count) {
                     Ok(_) => Ok(()),
                     Err(err) => {
-                        ctx.reply_error(format!("unable to add item ({err:?})").as_str());
+                        ctx.reply_error(format!("Unable to add item ({err:?})").as_str());
                         Err(ChatCommandError::GenericError)
                     }
                 }
@@ -176,5 +182,7 @@ fn handle_item(ctx: CommandContext) -> ChatCommandResult {
         }
 
         Err(ChatCommandError::InvalidArguments)
-    })
+    }
+
+    (command_name, (command, handler))
 }

@@ -57,7 +57,7 @@ use super::{
     entity_manager::{EntityManager, WrappedEntityManager},
     map_manager::MapKey,
     packet_broadcaster::{PacketBroadcaster, WrappedPacketBroadcaster},
-    packet_queue::PacketQueue,
+    packet_queue::{PacketQueue, WrappedPacketQueue},
     spatial_grid::{SpatialGrid, WrappedSpatialGrid},
     spell_effect_handler::WrappedSpellEffectHandler,
     terrain_manager::{TerrainManager, WrappedTerrainManager},
@@ -75,8 +75,8 @@ pub struct Map {
     terrain_manager: Arc<TerrainManager>,
     spatial_grid: Arc<SpatialGrid>,
     packet_broadcaster: Arc<PacketBroadcaster>,
+    packet_queue: Arc<PacketQueue>,
     visibility_distance: f32,
-    packet_queue: PacketQueue,
 }
 
 impl Map {
@@ -104,6 +104,7 @@ impl Map {
             entity_manager.clone(),
             visibility_distance,
         ));
+        let packet_queue = Arc::new(PacketQueue::new());
 
         let map_record = world_context
             .data_store
@@ -131,6 +132,7 @@ impl Map {
         world.add_unique(WrappedSessionHolder(session_holder.clone()));
         world.add_unique(map_record);
         world.add_unique(HasPlayers(false));
+        world.add_unique(WrappedPacketQueue(packet_queue.clone()));
 
         let map_update_workload = || {
             (
@@ -162,7 +164,7 @@ impl Map {
             spatial_grid: spatial_grid.clone(),
             packet_broadcaster,
             visibility_distance,
-            packet_queue: PacketQueue::new(),
+            packet_queue,
         };
 
         for spawn in creature_spawns {

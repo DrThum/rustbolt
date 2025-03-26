@@ -60,6 +60,7 @@ pub mod game {
     pub mod map_manager;
     pub mod movement_spline;
     pub mod packet_broadcaster;
+    pub mod packet_queue;
     pub mod quad_tree;
     pub mod spatial_grid;
     pub mod spell;

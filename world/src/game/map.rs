@@ -6,7 +6,7 @@ use std::{
 };
 
 use log::{error, info, warn};
-use parking_lot::{ReentrantMutex, ReentrantMutexGuard, RwLock};
+use parking_lot::{ReentrantMutex, ReentrantMutexGuard};
 use shipyard::{
     AllStoragesViewMut, EntitiesViewMut, EntityId, Get, IntoWorkload, Unique, UniqueViewMut, View,
     ViewMut, World,
@@ -57,6 +57,7 @@ use super::{
     entity_manager::{EntityManager, WrappedEntityManager},
     map_manager::MapKey,
     packet_broadcaster::{PacketBroadcaster, WrappedPacketBroadcaster},
+    packet_queue::PacketQueue,
     spatial_grid::{SpatialGrid, WrappedSpatialGrid},
     spell_effect_handler::WrappedSpellEffectHandler,
     terrain_manager::{TerrainManager, WrappedTerrainManager},
@@ -75,7 +76,7 @@ pub struct Map {
     spatial_grid: Arc<SpatialGrid>,
     packet_broadcaster: Arc<PacketBroadcaster>,
     visibility_distance: f32,
-    pending_packets: RwLock<VecDeque<(Arc<WorldSession>, ClientMessage)>>, // TODO: move this to a separate struct
+    packet_queue: PacketQueue,
 }
 
 impl Map {
@@ -161,7 +162,7 @@ impl Map {
             spatial_grid: spatial_grid.clone(),
             packet_broadcaster,
             visibility_distance,
-            pending_packets: RwLock::new(VecDeque::new()),
+            packet_queue: PacketQueue::new(),
         };
 
         for spawn in creature_spawns {
@@ -759,17 +760,7 @@ impl Map {
     }
 
     pub fn queue_packet(&self, world_session: Arc<WorldSession>, packet: ClientMessage) {
-        self.pending_packets
-            .write()
-            .push_back((world_session, packet));
-    }
-
-    pub fn get_and_reset_queued_packets(&self) -> VecDeque<(Arc<WorldSession>, ClientMessage)> {
-        let mut guard = self.pending_packets.write();
-        let packets = (*guard).clone();
-        *guard = VecDeque::new();
-
-        packets
+        self.packet_queue.queue_packet(world_session, packet);
     }
 }
 

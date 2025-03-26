@@ -92,7 +92,7 @@ fn setup_teleport_command() -> (&'static str, (Command, CommandHandler)) {
                         matches
                             .get_many::<f32>("xyz")
                             .unwrap()
-                            .nth(4)
+                            .nth(3)
                             .map(|x| *x as u32)
                             .unwrap_or(wpos.map_key.map_id),
                     );

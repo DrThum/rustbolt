@@ -330,6 +330,11 @@ impl OpcodeHandler {
                     ProcessInMap,
                     OpcodeHandler::handle_msg_move_teleport_ack
                 ),
+                define_handler!(
+                    Opcode::MsgMoveWorldportAck,
+                    ProcessImmediately,
+                    OpcodeHandler::handle_msg_move_worldport_ack
+                ),
             ]),
         }
     }

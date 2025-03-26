@@ -325,6 +325,11 @@ impl OpcodeHandler {
                     ProcessInMap,
                     OpcodeHandler::handle_cmsg_use_item
                 ),
+                define_handler!(
+                    Opcode::MsgMoveTeleportAck,
+                    ProcessInMap,
+                    OpcodeHandler::handle_msg_move_teleport_ack
+                ),
             ]),
         }
     }

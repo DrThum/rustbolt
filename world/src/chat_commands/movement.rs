@@ -1,14 +1,28 @@
 use std::collections::HashMap;
 
 use clap::{builder::BoolishValueParser, Arg, ArgMatches, Command};
-use shipyard::ViewMut;
+use futures::future::Map;
+use shipyard::{View, ViewMut, World};
 
-use crate::ecs::components::movement::Movement;
+use crate::{
+    chat_commands::ChatCommandError,
+    ecs::components::movement::Movement,
+    entities::{
+        player::Player,
+        position::{Position, WorldPosition},
+    },
+    game::map_manager::MapKey,
+    protocol::{
+        packets::{MsgMoveTeleportAck, SmsgNewWorld, SmsgTransferPending},
+        server::ServerMessage,
+    },
+    repositories::character::CharacterRepository,
+};
 
 use super::{ChatCommandResult, CommandContext, CommandHandler, CommandMap};
 
 pub(super) fn commands() -> CommandMap {
-    HashMap::from([setup_fly_command()])
+    HashMap::from([setup_fly_command(), setup_teleport_command()])
 }
 
 fn setup_fly_command() -> (&'static str, (Command, CommandHandler)) {
@@ -27,6 +41,129 @@ fn setup_fly_command() -> (&'static str, (Command, CommandHandler)) {
         });
 
         Ok(())
+    }
+
+    (command_name, (command, handler))
+}
+
+fn setup_teleport_command() -> (&'static str, (Command, CommandHandler)) {
+    let command_name = "teleport";
+    let command = Command::new(command_name)
+        .arg(
+            Arg::new("xyz")
+                .long("xyz")
+                .num_args(3..=4)
+                .value_parser(clap::value_parser!(f32))
+                .help("Coordinates as 'x y z' with optional map ID")
+                .required_unless_present("player"),
+        )
+        // .arg(Arg::new("poi")
+        //     .long("poi")
+        //     .value_name("NAME")
+        //     .help("Point of interest name from database"))
+        .arg(
+            Arg::new("player")
+                .long("player")
+                .short('p')
+                .value_name("NAME")
+                .help("Target player name")
+                .required_unless_present("xyz"),
+        )
+        .arg(
+            Arg::new("type")
+                .long("type")
+                .value_parser(["near", "far"])
+                .default_value("near")
+                .help("Teleport type: near or far"),
+        );
+
+    fn handler(ctx: CommandContext, matches: ArgMatches) -> ChatCommandResult {
+        ctx.map.world().run(
+            |mut vm_player: ViewMut<Player>,
+             v_movement: View<Movement>,
+             v_wpos: View<WorldPosition>| {
+                let player = &mut vm_player[ctx.my_entity_id];
+                let movement = &v_movement[ctx.my_entity_id];
+                let wpos = &mut v_wpos[ctx.my_entity_id].clone();
+                let origin_map_key = wpos.map_key;
+
+                if matches.contains_id("xyz") {
+                    let map_key = MapKey::for_continent(
+                        matches
+                            .get_many::<f32>("xyz")
+                            .unwrap()
+                            .nth(4)
+                            .map(|x| *x as u32)
+                            .unwrap_or(wpos.map_key.map_id),
+                    );
+                    let x = *matches.get_many::<f32>("xyz").unwrap().nth(0).unwrap();
+                    let y = *matches.get_many::<f32>("xyz").unwrap().nth(1).unwrap();
+                    let z = *matches.get_many::<f32>("xyz").unwrap().nth(2).unwrap();
+                    let o = wpos.o;
+                    wpos.update(&WorldPosition {
+                        map_key,
+                        zone: 0, // TODO: get zone from DBC
+                        x,
+                        y,
+                        z,
+                        o,
+                    });
+                } else if matches.contains_id("player") {
+                    let player_name = matches.get_one::<String>("player").unwrap();
+
+                    // TODO: try to get the player position from the ECS first, in case the player is online
+                    let conn = ctx.world_context.database.characters.get().unwrap();
+                    match CharacterRepository::fetch_position_by_name(&conn, player_name) {
+                        Some(position) => {
+                            wpos.update(&position);
+                        }
+                        None => {
+                            ctx.reply_error("Player not found");
+                            return Err(ChatCommandError::GenericError);
+                        }
+                    }
+                } else {
+                    unreachable!()
+                };
+
+                player.set_teleport_destination(*wpos);
+
+                if matches.get_one::<String>("type").unwrap() == "far"
+                    || origin_map_key != wpos.map_key
+                {
+                    // For far teleport (on another map), use SmsgTransferPending for the loading
+                    // screen then SmsgNewWorld for the actual teleport
+                    // Then the response is MsgMoveWorldportAck
+                    let packet = ServerMessage::new(SmsgTransferPending {
+                        map_id: wpos.map_key.map_id,
+                    });
+
+                    ctx.session.send(&packet).unwrap();
+
+                    let packet = ServerMessage::new(SmsgNewWorld {
+                        map_id: wpos.map_key.map_id,
+                        x: wpos.x,
+                        y: wpos.y,
+                        z: wpos.z,
+                        o: wpos.o,
+                    });
+
+                    ctx.session.send(&packet).unwrap();
+                } else {
+                    // Near teleport
+                    let packet = ServerMessage::new(MsgMoveTeleportAck {
+                        packed_guid: player.guid().as_packed(),
+                        unk_counter: 0,
+                        movement_info: movement
+                            .info(ctx.world_context.clone(), &wpos.as_position()),
+                    });
+
+                    ctx.session.send(&packet).unwrap();
+                }
+
+                Ok(())
+            },
+        )
     }
 
     (command_name, (command, handler))

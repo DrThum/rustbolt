@@ -204,9 +204,7 @@ impl CharacterRepository {
             })
             .unwrap();
 
-        chars
-            .flatten()
-            .collect()
+        chars.flatten().collect()
     }
 
     pub fn delete_character(
@@ -245,36 +243,36 @@ impl CharacterRepository {
             .unwrap();
 
         rows.next().unwrap().map(|row| CharacterRecord {
-                guid,
-                account_id: row.get("account_id").unwrap(),
-                race: row.get("race").unwrap(),
-                class: row.get("class").unwrap(),
-                level: row.get("level").unwrap(),
-                gender: row.get("gender").unwrap(),
-                name: row.get("name").unwrap(),
-                visual_features: PlayerVisualFeatures {
-                    haircolor: row.get("haircolor").unwrap(),
-                    hairstyle: row.get("hairstyle").unwrap(),
-                    face: row.get("face").unwrap(),
-                    skin: row.get("skin").unwrap(),
-                    facialstyle: row.get("facialstyle").unwrap(),
-                },
-                position: WorldPosition {
-                    // FIXME: for instanced maps
-                    map_key: MapKey::for_continent(row.get("map_id").unwrap()),
-                    zone: row.get("zone_id").unwrap(),
-                    x: row.get("position_x").unwrap(),
-                    y: row.get("position_y").unwrap(),
-                    z: row.get("position_z").unwrap(),
-                    o: row.get("orientation").unwrap(),
-                },
-                current_health: row.get("current_health").unwrap(),
-                current_mana: row.get("current_mana").unwrap(),
-                current_rage: row.get("current_rage").unwrap(),
-                current_energy: row.get("current_energy").unwrap(),
-                experience: row.get("experience").unwrap(),
-                money: row.get("money").unwrap(),
-            })
+            guid,
+            account_id: row.get("account_id").unwrap(),
+            race: row.get("race").unwrap(),
+            class: row.get("class").unwrap(),
+            level: row.get("level").unwrap(),
+            gender: row.get("gender").unwrap(),
+            name: row.get("name").unwrap(),
+            visual_features: PlayerVisualFeatures {
+                haircolor: row.get("haircolor").unwrap(),
+                hairstyle: row.get("hairstyle").unwrap(),
+                face: row.get("face").unwrap(),
+                skin: row.get("skin").unwrap(),
+                facialstyle: row.get("facialstyle").unwrap(),
+            },
+            position: WorldPosition {
+                // FIXME: for instanced maps
+                map_key: MapKey::for_continent(row.get("map_id").unwrap()),
+                zone: row.get("zone_id").unwrap(),
+                x: row.get("position_x").unwrap(),
+                y: row.get("position_y").unwrap(),
+                z: row.get("position_z").unwrap(),
+                o: row.get("orientation").unwrap(),
+            },
+            current_health: row.get("current_health").unwrap(),
+            current_mana: row.get("current_mana").unwrap(),
+            current_rage: row.get("current_rage").unwrap(),
+            current_energy: row.get("current_energy").unwrap(),
+            experience: row.get("experience").unwrap(),
+            money: row.get("money").unwrap(),
+        })
     }
 
     pub fn fetch_character_spells(
@@ -351,6 +349,23 @@ impl CharacterRepository {
             .unwrap();
 
         rows.filter_map(|r| r.ok()).collect()
+    }
+
+    pub fn fetch_position_by_name(
+        conn: &PooledConnection<SqliteConnectionManager>,
+        name: &str,
+    ) -> Option<WorldPosition> {
+        let mut stmt = conn.prepare_cached("SELECT map_id, zone_id, position_x, position_y, position_z, orientation FROM characters WHERE name = :name").unwrap();
+        let mut rows = stmt.query(named_params! { ":name": name }).unwrap();
+
+        rows.next().unwrap().map(|row| WorldPosition {
+            map_key: MapKey::for_continent(row.get("map_id").unwrap()),
+            zone: row.get("zone_id").unwrap(),
+            x: row.get("position_x").unwrap(),
+            y: row.get("position_y").unwrap(),
+            z: row.get("position_z").unwrap(),
+            o: row.get("orientation").unwrap(),
+        })
     }
 
     pub fn add_item_to_inventory(

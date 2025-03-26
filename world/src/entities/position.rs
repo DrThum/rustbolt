@@ -103,6 +103,15 @@ impl WorldPosition {
         self.o = pos.o;
     }
 
+    pub fn update(&mut self, pos: &WorldPosition) {
+        self.map_key = pos.map_key;
+        self.zone = pos.zone;
+        self.x = pos.x;
+        self.y = pos.y;
+        self.z = pos.z;
+        self.o = pos.o;
+    }
+
     pub fn get_2d_angle_with(&self, other: &WorldPosition) -> f32 {
         let dx = other.x - self.x;
         let dy = other.y - self.y;

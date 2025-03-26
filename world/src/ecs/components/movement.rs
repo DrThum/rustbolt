@@ -22,7 +22,7 @@ use crate::{
         world_context::WorldContext,
     },
     protocol::{
-        packets::{SmsgMonsterMove, SmsgMoveSetCanFly, SmsgMoveUnsetCanFly},
+        packets::{MovementInfo, SmsgMonsterMove, SmsgMoveSetCanFly, SmsgMoveUnsetCanFly},
         server::ServerMessage,
     },
     session::world_session::WorldSession,
@@ -67,6 +67,16 @@ impl Movement {
             spline: MovementSpline::new(),
             recently_expired_movement_kinds: Vec::new(),
             current_movement_kinds: vec![default_movement_kind],
+        }
+    }
+
+    pub fn info(&self, world_context: Arc<WorldContext>, position: &Position) -> MovementInfo {
+        MovementInfo {
+            movement_flags: self.flags.bits(),
+            movement_flags2: 0, // FIXME: moveFlags2 always 0?
+            timestamp: world_context.game_time().as_millis() as u32,
+            position: *position,
+            fall_time: self.fall_time,
         }
     }
 

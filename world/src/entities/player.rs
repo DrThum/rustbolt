@@ -39,6 +39,7 @@ use super::{
     internal_values::{InternalValues, QuestSlotOffset, QUEST_SLOT_OFFSETS_COUNT},
     item::Item,
     object_guid::ObjectGuid,
+    position::WorldPosition,
     update::{CreateData, MovementUpdateData, UpdateBlockBuilder, UpdateFlag, UpdateType},
     update_fields::*,
 };
@@ -72,6 +73,7 @@ pub struct Player {
     pub has_just_leveled_up: Mutex<bool>, // TODO: Make this an AtomicBoolean with acquire to
     // write, release to read
     pub needs_nearby_game_objects_refresh: AtomicBool,
+    pub teleport_destination: Option<WorldPosition>,
 }
 
 impl Player {
@@ -650,6 +652,7 @@ impl Player {
             attribute_modifiers,
             has_just_leveled_up: Mutex::new(false),
             needs_nearby_game_objects_refresh: AtomicBool::new(false),
+            teleport_destination: None,
         }
     }
 
@@ -746,6 +749,14 @@ impl Player {
 
     pub fn currently_looting(&self) -> Option<EntityId> {
         self.currently_looting
+    }
+
+    pub fn set_teleport_destination(&mut self, dest: WorldPosition) {
+        self.teleport_destination = Some(dest);
+    }
+
+    pub fn take_teleport_destination(&mut self) -> Option<WorldPosition> {
+        self.teleport_destination.take()
     }
 }
 

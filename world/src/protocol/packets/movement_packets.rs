@@ -1,4 +1,4 @@
-use binrw::binwrite;
+use binrw::{binread, binwrite};
 use enumflags2::BitFlags;
 use opcode_derive::server_opcode;
 use shared::models::terrain_info::Vector3;
@@ -7,6 +7,8 @@ use crate::entities::object_guid::{ObjectGuid, PackedObjectGuid};
 use crate::protocol::opcodes::Opcode;
 use crate::protocol::server::ServerMessagePayload;
 use crate::shared::constants::SplineFlag;
+
+use super::MovementInfo;
 
 #[binwrite]
 #[server_opcode]
@@ -128,4 +130,37 @@ impl SmsgMonsterMove {
             catmullrom_path,
         }
     }
+}
+
+#[binwrite]
+#[server_opcode]
+pub struct MsgMoveTeleportAck {
+    pub packed_guid: PackedObjectGuid,
+    pub unk_counter: u32,
+    pub movement_info: MovementInfo,
+}
+
+#[binread]
+pub struct MsgMoveTeleportAckFromClient {
+    pub _guid: ObjectGuid,
+    pub _counter: u32,
+    pub _time: u32,
+}
+
+#[binwrite]
+#[server_opcode]
+pub struct SmsgTransferPending {
+    pub map_id: u32,
+    // pub transport_id: u32,
+    // pub current_map_id: u32,
+}
+
+#[binwrite]
+#[server_opcode]
+pub struct SmsgNewWorld {
+    pub map_id: u32,
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+    pub o: f32,
 }

@@ -332,7 +332,7 @@ impl OpcodeHandler {
                 ),
                 define_handler!(
                     Opcode::MsgMoveWorldportAck,
-                    ProcessImmediately,
+                    ProcessInMap,
                     OpcodeHandler::handle_msg_move_worldport_ack
                 ),
             ]),

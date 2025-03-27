@@ -322,16 +322,12 @@ impl WorldSession {
         })
     }
 
-    // TODO: Reset time sync after each teleport
     pub fn reset_time_sync(session: Arc<WorldSession>, world_context: Arc<WorldContext>) {
-        let mut guard = session.time_sync_handle.lock();
-        if let Some(handle) = guard.take() {
-            handle.abort();
-        }
+        session.server_time_sync.lock().reset();
 
-        {
-            let mut time_sync = session.server_time_sync.lock();
-            time_sync.reset();
+        let mut guard = session.time_sync_handle.lock();
+        if guard.is_some() {
+            return;
         }
 
         let jh = WorldSession::schedule_time_sync(session.clone(), world_context);

@@ -47,6 +47,7 @@ use super::{
 pub mod combat;
 pub mod experience;
 pub mod inventory;
+pub mod movement;
 pub mod player_data;
 pub mod player_inventory;
 pub mod powers;

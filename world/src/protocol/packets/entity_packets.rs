@@ -31,7 +31,7 @@ pub struct SmsgUpdateObject {
 impl ServerMessagePayload<{ Opcode::SmsgUpdateObject as u16 }> for SmsgUpdateObject {}
 
 #[binrw]
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct MovementInfo {
     pub movement_flags: u32,
     pub movement_flags2: u8,

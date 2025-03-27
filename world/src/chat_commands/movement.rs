@@ -8,10 +8,6 @@ use crate::{
     ecs::components::movement::Movement,
     entities::{player::Player, position::WorldPosition},
     game::map_manager::MapKey,
-    protocol::{
-        packets::{MsgMoveTeleportAck, SmsgNewWorld, SmsgTransferPending},
-        server::ServerMessage,
-    },
     repositories::character::CharacterRepository,
 };
 
@@ -75,13 +71,9 @@ fn setup_teleport_command() -> (&'static str, (Command, CommandHandler)) {
 
     fn handler(ctx: CommandContext, matches: ArgMatches) -> ChatCommandResult {
         ctx.map.world().run(
-            |mut vm_player: ViewMut<Player>,
-             v_movement: View<Movement>,
-             v_wpos: View<WorldPosition>| {
+            |mut vm_player: ViewMut<Player>, v_wpos: View<WorldPosition>| {
                 let player = &mut vm_player[ctx.my_entity_id];
-                let movement = &v_movement[ctx.my_entity_id];
                 let wpos = &mut v_wpos[ctx.my_entity_id].clone();
-                let origin_map_key = wpos.map_key;
 
                 if matches.contains_id("xyz") {
                     let map_key = MapKey::for_continent(
@@ -128,40 +120,8 @@ fn setup_teleport_command() -> (&'static str, (Command, CommandHandler)) {
                     unreachable!()
                 };
 
-                player.set_teleport_destination(*wpos);
-
-                if matches.get_one::<String>("type").unwrap() == "far"
-                    || origin_map_key != wpos.map_key
-                {
-                    // For far teleport (on another map), use SmsgTransferPending for the loading
-                    // screen then SmsgNewWorld for the actual teleport
-                    // Then the response is MsgMoveWorldportAck
-                    let packet = ServerMessage::new(SmsgTransferPending {
-                        map_id: wpos.map_key.map_id,
-                    });
-
-                    ctx.session.send(&packet).unwrap();
-
-                    let packet = ServerMessage::new(SmsgNewWorld {
-                        map_id: wpos.map_key.map_id,
-                        x: wpos.x,
-                        y: wpos.y,
-                        z: wpos.z,
-                        o: wpos.o,
-                    });
-
-                    ctx.session.send(&packet).unwrap();
-                } else {
-                    // Near teleport
-                    let packet = ServerMessage::new(MsgMoveTeleportAck {
-                        packed_guid: player.guid().as_packed(),
-                        unk_counter: 0,
-                        movement_info: movement
-                            .info(ctx.world_context.clone(), &wpos.as_position()),
-                    });
-
-                    ctx.session.send(&packet).unwrap();
-                }
+                let force_far = matches.get_one::<String>("type").unwrap() == "far";
+                player.teleport_to(wpos, force_far);
 
                 Ok(())
             },

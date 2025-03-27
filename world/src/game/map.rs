@@ -1,6 +1,9 @@
 use std::{
     collections::VecDeque,
-    sync::Arc,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
     thread,
     time::{Duration, Instant},
 };
@@ -68,7 +71,7 @@ pub const DEFAULT_VISIBILITY_DISTANCE: f32 = 90.0;
 
 pub struct Map {
     key: MapKey,
-    world: Arc<ReentrantMutex<World>>,
+    world: ReentrantMutex<World>,
     world_context: Arc<WorldContext>,
     session_holder: Arc<SessionHolder<ObjectGuid>>,
     entity_manager: Arc<EntityManager>,
@@ -77,6 +80,7 @@ pub struct Map {
     packet_broadcaster: Arc<PacketBroadcaster>,
     packet_queue: Arc<PacketQueue>,
     visibility_distance: f32,
+    running: Arc<AtomicBool>,
 }
 
 impl Map {
@@ -86,7 +90,6 @@ impl Map {
         terrain_manager: Arc<TerrainManager>,
         creature_spawns: Vec<CreatureSpawnDbRecord>,
         game_object_spawns: Vec<GameObjectSpawnDbRecord>,
-        config: Arc<WorldConfig>,
     ) -> Map {
         // TODO: pass this as a parameter?
         let visibility_distance = DEFAULT_VISIBILITY_DISTANCE;
@@ -134,37 +137,20 @@ impl Map {
         world.add_unique(HasPlayers(false));
         world.add_unique(WrappedPacketQueue(packet_queue.clone()));
 
-        let map_update_workload = || {
-            (
-                unwind::unwind_creatures,
-                updates::update_player_surroundings, // Must be before regenerate_powers
-                movement::update_movement,
-                combat::update_combat_state,
-                behavior::tick,
-                powers::regenerate_powers,
-                combat::select_target,
-                melee::attempt_melee_attack,
-                spell::update_spell,
-                updates::send_entity_update,
-                inventory::send_inventory_update,
-            )
-                .into_workload()
-        };
-        world.add_workload(map_update_workload);
-
-        let world = Arc::new(ReentrantMutex::new(world));
+        let world = ReentrantMutex::new(world);
 
         let map = Map {
             key,
-            world: world.clone(),
+            world,
             world_context: world_context.clone(),
             session_holder: session_holder.clone(),
             entity_manager: entity_manager.clone(),
             terrain_manager,
             spatial_grid: spatial_grid.clone(),
             packet_broadcaster,
-            visibility_distance,
             packet_queue,
+            visibility_distance,
+            running: Arc::new(AtomicBool::new(false)),
         };
 
         for spawn in creature_spawns {
@@ -203,62 +189,70 @@ impl Map {
             map.add_game_object(&guid, game_object, &position);
         }
 
-        let map_id = key.map_id;
-        let target_tick_time = config.world.game.target_tick_time_ms;
-        thread::Builder::new()
-            .name(format!("Map {map_id}"))
-            .spawn(move || {
-                let mut time = Instant::now();
-                let mut update_times: VecDeque<u128> = VecDeque::with_capacity(200);
-                let mut last_update_time_print = Instant::now();
-
-                loop {
-                    let tick_start_time = Instant::now();
-                    let elapsed_since_last_tick = tick_start_time.duration_since(time);
-                    time = tick_start_time;
-
-                    {
-                        let world_guard = world.lock();
-                        world_guard.run(
-                            |mut dt: UniqueViewMut<DeltaTime>,
-                             mut hp: UniqueViewMut<HasPlayers>| {
-                                // Update the delta time
-                                *dt = DeltaTime(elapsed_since_last_tick);
-                                // Update whether the map has players
-                                *hp = HasPlayers(
-                                    !world_guard.borrow::<View<Player>>().unwrap().is_empty(),
-                                );
-                            },
-                        );
-
-                        world_guard.run(process_packets);
-                        world_guard.run_workload(map_update_workload).unwrap();
-                    }
-
-                    let tick_duration = Instant::now().duration_since(tick_start_time);
-                    if update_times.len() == 200 {
-                        update_times.pop_front();
-                    }
-
-                    update_times.push_back(tick_duration.as_millis());
-
-                    if tick_start_time.duration_since(last_update_time_print)
-                        > Duration::from_secs(10)
-                    {
-                        let mean_tick_time =
-                            update_times.iter().sum::<u128>() / update_times.len() as u128;
-                        info!("Mean tick time on map {}: {mean_tick_time}", map_id);
-                        last_update_time_print = tick_start_time;
-                    }
-
-                    thread::sleep(
-                        Duration::from_millis(target_tick_time).saturating_sub(tick_duration),
-                    );
-                }
-            })
-            .unwrap();
-
         map
+    }
+
+    pub fn start(&self, config: Arc<WorldConfig>) {
+        self.running.store(true, Ordering::SeqCst);
+        let target_tick_time = config.world.game.target_tick_time_ms;
+
+        let map_update_workload = || {
+            (
+                unwind::unwind_creatures,
+                updates::update_player_surroundings, // Must be before regenerate_powers
+                movement::update_movement,
+                combat::update_combat_state,
+                behavior::tick,
+                powers::regenerate_powers,
+                combat::select_target,
+                melee::attempt_melee_attack,
+                spell::update_spell,
+                updates::send_entity_update,
+                inventory::send_inventory_update,
+            )
+                .into_workload()
+        };
+        self.world.lock().add_workload(map_update_workload);
+
+        let mut time = Instant::now();
+        let mut update_times: VecDeque<u128> = VecDeque::with_capacity(200);
+        let mut last_update_time_print = Instant::now();
+
+        while self.running.load(Ordering::SeqCst) {
+            let tick_start_time = Instant::now();
+            let elapsed_since_last_tick = tick_start_time.duration_since(time);
+            time = tick_start_time;
+
+            {
+                let world_guard = self.world.lock();
+                world_guard.run(
+                    |mut dt: UniqueViewMut<DeltaTime>, mut hp: UniqueViewMut<HasPlayers>| {
+                        // Update the delta time
+                        *dt = DeltaTime(elapsed_since_last_tick);
+                        // Update whether the map has players
+                        *hp = HasPlayers(!world_guard.borrow::<View<Player>>().unwrap().is_empty());
+                    },
+                );
+
+                world_guard.run(process_packets);
+                world_guard.run_workload(map_update_workload).unwrap();
+            }
+
+            let tick_duration = Instant::now().duration_since(tick_start_time);
+            if update_times.len() == 200 {
+                update_times.pop_front();
+            }
+
+            update_times.push_back(tick_duration.as_millis());
+
+            if tick_start_time.duration_since(last_update_time_print) > Duration::from_secs(10) {
+                let mean_tick_time = update_times.iter().sum::<u128>() / update_times.len() as u128;
+                info!("Mean tick time on map {}: {mean_tick_time}", self.key);
+                last_update_time_print = tick_start_time;
+            }
+
+            thread::sleep(Duration::from_millis(target_tick_time).saturating_sub(tick_duration));
+        }
     }
 
     pub fn world(&self) -> ReentrantMutexGuard<World> {
@@ -504,6 +498,8 @@ impl Map {
             }
         }
     }
+
+    pub fn transfer_player_from(&self, origin_map: Arc<Map>, player_entity_id: EntityId) {}
 
     pub fn remove_player(&self, player_guid: &ObjectGuid) {
         let maybe_player_entity_id =
@@ -763,6 +759,12 @@ impl Map {
 
     pub fn queue_packet(&self, world_session: Arc<WorldSession>, packet: ClientMessage) {
         self.packet_queue.queue_packet(world_session, packet);
+    }
+}
+
+impl Drop for Map {
+    fn drop(&mut self) {
+        self.running.store(false, Ordering::SeqCst);
     }
 }
 

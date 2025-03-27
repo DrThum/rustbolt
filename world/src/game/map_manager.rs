@@ -52,13 +52,16 @@ impl MapManager {
         conn: &r2d2::PooledConnection<r2d2_sqlite::SqliteConnectionManager>,
     ) {
         info!("Instantiating continents...");
+        let load_terrain = config.world.dev.load_terrain;
+        let data_dir = &config.common.data.directory;
+
         for map in data_store
             .get_all_map_records()
             .filter(|m| m.is_continent())
         {
-            let map_terrain_manager = Arc::new(if config.world.dev.load_terrain {
+            let map_terrain_manager = Arc::new(if load_terrain {
                 // Load terrain for this map
-                TerrainManager::load(&config.common.data.directory, &map.internal_name)
+                TerrainManager::load(data_dir, &map.internal_name)
             } else {
                 info!("Terrain loading disabled in configuration");
                 TerrainManager::empty()
@@ -72,17 +75,21 @@ impl MapManager {
             let game_object_spawns = GameObjectRepository::load_game_object_spawns(conn, map.id);
 
             let key = MapKey::for_continent(map.id);
-            self.maps.write().insert(
+            let map = Arc::new(Map::new(
                 key,
-                Arc::new(Map::new(
-                    key,
-                    world_context.clone(),
-                    map_terrain_manager,
-                    creature_spawns,
-                    game_object_spawns,
-                    config.clone(),
-                )),
-            );
+                world_context.clone(),
+                map_terrain_manager,
+                creature_spawns,
+                game_object_spawns,
+            ));
+            self.maps.write().insert(key, map.clone());
+            let config = config.clone();
+            std::thread::Builder::new()
+                .name(format!("Map {}", map.id()))
+                .spawn(move || {
+                    map.start(config);
+                })
+                .unwrap();
         }
     }
 
@@ -122,9 +129,9 @@ impl MapManager {
                         map_terrain_manager.clone(),
                         creature_spawns,
                         game_object_spawns,
-                        self.config.clone(),
                     ));
                     map_guard.insert(map_key, map.clone());
+                    map.start(self.config.clone());
 
                     Ok(map)
                 }

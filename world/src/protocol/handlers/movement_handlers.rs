@@ -126,6 +126,7 @@ impl OpcodeHandler {
         );
     }
 
+    // TODO: deduplicate with handle_cmsg_player_login
     pub fn handle_msg_move_worldport_ack(
         PacketHandlerArgs {
             session,

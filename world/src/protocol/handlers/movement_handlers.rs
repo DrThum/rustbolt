@@ -10,8 +10,7 @@ use crate::{
         unwind::Unwind,
     },
     entities::{
-        creature::Creature, game_object::GameObject, object_guid::ObjectGuid, player::Player,
-        position::WorldPosition,
+        creature::Creature, game_object::GameObject, player::Player, position::WorldPosition,
     },
     game::spatial_grid::WrappedSpatialGrid,
     protocol::{

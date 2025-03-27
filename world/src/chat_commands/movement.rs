@@ -1,16 +1,12 @@
 use std::collections::HashMap;
 
 use clap::{builder::BoolishValueParser, Arg, ArgMatches, Command};
-use futures::future::Map;
-use shipyard::{View, ViewMut, World};
+use shipyard::{View, ViewMut};
 
 use crate::{
     chat_commands::ChatCommandError,
     ecs::components::movement::Movement,
-    entities::{
-        player::Player,
-        position::{Position, WorldPosition},
-    },
+    entities::{player::Player, position::WorldPosition},
     game::map_manager::MapKey,
     protocol::{
         packets::{MsgMoveTeleportAck, SmsgNewWorld, SmsgTransferPending},
@@ -111,11 +107,17 @@ fn setup_teleport_command() -> (&'static str, (Command, CommandHandler)) {
                 } else if matches.contains_id("player") {
                     let player_name = matches.get_one::<String>("player").unwrap();
 
-                    // TODO: try to get the player position from the ECS first, in case the player is online
                     let conn = ctx.world_context.database.characters.get().unwrap();
-                    match CharacterRepository::fetch_position_by_name(&conn, player_name) {
-                        Some(position) => {
-                            wpos.update(&position);
+                    match CharacterRepository::fetch_guid_and_position_by_name(&conn, player_name) {
+                        Some((guid, position)) => {
+                            // Try to get the player position from the ECS first, in case the player is online
+                            match ctx.map.lookup_entity_ecs(&guid) {
+                                Some(target_entity_id) => {
+                                    let target_wpos = &v_wpos[target_entity_id];
+                                    wpos.update(target_wpos);
+                                }
+                                None => wpos.update(&position),
+                            }
                         }
                         None => {
                             ctx.reply_error("Player not found");

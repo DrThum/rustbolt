@@ -11,6 +11,7 @@ use crate::{
     },
     ecs::components::powers::Powers,
     entities::{
+        object_guid::ObjectGuid,
         player::{
             player_data::{ActionButton, CharacterSkill, QuestLogContext},
             Player, PlayerVisualFeatures,
@@ -351,20 +352,26 @@ impl CharacterRepository {
         rows.filter_map(|r| r.ok()).collect()
     }
 
-    pub fn fetch_position_by_name(
+    pub fn fetch_guid_and_position_by_name(
         conn: &PooledConnection<SqliteConnectionManager>,
         name: &str,
-    ) -> Option<WorldPosition> {
-        let mut stmt = conn.prepare_cached("SELECT map_id, zone_id, position_x, position_y, position_z, orientation FROM characters WHERE name = :name").unwrap();
+    ) -> Option<(ObjectGuid, WorldPosition)> {
+        let mut stmt = conn.prepare_cached("SELECT guid, map_id, zone_id, position_x, position_y, position_z, orientation FROM characters WHERE name = :name").unwrap();
         let mut rows = stmt.query(named_params! { ":name": name }).unwrap();
 
-        rows.next().unwrap().map(|row| WorldPosition {
-            map_key: MapKey::for_continent(row.get("map_id").unwrap()),
-            zone: row.get("zone_id").unwrap(),
-            x: row.get("position_x").unwrap(),
-            y: row.get("position_y").unwrap(),
-            z: row.get("position_z").unwrap(),
-            o: row.get("orientation").unwrap(),
+        rows.next().unwrap().and_then(|row| {
+            let guid = ObjectGuid::from_raw(row.get("guid").unwrap());
+
+            let position = WorldPosition {
+                map_key: MapKey::for_continent(row.get("map_id").unwrap()),
+                zone: row.get("zone_id").unwrap(),
+                x: row.get("position_x").unwrap(),
+                y: row.get("position_y").unwrap(),
+                z: row.get("position_z").unwrap(),
+                o: row.get("orientation").unwrap(),
+            };
+
+            guid.map(|guid| (guid, position))
         })
     }
 

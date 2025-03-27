@@ -305,21 +305,22 @@ impl WorldSession {
             let mut interval = tokio::time::interval(Duration::from_secs(10));
 
             loop {
-                {
-                    let mut time_sync = session.server_time_sync.lock();
-
-                    let smsg_time_sync_req = ServerMessage::new(SmsgTimeSyncReq {
-                        sync_counter: time_sync.server_counter,
-                    });
-                    session.send(&smsg_time_sync_req).unwrap();
-
-                    time_sync.server_counter += 1;
-                    time_sync.server_last_sync_ticks = world_context.game_time().as_millis() as u32;
-                }
-
+                Self::send_time_sync_req(session.clone(), world_context.clone());
                 interval.tick().await;
             }
         })
+    }
+
+    fn send_time_sync_req(session: Arc<WorldSession>, world_context: Arc<WorldContext>) {
+        let mut time_sync = session.server_time_sync.lock();
+
+        let smsg_time_sync_req = ServerMessage::new(SmsgTimeSyncReq {
+            sync_counter: time_sync.server_counter,
+        });
+        session.send(&smsg_time_sync_req).unwrap();
+
+        time_sync.server_counter += 1;
+        time_sync.server_last_sync_ticks = world_context.game_time().as_millis() as u32;
     }
 
     pub fn reset_time_sync(session: Arc<WorldSession>, world_context: Arc<WorldContext>) {
@@ -327,6 +328,12 @@ impl WorldSession {
 
         let mut guard = session.time_sync_handle.lock();
         if guard.is_some() {
+            // If guard is_some, it means that the time sync is already scheduled, meaning that
+            // we are in the case of a map transfer, not a character login. In that case, we need
+            // to send a new time sync request right away, otherwise it might take up to 10 seconds
+            // to get one, and until the client has received a time sync request, it won't allow
+            // the character to move.
+            Self::send_time_sync_req(session.clone(), world_context.clone());
             return;
         }
 

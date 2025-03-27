@@ -758,11 +758,6 @@ impl Player {
     pub fn take_teleport_destination(&mut self) -> Option<WorldPosition> {
         self.teleport_destination.take()
     }
-
-    // TODO: this should probably be removed
-    pub fn teleport_destination(&self) -> Option<&WorldPosition> {
-        self.teleport_destination.as_ref()
-    }
 }
 
 pub struct PlayerVisualFeatures {

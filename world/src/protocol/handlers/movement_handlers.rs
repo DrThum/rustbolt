@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use chrono::{Datelike, Timelike};
+use log::error;
 use shipyard::{UniqueView, View, ViewMut};
 
 use crate::{
@@ -193,17 +194,18 @@ impl OpcodeHandler {
             *session_state = WorldSessionState::InWorld;
         }
 
-        let teleport_position =
+        let Some(teleport_position) =
             session
                 .current_map()
                 .unwrap()
                 .world()
-                .run(|v_player: View<Player>| {
-                    v_player[session.player_entity_id().unwrap()]
-                        .teleport_destination()
-                        .cloned()
-                        .unwrap()
-                });
+                .run(|mut vm_player: ViewMut<Player>| {
+                    vm_player[session.player_entity_id().unwrap()].take_teleport_destination()
+                })
+        else {
+            error!("received MSG_MOVE_WORLDPORT_ACK with no destination stored on Player");
+            return;
+        };
 
         if let Some(map) = world_context.map_manager.get_map(teleport_position.map_key) {
             session.set_map(map.clone());

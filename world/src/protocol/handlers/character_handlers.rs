@@ -315,7 +315,7 @@ impl OpcodeHandler {
         let cmsg_stand_state_change: CmsgStandStateChange = ClientMessage::read_as(data).unwrap();
         if let Some(map) = session.current_map() {
             if let Some(entity_id) = map.lookup_entity_ecs(&session.player_guid().unwrap()) {
-                map.world().run(|mut vm_unit: ViewMut<Unit>| {
+                map.world().borrow().run(|mut vm_unit: ViewMut<Unit>| {
                     vm_unit[entity_id].set_stand_state(cmsg_stand_state_change.animstate);
                 });
             }
@@ -334,7 +334,7 @@ impl OpcodeHandler {
         let cmsg_set_sheathed: CmsgSetSheathed = ClientMessage::read_as(data).unwrap();
         if let Some(map) = session.current_map() {
             if let Some(entity_id) = map.lookup_entity_ecs(&session.player_guid().unwrap()) {
-                map.world().run(|mut vm_melee: ViewMut<Melee>| {
+                map.world().borrow().run(|mut vm_melee: ViewMut<Melee>| {
                     vm_melee[entity_id].set_sheath_state(cmsg_set_sheathed.sheath_state);
                 });
             }

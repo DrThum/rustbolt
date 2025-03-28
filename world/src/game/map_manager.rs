@@ -6,7 +6,6 @@ use parking_lot::RwLock;
 
 use crate::{
     config::WorldConfig,
-    entities::object_guid::ObjectGuid,
     repositories::{creature::CreatureRepository, game_object::GameObjectRepository},
     DataStore,
 };
@@ -142,15 +141,6 @@ impl MapManager {
     pub fn get_map(&self, map_key: MapKey) -> Option<Arc<Map>> {
         let guard = self.maps.read();
         guard.get(&map_key).cloned()
-    }
-
-    pub fn remove_player_from_map(&self, player_guid: &ObjectGuid, from_map: Option<MapKey>) {
-        if let Some(from_map_key) = from_map {
-            let origin_map = self.maps.read().get(&from_map_key).cloned();
-            if let Some(origin_map) = origin_map {
-                origin_map.remove_player(player_guid);
-            }
-        }
     }
 }
 

@@ -20,7 +20,7 @@ impl Player {
             error!("teleport_to: player {:?} is not on a map", self.guid());
             return;
         };
-        let Some(destination_map) = self.world_context.map_manager.get_map(destination.map_key)
+        let Some(_destination_map) = self.world_context.map_manager.get_map(destination.map_key)
         else {
             error!(
                 "teleport_to: destination map {} not found",
@@ -29,16 +29,15 @@ impl Player {
             return;
         };
 
-        let (current_position, destination_movement_info) =
-            current_map
-                .world()
-                .run(|v_wpos: View<WorldPosition>, v_movement: View<Movement>| {
-                    (
-                        v_wpos[self.session.player_entity_id().unwrap()],
-                        v_movement[self.session.player_entity_id().unwrap()]
-                            .info(self.world_context.clone(), &destination.as_position()),
-                    )
-                });
+        let (current_position, destination_movement_info) = current_map.world().borrow().run(
+            |v_wpos: View<WorldPosition>, v_movement: View<Movement>| {
+                (
+                    v_wpos[self.session.player_entity_id().unwrap()],
+                    v_movement[self.session.player_entity_id().unwrap()]
+                        .info(self.world_context.clone(), &destination.as_position()),
+                )
+            },
+        );
 
         /*
          * Near teleport is a teleport without a loading screen. It's used when the destination

@@ -22,7 +22,6 @@ use crate::{
         },
         server::ServerMessage,
     },
-    repositories::character::CharacterRepository,
     session::{
         opcode_handler::{OpcodeHandler, PacketHandler, PacketHandlerArgs},
         world_session::{WorldSession, WorldSessionState},
@@ -41,7 +40,7 @@ impl OpcodeHandler {
 
             let map = session.current_map().unwrap();
             // Register new position
-            map.world().run(
+            map.world().borrow().run(
                 |spatial_grid: UniqueView<WrappedSpatialGrid>,
                  v_movement: View<Movement>,
                  v_player: View<Player>,
@@ -90,7 +89,7 @@ impl OpcodeHandler {
         let player_guid = session.player_guid().unwrap();
 
         // Register new position
-        map.world().run(
+        map.world().borrow().run(
             |spatial_grid: UniqueView<WrappedSpatialGrid>,
              v_movement: View<Movement>,
              v_creature: View<Creature>,
@@ -194,31 +193,19 @@ impl OpcodeHandler {
             *session_state = WorldSessionState::InWorld;
         }
 
-        let Some(teleport_position) =
-            session
-                .current_map()
-                .unwrap()
-                .world()
-                .run(|mut vm_player: ViewMut<Player>| {
-                    vm_player[session.player_entity_id().unwrap()].take_teleport_destination()
-                })
-        else {
+        let Some(teleport_position) = session.current_map().unwrap().world().borrow().run(
+            |mut vm_player: ViewMut<Player>| {
+                vm_player[session.player_entity_id().unwrap()].take_teleport_destination()
+            },
+        ) else {
             error!("received MSG_MOVE_WORLDPORT_ACK with no destination stored on Player");
             return;
         };
 
-        if let Some(map) = world_context.map_manager.get_map(teleport_position.map_key) {
-            session.set_map(map.clone());
-
-            let conn = world_context.database.characters.get().unwrap();
-
-            let mut character_data = CharacterRepository::fetch_basic_character_data(
-                &conn,
-                session.player_guid().unwrap().raw(),
-            )
-            .expect("Failed to load character from DB");
-            character_data.position.update(&teleport_position);
-            map.add_player_on_login(session.clone(), &character_data);
+        if let Some(destination_map) = world_context.map_manager.get_map(teleport_position.map_key)
+        {
+            session.set_map(destination_map.clone());
+            destination_map.transfer_player_from_other_map(session.clone());
         }
 
         // FIXME: hardcoded position

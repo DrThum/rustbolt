@@ -28,7 +28,7 @@ fn setup_fly_command() -> (&'static str, (Command, CommandHandler)) {
     fn handler(ctx: CommandContext, matches: ArgMatches) -> ChatCommandResult {
         let &flying = matches.get_one::<bool>("flying").unwrap();
 
-        ctx.map.world().run(|mut vm_movement: ViewMut<Movement>| {
+        ctx.map.world().borrow().run(|mut vm_movement: ViewMut<Movement>| {
             vm_movement[ctx.my_entity_id].set_flying(flying, ctx.session.clone());
         });
 
@@ -70,7 +70,7 @@ fn setup_teleport_command() -> (&'static str, (Command, CommandHandler)) {
         );
 
     fn handler(ctx: CommandContext, matches: ArgMatches) -> ChatCommandResult {
-        ctx.map.world().run(
+        ctx.map.world().borrow().run(
             |mut vm_player: ViewMut<Player>, v_wpos: View<WorldPosition>| {
                 let player = &mut vm_player[ctx.my_entity_id];
                 let wpos = &mut v_wpos[ctx.my_entity_id].clone();

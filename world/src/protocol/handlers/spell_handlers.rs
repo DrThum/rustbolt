@@ -46,7 +46,7 @@ impl OpcodeHandler {
                           player_entity_id,
                           ..
                       }| {
-            map.world()
+            map.world().borrow()
                 .run(|mut vm_spell: ViewMut<SpellCast>, v_powers: View<Powers>| {
                     if vm_spell[player_entity_id].current_ranged().is_some() {
                         let packet = ServerMessage::new(SmsgCastFailed {
@@ -112,7 +112,7 @@ impl OpcodeHandler {
 
         if let Some(map) = session.current_map() {
             if let Some(entity_id) = session.player_entity_id() {
-                map.world().run(|mut vm_spell: ViewMut<SpellCast>| {
+                map.world().borrow().run(|mut vm_spell: ViewMut<SpellCast>| {
                     if let Some((curr, _)) = vm_spell[entity_id].current_ranged() {
                         if curr.id() == cmsg.spell_id {
                             vm_spell[entity_id].clean();

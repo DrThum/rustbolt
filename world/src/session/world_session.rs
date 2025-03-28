@@ -168,7 +168,7 @@ impl WorldSession {
 
         if let Some(map) = self.current_map() {
             if let Some(entity_id) = self.player_entity_id() {
-                map.world().run(
+                map.world().borrow().run(
                     |mut vm_player: ViewMut<Player>,
                      v_wpos: View<WorldPosition>,
                      v_powers: View<Powers>| {
@@ -361,8 +361,8 @@ impl WorldSession {
         self.player_entity_id.read().as_ref().cloned()
     }
 
-    pub fn set_map(&self, key: Arc<Map>) {
-        self.current_map.write().replace(key);
+    pub fn set_map(&self, map: Arc<Map>) {
+        self.current_map.write().replace(map);
     }
 
     pub fn send_initial_spells(&self, player: &Player) {

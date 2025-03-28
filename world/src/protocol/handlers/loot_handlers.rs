@@ -28,7 +28,7 @@ impl OpcodeHandler {
         if let Some(target_guid) = ObjectGuid::from_raw(cmsg.target_guid) {
             if let Some(map) = session.current_map() {
                 if let Some(looted_entity_id) = map.lookup_entity_ecs(&target_guid) {
-                    let maybe_loot: Option<Loot> = map.world().run(
+                    let maybe_loot: Option<Loot> = map.world().borrow().run(
                         |v_creature: View<Creature>, v_game_object: View<GameObject>| {
                             if let Ok(creature) = v_creature.get(looted_entity_id) {
                                 return Some(creature.loot());
@@ -43,7 +43,7 @@ impl OpcodeHandler {
                     );
 
                     if let Some(loot) = maybe_loot {
-                        map.world()
+                        map.world().borrow()
                             .run(|v_unit: View<Unit>, mut vm_player: ViewMut<Player>| {
                                 v_unit[session.player_entity_id().unwrap()]
                                     .set_unit_flag(UnitFlags::Looting);
@@ -93,7 +93,7 @@ impl OpcodeHandler {
                           player_entity_id,
                           ..
                       }| {
-            map.world()
+            map.world().borrow()
                 .run(|v_player: View<Player>, v_creature: View<Creature>| {
                     let player = &v_player[player_entity_id];
 
@@ -124,7 +124,7 @@ impl OpcodeHandler {
         if let Some(looted_guid) = ObjectGuid::from_raw(cmsg.looted_guid) {
             if let Some(map) = session.current_map() {
                 if let Some(looted_entity_id) = map.lookup_entity_ecs(&looted_guid) {
-                    map.world().run(|mut vm_player: ViewMut<Player>, v_unit: View<Unit>, v_creature: View<Creature>| {
+                    map.world().borrow().run(|mut vm_player: ViewMut<Player>, v_unit: View<Unit>, v_creature: View<Creature>| {
                         let player_entity_id = session.player_entity_id().unwrap();
                         let player = &mut vm_player[player_entity_id];
 
@@ -162,7 +162,7 @@ impl OpcodeHandler {
         let cmsg: CmsgAutostoreLootItem = ClientMessage::read_as(data).unwrap();
 
         if let Some(map) = session.current_map() {
-            map.world().run(
+            map.world().borrow().run(
                 |mut vm_player: ViewMut<Player>,
                  v_creature: View<Creature>,
                  v_game_object: View<GameObject>| {

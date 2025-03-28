@@ -118,6 +118,7 @@ impl ChatCommands {
 
     fn extract_target_entity_id(map: Arc<Map>, player_entity_id: EntityId) -> Option<EntityId> {
         map.world()
+            .borrow()
             .run(|v_unit: View<Unit>| v_unit[player_entity_id].target())
     }
 }

@@ -362,7 +362,7 @@ impl OpcodeHandler {
     ) {
         if let Some(target_guid) = ObjectGuid::from_raw(guid) {
             let map = session.current_map().unwrap();
-            map.world().run(
+            map.world().borrow().run(
                 |v_player: View<Player>,
                  v_creature: View<Creature>,
                  v_quest_actor: View<QuestActor>| {

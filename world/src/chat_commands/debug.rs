@@ -31,7 +31,7 @@ fn setup_gps_command() -> (&'static str, (Command, CommandHandler)) {
     );
 
     fn handler(ctx: CommandContext, matches: ArgMatches) -> ChatCommandResult {
-        ctx.map.world().run(|v_wpos: View<WorldPosition>| {
+        ctx.map.world().borrow().run(|v_wpos: View<WorldPosition>| {
             let wpos = v_wpos[ctx.my_entity_id];
             let output = format!(
                 "Player position: {}, {}, {}, {}",
@@ -58,7 +58,7 @@ fn setup_come_command() -> (&'static str, (Command, CommandHandler)) {
     fn handler(ctx: CommandContext, _matches: ArgMatches) -> ChatCommandResult {
         let player_target = ctx.require_target()?;
 
-        ctx.map.world().run(
+        ctx.map.world().borrow().run(
             |v_wpos: View<WorldPosition>,
              v_guid: View<Guid>,
              packet_broadcaster: UniqueView<WrappedPacketBroadcaster>,
@@ -99,7 +99,7 @@ fn setup_threat_command() -> (&'static str, (Command, CommandHandler)) {
     fn handler(ctx: CommandContext, matches: ArgMatches) -> ChatCommandResult {
         let player_target = ctx.require_target()?;
 
-        ctx.map.world().run(
+        ctx.map.world().borrow().run(
             |v_threat_list: View<ThreatList>,
              v_player: View<Player>,
              v_creature: View<Creature>| {
@@ -153,7 +153,7 @@ fn setup_item_command() -> (&'static str, (Command, CommandHandler)) {
 
     fn handler(ctx: CommandContext, matches: ArgMatches) -> ChatCommandResult {
         if let Some(subcommand_add) = matches.subcommand_matches("add") {
-            return ctx.map.world().run(|mut vm_player: ViewMut<Player>| {
+            return ctx.map.world().borrow().run(|mut vm_player: ViewMut<Player>| {
                 let Ok(mut player) = (&mut vm_player).get(ctx.my_entity_id) else {
                     return Err(ChatCommandError::GenericError);
                 };

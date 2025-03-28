@@ -1,4 +1,5 @@
 use std::{
+    cell::RefCell,
     collections::VecDeque,
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -71,7 +72,7 @@ pub const DEFAULT_VISIBILITY_DISTANCE: f32 = 90.0;
 
 pub struct Map {
     key: MapKey,
-    world: ReentrantMutex<World>,
+    world: ReentrantMutex<RefCell<World>>,
     world_context: Arc<WorldContext>,
     session_holder: Arc<SessionHolder<ObjectGuid>>,
     entity_manager: Arc<EntityManager>,
@@ -137,7 +138,7 @@ impl Map {
         world.add_unique(HasPlayers(false));
         world.add_unique(WrappedPacketQueue(packet_queue.clone()));
 
-        let world = ReentrantMutex::new(world);
+        let world = ReentrantMutex::new(RefCell::new(world));
 
         let map = Map {
             key,
@@ -212,7 +213,7 @@ impl Map {
             )
                 .into_workload()
         };
-        self.world.lock().add_workload(map_update_workload);
+        self.world.lock().borrow().add_workload(map_update_workload);
 
         let mut time = Instant::now();
         let mut update_times: VecDeque<u128> = VecDeque::with_capacity(200);
@@ -225,6 +226,7 @@ impl Map {
 
             {
                 let world_guard = self.world.lock();
+                let world_guard = world_guard.borrow();
                 world_guard.run(
                     |mut dt: UniqueViewMut<DeltaTime>, mut hp: UniqueViewMut<HasPlayers>| {
                         // Update the delta time
@@ -255,9 +257,13 @@ impl Map {
         }
     }
 
-    pub fn world(&self) -> ReentrantMutexGuard<World> {
+    pub fn world(&self) -> ReentrantMutexGuard<RefCell<World>> {
         self.world.lock()
     }
+
+    // pub fn world_mut(&mut self) -> &mut World {
+    //     self.world.get_mut()
+    // }
 
     pub fn id(&self) -> u32 {
         self.key.map_id
@@ -280,7 +286,7 @@ impl Map {
             );
         }
 
-        let player_entity_id = self.world.lock().run(
+        let player_entity_id = self.world.lock().borrow().run(
             |mut entities: EntitiesViewMut,
              mut vm_guid: ViewMut<Guid>,
              mut vm_powers: ViewMut<Powers>,
@@ -419,6 +425,7 @@ impl Map {
             for other_entity_id in entities_around {
                 let other_entity_guid = self
                     .world()
+                    .borrow()
                     .run(|v_guid: View<Guid>| v_guid[other_entity_id].0);
                 // Broadcast the new player to nearby players
                 let other_session = self.session_holder.get_session(&other_entity_guid);
@@ -427,6 +434,7 @@ impl Map {
                     {
                         let new_player_entity_id = session.player_entity_id().unwrap();
                         let world_guard = self.world.lock();
+                        let world_guard = world_guard.borrow();
                         let (v_movement, v_player) = world_guard
                             .borrow::<(View<Movement>, View<Player>)>()
                             .unwrap();
@@ -449,6 +457,7 @@ impl Map {
 
                 // Make creatures aware of the player's presence
                 self.world()
+                    .borrow()
                     .run(|mut vm_nearby_players: ViewMut<NearbyPlayers>| {
                         NearbyPlayers::increment(other_entity_id, &mut vm_nearby_players);
                     });
@@ -457,6 +466,7 @@ impl Map {
                 let smsg_create_object: Option<SmsgCreateObject>;
                 {
                     let world_guard = self.world.lock();
+                    let world_guard = world_guard.borrow();
 
                     let (v_movement, v_player, v_creature, v_game_object, v_wpos) = world_guard
                         .borrow::<(
@@ -499,12 +509,32 @@ impl Map {
         }
     }
 
-    pub fn transfer_player_from(&self, origin_map: Arc<Map>, player_entity_id: EntityId) {}
+    pub fn transfer_player_from_other_map(self: Arc<Map>, session: Arc<WorldSession>) {
+        let Some(origin_map) = session.current_map() else {
+            error!("transfer_player_from_other_map: player has no current map");
+            return;
+        };
+        let Some(player_entity_id) = session.player_entity_id() else {
+            error!("transfer_player_from_other_map: player has no entity id");
+            return;
+        };
+        let Some(player_guid) = session.player_guid() else {
+            error!("transfer_player_from_other_map: player has no guid");
+            return;
+        };
+
+        self.world()
+            .borrow_mut()
+            .move_entity(&mut origin_map.world().borrow_mut(), player_entity_id);
+
+        origin_map.remove_player(&player_guid);
+    }
 
     pub fn remove_player(&self, player_guid: &ObjectGuid) {
         let maybe_player_entity_id =
             self.world
                 .lock()
+                .borrow()
                 .run(|mut all_storages: AllStoragesViewMut| {
                     if let Some(entity_id) = self.entity_manager.remove(player_guid) {
                         all_storages.delete_entity(entity_id);
@@ -564,7 +594,7 @@ impl Map {
             .data_store
             .get_faction_template_record(creature.template.faction_template_id);
 
-        let creature_entity_id = self.world.lock().run(
+        let creature_entity_id = self.world.lock().borrow().run(
             |mut entities: EntitiesViewMut,
              mut vm_guid: ViewMut<Guid>,
              mut vm_powers: ViewMut<Powers>,
@@ -667,6 +697,7 @@ impl Map {
             {
                 let new_creature_entity_id = self.lookup_entity_ecs(creature_guid).unwrap();
                 let world_guard = self.world.lock();
+                let world_guard = world_guard.borrow();
                 let (v_movement, v_creature) = world_guard
                     .borrow::<(View<Movement>, View<Creature>)>()
                     .unwrap();
@@ -692,7 +723,7 @@ impl Map {
         game_object: GameObject,
         wpos: &WorldPosition,
     ) {
-        let entity_id = self.world.lock().run(
+        let entity_id = self.world.lock().borrow().run(
             |mut entities: EntitiesViewMut,
              mut vm_guid: ViewMut<Guid>,
              mut vm_game_object: ViewMut<GameObject>| {

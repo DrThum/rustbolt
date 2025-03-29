@@ -98,3 +98,11 @@ struct SmsgGossipMessageMenuQuestItem {
 pub struct CmsgGossipHello {
     pub guid: u64,
 }
+
+#[binread]
+pub struct CmsgGossipSelectOption {
+    pub guid: ObjectGuid,
+    pub menu_id: u32,
+    pub option_index: u32,
+    // TODO: read a string here if the chosen option has box_coded == true
+}

@@ -256,6 +256,11 @@ impl OpcodeHandler {
                     OpcodeHandler::handle_cmsg_gossip_hello
                 ),
                 define_handler!(
+                    Opcode::CmsgGossipSelectOption,
+                    ProcessInMap,
+                    OpcodeHandler::handle_cmsg_gossip_select_option
+                ),
+                define_handler!(
                     Opcode::CmsgQuestGiverCompleteQuest,
                     ProcessInMap,
                     OpcodeHandler::handle_cmsg_quest_giver_complete_quest

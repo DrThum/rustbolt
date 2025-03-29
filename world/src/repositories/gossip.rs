@@ -82,9 +82,7 @@ impl GossipRepository {
             })
             .unwrap();
 
-        result
-            .flatten()
-            .collect()
+        result.flatten().collect()
     }
 
     pub fn load_gossip_menus(
@@ -111,7 +109,7 @@ impl GossipRepository {
                         id: row.get("id").unwrap(),
                         icon: row.get("option_icon").unwrap(),
                         text: row.get("option_text").unwrap(),
-                        option_id: row.get("option_id").unwrap(),
+                        option_type: row.get("option_id").unwrap(),
                         npc_option_npcflag: row.get("npc_option_npcflag").unwrap(),
                         action_menu_id: row.get("action_menu_id").unwrap(),
                         action_poi_id: row.get("action_poi_id").unwrap(),
@@ -122,9 +120,7 @@ impl GossipRepository {
                 })
                 .unwrap();
 
-            result
-                .flatten()
-                .collect()
+            result.flatten().collect()
         }
 
         let mut stmt = conn
@@ -147,9 +143,7 @@ impl GossipRepository {
             })
             .unwrap();
 
-        result
-            .flatten()
-            .collect()
+        result.flatten().collect()
     }
 }
 

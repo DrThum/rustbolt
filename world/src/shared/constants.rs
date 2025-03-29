@@ -1345,6 +1345,38 @@ impl FromSql for GossipMenuItemIcon {
 }
 
 #[allow(dead_code)]
+#[derive(Debug, Clone, Copy, N)]
+pub enum GossipMenuOptionType {
+    None = 0,              // UNIT_NPC_FLAG_NONE                (0)
+    Gossip = 1,            // UNIT_NPC_FLAG_GOSSIP              (1)
+    QuestGiver = 2,        // UNIT_NPC_FLAG_QUESTGIVER          (2)
+    Vendor = 3,            // UNIT_NPC_FLAG_VENDOR              (128)
+    TaxiVendor = 4,        // UNIT_NPC_FLAG_TAXIVENDOR          (8192)
+    Trainer = 5,           // UNIT_NPC_FLAG_TRAINER             (16)
+    SpiritHealer = 6,      // UNIT_NPC_FLAG_SPIRITHEALER        (16384)
+    SpiritGuide = 7,       // UNIT_NPC_FLAG_SPIRITGUIDE         (32768)
+    Innkeeper = 8,         // UNIT_NPC_FLAG_INNKEEPER           (65536)
+    Banker = 9,            // UNIT_NPC_FLAG_BANKER              (131072)
+    Petitioner = 10,       // UNIT_NPC_FLAG_PETITIONER          (262144)
+    TabardDesigner = 11,   // UNIT_NPC_FLAG_TABARDDESIGNER      (524288)
+    Battlefield = 12,      // UNIT_NPC_FLAG_BATTLEFIELDPERSON   (1048576)
+    Auctioneer = 13,       // UNIT_NPC_FLAG_AUCTIONEER          (2097152)
+    Stablepet = 14,        // UNIT_NPC_FLAG_STABLE              (4194304)
+    Armorer = 15,          // UNIT_NPC_FLAG_ARMORER             (4096)
+    UnlearnTalents = 16, // UNIT_NPC_FLAG_TRAINER             (16) (bonus option for GOSSIP_OPTION_TRAINER)
+    UnlearnPetSkills = 17, // UNIT_NPC_FLAG_TRAINER             (16) (bonus option for GOSSIP_OPTION_TRAINER)
+}
+
+impl FromSql for GossipMenuOptionType {
+    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
+        let value = value.as_i64()?;
+        Self::n(value).ok_or(FromSqlError::Other(
+            "invalid gossip menu item option type in gossip_menu_options".into(),
+        ))
+    }
+}
+
+#[allow(dead_code)]
 #[derive(Copy, Clone)]
 pub enum WeaponAttackType {
     MainHand = 0,

@@ -326,7 +326,7 @@ impl WorldSession {
         time_sync.server_last_sync_ticks = world_context.game_time().as_millis() as u32;
     }
 
-    pub fn reset_time_sync(session: Arc<WorldSession>, world_context: Arc<WorldContext>) {
+    fn reset_time_sync(session: Arc<WorldSession>, world_context: Arc<WorldContext>) {
         session.server_time_sync.lock().reset();
 
         let mut guard = session.time_sync_handle.lock();
@@ -530,10 +530,7 @@ impl WorldSession {
             .store(true, Ordering::Relaxed);
     }
 
-    pub fn send_initial_packets_before_add_to_map(
-        self: Arc<Self>,
-        world_context: Arc<WorldContext>,
-    ) {
+    pub fn send_initial_packets_before_add_to_map(self: &Arc<Self>) {
         let smsg_set_rest_start = ServerMessage::new(SmsgSetRestStart { rest_start: 0 });
 
         self.send(&smsg_set_rest_start).unwrap();
@@ -599,8 +596,13 @@ impl WorldSession {
         });
 
         self.send(&smsg_init_world_states).unwrap();
+    }
 
-        WorldSession::reset_time_sync(self, world_context);
+    pub fn send_initial_packets_after_add_to_map(
+        self: &Arc<Self>,
+        world_context: Arc<WorldContext>,
+    ) {
+        Self::reset_time_sync(self.clone(), world_context);
     }
 }
 

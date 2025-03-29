@@ -153,9 +153,7 @@ impl OpcodeHandler {
 
         session.send(&smsg_motd).unwrap();
 
-        session
-            .clone()
-            .send_initial_packets_before_add_to_map(world_context.clone());
+        session.send_initial_packets_before_add_to_map();
 
         if let Some(map) = world_context
             .map_manager
@@ -164,6 +162,8 @@ impl OpcodeHandler {
             session.set_map(map.clone());
             session.set_player_guid(ObjectGuid::from_raw(character_data.guid).unwrap());
             map.add_player_on_login(session.clone(), &character_data);
+
+            session.send_initial_packets_after_add_to_map(world_context.clone());
         }
     }
 

@@ -127,9 +127,7 @@ impl OpcodeHandler {
             ..
         }: PacketHandlerArgs,
     ) {
-        session
-            .clone()
-            .send_initial_packets_before_add_to_map(world_context.clone());
+        session.send_initial_packets_before_add_to_map();
 
         let Some(teleport_position) = session.current_map().unwrap().world().run(
             |mut vm_player: ViewMut<Player>, mut vm_wpos: ViewMut<WorldPosition>| {
@@ -150,6 +148,7 @@ impl OpcodeHandler {
         if let Some(destination_map) = world_context.map_manager.get_map(teleport_position.map_key)
         {
             destination_map.transfer_player_from_other_map(session.clone());
+            session.send_initial_packets_after_add_to_map(world_context.clone());
         }
     }
 }

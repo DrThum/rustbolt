@@ -7,6 +7,7 @@ use crate::entities::object_guid::ObjectGuid;
 use crate::game::gossip::GossipMenu;
 use crate::protocol::opcodes::Opcode;
 use crate::protocol::server::ServerMessagePayload;
+use crate::shared::constants::GossipMenuItemIcon;
 use crate::DataStore;
 
 #[binwrite]
@@ -76,7 +77,8 @@ impl SmsgGossipMessage {
 #[binwrite]
 struct SmsgGossipMessageMenuItem {
     pub index: u32,
-    pub icon: u8,
+    #[bw(map = |gmii: &GossipMenuItemIcon| *gmii as u8)]
+    pub icon: GossipMenuItemIcon,
     #[bw(map = |b: &bool| if *b { 1_u8 } else { 0_u8 })]
     pub coded: bool,
     pub required_money: u32,

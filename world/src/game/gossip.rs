@@ -1,4 +1,7 @@
-use crate::{datastore::data_types::GossipMenuOption, shared::constants::QuestGiverStatus};
+use crate::{
+    datastore::data_types::{GossipMenuDbRecord, GossipMenuOption},
+    shared::constants::{GossipMenuItemIcon, QuestGiverStatus},
+};
 
 #[derive(Debug, Clone)]
 pub struct GossipMenu {
@@ -20,13 +23,19 @@ impl Default for GossipMenu {
 }
 
 impl GossipMenu {
-    pub fn new(menu_id: u32, title_text_id: u32) -> Self {
-        Self {
-            menu_id,
-            title_text_id,
+    pub fn from_db_record(record: &GossipMenuDbRecord) -> Self {
+        let mut menu = Self {
+            menu_id: record.id,
+            title_text_id: record.text_id,
             items: Vec::new(),
             quests: Vec::new(),
-        }
+        };
+
+        record
+            .options
+            .iter()
+            .for_each(|option| menu.add_item(option));
+        menu
     }
 
     pub fn add_quest(&mut self, quest_id: u32, icon: QuestGiverStatus) {
@@ -38,7 +47,7 @@ impl GossipMenu {
 
     pub fn add_item(&mut self, option: &GossipMenuOption) {
         self.items.push(GossipMenuItem {
-            icon: option.icon as u8,
+            icon: option.icon,
             coded: option.box_coded,
             required_money: option.box_money,
             message: option.text.as_ref().cloned().unwrap_or_default(),
@@ -49,7 +58,7 @@ impl GossipMenu {
 
 #[derive(Debug, Clone)]
 pub struct GossipMenuItem {
-    pub icon: u8, // TODO: Enum?
+    pub icon: GossipMenuItemIcon,
     pub coded: bool,
     pub required_money: u32,
     pub message: String,

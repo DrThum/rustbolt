@@ -12,8 +12,8 @@ use crate::{
     },
     shared::constants::{
         AbilityLearnType, ActionButtonType, CharacterClass, CharacterClassBit, CharacterRaceBit,
-        CreatureRank, Expansion, GameObjectType, InventorySlot, InventoryType, MapType,
-        PlayerQuestStatus, PowerType, QuestFlag, SkillCategory, SkillRangeType, SkillType,
+        CreatureRank, Expansion, GameObjectType, GossipMenuItemIcon, InventorySlot, InventoryType,
+        MapType, PlayerQuestStatus, PowerType, QuestFlag, SkillCategory, SkillRangeType, SkillType,
         SpellEffect, FACTION_NUMBER_BASE_REPUTATION_MASKS, MAX_QUEST_CHOICE_REWARDS_COUNT,
         MAX_QUEST_OBJECTIVES_COUNT, MAX_QUEST_REWARDS_COUNT, MAX_QUEST_REWARDS_REPUT_COUNT,
         MAX_SPELL_EFFECTS, MAX_SPELL_REAGENTS, MAX_SPELL_TOTEMS, NPC_TEXT_EMOTE_COUNT,
@@ -1439,7 +1439,7 @@ pub struct GossipMenuDbRecord {
 
 pub struct GossipMenuOption {
     pub id: u32,
-    pub icon: u32,
+    pub icon: GossipMenuItemIcon,
     pub text: Option<String>,
     pub option_id: u32,
     pub npc_option_npcflag: u32,

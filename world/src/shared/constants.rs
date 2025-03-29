@@ -1310,6 +1310,41 @@ pub enum NpcFlags {
 }
 
 #[allow(dead_code)]
+#[derive(Debug, Clone, Copy, N)]
+pub enum GossipMenuItemIcon {
+    Chat = 0,      // white chat bubble
+    Vendor = 1,    // brown bag
+    Taxi = 2,      // flight
+    Trainer = 3,   // book
+    Interact1 = 4, // interaction wheel
+    Interact2 = 5, // interaction wheel
+    MoneyBag = 6,  // brown bag with yellow dot
+    Talk = 7,      // white chat bubble with black dots
+    Tabard = 8,    // tabard
+    Battle = 9,    // two swords
+    Dot = 10,      // yellow dot
+    Chat11 = 11,   // This and below are most the same visual as GOSSIP_ICON_CHAT
+    Chat12 = 12,   // but are still used for unknown reasons.
+    Dot13 = 13,
+    Dot14 = 14, // probably invalid
+    Dot15 = 15, // probably invalid
+    Dot16 = 16,
+    Dot17 = 17,
+    Dot18 = 18,
+    Dot19 = 19,
+    Dot20 = 20,
+}
+
+impl FromSql for GossipMenuItemIcon {
+    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
+        let value = value.as_i64()?;
+        Self::n(value).ok_or(FromSqlError::Other(
+            "invalid gossip menu item icon in gossip_menu_options".into(),
+        ))
+    }
+}
+
+#[allow(dead_code)]
 #[derive(Copy, Clone)]
 pub enum WeaponAttackType {
     MainHand = 0,

@@ -1,4 +1,4 @@
-use log::{error, trace};
+use log::{error, trace, warn};
 use shipyard::{Get, View};
 use std::{collections::HashMap, sync::Arc};
 
@@ -360,73 +360,72 @@ impl OpcodeHandler {
         session: Arc<WorldSession>,
         world_context: Arc<WorldContext>,
     ) {
-        if let Some(target_guid) = ObjectGuid::from_raw(guid) {
-            let map = session.current_map().unwrap();
-            map.world().run(
-                |v_player: View<Player>,
-                 v_creature: View<Creature>,
-                 v_quest_actor: View<QuestActor>| {
-                    let my_entity_id = session.player_entity_id().unwrap();
-                    let player = &v_player[my_entity_id];
+        let Some(target_guid) = ObjectGuid::from_raw(guid) else {
+            warn!("send_initial_gossip_menu: invalid guid received");
+            return;
+        };
 
-                    let quest_giver_entity_id = map.lookup_entity_ecs(&target_guid).unwrap();
+        let map = session.current_map().unwrap();
+        map.world().run(
+            |v_player: View<Player>,
+             v_creature: View<Creature>,
+             v_quest_actor: View<QuestActor>| {
+                let my_entity_id = session.player_entity_id().unwrap();
+                let player = &v_player[my_entity_id];
 
-                    let creature = &v_creature[quest_giver_entity_id];
+                let quest_giver_entity_id = map.lookup_entity_ecs(&target_guid).unwrap();
 
-                    let creature_template = world_context
-                        .data_store
-                        .get_creature_template(creature.entry)
-                        .expect("unknown creature template id CMSG_QUESTGIVER_HELLO");
-                    let mut gossip_menu = creature_template
-                        .gossip_menu_id
-                        .map(|menu_id| {
-                            let menu_db_record =
-                                world_context.data_store.get_gossip_menu(menu_id).unwrap();
-                            GossipMenu {
-                                menu_id: menu_db_record.id,
-                                title_text_id: menu_db_record.text_id,
-                                items: Vec::new(),
-                                quests: Vec::new(),
+                let creature = &v_creature[quest_giver_entity_id];
+
+                let creature_template = world_context
+                    .data_store
+                    .get_creature_template(creature.entry)
+                    .expect("unknown creature template id CMSG_QUESTGIVER_HELLO");
+                let mut gossip_menu = creature_template
+                    .gossip_menu_id
+                    .map(|menu_id| {
+                        let menu_db_record =
+                            world_context.data_store.get_gossip_menu(menu_id).unwrap();
+
+                        GossipMenu::from_db_record(menu_db_record)
+                    })
+                    .unwrap_or_default();
+
+                if let Ok(quest_actor) = &v_quest_actor.get(quest_giver_entity_id) {
+                    for quest_id in quest_actor.quests_started() {
+                        let quest_template = world_context
+                            .data_store
+                            .get_quest_template(*quest_id)
+                            .unwrap();
+                        match player.quest_status(quest_id).map(|ctx| ctx.status) {
+                            None if player.can_start_quest(quest_template) => {
+                                gossip_menu.add_quest(*quest_id, QuestGiverStatus::Available)
                             }
-                        })
-                        .unwrap_or_default();
-
-                    if let Ok(quest_actor) = &v_quest_actor.get(quest_giver_entity_id) {
-                        for quest_id in quest_actor.quests_started() {
-                            let quest_template = world_context
-                                .data_store
-                                .get_quest_template(*quest_id)
-                                .unwrap();
-                            match player.quest_status(quest_id).map(|ctx| ctx.status) {
-                                None if player.can_start_quest(quest_template) => {
-                                    gossip_menu.add_quest(*quest_id, QuestGiverStatus::Available)
-                                }
-                                Some(_) | None => (),
-                            }
-                        }
-
-                        for quest_id in quest_actor.quests_ended() {
-                            match player.quest_status(quest_id).map(|ctx| ctx.status) {
-                                Some(PlayerQuestStatus::InProgress) => {
-                                    gossip_menu.add_quest(*quest_id, QuestGiverStatus::Incomplete);
-                                }
-                                Some(PlayerQuestStatus::ObjectivesCompleted) => {
-                                    gossip_menu.add_quest(*quest_id, QuestGiverStatus::Incomplete);
-                                }
-                                Some(_) | None => (),
-                            }
+                            Some(_) | None => (),
                         }
                     }
 
-                    let packet = ServerMessage::new(SmsgGossipMessage::from_gossip_menu(
-                        &target_guid,
-                        &gossip_menu,
-                        world_context.data_store.clone(),
-                    ));
+                    for quest_id in quest_actor.quests_ended() {
+                        match player.quest_status(quest_id).map(|ctx| ctx.status) {
+                            Some(PlayerQuestStatus::InProgress) => {
+                                gossip_menu.add_quest(*quest_id, QuestGiverStatus::Incomplete);
+                            }
+                            Some(PlayerQuestStatus::ObjectivesCompleted) => {
+                                gossip_menu.add_quest(*quest_id, QuestGiverStatus::Incomplete);
+                            }
+                            Some(_) | None => (),
+                        }
+                    }
+                }
 
-                    session.send(&packet).unwrap();
-                },
-            );
-        }
+                let packet = ServerMessage::new(SmsgGossipMessage::from_gossip_menu(
+                    &target_guid,
+                    &gossip_menu,
+                    world_context.data_store.clone(),
+                ));
+
+                session.send(&packet).unwrap();
+            },
+        );
     }
 }

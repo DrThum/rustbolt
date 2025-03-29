@@ -588,6 +588,7 @@ impl WorldSession {
 
         // FIXME: hardcoded position
         // FIXME: should be sent whenever the player changes zone
+        // FIXME: in MaNGOS, UpdateZone (which sends this opcode) is actually part of send_initial_packetts_AFTER_add_to_map
         let smsg_init_world_states = ServerMessage::new(SmsgInitWorldStates {
             map_id: 0,
             zone_id: 85,

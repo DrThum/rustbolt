@@ -1,5 +1,6 @@
 use binrw::{io::Cursor, BinWriterExt, NullString};
 use bytemuck::cast_slice;
+use chrono::{Datelike, Timelike};
 use miniz_oxide::deflate::CompressionLevel;
 use parking_lot::RwLock;
 use r2d2::PooledConnection;
@@ -32,9 +33,10 @@ use crate::{
         client::ClientMessage,
         opcodes::Opcode,
         packets::{
-            FactionInit, MovementInfo, SmsgActionButtons, SmsgAttackStop, SmsgCreateObject,
-            SmsgDestroyObject, SmsgInitialSpells, SmsgInitializeFactions, SmsgMessageChat,
-            SmsgTimeSyncReq, SmsgUpdateObject,
+            FactionInit, MovementInfo, SmsgActionButtons, SmsgAttackStop, SmsgBindpointupdate,
+            SmsgCreateObject, SmsgDestroyObject, SmsgInitWorldStates, SmsgInitialSpells,
+            SmsgInitializeFactions, SmsgLoginSetTimeSpeed, SmsgMessageChat, SmsgSetRestStart,
+            SmsgTimeSyncReq, SmsgTutorialFlags, SmsgUpdateObject,
         },
         server::{ServerMessage, ServerMessageHeader, ServerMessagePayload},
     },
@@ -54,6 +56,7 @@ use super::{
 pub enum WorldSessionState {
     OnCharactersList,
     InWorld,
+    InMapTransfer,
 }
 
 pub struct WorldSession {
@@ -514,12 +517,90 @@ impl WorldSession {
         None
     }
 
+    pub fn set_state(self: Arc<Self>, state: WorldSessionState) {
+        let mut session_state = self.state.write();
+        *session_state = state;
+    }
+
     // Make nearby GameObjects related to the quest active or inactive depending on player quest
     // status
     pub fn force_refresh_nearby_game_objects(&self, player: &Player) {
         player
             .needs_nearby_game_objects_refresh
             .store(true, Ordering::Relaxed);
+    }
+
+    pub fn send_initial_packets_before_add_to_map(
+        self: Arc<Self>,
+        world_context: Arc<WorldContext>,
+    ) {
+        let smsg_set_rest_start = ServerMessage::new(SmsgSetRestStart { rest_start: 0 });
+
+        self.send(&smsg_set_rest_start).unwrap();
+
+        // TODO
+        let smsg_bindpointupdate = ServerMessage::new(SmsgBindpointupdate {
+            homebind_x: -8953.95,
+            homebind_y: 521.019,
+            homebind_z: 96.5399,
+            homebind_map_id: 0,
+            homebind_area_id: 85,
+        });
+
+        self.send(&smsg_bindpointupdate).unwrap();
+
+        let smsg_tutorial_flags = ServerMessage::new(SmsgTutorialFlags {
+            tutorial_data0: 0, // FIXME: 0xFFFFFFFF to disable tutorials
+            tutorial_data1: 0,
+            tutorial_data2: 0,
+            tutorial_data3: 0,
+            tutorial_data4: 0,
+            tutorial_data5: 0,
+            tutorial_data6: 0,
+            tutorial_data7: 0,
+        });
+
+        self.send(&smsg_tutorial_flags).unwrap();
+
+        // The client expects a specific format which is not unix timestamp
+        // See secsToTimeBitFields in MaNGOS
+        let timestamp: u32 = {
+            let now = chrono::Local::now();
+
+            let year = now.year() as u32;
+            let month = now.month();
+            let month_day = now.day() - 1;
+            let weekday = now.weekday().number_from_sunday();
+            let hour = now.hour();
+            let minutes = now.minute();
+
+            (year << 24)
+                | (month << 20)
+                | (month_day << 14)
+                | (weekday << 11)
+                | (hour << 6)
+                | minutes
+        };
+
+        let smsg_login_set_time_speed = ServerMessage::new(SmsgLoginSetTimeSpeed {
+            timestamp,
+            game_speed: 0.01666667,
+        });
+
+        self.send(&smsg_login_set_time_speed).unwrap();
+
+        // FIXME: hardcoded position
+        // FIXME: should be sent whenever the player changes zone
+        let smsg_init_world_states = ServerMessage::new(SmsgInitWorldStates {
+            map_id: 0,
+            zone_id: 85,
+            area_id: 154, // Deathknell
+            block_count: 0,
+        });
+
+        self.send(&smsg_init_world_states).unwrap();
+
+        WorldSession::reset_time_sync(self, world_context);
     }
 }
 

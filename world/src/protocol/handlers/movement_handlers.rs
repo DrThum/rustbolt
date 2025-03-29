@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use chrono::{Datelike, Timelike};
 use log::{error, warn};
 use shipyard::{UniqueView, View, ViewMut};
 
@@ -16,15 +15,11 @@ use crate::{
     protocol::{
         client::ClientMessage,
         opcodes::Opcode,
-        packets::{
-            MovementInfo, MsgMoveTeleportAckFromClient, SmsgBindpointupdate, SmsgInitWorldStates,
-            SmsgLoginSetTimeSpeed, SmsgSetRestStart, SmsgTutorialFlags,
-        },
-        server::ServerMessage,
+        packets::{MovementInfo, MsgMoveTeleportAckFromClient},
     },
     session::{
         opcode_handler::{OpcodeHandler, PacketHandler, PacketHandlerArgs},
-        world_session::{WorldSession, WorldSessionState},
+        world_session::WorldSession,
     },
 };
 
@@ -125,7 +120,6 @@ impl OpcodeHandler {
         );
     }
 
-    // TODO: deduplicate with handle_cmsg_player_login
     pub fn handle_msg_move_worldport_ack(
         PacketHandlerArgs {
             session,
@@ -133,65 +127,9 @@ impl OpcodeHandler {
             ..
         }: PacketHandlerArgs,
     ) {
-        let smsg_set_rest_start = ServerMessage::new(SmsgSetRestStart { rest_start: 0 });
-
-        session.send(&smsg_set_rest_start).unwrap();
-
-        // TODO
-        let smsg_bindpointupdate = ServerMessage::new(SmsgBindpointupdate {
-            homebind_x: -8953.95,
-            homebind_y: 521.019,
-            homebind_z: 96.5399,
-            homebind_map_id: 0,
-            homebind_area_id: 85,
-        });
-
-        session.send(&smsg_bindpointupdate).unwrap();
-
-        let smsg_tutorial_flags = ServerMessage::new(SmsgTutorialFlags {
-            tutorial_data0: 0, // FIXME: 0xFFFFFFFF to disable tutorials
-            tutorial_data1: 0,
-            tutorial_data2: 0,
-            tutorial_data3: 0,
-            tutorial_data4: 0,
-            tutorial_data5: 0,
-            tutorial_data6: 0,
-            tutorial_data7: 0,
-        });
-
-        session.send(&smsg_tutorial_flags).unwrap();
-
-        // The client expects a specific format which is not unix timestamp
-        // See secsToTimeBitFields in MaNGOS
-        let timestamp: u32 = {
-            let now = chrono::Local::now();
-
-            let year = now.year() as u32;
-            let month = now.month();
-            let month_day = now.day() - 1;
-            let weekday = now.weekday().number_from_sunday();
-            let hour = now.hour();
-            let minutes = now.minute();
-
-            (year << 24)
-                | (month << 20)
-                | (month_day << 14)
-                | (weekday << 11)
-                | (hour << 6)
-                | minutes
-        };
-
-        let smsg_login_set_time_speed = ServerMessage::new(SmsgLoginSetTimeSpeed {
-            timestamp,
-            game_speed: 0.01666667,
-        });
-
-        session.send(&smsg_login_set_time_speed).unwrap();
-
-        {
-            let mut session_state = session.state.write();
-            *session_state = WorldSessionState::InWorld;
-        }
+        session
+            .clone()
+            .send_initial_packets_before_add_to_map(world_context.clone());
 
         let Some(teleport_position) = session.current_map().unwrap().world().run(
             |mut vm_player: ViewMut<Player>, mut vm_wpos: ViewMut<WorldPosition>| {
@@ -213,17 +151,5 @@ impl OpcodeHandler {
         {
             destination_map.transfer_player_from_other_map(session.clone());
         }
-
-        // FIXME: hardcoded position
-        let smsg_init_world_states = ServerMessage::new(SmsgInitWorldStates {
-            map_id: 0,
-            zone_id: 85,
-            area_id: 154, // Deathknell
-            block_count: 0,
-        });
-
-        session.send(&smsg_init_world_states).unwrap();
-
-        WorldSession::reset_time_sync(session, world_context);
     }
 }

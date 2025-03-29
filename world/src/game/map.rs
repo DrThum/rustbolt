@@ -53,7 +53,10 @@ use crate::{
         character::CharacterRecord, creature::CreatureSpawnDbRecord,
         game_object::GameObjectSpawnDbRecord,
     },
-    session::{session_holder::WrappedSessionHolder, world_session::WorldSession},
+    session::{
+        session_holder::WrappedSessionHolder,
+        world_session::{WorldSession, WorldSessionState},
+    },
     shared::constants::{HighGuidType, NpcFlags, WeaponAttackType},
     SessionHolder,
 };
@@ -502,9 +505,13 @@ impl Map {
                 );
             }
         }
+
+        session.set_state(WorldSessionState::InWorld);
     }
 
     pub fn transfer_player_from_other_map(self: Arc<Map>, session: Arc<WorldSession>) {
+        session.clone().set_state(WorldSessionState::InMapTransfer);
+
         let Some(origin_map) = session.current_map() else {
             error!("transfer_player_from_other_map: player has no current map");
             return;
@@ -667,6 +674,8 @@ impl Map {
                 }
             }
         }
+
+        session.clone().set_state(WorldSessionState::InWorld);
     }
 
     pub fn remove_player(&self, player_guid: &ObjectGuid) {

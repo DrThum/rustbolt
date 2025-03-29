@@ -678,7 +678,7 @@ impl Map {
         session.clone().set_state(WorldSessionState::InWorld);
     }
 
-    pub fn remove_player(&self, player_guid: &ObjectGuid) {
+    pub fn remove_player_on_logout(&self, player_guid: &ObjectGuid) {
         let maybe_player_entity_id = self.world().run(|mut all_storages: AllStoragesViewMut| {
             if let Some(entity_id) = self.entity_manager.remove(player_guid) {
                 all_storages.delete_entity(entity_id);

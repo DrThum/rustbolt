@@ -196,7 +196,7 @@ impl OpcodeHandler {
                 .player_guid()
                 .expect("attempt to logout from a session with no player");
 
-            map.remove_player(player_guid);
+            map.remove_player_on_logout(player_guid);
         }
     }
 

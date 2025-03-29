@@ -189,7 +189,7 @@ impl WorldSession {
                 );
             }
 
-            map.remove_player(&self.player_guid.read().unwrap());
+            map.remove_player_on_logout(&self.player_guid.read().unwrap());
 
             self.known_guids.write().clear();
             self.current_map.write().take();

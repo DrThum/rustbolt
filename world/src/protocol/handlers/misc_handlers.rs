@@ -33,7 +33,7 @@ impl OpcodeHandler {
                 let target_ecs_entity =
                     map.lookup_entity_ecs(&ObjectGuid::from_raw(cmsg.guid).unwrap());
 
-                map.world().borrow().run(|mut vm_unit: ViewMut<Unit>| {
+                map.world().run(|mut vm_unit: ViewMut<Unit>| {
                     vm_unit[player_ecs_entity].set_target(target_ecs_entity, cmsg.guid);
                 });
             }

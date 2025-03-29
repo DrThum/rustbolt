@@ -40,7 +40,7 @@ impl OpcodeHandler {
 
             let map = session.current_map().unwrap();
             // Register new position
-            map.world().borrow().run(
+            map.world().run(
                 |spatial_grid: UniqueView<WrappedSpatialGrid>,
                  v_movement: View<Movement>,
                  v_player: View<Player>,
@@ -89,7 +89,7 @@ impl OpcodeHandler {
         let player_guid = session.player_guid().unwrap();
 
         // Register new position
-        map.world().borrow().run(
+        map.world().run(
             |spatial_grid: UniqueView<WrappedSpatialGrid>,
              v_movement: View<Movement>,
              v_creature: View<Creature>,
@@ -193,7 +193,7 @@ impl OpcodeHandler {
             *session_state = WorldSessionState::InWorld;
         }
 
-        let Some(teleport_position) = session.current_map().unwrap().world().borrow().run(
+        let Some(teleport_position) = session.current_map().unwrap().world().run(
             |mut vm_player: ViewMut<Player>| {
                 vm_player[session.player_entity_id().unwrap()].take_teleport_destination()
             },

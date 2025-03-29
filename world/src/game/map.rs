@@ -1,6 +1,7 @@
 use std::{
     cell::RefCell,
     collections::VecDeque,
+    marker::PhantomData,
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
@@ -213,7 +214,7 @@ impl Map {
             )
                 .into_workload()
         };
-        self.world.lock().borrow().add_workload(map_update_workload);
+        self.world().add_workload(map_update_workload);
 
         let mut time = Instant::now();
         let mut update_times: VecDeque<u128> = VecDeque::with_capacity(200);
@@ -225,8 +226,7 @@ impl Map {
             time = tick_start_time;
 
             {
-                let world_guard = self.world.lock();
-                let world_guard = world_guard.borrow();
+                let world_guard = self.world();
                 world_guard.run(
                     |mut dt: UniqueViewMut<DeltaTime>, mut hp: UniqueViewMut<HasPlayers>| {
                         // Update the delta time
@@ -257,13 +257,14 @@ impl Map {
         }
     }
 
-    pub fn world(&self) -> ReentrantMutexGuard<RefCell<World>> {
-        self.world.lock()
-    }
+    pub fn world(&self) -> WorldRef {
+        let guard = self.world.lock();
 
-    // pub fn world_mut(&mut self) -> &mut World {
-    //     self.world.get_mut()
-    // }
+        WorldRef {
+            guard,
+            _world: PhantomData,
+        }
+    }
 
     pub fn id(&self) -> u32 {
         self.key.map_id
@@ -286,7 +287,7 @@ impl Map {
             );
         }
 
-        let player_entity_id = self.world.lock().borrow().run(
+        let player_entity_id = self.world().run(
             |mut entities: EntitiesViewMut,
              mut vm_guid: ViewMut<Guid>,
              mut vm_powers: ViewMut<Powers>,
@@ -425,7 +426,6 @@ impl Map {
             for other_entity_id in entities_around {
                 let other_entity_guid = self
                     .world()
-                    .borrow()
                     .run(|v_guid: View<Guid>| v_guid[other_entity_id].0);
                 // Broadcast the new player to nearby players
                 let other_session = self.session_holder.get_session(&other_entity_guid);
@@ -433,8 +433,7 @@ impl Map {
                     let smsg_create_object: SmsgCreateObject;
                     {
                         let new_player_entity_id = session.player_entity_id().unwrap();
-                        let world_guard = self.world.lock();
-                        let world_guard = world_guard.borrow();
+                        let world_guard = self.world();
                         let (v_movement, v_player) = world_guard
                             .borrow::<(View<Movement>, View<Player>)>()
                             .unwrap();
@@ -457,7 +456,6 @@ impl Map {
 
                 // Make creatures aware of the player's presence
                 self.world()
-                    .borrow()
                     .run(|mut vm_nearby_players: ViewMut<NearbyPlayers>| {
                         NearbyPlayers::increment(other_entity_id, &mut vm_nearby_players);
                     });
@@ -465,8 +463,7 @@ impl Map {
                 // Send nearby entities to the new player
                 let smsg_create_object: Option<SmsgCreateObject>;
                 {
-                    let world_guard = self.world.lock();
-                    let world_guard = world_guard.borrow();
+                    let world_guard = self.world();
 
                     let (v_movement, v_player, v_creature, v_game_object, v_wpos) = world_guard
                         .borrow::<(
@@ -524,29 +521,24 @@ impl Map {
         };
 
         self.world()
-            .borrow_mut()
-            .move_entity(&mut origin_map.world().borrow_mut(), player_entity_id);
+            .move_entity(&mut origin_map.world(), player_entity_id);
 
         origin_map.remove_player(&player_guid);
     }
 
     pub fn remove_player(&self, player_guid: &ObjectGuid) {
-        let maybe_player_entity_id =
-            self.world
-                .lock()
-                .borrow()
-                .run(|mut all_storages: AllStoragesViewMut| {
-                    if let Some(entity_id) = self.entity_manager.remove(player_guid) {
-                        all_storages.delete_entity(entity_id);
-                        Some(entity_id)
-                    } else {
-                        error!(
-                            "attempt to remove player {} who is not on map",
-                            player_guid.counter()
-                        );
-                        None
-                    }
-                });
+        let maybe_player_entity_id = self.world().run(|mut all_storages: AllStoragesViewMut| {
+            if let Some(entity_id) = self.entity_manager.remove(player_guid) {
+                all_storages.delete_entity(entity_id);
+                Some(entity_id)
+            } else {
+                error!(
+                    "attempt to remove player {} who is not on map",
+                    player_guid.counter()
+                );
+                None
+            }
+        });
 
         if let Some(player_entity_id) = maybe_player_entity_id {
             let other_sessions = self.spatial_grid.sessions_nearby_entity(
@@ -594,7 +586,7 @@ impl Map {
             .data_store
             .get_faction_template_record(creature.template.faction_template_id);
 
-        let creature_entity_id = self.world.lock().borrow().run(
+        let creature_entity_id = self.world().run(
             |mut entities: EntitiesViewMut,
              mut vm_guid: ViewMut<Guid>,
              mut vm_powers: ViewMut<Powers>,
@@ -696,8 +688,7 @@ impl Map {
             let smsg_create_object: SmsgCreateObject;
             {
                 let new_creature_entity_id = self.lookup_entity_ecs(creature_guid).unwrap();
-                let world_guard = self.world.lock();
-                let world_guard = world_guard.borrow();
+                let world_guard = self.world();
                 let (v_movement, v_creature) = world_guard
                     .borrow::<(View<Movement>, View<Creature>)>()
                     .unwrap();
@@ -723,7 +714,7 @@ impl Map {
         game_object: GameObject,
         wpos: &WorldPosition,
     ) {
-        let entity_id = self.world.lock().borrow().run(
+        let entity_id = self.world().run(
             |mut entities: EntitiesViewMut,
              mut vm_guid: ViewMut<Guid>,
              mut vm_game_object: ViewMut<GameObject>| {
@@ -830,5 +821,23 @@ impl std::ops::Deref for VisibilityDistance {
 impl std::ops::DerefMut for VisibilityDistance {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
+    }
+}
+
+pub struct WorldRef<'a> {
+    guard: ReentrantMutexGuard<'a, RefCell<World>>,
+    _world: PhantomData<&'a World>,
+}
+
+impl<'a> std::ops::Deref for WorldRef<'a> {
+    type Target = World;
+    fn deref(&self) -> &Self::Target {
+        unsafe { &*self.guard.as_ptr() }
+    }
+}
+
+impl<'a> std::ops::DerefMut for WorldRef<'a> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        unsafe { &mut *self.guard.as_ptr() }
     }
 }

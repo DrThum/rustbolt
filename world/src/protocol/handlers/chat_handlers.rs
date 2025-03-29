@@ -109,7 +109,7 @@ impl OpcodeHandler {
             if let Some(map) = session.current_map() {
                 if let Some(target_entity_id) = map.lookup_entity_ecs(&target_guid) {
                     let target_name =
-                        map.world().borrow()
+                        map.world()
                             .run(|v_player: View<Player>, v_creature: View<Creature>| {
                                 if let Ok(player) = v_player.get(target_entity_id) {
                                     player.name.clone()

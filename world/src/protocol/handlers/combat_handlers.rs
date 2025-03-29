@@ -17,7 +17,7 @@ impl OpcodeHandler {
         let cmsg: CmsgAttackSwing = ClientMessage::read_as(data).unwrap();
         if let Some(map) = session.current_map() {
             if let Some(player_ecs_entity) = session.player_entity_id() {
-                map.world().borrow().run(
+                map.world().run(
                     |mut vm_melee: ViewMut<Melee>, vm_player: ViewMut<Player>| {
                         vm_melee[player_ecs_entity].is_attacking = true;
 
@@ -43,7 +43,7 @@ impl OpcodeHandler {
         if let Some(map) = session.current_map() {
             let player_guid = session.player_guid().unwrap();
             if let Some(player_ecs_entity) = map.lookup_entity_ecs(&player_guid) {
-                let target_guid = map.world().borrow().run(
+                let target_guid = map.world().run(
                     |mut vm_melee: ViewMut<Melee>, v_unit: View<Unit>, v_guid: View<Guid>| {
                         vm_melee[player_ecs_entity].is_attacking = false;
                         v_unit[player_ecs_entity]

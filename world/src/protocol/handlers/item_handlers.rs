@@ -137,7 +137,7 @@ impl OpcodeHandler {
         let cmsg_destroy_item: CmsgDestroyItem = ClientMessage::read_as(data).unwrap();
 
         if let Some(map) = session.current_map() {
-            map.world().borrow().run(|mut vm_player: ViewMut<Player>| {
+            map.world().run(|mut vm_player: ViewMut<Player>| {
                 let player_entity_id = session.player_entity_id().unwrap();
                 let player = &mut vm_player[player_entity_id];
 
@@ -164,7 +164,7 @@ impl OpcodeHandler {
                           player_entity_id,
                           ..
                       }| {
-            map.world().borrow().run(|mut vm_player: ViewMut<Player>| {
+            map.world().run(|mut vm_player: ViewMut<Player>| {
                 if let Ok(mut player) = (&mut vm_player).get(player_entity_id) {
                     let inventory_result = player.try_equip_item_from_inventory(slot);
                     if let Some(moved_item) = player.get_inventory_item(slot) {
@@ -199,7 +199,7 @@ impl OpcodeHandler {
                           player_entity_id,
                           ..
                       }| {
-            map.world().borrow().run(|mut vm_player: ViewMut<Player>| {
+            map.world().run(|mut vm_player: ViewMut<Player>| {
                 if let Ok(mut player) = (&mut vm_player).get(player_entity_id) {
                     let inventory_result = player.try_swap_inventory_item(
                         cmsg_swap_inv_item.from_slot.into(),
@@ -244,7 +244,7 @@ impl OpcodeHandler {
                           player_entity_id,
                           ..
                       }| {
-            map.world().borrow().run(|mut vm_player: ViewMut<Player>| {
+            map.world().run(|mut vm_player: ViewMut<Player>| {
                 if let Ok(mut player) = (&mut vm_player).get(player_entity_id) {
                     let inventory_result = player.try_split_item(
                         cmsg_split_item.source_slot.into(),
@@ -294,7 +294,7 @@ impl OpcodeHandler {
             let mut targets = cmsg.targets.clone();
             targets.update_internal_refs(map.clone());
 
-            map.world().borrow().run(
+            map.world().run(
                 |v_player: View<Player>,
                  mut vm_spell: ViewMut<SpellCast>,
                  v_powers: View<Powers>| {

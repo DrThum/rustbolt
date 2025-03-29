@@ -28,17 +28,17 @@ impl OpcodeHandler {
 
         if let Some(guid) = ObjectGuid::from_raw(cmsg.guid) {
             let map = session.current_map().unwrap();
-            let maybe_status = map.world().borrow().run(
-                |v_player: View<Player>, v_quest_actor: View<QuestActor>| {
-                    let guid_entity_id = map.lookup_entity_ecs(&guid).unwrap();
-                    v_quest_actor.get(guid_entity_id).ok().map(|quest_actor| {
-                        quest_actor.quest_status_for_player(
-                            v_player.get(session.player_entity_id().unwrap()).unwrap(),
-                            world_context.clone(),
-                        )
-                    })
-                },
-            );
+            let maybe_status =
+                map.world()
+                    .run(|v_player: View<Player>, v_quest_actor: View<QuestActor>| {
+                        let guid_entity_id = map.lookup_entity_ecs(&guid).unwrap();
+                        v_quest_actor.get(guid_entity_id).ok().map(|quest_actor| {
+                            quest_actor.quest_status_for_player(
+                                v_player.get(session.player_entity_id().unwrap()).unwrap(),
+                                world_context.clone(),
+                            )
+                        })
+                    });
 
             if let Some(status) = maybe_status {
                 let packet = ServerMessage::new(SmsgQuestGiverStatus {
@@ -102,7 +102,7 @@ impl OpcodeHandler {
 
         if let Some(quest_template) = world_context.data_store.get_quest_template(cmsg.quest_id) {
             let map = session.current_map().unwrap();
-            map.world().borrow().run(|mut vm_player: ViewMut<Player>| {
+            map.world().run(|mut vm_player: ViewMut<Player>| {
                 let player = &mut vm_player[session.player_entity_id().unwrap()];
                 player.start_quest(quest_template);
             });
@@ -120,7 +120,6 @@ impl OpcodeHandler {
         let mut statuses: Vec<QuestGiverStatusMultipleEntry> = Vec::new();
 
         map.world()
-            .borrow()
             .run(|v_player: View<Player>, v_quest_actor: View<QuestActor>| {
                 for guid in session.known_guids() {
                     let guid_entity_id = map.lookup_entity_ecs(&guid).unwrap();
@@ -152,7 +151,7 @@ impl OpcodeHandler {
         let cmsg: CmsgQuestLogRemoveQuest = ClientMessage::read_as(data).unwrap();
 
         let map = session.current_map().unwrap();
-        map.world().borrow().run(|mut vm_player: ViewMut<Player>| {
+        map.world().run(|mut vm_player: ViewMut<Player>| {
             vm_player[session.player_entity_id().unwrap()].remove_quest(cmsg.slot as usize);
         });
     }
@@ -171,7 +170,7 @@ impl OpcodeHandler {
         let player_entity_id = session.player_entity_id().unwrap();
 
         if let Some(quest_template) = world_context.data_store.get_quest_template(cmsg.quest_id) {
-            map.world().borrow().run(|v_player: View<Player>| {
+            map.world().run(|v_player: View<Player>| {
                 use PlayerQuestStatus::*;
 
                 let status = v_player[player_entity_id]
@@ -223,7 +222,7 @@ impl OpcodeHandler {
         let cmsg: CmsgQuestGiverRequestReward = ClientMessage::read_as(data).unwrap();
 
         if let Some(map) = session.current_map() {
-            map.world().borrow().run(|mut vm_player: ViewMut<Player>| {
+            map.world().run(|mut vm_player: ViewMut<Player>| {
                 if let Ok(mut player) = (&mut vm_player).get(session.player_entity_id().unwrap()) {
                     if let Some(quest_template) =
                         world_context.data_store.get_quest_template(cmsg.quest_id)
@@ -257,7 +256,7 @@ impl OpcodeHandler {
         let cmsg: CmsgQuestGiverChooseReward = ClientMessage::read_as(data).unwrap();
 
         let map = session.current_map().unwrap();
-        map.world().borrow().run(
+        map.world().run(
             |mut vm_player: ViewMut<Player>, v_quest_actor: View<QuestActor>| {
                 let player = &mut vm_player[session.player_entity_id().unwrap()];
 

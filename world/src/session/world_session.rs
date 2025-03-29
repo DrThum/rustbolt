@@ -168,7 +168,7 @@ impl WorldSession {
 
         if let Some(map) = self.current_map() {
             if let Some(entity_id) = self.player_entity_id() {
-                map.world().borrow().run(
+                map.world().run(
                     |mut vm_player: ViewMut<Player>,
                      v_wpos: View<WorldPosition>,
                      v_powers: View<Powers>| {

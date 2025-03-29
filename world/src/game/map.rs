@@ -277,7 +277,11 @@ impl Map {
         self.entity_manager.lookup(guid)
     }
 
-    pub fn add_player_on_login(&self, session: Arc<WorldSession>, char_data: &CharacterRecord) {
+    pub fn add_player_on_login(
+        self: Arc<Map>,
+        session: Arc<WorldSession>,
+        char_data: &CharacterRecord,
+    ) {
         let player_guid = ObjectGuid::from_raw(char_data.guid).unwrap();
 
         if let Some(previous_session) = self
@@ -290,7 +294,7 @@ impl Map {
             );
         }
 
-        let player_entity_id = self.world().run(
+        self.world().run(
             |mut entities: EntitiesViewMut,
              mut vm_guid: ViewMut<Guid>,
              mut vm_powers: ViewMut<Powers>,
@@ -310,10 +314,6 @@ impl Map {
                     self.world_context.clone(),
                     session.clone(),
                 );
-
-                session.send_initial_spells(&player);
-                session.send_initial_action_buttons(&player);
-                session.send_initial_reputations(&player);
 
                 let base_health_mana_record = self
                     .world_context
@@ -394,33 +394,112 @@ impl Map {
                         NearbyPlayers::new(), // Player is always nearby a player
                     ),
                 );
-
-                self.entity_manager.insert(player_guid, entity_id);
-
                 session.set_player_entity_id(entity_id);
+            },
+        );
 
-                let movement = vm_movement.get(entity_id).ok().map(|m| {
-                    m.build_update(
-                        self.world_context.clone(),
-                        &char_data.position.as_position(),
-                    )
-                });
+        self.add_player(session.clone());
 
-                let player = vm_player.get(entity_id).unwrap();
+        session.set_state(WorldSessionState::InWorld);
+    }
+
+    pub fn transfer_player_from_other_map(self: Arc<Map>, session: Arc<WorldSession>) {
+        session.clone().set_state(WorldSessionState::InMapTransfer);
+
+        let Some(origin_map) = session.current_map() else {
+            error!("transfer_player_from_other_map: player has no current map");
+            return;
+        };
+        let Some(player_entity_id) = session.player_entity_id() else {
+            error!("transfer_player_from_other_map: player has no entity id");
+            return;
+        };
+        let Some(player_guid) = session.player_guid() else {
+            error!("transfer_player_from_other_map: player has no guid");
+            return;
+        };
+
+        origin_map
+            .world()
+            .move_entity(&mut self.world(), player_entity_id);
+
+        // Removal from previous map
+        {
+            let other_sessions = origin_map.spatial_grid.sessions_nearby_entity(
+                &player_entity_id,
+                origin_map.visibility_distance,
+                false,
+                false,
+            );
+            for other_session in other_sessions {
+                other_session.destroy_entity(&player_guid);
+            }
+
+            origin_map.spatial_grid.delete(&player_entity_id);
+            origin_map.entity_manager.remove(&player_guid);
+            origin_map.session_holder.remove_session(&player_guid);
+        }
+
+        // Addition to new map (TODO: deduplicate from add_player_on_login)
+        {
+            session.set_map(self.clone());
+
+            if let Some(previous_session) = self
+                .session_holder
+                .insert_session(player_guid, session.clone())
+            {
+                warn!(
+                    "session from account {} was already on map {}",
+                    previous_session.account_id, self.key
+                );
+            }
+
+            self.add_player(session.clone());
+        }
+
+        session.clone().set_state(WorldSessionState::InWorld);
+    }
+
+    fn add_player(self: &Arc<Map>, session: Arc<WorldSession>) {
+        let Some(player_entity_id) = session.player_entity_id() else {
+            error!("Map::add_player: session has no player EntityId");
+            return;
+        };
+        let Some(player_guid) = session.player_guid() else {
+            error!("transfer_player_from_other_map: player has no guid");
+            return;
+        };
+
+        let player_position = self
+            .world()
+            .run(|v_wpos: View<WorldPosition>| v_wpos[player_entity_id].clone())
+            .as_position();
+
+        self.world()
+            .run(|v_player: View<Player>, v_movement: View<Movement>| {
+                let player = v_player.get(player_entity_id).unwrap();
+
+                session.send_initial_spells(player);
+                session.send_initial_action_buttons(player);
+                session.send_initial_reputations(player);
+
+                self.entity_manager.insert(player_guid, player_entity_id);
+
+                let movement = v_movement
+                    .get(player_entity_id)
+                    .ok()
+                    .map(|m| m.build_update(self.world_context.clone(), &player_position));
+
                 player.internal_values.write().reset_dirty();
                 let smsg_create_object = player.build_create_object(movement, true);
 
                 session.create_entity(&player_guid, smsg_create_object);
+            });
 
-                entity_id
-            },
-        );
-
-        self.spatial_grid
-            .insert(char_data.position.as_position(), player_entity_id);
+        self.spatial_grid.insert(player_position, player_entity_id);
 
         let entities_around: Vec<EntityId> = self.spatial_grid.search_ids_around_position(
-            &char_data.position.as_position(),
+            &player_position,
             self.visibility_distance,
             true,
             Some(&player_entity_id),
@@ -440,12 +519,10 @@ impl Map {
                         .borrow::<(View<Movement>, View<Player>)>()
                         .unwrap();
 
-                    let movement = v_movement.get(new_player_entity_id).ok().map(|m| {
-                        m.build_update(
-                            self.world_context.clone(),
-                            &char_data.position.as_position(),
-                        )
-                    });
+                    let movement = v_movement
+                        .get(new_player_entity_id)
+                        .ok()
+                        .map(|m| m.build_update(self.world_context.clone(), &player_position));
 
                     smsg_create_object = v_player
                         .get(new_player_entity_id)
@@ -505,177 +582,6 @@ impl Map {
                 );
             }
         }
-
-        session.set_state(WorldSessionState::InWorld);
-    }
-
-    pub fn transfer_player_from_other_map(self: Arc<Map>, session: Arc<WorldSession>) {
-        session.clone().set_state(WorldSessionState::InMapTransfer);
-
-        let Some(origin_map) = session.current_map() else {
-            error!("transfer_player_from_other_map: player has no current map");
-            return;
-        };
-        let Some(player_entity_id) = session.player_entity_id() else {
-            error!("transfer_player_from_other_map: player has no entity id");
-            return;
-        };
-        let Some(player_guid) = session.player_guid() else {
-            error!("transfer_player_from_other_map: player has no guid");
-            return;
-        };
-
-        origin_map
-            .world()
-            .move_entity(&mut self.world(), player_entity_id);
-
-        // Removal from previous map
-        {
-            let other_sessions = origin_map.spatial_grid.sessions_nearby_entity(
-                &player_entity_id,
-                origin_map.visibility_distance,
-                false,
-                false,
-            );
-            for other_session in other_sessions {
-                other_session.destroy_entity(&player_guid);
-            }
-
-            origin_map.spatial_grid.delete(&player_entity_id);
-            origin_map.entity_manager.remove(&player_guid);
-            origin_map.session_holder.remove_session(&player_guid);
-        }
-
-        // Addition to new map (TODO: deduplicate from add_player_on_login)
-        {
-            session.set_map(self.clone());
-
-            if let Some(previous_session) = self
-                .session_holder
-                .insert_session(player_guid, session.clone())
-            {
-                warn!(
-                    "session from account {} was already on map {}",
-                    previous_session.account_id, self.key
-                );
-            }
-
-            let player_position = self
-                .world()
-                .run(|v_wpos: View<WorldPosition>| v_wpos[player_entity_id].clone())
-                .as_position();
-
-            self.world().run(
-                |mut vm_player: ViewMut<Player>, v_movement: View<Movement>| {
-                    let player = &mut vm_player[player_entity_id];
-
-                    session.send_initial_spells(player);
-                    session.send_initial_action_buttons(player);
-                    session.send_initial_reputations(player);
-
-                    self.entity_manager.insert(player_guid, player_entity_id);
-
-                    let movement = v_movement
-                        .get(player_entity_id)
-                        .ok()
-                        .map(|m| m.build_update(self.world_context.clone(), &player_position));
-
-                    player.internal_values.write().reset_dirty();
-                    let smsg_create_object = player.build_create_object(movement, true);
-
-                    session.create_entity(&player_guid, smsg_create_object);
-                },
-            );
-
-            self.spatial_grid.insert(player_position, player_entity_id);
-
-            let entities_around: Vec<EntityId> = self.spatial_grid.search_ids_around_position(
-                &player_position,
-                self.visibility_distance,
-                true,
-                Some(&player_entity_id),
-            );
-            for other_entity_id in entities_around {
-                let other_entity_guid = self
-                    .world()
-                    .run(|v_guid: View<Guid>| v_guid[other_entity_id].0);
-                // Broadcast the new player to nearby players
-                let other_session = self.session_holder.get_session(&other_entity_guid);
-                if let Some(other_session) = other_session {
-                    let smsg_create_object: SmsgCreateObject;
-                    {
-                        let new_player_entity_id = session.player_entity_id().unwrap();
-                        let world_guard = self.world();
-                        let (v_movement, v_player) = world_guard
-                            .borrow::<(View<Movement>, View<Player>)>()
-                            .unwrap();
-
-                        let movement = v_movement
-                            .get(new_player_entity_id)
-                            .ok()
-                            .map(|m| m.build_update(self.world_context.clone(), &player_position));
-
-                        smsg_create_object = v_player
-                            .get(new_player_entity_id)
-                            .unwrap()
-                            .build_create_object(movement, false);
-                    }
-
-                    other_session.create_entity(&player_guid, smsg_create_object);
-                }
-
-                // Make creatures aware of the player's presence
-                self.world()
-                    .run(|mut vm_nearby_players: ViewMut<NearbyPlayers>| {
-                        NearbyPlayers::increment(other_entity_id, &mut vm_nearby_players);
-                    });
-
-                // Send nearby entities to the new player
-                let smsg_create_object: Option<SmsgCreateObject>;
-                {
-                    let world_guard = self.world();
-
-                    let (v_movement, v_player, v_creature, v_game_object, v_wpos) = world_guard
-                        .borrow::<(
-                            View<Movement>,
-                            View<Player>,
-                            View<Creature>,
-                            View<GameObject>,
-                            View<WorldPosition>,
-                        )>()
-                        .unwrap();
-
-                    let movement = v_movement.get(other_entity_id).ok().map(|m| {
-                        m.build_update(
-                            self.world_context.clone(),
-                            &v_wpos[other_entity_id].as_position(),
-                        )
-                    });
-
-                    if let Ok(player) = v_player.get(other_entity_id) {
-                        smsg_create_object = Some(player.build_create_object(movement, false));
-                    } else if let Ok(creature) = v_creature.get(other_entity_id) {
-                        smsg_create_object = Some(creature.build_create_object(movement));
-                    } else if let Ok(game_object) = v_game_object.get(other_entity_id) {
-                        smsg_create_object =
-                            Some(game_object.build_create_object_for(&v_player[player_entity_id]));
-                    } else {
-                        unreachable!("cannot generate SMSG_CREATE_OBJECT for this entity type");
-                    }
-                }
-
-                if let Some(smsg) = smsg_create_object {
-                    session.create_entity(&other_entity_guid, smsg);
-                } else {
-                    warn!(
-                        "add_player_on_login: unable to generate a SmsgCreateObject for guid {:?}",
-                        other_entity_id
-                    );
-                }
-            }
-        }
-
-        session.clone().set_state(WorldSessionState::InWorld);
     }
 
     pub fn remove_player_on_logout(&self, player_guid: &ObjectGuid) {

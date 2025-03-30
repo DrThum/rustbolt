@@ -344,7 +344,7 @@ pub enum Opcode {
     CmsgSheatheObsolete = 0x152,
     CmsgSavePlayer = 0x153,
     CmsgSetdeathbindpoint = 0x154,
-    SmsgBindpointupdate = 0x155,
+    SmsgBindpointUpdate = 0x155,
     CmsgGetdeathbindzone = 0x156,
     SmsgBindzonereply = 0x157,
     SmsgPlayerbound = 0x158,

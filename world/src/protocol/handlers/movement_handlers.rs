@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use log::{error, warn};
-use shipyard::{UniqueView, View, ViewMut};
+use shipyard::{Get, UniqueView, View, ViewMut};
 
 use crate::{
     ecs::components::{
@@ -127,11 +127,23 @@ impl OpcodeHandler {
             ..
         }: PacketHandlerArgs,
     ) {
-        session.send_initial_packets_before_add_to_map();
+        let Some(map) = session.current_map() else {
+            error!("handle_msg_move_worldport_ack: session has no map");
+            return;
+        };
+        let Some(player_entity_id) = session.player_entity_id() else {
+            error!("handle_msg_move_worldport_ack: session has no player EntityId");
+            return;
+        };
+
+        map.world().run(|v_player: View<Player>| {
+            if let Ok(player) = v_player.get(player_entity_id) {
+                session.send_initial_packets_before_add_to_map(player.bindpoint());
+            }
+        });
 
         let Some(teleport_position) = session.current_map().unwrap().world().run(
             |mut vm_player: ViewMut<Player>, mut vm_wpos: ViewMut<WorldPosition>| {
-                let player_entity_id = session.player_entity_id().unwrap();
                 let teleport_position = vm_player[player_entity_id].take_teleport_destination();
                 match teleport_position {
                     Some(pos) => vm_wpos[player_entity_id].update(&pos),

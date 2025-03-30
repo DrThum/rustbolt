@@ -234,7 +234,8 @@ impl CharacterRepository {
             .prepare_cached(
                 "SELECT account_id, race, class, level, gender, name, haircolor, hairstyle, face, skin, facialstyle,
                 map_id, zone_id, position_x, position_y, position_z, orientation, current_health, current_mana, current_rage,
-                current_energy, experience, money
+                current_energy, experience, money, bindpoint_map_id, bindpoint_zone_id, bindpoint_position_x, bindpoint_position_y,
+                bindpoint_position_z, bindpoint_orientation
                 FROM characters WHERE guid = :guid")
             .unwrap();
         let mut rows = stmt
@@ -273,6 +274,12 @@ impl CharacterRepository {
             current_energy: row.get("current_energy").unwrap(),
             experience: row.get("experience").unwrap(),
             money: row.get("money").unwrap(),
+            bindpoint_map_id: row.get("bindpoint_map_id").unwrap(),
+            bindpoint_zone_id: row.get("bindpoint_zone_id").unwrap(),
+            bindpoint_position_x: row.get("bindpoint_position_x").unwrap(),
+            bindpoint_position_y: row.get("bindpoint_position_y").unwrap(),
+            bindpoint_position_z: row.get("bindpoint_position_z").unwrap(),
+            bindpoint_orientation: row.get("bindpoint_orientation").unwrap(),
         })
     }
 
@@ -593,6 +600,25 @@ pub struct CharacterRecord {
     pub current_energy: u32,
     pub experience: u32,
     pub money: u32,
+    pub bindpoint_map_id: u32,
+    pub bindpoint_zone_id: u32,
+    pub bindpoint_position_x: f32,
+    pub bindpoint_position_y: f32,
+    pub bindpoint_position_z: f32,
+    pub bindpoint_orientation: f32,
+}
+
+impl CharacterRecord {
+    pub fn bindpoint(&self) -> WorldPosition {
+        WorldPosition {
+            map_key: MapKey::for_continent(self.bindpoint_map_id),
+            zone: self.bindpoint_zone_id,
+            x: self.bindpoint_position_x,
+            y: self.bindpoint_position_y,
+            z: self.bindpoint_position_z,
+            o: self.bindpoint_orientation,
+        }
+    }
 }
 
 pub struct CharacterReputationDbRecord {

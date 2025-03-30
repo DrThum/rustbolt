@@ -2,6 +2,7 @@ use binrw::{binread, binwrite};
 use opcode_derive::server_opcode;
 
 use crate::entities::object_guid::ObjectGuid;
+use crate::entities::position::WorldPosition;
 use crate::protocol::opcodes::Opcode;
 use crate::protocol::server::ServerMessagePayload;
 
@@ -13,12 +14,24 @@ pub struct SmsgSetRestStart {
 
 #[binwrite]
 #[server_opcode]
-pub struct SmsgBindpointupdate {
+pub struct SmsgBindpointUpdate {
     pub homebind_x: f32,
     pub homebind_y: f32,
     pub homebind_z: f32,
     pub homebind_map_id: u32,
     pub homebind_area_id: u32,
+}
+
+impl SmsgBindpointUpdate {
+    pub fn from_position(position: &WorldPosition) -> Self {
+        Self {
+            homebind_x: position.x,
+            homebind_y: position.y,
+            homebind_z: position.z,
+            homebind_map_id: position.map_key.map_id,
+            homebind_area_id: position.zone,
+        }
+    }
 }
 
 #[binwrite]

@@ -33,7 +33,7 @@ use crate::{
         client::ClientMessage,
         opcodes::Opcode,
         packets::{
-            FactionInit, MovementInfo, SmsgActionButtons, SmsgAttackStop, SmsgBindpointupdate,
+            FactionInit, MovementInfo, SmsgActionButtons, SmsgAttackStop, SmsgBindpointUpdate,
             SmsgCreateObject, SmsgDestroyObject, SmsgInitWorldStates, SmsgInitialSpells,
             SmsgInitializeFactions, SmsgLoginSetTimeSpeed, SmsgMessageChat, SmsgSetRestStart,
             SmsgTimeSyncReq, SmsgTutorialFlags, SmsgUpdateObject,
@@ -530,19 +530,13 @@ impl WorldSession {
             .store(true, Ordering::Relaxed);
     }
 
-    pub fn send_initial_packets_before_add_to_map(self: &Arc<Self>) {
+    pub fn send_initial_packets_before_add_to_map(self: &Arc<Self>, bindpoint: &WorldPosition) {
         let smsg_set_rest_start = ServerMessage::new(SmsgSetRestStart { rest_start: 0 });
 
         self.send(&smsg_set_rest_start).unwrap();
 
-        // TODO
-        let smsg_bindpointupdate = ServerMessage::new(SmsgBindpointupdate {
-            homebind_x: -8953.95,
-            homebind_y: 521.019,
-            homebind_z: 96.5399,
-            homebind_map_id: 0,
-            homebind_area_id: 85,
-        });
+        let smsg_bindpointupdate =
+            ServerMessage::new(SmsgBindpointUpdate::from_position(bindpoint));
 
         self.send(&smsg_bindpointupdate).unwrap();
 

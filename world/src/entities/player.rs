@@ -16,7 +16,7 @@ use strum::IntoEnumIterator;
 use crate::{
     datastore::data_types::PlayerCreatePosition,
     entities::player::player_data::FactionStanding,
-    game::world_context::WorldContext,
+    game::{map_manager::MapKey, world_context::WorldContext},
     protocol::packets::{CmsgCharCreate, SmsgCreateObject},
     repositories::{character::CharacterRepository, item::ItemRepository},
     session::world_session::WorldSession,
@@ -65,6 +65,7 @@ pub struct Player {
     spells: Vec<u32>,
     action_buttons: HashMap<usize, ActionButton>,
     faction_standings: HashMap<u32, FactionStanding>,
+    bindpoint: WorldPosition,
     quest_statuses: HashMap<u32, QuestLogContext>, // <QuestId, QuestLogContext>
     in_combat_with: RwLock<HashSet<ObjectGuid>>,
     currently_looting: Option<EntityId>,
@@ -634,6 +635,15 @@ impl Player {
             }
         }
 
+        let bindpoint = WorldPosition {
+            map_key: MapKey::for_continent(character.bindpoint_map_id),
+            zone: character.bindpoint_zone_id,
+            x: character.bindpoint_position_x,
+            y: character.bindpoint_position_y,
+            z: character.bindpoint_position_z,
+            o: character.bindpoint_orientation,
+        };
+
         values.reset_dirty();
 
         Self {
@@ -646,6 +656,7 @@ impl Player {
             spells,
             action_buttons,
             faction_standings,
+            bindpoint,
             quest_statuses,
             in_combat_with: RwLock::new(HashSet::new()),
             currently_looting: None,
@@ -671,6 +682,10 @@ impl Player {
 
     pub fn faction_standings(&self) -> &HashMap<u32, FactionStanding> {
         &self.faction_standings
+    }
+
+    pub fn bindpoint(&self) -> &WorldPosition {
+        &self.bindpoint
     }
 
     pub fn build_create_object(

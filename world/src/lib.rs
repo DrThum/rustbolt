@@ -66,7 +66,6 @@ pub mod game {
     pub mod spell;
     pub mod spell_cast_target;
     pub mod spell_effect_handler;
-    pub mod spell_effect_handlers;
     pub mod terrain_manager;
     pub mod world_context;
 }

@@ -11,6 +11,9 @@ use crate::{
 
 use super::{spell::Spell, world_context::WorldContext};
 
+mod combat;
+mod misc;
+
 pub type EffectHandler = Box<dyn Send + Sync + for<'a, 'b> Fn(SpellEffectHandlerArgs)>;
 
 macro_rules! define_handler {
@@ -66,6 +69,8 @@ impl SpellEffectHandler {
                 self.handlers.get(&SpellEffect::None).unwrap()
             })
     }
+
+    pub(crate) fn unhandled(_args: SpellEffectHandlerArgs) {}
 }
 
 create_wrapped_resource!(WrappedSpellEffectHandler, SpellEffectHandler);

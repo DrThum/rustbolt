@@ -69,6 +69,10 @@ impl SpellCastTargets {
         }
     }
 
+    pub fn new_unit(unit_guid: ObjectGuid) -> Self {
+        Self::new(Some(unit_guid), None, None, None, None, None)
+    }
+
     pub fn update_internal_refs(&mut self, map: Arc<Map>) {
         self.is_initialized = true;
 

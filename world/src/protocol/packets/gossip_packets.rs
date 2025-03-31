@@ -106,3 +106,18 @@ pub struct CmsgGossipSelectOption {
     pub option_index: u32,
     // TODO: read a string here if the chosen option has box_coded == true
 }
+
+#[binwrite]
+#[server_opcode]
+pub struct SmsgBinderConfirm {
+    pub guid: ObjectGuid,
+}
+
+#[binread]
+pub struct CmsgBinderActivate {
+    pub guid: ObjectGuid,
+}
+
+#[binwrite]
+#[server_opcode]
+pub struct SmsgGossipComplete {}

@@ -5,6 +5,7 @@ use crate::entities::creature::Creature;
 use crate::game::gossip::GossipMenu;
 use crate::protocol::client::ClientMessage;
 use crate::protocol::packets::*;
+use crate::protocol::server::ServerMessage;
 use crate::session::opcode_handler::{OpcodeHandler, PacketHandlerArgs};
 use crate::shared::constants::GossipMenuOptionType;
 
@@ -70,7 +71,11 @@ impl OpcodeHandler {
 
         match gossip_menu_option.option_type {
             GossipMenuOptionType::Innkeeper => {
-                println!("TODO: update player bind point");
+                session.close_gossip_menu();
+                let packet = ServerMessage::new(SmsgBinderConfirm {
+                    guid: cmsg.guid,
+                });
+                session.send(&packet).unwrap();
             },
             ot => warn!("handle_cmsg_gossip_select_option: received a non-implemented-yet option type {ot:?}"),
         };

@@ -340,6 +340,11 @@ impl OpcodeHandler {
                     ProcessInMap,
                     OpcodeHandler::handle_msg_move_worldport_ack
                 ),
+                define_handler!(
+                    Opcode::CmsgBinderActivate,
+                    ProcessInMap,
+                    OpcodeHandler::handle_cmsg_binder_activate
+                ),
             ]),
         }
     }

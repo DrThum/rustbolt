@@ -12,6 +12,7 @@ mod player_packets;
 mod query_packets;
 mod quest_packets;
 mod spell_packets;
+mod trainer_packets;
 mod zone_packets;
 
 pub use self::auth_packets::*;
@@ -28,4 +29,5 @@ pub use self::player_packets::*;
 pub use self::query_packets::*;
 pub use self::quest_packets::*;
 pub use self::spell_packets::*;
+pub use self::trainer_packets::*;
 pub use self::zone_packets::*;

@@ -1,11 +1,15 @@
-use shipyard::ViewMut;
-
+use crate::ecs::components::spell_cast::SpellCast;
 use crate::ecs::components::unit::Unit;
 use crate::entities::object_guid::ObjectGuid;
+use crate::game::spell_cast_target::SpellCastTargets;
 use crate::protocol::client::ClientMessage;
 use crate::protocol::packets::*;
 use crate::protocol::server::ServerMessage;
 use crate::session::opcode_handler::{OpcodeHandler, PacketHandlerArgs};
+use crate::session::world_session::WSRunnableArgs;
+use crate::shared::constants::RemarkableSpells;
+use log::error;
+use shipyard::ViewMut;
 
 impl OpcodeHandler {
     pub(crate) fn handle_cmsg_realm_split(
@@ -38,5 +42,46 @@ impl OpcodeHandler {
                 });
             }
         }
+    }
+
+    pub fn handle_cmsg_binder_activate(
+        PacketHandlerArgs {
+            data,
+            session,
+            world_context,
+            ..
+        }: PacketHandlerArgs,
+    ) {
+        let cmsg: CmsgBinderActivate = ClientMessage::read_as(data).unwrap();
+
+        session.run(&|WSRunnableArgs { map, .. }| {
+            match world_context.data_store.get_map_record(map.id()) {
+                None => {
+                    error!("handle_cmsg_binder_activate: unknown map in DBC");
+                    return;
+                }
+                Some(map_record) => {
+                    if map_record.is_instanceable() {
+                        error!("handle_cmsg_binder_activate: player can only bind themselves on a non-instanceable map");
+                        return;
+                    }
+                }
+            };
+
+            let mut targets = &mut SpellCastTargets::new_unit(cmsg.guid);
+            match SpellCast::cast_spell(map.clone(), world_context.clone(), &cmsg.guid, RemarkableSpells::Bind as u32, &mut targets) {
+                Ok(_) => {
+                    let packet = ServerMessage::new(SmsgTrainerBuySucceeded {
+                        trainer_guid: cmsg.guid,
+                        spell_id: RemarkableSpells::Bind as u32,
+                    });
+
+                    session.send(&packet).unwrap();
+                },
+                Err(fail_reason) => {
+                    error!("handle_cmsg_binder_active: innkeeper failed to cast Bind ({fail_reason:?})");
+                },
+            }
+        });
     }
 }

@@ -1412,7 +1412,7 @@ pub enum MeleeAttackError {
 }
 
 #[allow(dead_code)]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum SpellFailReason {
     AffectingCombat = 0x00,
     AlreadyAtFullHealth = 0x01,
@@ -1975,4 +1975,9 @@ pub enum SpellCastTargetFlags {
     GameobjectItem = 0x00004000, // 199 spells, opening object/lock
     Corpse = 0x00008000,  // pguid, resurrection spells
     Unk2 = 0x00010000,    // pguid, not used in any spells (can be set dynamically)
+}
+
+#[repr(u32)]
+pub enum RemarkableSpells {
+    Bind = 3286, // Cast by innkeepers when players set their bind point
 }

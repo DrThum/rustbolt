@@ -3,10 +3,18 @@ use std::{
     time::{Duration, Instant},
 };
 
-use log::error;
-use shipyard::{Component, EntityId};
+use log::{error, warn};
+use shipyard::{Component, EntityId, View, ViewMut};
 
-use crate::game::spell::Spell;
+use crate::{
+    entities::object_guid::ObjectGuid,
+    game::{
+        map::Map, spell::Spell, spell_cast_target::SpellCastTargets, world_context::WorldContext,
+    },
+    shared::constants::SpellFailReason,
+};
+
+use super::powers::Powers;
 
 #[derive(Component)]
 pub struct SpellCast {
@@ -57,4 +65,64 @@ impl SpellCast {
         self.current_ranged = None;
         self.ranged_cast_end = None;
     }
+
+    pub fn cast_spell(
+        map: Arc<Map>,
+        world_context: Arc<WorldContext>,
+        caster_guid: &ObjectGuid,
+        spell_id: u32,
+        targets: &mut SpellCastTargets,
+    ) -> Result<SpellCastSuccess, SpellFailReason> {
+        targets.update_internal_refs(map.clone());
+
+        let Some(spell_record) = world_context.data_store.get_spell_record(spell_id) else {
+            error!("SpellCast::cast_spell: unknown spell {}", spell_id);
+            return Err(SpellFailReason::SpellUnavailable);
+        };
+
+        let spell_base_cast_time = spell_record
+            .base_cast_time(world_context.data_store.clone())
+            .unwrap();
+
+        let Some(caster_entity_id) = map.lookup_entity_ecs(caster_guid) else {
+            error!("SpellCast::cast_spell: no EntityId found for caster guid {caster_guid:?}");
+            return Err(SpellFailReason::DontReport);
+        };
+
+        map.world()
+            .run(|mut vm_spell: ViewMut<SpellCast>, v_powers: View<Powers>| {
+                if vm_spell[caster_entity_id].current_ranged().is_some() {
+                    return Err(SpellFailReason::SpellInProgress);
+                }
+
+                let Some(spell_record) = world_context.data_store.get_spell_record(spell_id) else {
+                    warn!("attempt to cast non-existing spell {}", spell_id);
+                    return Err(SpellFailReason::DontReport);
+                };
+
+                let powers = &v_powers[caster_entity_id];
+                let power_cost = spell_record.calculate_power_cost(
+                    powers.base_health(),
+                    powers.base_mana(),
+                    powers.snapshot(),
+                );
+
+                vm_spell[caster_entity_id].set_current_ranged(
+                    spell_id,
+                    spell_base_cast_time,
+                    caster_entity_id,
+                    targets.unit_target(),
+                    targets.game_object_target(),
+                    power_cost,
+                );
+
+                Ok(SpellCastSuccess {
+                    spell_base_cast_time,
+                })
+            })
+    }
+}
+
+pub struct SpellCastSuccess {
+    pub spell_base_cast_time: Duration,
 }

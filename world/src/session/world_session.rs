@@ -34,9 +34,9 @@ use crate::{
         opcodes::Opcode,
         packets::{
             FactionInit, MovementInfo, SmsgActionButtons, SmsgAttackStop, SmsgBindpointUpdate,
-            SmsgCreateObject, SmsgDestroyObject, SmsgInitWorldStates, SmsgInitialSpells,
-            SmsgInitializeFactions, SmsgLoginSetTimeSpeed, SmsgMessageChat, SmsgSetRestStart,
-            SmsgTimeSyncReq, SmsgTutorialFlags, SmsgUpdateObject,
+            SmsgCreateObject, SmsgDestroyObject, SmsgGossipComplete, SmsgInitWorldStates,
+            SmsgInitialSpells, SmsgInitializeFactions, SmsgLoginSetTimeSpeed, SmsgMessageChat,
+            SmsgSetRestStart, SmsgTimeSyncReq, SmsgTutorialFlags, SmsgUpdateObject,
         },
         server::{ServerMessage, ServerMessageHeader, ServerMessagePayload},
     },
@@ -598,6 +598,11 @@ impl WorldSession {
         world_context: Arc<WorldContext>,
     ) {
         Self::reset_time_sync(self.clone(), world_context);
+    }
+
+    pub fn close_gossip_menu(self: &Arc<Self>) {
+        let packet = ServerMessage::new(SmsgGossipComplete {});
+        self.send(&packet).unwrap();
     }
 }
 

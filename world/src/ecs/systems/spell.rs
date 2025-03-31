@@ -41,7 +41,6 @@ pub fn update_spell(vm_all_storages: AllStoragesViewMut) {
 
                     if cast_end <= now {
                         let spell_record = world_context
-                            .0
                             .data_store
                             .get_spell_record(current_ranged.id())
                             .expect("unknown spell at end of cast?!");

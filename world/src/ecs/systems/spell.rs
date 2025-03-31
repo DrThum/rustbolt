@@ -12,7 +12,9 @@ use crate::{
         map::HasPlayers,
         packet_broadcaster::WrappedPacketBroadcaster,
         spell::Spell,
-        spell_effect_handler::{SpellEffectHandler, WrappedSpellEffectHandler},
+        spell_effect_handler::{
+            SpellEffectHandler, SpellEffectHandlerArgs, WrappedSpellEffectHandler,
+        },
         world_context::{WorldContext, WrappedWorldContext},
     },
     protocol::{packets::SmsgSpellGo, server::ServerMessage},
@@ -122,14 +124,14 @@ fn handle_effects(
             }
 
             let handler = spell_effect_handler.get_handler(&effect);
-            handler(
-                world_context.clone(),
-                spell.clone(),
+            handler(SpellEffectHandlerArgs {
+                world_context: world_context.clone(),
+                spell: spell.clone(),
                 map_record,
-                spell_record.clone(),
+                spell_record: spell_record.clone(),
                 effect_index,
-                vm_all_storages,
-            );
+                all_storages: vm_all_storages,
+            });
 
             // Set player in combat with target if needed
             if effect.is_negative() {

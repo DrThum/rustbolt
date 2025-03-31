@@ -1,10 +1,8 @@
-use std::sync::Arc;
-
 use log::warn;
-use shipyard::{AllStoragesViewMut, Get, View, ViewMut};
+use shipyard::{Get, View, ViewMut};
 
 use crate::{
-    datastore::data_types::{GameObjectData, MapRecord, SpellRecord},
+    datastore::data_types::GameObjectData,
     ecs::components::{guid::Guid, powers::Powers, threat_list::ThreatList, unit::Unit},
     entities::{creature::Creature, game_object::GameObject, player::Player},
     protocol::{
@@ -15,28 +13,22 @@ use crate::{
 };
 
 use super::{
-    experience::Experience, spell::Spell, spell_effect_handler::SpellEffectHandler,
-    world_context::WorldContext,
+    experience::Experience,
+    spell_effect_handler::{SpellEffectHandler, SpellEffectHandlerArgs},
 };
 
 impl SpellEffectHandler {
-    pub(crate) fn unhandled(
-        _world_context: Arc<WorldContext>,
-        _spell: Arc<Spell>,
-        _map_record: &MapRecord,
-        _spell_record: Arc<SpellRecord>,
-        _effect_index: usize,
-        _all_storages: &AllStoragesViewMut,
-    ) {
-    }
+    pub(crate) fn unhandled(_args: SpellEffectHandlerArgs) {}
 
     pub fn handle_effect_school_damage(
-        _world_context: Arc<WorldContext>,
-        spell: Arc<Spell>,
-        map_record: &MapRecord,
-        spell_record: Arc<SpellRecord>,
-        effect_index: usize,
-        all_storages: &AllStoragesViewMut,
+        SpellEffectHandlerArgs {
+            spell,
+            map_record,
+            spell_record,
+            effect_index,
+            all_storages,
+            ..
+        }: SpellEffectHandlerArgs,
     ) {
         all_storages.run(
             |mut vm_powers: ViewMut<Powers>,
@@ -84,12 +76,13 @@ impl SpellEffectHandler {
     }
 
     pub fn handle_effect_heal(
-        _world_context: Arc<WorldContext>,
-        spell: Arc<Spell>,
-        _map_record: &MapRecord,
-        _spell_record: Arc<SpellRecord>,
-        effect_index: usize,
-        all_storages: &AllStoragesViewMut,
+        SpellEffectHandlerArgs {
+            spell,
+            spell_record,
+            effect_index,
+            all_storages,
+            ..
+        }: SpellEffectHandlerArgs,
     ) {
         all_storages.run(|mut vm_powers: ViewMut<Powers>| {
             let Some(unit_target) = spell.unit_target() else {
@@ -97,18 +90,18 @@ impl SpellEffectHandler {
                 return;
             };
 
-            let damage = _spell_record.calc_simple_value(effect_index);
+            let damage = spell_record.calc_simple_value(effect_index);
             vm_powers[unit_target].apply_healing(damage as u32);
         });
     }
 
     pub fn handle_effect_open_lock(
-        world_context: Arc<WorldContext>,
-        spell: Arc<Spell>,
-        _map_record: &MapRecord,
-        _spell_record: Arc<SpellRecord>,
-        _effect_index: usize,
-        all_storages: &AllStoragesViewMut,
+        SpellEffectHandlerArgs {
+            world_context,
+            spell,
+            all_storages,
+            ..
+        }: SpellEffectHandlerArgs,
     ) {
         all_storages.run(
             |v_game_object: View<GameObject>,

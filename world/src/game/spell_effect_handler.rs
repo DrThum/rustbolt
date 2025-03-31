@@ -11,40 +11,13 @@ use crate::{
 
 use super::{spell::Spell, world_context::WorldContext};
 
-pub type EffectHandler = Box<
-    dyn Send
-        + Sync
-        + for<'a, 'b> Fn(
-            Arc<WorldContext>,
-            Arc<Spell>,
-            &'a MapRecord,
-            Arc<SpellRecord>,
-            usize,
-            &'a AllStoragesViewMut<'b>,
-        ),
->;
+pub type EffectHandler = Box<dyn Send + Sync + for<'a, 'b> Fn(SpellEffectHandlerArgs)>;
 
 macro_rules! define_handler {
     ($effect:expr, $handler:expr) => {
         (
             $effect,
-            Box::new(
-                move |world_context: Arc<WorldContext>,
-                      spell: Arc<Spell>,
-                      map_record: &MapRecord,
-                      record: Arc<SpellRecord>,
-                      eff_index: usize,
-                      all_storages: &AllStoragesViewMut| {
-                    $handler(
-                        world_context,
-                        spell,
-                        map_record,
-                        record,
-                        eff_index,
-                        all_storages,
-                    )
-                },
-            ) as EffectHandler,
+            Box::new(move |args: SpellEffectHandlerArgs| $handler(args)) as EffectHandler,
         )
     };
 }
@@ -96,3 +69,12 @@ impl SpellEffectHandler {
 }
 
 create_wrapped_resource!(WrappedSpellEffectHandler, SpellEffectHandler);
+
+pub struct SpellEffectHandlerArgs<'a, 'b> {
+    pub world_context: Arc<WorldContext>,
+    pub spell: Arc<Spell>,
+    pub map_record: &'a MapRecord,
+    pub spell_record: Arc<SpellRecord>,
+    pub effect_index: usize,
+    pub all_storages: &'a AllStoragesViewMut<'b>,
+}

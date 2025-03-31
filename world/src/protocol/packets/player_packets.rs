@@ -36,6 +36,13 @@ impl SmsgBindpointUpdate {
 
 #[binwrite]
 #[server_opcode]
+pub struct SmsgPlayerBound {
+    pub caster_guid: ObjectGuid, // The innkeeper's guid (that cast the Bind spell)
+    pub area_id: u32,
+}
+
+#[binwrite]
+#[server_opcode]
 pub struct MsgSetDungeonDifficulty {
     pub difficulty: u32, // 0 = Normal, 1 = Heroic
     pub unk: u32,        // Always 1

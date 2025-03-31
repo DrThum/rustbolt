@@ -1,8 +1,11 @@
 use shipyard::EntityId;
 
+use crate::entities::object_guid::ObjectGuid;
+
 pub struct Spell {
     id: u32,
-    caster: EntityId,
+    caster_entity_id: EntityId,
+    caster_guid: ObjectGuid,
     unit_target: Option<EntityId>,
     game_object_target: Option<EntityId>,
     // item_target: EntityId, // TODO: We'll have to make Item a Component for this to work
@@ -12,14 +15,16 @@ pub struct Spell {
 impl Spell {
     pub fn new(
         id: u32,
-        caster: EntityId,
+        caster_entity_id: EntityId,
+        caster_guid: ObjectGuid,
         unit_target: Option<EntityId>,
         game_object_target: Option<EntityId>,
         power_cost: u32,
     ) -> Self {
         Self {
             id,
-            caster,
+            caster_entity_id,
+            caster_guid,
             unit_target,
             game_object_target,
             power_cost,
@@ -39,7 +44,11 @@ impl Spell {
     }
 
     pub fn caster(&self) -> EntityId {
-        self.caster
+        self.caster_entity_id
+    }
+
+    pub fn caster_guid(&self) -> ObjectGuid {
+        self.caster_guid
     }
 
     pub fn power_cost(&self) -> u32 {

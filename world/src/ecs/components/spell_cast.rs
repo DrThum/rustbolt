@@ -46,14 +46,16 @@ impl SpellCast {
         &mut self,
         spell_id: u32,
         duration: Duration,
-        caster: EntityId,
+        caster_entity_id: EntityId,
+        caster_guid: ObjectGuid,
         unit_target: Option<EntityId>,
         game_object_target: Option<EntityId>,
         power_cost: u32,
     ) {
         self.current_ranged = Some(Arc::new(Spell::new(
             spell_id,
-            caster,
+            caster_entity_id,
+            caster_guid,
             unit_target,
             game_object_target,
             power_cost,
@@ -106,11 +108,11 @@ impl SpellCast {
                     powers.base_mana(),
                     powers.snapshot(),
                 );
-
                 vm_spell[caster_entity_id].set_current_ranged(
                     spell_id,
                     spell_base_cast_time,
                     caster_entity_id,
+                    *caster_guid,
                     targets.unit_target(),
                     targets.game_object_target(),
                     power_cost,

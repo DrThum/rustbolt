@@ -330,6 +330,7 @@ impl OpcodeHandler {
                         return;
                     }
 
+                    // TODO: all of this seems to be duplicated from SpellCast::cast_spell
                     let Some(spell_record) = world_context.data_store.get_spell_record(spell_id)
                     else {
                         warn!("attempt to cast non-existing spell {}", spell_id);
@@ -354,6 +355,7 @@ impl OpcodeHandler {
                         spell_id,
                         spell_base_cast_time,
                         player_entity_id,
+                        session.player_guid().unwrap(),
                         targets.unit_target(),
                         targets.game_object_target(),
                         power_cost,

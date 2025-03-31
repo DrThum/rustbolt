@@ -4,10 +4,10 @@ use shipyard::{Get, View, ViewMut};
 use crate::{
     datastore::data_types::GameObjectData,
     ecs::components::unit::Unit,
-    entities::{game_object::GameObject, player::Player},
+    entities::{game_object::GameObject, player::Player, position::WorldPosition},
     game::spell_effect_handler::{SpellEffectHandler, SpellEffectHandlerArgs},
     protocol::{
-        packets::{LootResponseItem, SmsgLootResponse},
+        packets::{LootResponseItem, SmsgBindpointUpdate, SmsgLootResponse, SmsgPlayerBound},
         server::ServerMessage,
     },
     shared::constants::{LootSlotType, LootType, UnitFlags},
@@ -85,5 +85,41 @@ impl SpellEffectHandler {
                 }
             },
         );
+    }
+
+    pub fn handle_effect_bind(
+        SpellEffectHandlerArgs {
+            spell,
+            all_storages,
+            ..
+        }: SpellEffectHandlerArgs,
+    ) {
+        let Some(unit_target_entity_id) = spell.unit_target() else {
+            warn!("handle_effect_bind: spell has no unit target");
+            return;
+        };
+
+        all_storages.run(|vm_player: ViewMut<Player>, v_wpos: View<WorldPosition>| {
+            let Ok(player) = &mut vm_player.get(unit_target_entity_id) else {
+                warn!("handle_effect_bind: spell unit target is not a player");
+                return;
+            };
+
+            let Ok(player_position) = v_wpos.get(unit_target_entity_id) else {
+                warn!("handle_effect_bind: player has no position");
+                return;
+            };
+
+            let packet = ServerMessage::new(SmsgBindpointUpdate::from_position(player_position));
+
+            player.session.send(&packet).unwrap();
+
+            let packet = ServerMessage::new(SmsgPlayerBound {
+                caster_guid: spell.caster_guid(),
+                area_id: 85,
+            });
+
+            player.session.send(&packet).unwrap();
+        })
     }
 }

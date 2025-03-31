@@ -68,7 +68,7 @@ impl OpcodeHandler {
                 }
             };
 
-            let mut targets = &mut SpellCastTargets::new_unit(cmsg.guid);
+            let mut targets = &mut SpellCastTargets::new_unit(session.player_guid().unwrap());
             match SpellCast::cast_spell(map.clone(), world_context.clone(), &cmsg.guid, RemarkableSpells::Bind as u32, &mut targets) {
                 Ok(_) => {
                     let packet = ServerMessage::new(SmsgTrainerBuySucceeded {

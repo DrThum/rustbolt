@@ -1,5 +1,6 @@
 #![allow(non_snake_case)]
 
+use data_types::AreaTableRecord;
 use indicatif::ProgressBar;
 use log::info;
 use multimap::MultiMap;
@@ -72,6 +73,7 @@ pub struct DataStore {
     skill_line_ability_by_spell: DbcMultiStore<SkillLineAbilityRecord>,
     faction: DbcStore<FactionRecord>,
     faction_template: DbcStore<FactionTemplateRecord>,
+    area_table: DbcStore<AreaTableRecord>,
     // SQL tables
     item_templates: SqlStore<ItemTemplate>,
     player_create_positions: SqlStore<PlayerCreatePosition>,
@@ -146,6 +148,7 @@ impl DataStore {
         };
         let faction = parse_dbc!(config.common.data.directory, "Faction");
         let faction_template = parse_dbc!(config.common.data.directory, "FactionTemplate");
+        let area_table = parse_dbc!(config.common.data.directory, "AreaTable");
 
         // GameTable stores
         let gt_OCTRegenHP = parse_game_table!(config.common.data.directory, "gtOCTRegenHP");
@@ -365,6 +368,7 @@ impl DataStore {
             skill_line_ability_by_spell,
             faction,
             faction_template,
+            area_table,
             item_templates,
             player_create_positions,
             player_create_spells,
@@ -455,6 +459,17 @@ impl DataStore {
 
     pub fn get_faction_template_record(&self, faction_id: u32) -> Option<&FactionTemplateRecord> {
         self.faction_template.get(&faction_id)
+    }
+
+    pub fn get_area_table_by_area_bit(&self, area_bit: u32) -> Option<&AreaTableRecord> {
+        self.area_table.get(&area_bit)
+    }
+
+    pub fn get_area_table_by_area_id(&self, area_id: u32) -> Option<&AreaTableRecord> {
+        self.area_table
+            .iter()
+            .find(|record| record.1.area_id == area_id)
+            .map(|record| record.1)
     }
 
     pub fn get_starting_factions(

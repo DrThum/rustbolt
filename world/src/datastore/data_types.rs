@@ -3,6 +3,7 @@ use std::{sync::Arc, time::Duration};
 use binrw::binwrite;
 use enumflags2::BitFlags;
 use enumn::N;
+use shared::models::terrain_info::LiquidTypeEntry;
 use shipyard::Unique;
 
 use crate::{
@@ -175,6 +176,51 @@ impl DbcTypedRecord for ItemRecord {
                 display_id: record.fields[1].as_u32,
                 inventory_type: InventoryType::n(record.fields[2].as_u32)
                     .expect("Invalid InventoryType found in Item.dbc"),
+            };
+
+            (key, record)
+        }
+    }
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct AreaTableRecord {
+    pub area_id: u32,
+    pub map_id: u32,
+    pub zone_id: u32,
+    pub area_bit: u32, // Unique identifier
+    pub flags: u32,    // TODO: bitflags
+    // _sound_provider_pref: u32,
+    // _sound_provider_pref_underwater: u32,
+    // _ambience_id: u32,
+    // _zone_music: u32,
+    // _intro_sound: u32,
+    pub area_level: i32,
+    pub area_name: String,
+    // _string_flags: u32,
+    pub team: u32,
+    pub liquid_type_override: LiquidTypeEntry,
+}
+
+impl DbcTypedRecord for AreaTableRecord {
+    fn from_record(record: &DbcRecord, strings: &DbcStringBlock) -> (u32, Self) {
+        unsafe {
+            let key = record.fields[3].as_u32; // AreaBit
+
+            let record = AreaTableRecord {
+                area_id: record.fields[0].as_u32,
+                map_id: record.fields[1].as_u32,
+                zone_id: record.fields[2].as_u32,
+                area_bit: record.fields[3].as_u32,
+                flags: record.fields[4].as_u32,
+                area_level: record.fields[10].as_i32,
+                area_name: strings
+                    .get(record.fields[11].as_u32 as usize)
+                    .expect("string not found in AreaTableRecord.dbc"),
+                team: record.fields[13].as_u32,
+                liquid_type_override: LiquidTypeEntry::n(record.fields[14].as_u32)
+                    .expect("invalid liquid type override in AreaTable.dbc"),
             };
 
             (key, record)

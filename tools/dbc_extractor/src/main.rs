@@ -8,6 +8,7 @@ fn main() -> Result<(), std::io::Error> {
 
     let client_data_dir = args.client_base_dir.to_str().unwrap();
     let dbc_files = vec![
+        "DBFilesClient\\AreaTable.dbc",
         "DBFilesClient\\ChrRaces.dbc",
         "DBFilesClient\\ChrClasses.dbc",
         "DBFilesClient\\CharStartOutfit.dbc",

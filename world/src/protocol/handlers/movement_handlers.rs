@@ -153,11 +153,7 @@ impl OpcodeHandler {
 
         map.world().run(|v_player: View<Player>| {
             if let Ok(player) = v_player.get(player_entity_id) {
-                session.send_initial_packets_before_add_to_map(
-                    player.bindpoint(),
-                    map.get_area_id(teleport_position.x, teleport_position.y)
-                        .unwrap_or(0),
-                );
+                session.send_initial_packets_before_add_to_map(&player.bindpoint());
             }
         });
 

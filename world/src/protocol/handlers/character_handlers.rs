@@ -153,10 +153,7 @@ impl OpcodeHandler {
 
         session.send(&smsg_motd).unwrap();
 
-        session.send_initial_packets_before_add_to_map(
-            &character_data.bindpoint(),
-            character_data.bindpoint_area_id,
-        );
+        session.send_initial_packets_before_add_to_map(&character_data.bindpoint());
 
         if let Some(map) = world_context
             .map_manager

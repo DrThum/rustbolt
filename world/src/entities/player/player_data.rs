@@ -1,4 +1,7 @@
-use crate::shared::constants::{ActionButtonType, PlayerQuestStatus, MAX_QUEST_OBJECTIVES_COUNT};
+use crate::{
+    entities::position::WorldPosition,
+    shared::constants::{ActionButtonType, PlayerQuestStatus, MAX_QUEST_OBJECTIVES_COUNT},
+};
 
 pub struct CharacterSkill {
     pub skill_id: u16,
@@ -40,4 +43,27 @@ pub struct QuestLogContext {
     pub slot: Option<usize>,
     pub status: PlayerQuestStatus,
     pub entity_counts: [u32; MAX_QUEST_OBJECTIVES_COUNT],
+}
+
+#[derive(Clone, Copy)]
+pub struct BindPoint {
+    pub map_id: u32,
+    pub area_id: u32,
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+    pub o: f32,
+}
+
+impl BindPoint {
+    pub fn from_position(position: &WorldPosition, area_id: u32) -> Self {
+        Self {
+            map_id: position.map_key.map_id,
+            area_id,
+            x: position.x,
+            y: position.y,
+            z: position.z,
+            o: position.o,
+        }
+    }
 }

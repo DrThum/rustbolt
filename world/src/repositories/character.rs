@@ -13,7 +13,7 @@ use crate::{
     entities::{
         object_guid::ObjectGuid,
         player::{
-            player_data::{ActionButton, CharacterSkill, QuestLogContext},
+            player_data::{ActionButton, BindPoint, CharacterSkill, QuestLogContext},
             Player, PlayerVisualFeatures,
         },
         position::WorldPosition,
@@ -510,10 +510,14 @@ impl CharacterRepository {
                 level = :level,
                 map_id = :map_id, zone_id = :zone_id, position_x = :x, position_y = :y, position_z = :z, orientation = :o,
                 current_health = :current_health, current_mana = :current_mana, current_rage = :current_rage, current_energy = :current_energy,
-                experience = :experience, money = :money
+                experience = :experience, money = :money, bindpoint_map_id = :bindpoint_map_id, bindpoint_area_id = :bindpoint_area_id,
+                bindpoint_position_x = :bindpoint_position_x, bindpoint_position_y = :bindpoint_position_y, bindpoint_position_z = :bindpoint_position_z,
+                bindpoint_orientation = :bindpoint_orientation
                 WHERE guid = :guid",
             )
             .unwrap();
+
+        let bindpoint = player.bindpoint();
 
         stmt.execute(named_params! {
             ":level": player.level(),
@@ -530,6 +534,12 @@ impl CharacterRepository {
             ":experience": player.experience(),
             ":money": player.money(),
             ":guid": guid,
+            ":bindpoint_map_id": bindpoint.map_id,
+            ":bindpoint_area_id": bindpoint.area_id,
+            ":bindpoint_position_x": bindpoint.x,
+            ":bindpoint_position_y": bindpoint.y,
+            ":bindpoint_position_z": bindpoint.z,
+            ":bindpoint_orientation": bindpoint.o,
         })?;
 
         // Save quest data
@@ -609,10 +619,10 @@ pub struct CharacterRecord {
 }
 
 impl CharacterRecord {
-    pub fn bindpoint(&self) -> WorldPosition {
-        WorldPosition {
-            map_key: MapKey::for_continent(self.bindpoint_map_id),
-            zone: self.bindpoint_area_id,
+    pub fn bindpoint(&self) -> BindPoint {
+        BindPoint {
+            map_id: self.bindpoint_map_id,
+            area_id: self.bindpoint_area_id,
             x: self.bindpoint_position_x,
             y: self.bindpoint_position_y,
             z: self.bindpoint_position_z,

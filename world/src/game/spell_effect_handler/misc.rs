@@ -4,7 +4,11 @@ use shipyard::{Get, View, ViewMut};
 use crate::{
     datastore::data_types::GameObjectData,
     ecs::components::unit::Unit,
-    entities::{game_object::GameObject, player::Player, position::WorldPosition},
+    entities::{
+        game_object::GameObject,
+        player::{player_data::BindPoint, Player},
+        position::WorldPosition,
+    },
     game::spell_effect_handler::{SpellEffectHandler, SpellEffectHandlerArgs},
     protocol::{
         packets::{LootResponseItem, SmsgBindpointUpdate, SmsgLootResponse, SmsgPlayerBound},
@@ -117,8 +121,11 @@ impl SpellEffectHandler {
                 .get_area_id(player_position.x, player_position.y)
                 .unwrap_or(0);
 
-            let packet =
-                ServerMessage::new(SmsgBindpointUpdate::from_position(player_position, area_id));
+            let bindpoint = &BindPoint::from_position(player_position, area_id);
+
+            player.set_bindpoint(*bindpoint);
+
+            let packet = ServerMessage::new(SmsgBindpointUpdate::from_bindpoint(bindpoint));
 
             player.session.send(&packet).unwrap();
 

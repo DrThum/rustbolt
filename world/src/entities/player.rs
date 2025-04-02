@@ -7,6 +7,7 @@ use std::{
 use enumflags2::make_bitflags;
 use log::{error, warn};
 use parking_lot::{Mutex, RwLock};
+use player_data::BindPoint;
 use r2d2::PooledConnection;
 use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::Error;
@@ -16,7 +17,7 @@ use strum::IntoEnumIterator;
 use crate::{
     datastore::data_types::PlayerCreatePosition,
     entities::player::player_data::FactionStanding,
-    game::{map_manager::MapKey, world_context::WorldContext},
+    game::world_context::WorldContext,
     protocol::packets::{CmsgCharCreate, SmsgCreateObject},
     repositories::{character::CharacterRepository, item::ItemRepository},
     session::world_session::WorldSession,
@@ -65,7 +66,7 @@ pub struct Player {
     spells: Vec<u32>,
     action_buttons: HashMap<usize, ActionButton>,
     faction_standings: HashMap<u32, FactionStanding>,
-    bindpoint: WorldPosition,
+    bindpoint: Arc<RwLock<BindPoint>>,
     quest_statuses: HashMap<u32, QuestLogContext>, // <QuestId, QuestLogContext>
     in_combat_with: RwLock<HashSet<ObjectGuid>>,
     currently_looting: Option<EntityId>,
@@ -635,14 +636,14 @@ impl Player {
             }
         }
 
-        let bindpoint = WorldPosition {
-            map_key: MapKey::for_continent(character.bindpoint_map_id),
-            zone: character.bindpoint_area_id,
+        let bindpoint = Arc::new(RwLock::new(BindPoint {
+            map_id: character.bindpoint_map_id,
+            area_id: character.bindpoint_area_id,
             x: character.bindpoint_position_x,
             y: character.bindpoint_position_y,
             z: character.bindpoint_position_z,
             o: character.bindpoint_orientation,
-        };
+        }));
 
         values.reset_dirty();
 
@@ -684,8 +685,12 @@ impl Player {
         &self.faction_standings
     }
 
-    pub fn bindpoint(&self) -> &WorldPosition {
-        &self.bindpoint
+    pub fn set_bindpoint(&self, point: BindPoint) {
+        *self.bindpoint.write() = point;
+    }
+
+    pub fn bindpoint(&self) -> BindPoint {
+        self.bindpoint.read().clone()
     }
 
     pub fn build_create_object(

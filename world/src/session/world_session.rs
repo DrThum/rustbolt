@@ -27,7 +27,11 @@ use wow_srp::tbc_header::HeaderCrypto;
 
 use crate::{
     ecs::components::powers::Powers,
-    entities::{object_guid::ObjectGuid, player::Player, position::WorldPosition},
+    entities::{
+        object_guid::ObjectGuid,
+        player::{player_data::BindPoint, Player},
+        position::WorldPosition,
+    },
     game::{map::Map, world_context::WorldContext},
     protocol::{
         client::ClientMessage,
@@ -530,19 +534,13 @@ impl WorldSession {
             .store(true, Ordering::Relaxed);
     }
 
-    pub fn send_initial_packets_before_add_to_map(
-        self: &Arc<Self>,
-        bindpoint: &WorldPosition,
-        bindpoint_area_id: u32,
-    ) {
+    pub fn send_initial_packets_before_add_to_map(self: &Arc<Self>, bindpoint: &BindPoint) {
         let smsg_set_rest_start = ServerMessage::new(SmsgSetRestStart { rest_start: 0 });
 
         self.send(&smsg_set_rest_start).unwrap();
 
-        let smsg_bindpointupdate = ServerMessage::new(SmsgBindpointUpdate::from_position(
-            bindpoint,
-            bindpoint_area_id,
-        ));
+        let smsg_bindpointupdate =
+            ServerMessage::new(SmsgBindpointUpdate::from_bindpoint(bindpoint));
 
         self.send(&smsg_bindpointupdate).unwrap();
 

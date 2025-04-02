@@ -2,7 +2,7 @@ use binrw::{binread, binwrite};
 use opcode_derive::server_opcode;
 
 use crate::entities::object_guid::ObjectGuid;
-use crate::entities::position::WorldPosition;
+use crate::entities::player::player_data::BindPoint;
 use crate::protocol::opcodes::Opcode;
 use crate::protocol::server::ServerMessagePayload;
 
@@ -23,13 +23,13 @@ pub struct SmsgBindpointUpdate {
 }
 
 impl SmsgBindpointUpdate {
-    pub fn from_position(position: &WorldPosition, area_id: u32) -> Self {
+    pub fn from_bindpoint(point: &BindPoint) -> Self {
         Self {
-            homebind_x: position.x,
-            homebind_y: position.y,
-            homebind_z: position.z,
-            homebind_map_id: position.map_key.map_id,
-            homebind_area_id: area_id,
+            homebind_x: point.x,
+            homebind_y: point.y,
+            homebind_z: point.z,
+            homebind_map_id: point.map_id,
+            homebind_area_id: point.area_id,
         }
     }
 }

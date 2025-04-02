@@ -637,7 +637,7 @@ impl Player {
 
         let bindpoint = WorldPosition {
             map_key: MapKey::for_continent(character.bindpoint_map_id),
-            zone: character.bindpoint_zone_id,
+            zone: character.bindpoint_area_id,
             x: character.bindpoint_position_x,
             y: character.bindpoint_position_y,
             z: character.bindpoint_position_z,

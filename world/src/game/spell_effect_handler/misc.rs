@@ -110,13 +110,21 @@ impl SpellEffectHandler {
                 return;
             };
 
-            let packet = ServerMessage::new(SmsgBindpointUpdate::from_position(player_position));
+            let area_id = player
+                .session
+                .current_map()
+                .unwrap()
+                .get_area_id(player_position.x, player_position.y)
+                .unwrap_or(0);
+
+            let packet =
+                ServerMessage::new(SmsgBindpointUpdate::from_position(player_position, area_id));
 
             player.session.send(&packet).unwrap();
 
             let packet = ServerMessage::new(SmsgPlayerBound {
                 caster_guid: spell.caster_guid(),
-                area_id: 85,
+                area_id,
             });
 
             player.session.send(&packet).unwrap();

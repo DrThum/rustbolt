@@ -23,13 +23,13 @@ pub struct SmsgBindpointUpdate {
 }
 
 impl SmsgBindpointUpdate {
-    pub fn from_position(position: &WorldPosition) -> Self {
+    pub fn from_position(position: &WorldPosition, area_id: u32) -> Self {
         Self {
             homebind_x: position.x,
             homebind_y: position.y,
             homebind_z: position.z,
             homebind_map_id: position.map_key.map_id,
-            homebind_area_id: position.zone,
+            homebind_area_id: area_id,
         }
     }
 }

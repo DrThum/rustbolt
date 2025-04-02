@@ -530,13 +530,19 @@ impl WorldSession {
             .store(true, Ordering::Relaxed);
     }
 
-    pub fn send_initial_packets_before_add_to_map(self: &Arc<Self>, bindpoint: &WorldPosition) {
+    pub fn send_initial_packets_before_add_to_map(
+        self: &Arc<Self>,
+        bindpoint: &WorldPosition,
+        bindpoint_area_id: u32,
+    ) {
         let smsg_set_rest_start = ServerMessage::new(SmsgSetRestStart { rest_start: 0 });
 
         self.send(&smsg_set_rest_start).unwrap();
 
-        let smsg_bindpointupdate =
-            ServerMessage::new(SmsgBindpointUpdate::from_position(bindpoint));
+        let smsg_bindpointupdate = ServerMessage::new(SmsgBindpointUpdate::from_position(
+            bindpoint,
+            bindpoint_area_id,
+        ));
 
         self.send(&smsg_bindpointupdate).unwrap();
 

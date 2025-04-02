@@ -840,6 +840,10 @@ impl Map {
     pub fn queue_packet(&self, world_session: Arc<WorldSession>, packet: ClientMessage) {
         self.packet_queue.queue_packet(world_session, packet);
     }
+
+    pub fn get_area_id(&self, position_x: f32, position_y: f32) -> Option<u32> {
+        self.terrain_manager.get_area_id(position_x, position_y)
+    }
 }
 
 impl Drop for Map {

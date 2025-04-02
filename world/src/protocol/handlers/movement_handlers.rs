@@ -136,12 +136,6 @@ impl OpcodeHandler {
             return;
         };
 
-        map.world().run(|v_player: View<Player>| {
-            if let Ok(player) = v_player.get(player_entity_id) {
-                session.send_initial_packets_before_add_to_map(player.bindpoint());
-            }
-        });
-
         let Some(teleport_position) = session.current_map().unwrap().world().run(
             |mut vm_player: ViewMut<Player>, mut vm_wpos: ViewMut<WorldPosition>| {
                 let teleport_position = vm_player[player_entity_id].take_teleport_destination();
@@ -156,6 +150,16 @@ impl OpcodeHandler {
             error!("received MSG_MOVE_WORLDPORT_ACK with no destination stored on Player");
             return;
         };
+
+        map.world().run(|v_player: View<Player>| {
+            if let Ok(player) = v_player.get(player_entity_id) {
+                session.send_initial_packets_before_add_to_map(
+                    player.bindpoint(),
+                    map.get_area_id(teleport_position.x, teleport_position.y)
+                        .unwrap_or(0),
+                );
+            }
+        });
 
         if let Some(destination_map) = world_context.map_manager.get_map(teleport_position.map_key)
         {

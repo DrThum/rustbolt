@@ -541,7 +541,7 @@ pub struct CreatureTemplate {
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct SpellRecord {
-    // id: u32,
+    id: u32,
     category: u32,
     // castUI: u32
     dispel_type: u32,
@@ -687,6 +687,13 @@ impl SpellRecord {
             .map(|rec| rec.base)
     }
 
+    pub fn cooldown(&self) -> Option<Duration> {
+        match self.recovery_time {
+            0 => None,
+            rt => Some(Duration::from_millis(rt as u64)),
+        }
+    }
+
     pub fn calculate_power_cost(
         &self,
         caster_base_health: u32,
@@ -719,6 +726,7 @@ impl DbcTypedRecord for SpellRecord {
             let key = record.fields[0].as_u32;
 
             let record = SpellRecord {
+                id: record.fields[0].as_u32,
                 category: record.fields[1].as_u32,
                 dispel_type: record.fields[3].as_u32,
                 mechanic: record.fields[4].as_u32,

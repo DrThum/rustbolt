@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use binrw::{binread, binwrite, BinRead, NullString};
+use binrw::{binread, binwrite, BinRead, BinWrite, NullString};
 use enumflags2::{make_bitflags, BitFlags};
 use opcode_derive::server_opcode;
 
@@ -198,5 +198,34 @@ impl SmsgInitialSpells {
             cooldown_count: cooldowns.len() as u16,
             cooldowns,
         }
+    }
+}
+
+#[binwrite]
+#[server_opcode]
+pub struct SmsgSpellCooldown {
+    pub guid: ObjectGuid,
+    pub flags: u8, // TODO: https://github.com/TrinityCore/TrinityCore/blob/e57b0296d65446e358ead632750c4ae0c5249631/src/server/game/Spells/SpellHistory.h#L49
+    pub cooldowns: Vec<ClientSpellCooldown>,
+}
+
+#[derive(Debug)]
+pub struct ClientSpellCooldown {
+    pub spell_id: u32,
+    pub cooldown_ms: u32,
+}
+
+impl BinWrite for ClientSpellCooldown {
+    type Args<'a> = ();
+
+    fn write_options<W: std::io::prelude::Write + std::io::prelude::Seek>(
+        &self,
+        writer: &mut W,
+        endian: binrw::Endian,
+        args: Self::Args<'_>,
+    ) -> binrw::prelude::BinResult<()> {
+        self.spell_id.write_options(writer, endian, args)?;
+        self.cooldown_ms.write_options(writer, endian, args)?;
+        Ok(())
     }
 }

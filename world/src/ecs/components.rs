@@ -1,4 +1,5 @@
 pub mod behavior;
+pub mod cooldowns;
 pub mod guid;
 pub mod melee;
 pub mod movement;

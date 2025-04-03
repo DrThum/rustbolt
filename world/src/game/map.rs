@@ -22,6 +22,7 @@ use crate::{
     ecs::{
         components::{
             behavior::Behavior,
+            cooldowns::Cooldowns,
             guid::Guid,
             melee::Melee,
             movement::{Movement, MovementKind},
@@ -34,8 +35,8 @@ use crate::{
         },
         resources::DeltaTime,
         systems::{
-            behavior, combat, inventory, melee, movement, packets::process_packets, powers, spell,
-            unwind, updates,
+            behavior, combat, cooldown, inventory, melee, movement, packets::process_packets,
+            powers, spell, unwind, updates,
         },
     },
     entities::{
@@ -214,6 +215,7 @@ impl Map {
                 spell::update_spell,
                 updates::send_entity_update,
                 inventory::send_inventory_update,
+                cooldown::send_cooldowns,
             )
                 .into_workload()
         };
@@ -304,9 +306,10 @@ impl Map {
              mut vm_int_vals: ViewMut<WrappedInternalValues>,
              mut vm_player: ViewMut<Player>,
              mut vm_movement: ViewMut<Movement>,
-             (mut vm_spell, mut vm_nearby_players): (
+             (mut vm_spell, mut vm_nearby_players, mut vm_cooldowns): (
                 ViewMut<SpellCast>,
                 ViewMut<NearbyPlayers>,
+                ViewMut<Cooldowns>,
             )| {
                 let player = Player::load_from_db(
                     session.account_id,
@@ -351,8 +354,7 @@ impl Map {
                         &mut vm_int_vals,
                         &mut vm_player,
                         &mut vm_movement,
-                        &mut vm_spell,
-                        &mut vm_nearby_players,
+                        (&mut vm_spell, &mut vm_nearby_players, &mut vm_cooldowns),
                     ),
                     (
                         Guid::new(player_guid, player.internal_values.clone()),
@@ -390,8 +392,11 @@ impl Map {
                         WrappedInternalValues(player.internal_values.clone()),
                         player,
                         Movement::new(MovementKind::PlayerControlled),
-                        SpellCast::new(),
-                        NearbyPlayers::new(), // Player is always nearby a player
+                        (
+                            SpellCast::new(),
+                            NearbyPlayers::new(), // Player is always nearby a player
+                            Cooldowns::new(),
+                        ),
                     ),
                 );
                 session.set_player_entity_id(entity_id);

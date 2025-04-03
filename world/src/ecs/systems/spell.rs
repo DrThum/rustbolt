@@ -5,7 +5,8 @@ use shipyard::{AllStoragesViewMut, Get, IntoIter, IntoWithId, UniqueView, View, 
 use crate::{
     datastore::data_types::{MapRecord, SpellRecord},
     ecs::components::{
-        guid::Guid, nearby_players::NearbyPlayers, powers::Powers, spell_cast::SpellCast,
+        cooldowns::Cooldowns, guid::Guid, nearby_players::NearbyPlayers, powers::Powers,
+        spell_cast::SpellCast,
     },
     entities::player::Player,
     game::{
@@ -30,7 +31,8 @@ pub fn update_spell(vm_all_storages: AllStoragesViewMut) {
          spell_effect_handler: UniqueView<WrappedSpellEffectHandler>,
          mut vm_spell: ViewMut<SpellCast>,
          v_guid: View<Guid>,
-         v_nearby_players: View<NearbyPlayers>| {
+         v_nearby_players: View<NearbyPlayers>,
+         mut vm_cooldowns: ViewMut<Cooldowns>| {
             if !**has_players {
                 return;
             }
@@ -93,6 +95,13 @@ pub fn update_spell(vm_all_storages: AllStoragesViewMut) {
                             &map_record,
                             &vm_all_storages,
                         );
+
+                        if let Ok(mut cooldowns) = (&mut vm_cooldowns).get(caster_entity_id) {
+                            if let Some(cooldown_duration) = spell_record.cooldown() {
+                                cooldowns
+                                    .add_spell_cooldown(current_ranged.id(), cooldown_duration);
+                            }
+                        }
 
                         spell.clean();
                     }

@@ -12,7 +12,7 @@ use crate::{
 pub fn update_combat_state(
     v_player: View<Player>,
     has_players: UniqueView<HasPlayers>,
-    vm_unit: ViewMut<Unit>,
+    v_unit: View<Unit>,
     v_threat_list: View<ThreatList>,
     v_powers: View<Powers>,
 ) {
@@ -20,7 +20,7 @@ pub fn update_combat_state(
         return;
     }
 
-    for (player, unit, powers) in (&v_player, &vm_unit, &v_powers).iter() {
+    for (player, unit, powers) in (&v_player, &v_unit, &v_powers).iter() {
         if !powers.is_alive() {
             if unit.combat_state() {
                 unit.set_combat_state(false);
@@ -41,7 +41,7 @@ pub fn update_combat_state(
         }
     }
 
-    for (unit, threat_list, powers) in (&vm_unit, &v_threat_list, &v_powers).iter() {
+    for (unit, threat_list, powers) in (&v_unit, &v_threat_list, &v_powers).iter() {
         if !powers.is_alive() {
             if unit.combat_state() {
                 unit.set_combat_state(false);

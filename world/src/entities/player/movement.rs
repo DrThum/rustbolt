@@ -13,13 +13,15 @@ use crate::{
 use super::Player;
 
 impl Player {
-    pub fn teleport_to(&mut self, destination: &WorldPosition, force_far: bool) {
+    pub fn teleport_to(
+        &mut self,
+        destination: &WorldPosition,
+        force_far: bool,
+        v_wpos: View<WorldPosition>,
+        v_movement: View<Movement>,
+    ) {
         self.set_teleport_destination(*destination);
 
-        let Some(current_map) = self.session.current_map() else {
-            error!("teleport_to: player {:?} is not on a map", self.guid());
-            return;
-        };
         let Some(_destination_map) = self.world_context.map_manager.get_map(destination.map_key)
         else {
             error!(
@@ -29,16 +31,9 @@ impl Player {
             return;
         };
 
-        let (current_position, destination_movement_info) =
-            current_map
-                .world()
-                .run(|v_wpos: View<WorldPosition>, v_movement: View<Movement>| {
-                    (
-                        v_wpos[self.session.player_entity_id().unwrap()],
-                        v_movement[self.session.player_entity_id().unwrap()]
-                            .info(self.world_context.clone(), &destination.as_position()),
-                    )
-                });
+        let current_position = v_wpos[self.session.player_entity_id().unwrap()];
+        let destination_movement_info = v_movement[self.session.player_entity_id().unwrap()]
+            .info(self.world_context.clone(), &destination.as_position());
 
         /*
          * Near teleport is a teleport without a loading screen. It's used when the destination

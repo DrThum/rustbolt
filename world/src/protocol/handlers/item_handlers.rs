@@ -292,7 +292,7 @@ impl OpcodeHandler {
                           ..
                       }| {
             let mut targets = cmsg.targets.clone();
-            targets.update_internal_refs(map.clone());
+            targets.update_internal_refs(map.clone(), session.player_guid().unwrap());
 
             map.world().run(
                 |v_player: View<Player>,

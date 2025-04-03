@@ -15,7 +15,7 @@ use crate::{
         AbilityLearnType, ActionButtonType, CharacterClass, CharacterClassBit, CharacterRaceBit,
         CreatureRank, Expansion, GameObjectType, GossipMenuItemIcon, GossipMenuOptionType,
         InventorySlot, InventoryType, MapType, PlayerQuestStatus, PowerType, QuestFlag,
-        SkillCategory, SkillRangeType, SkillType, SpellEffect,
+        SkillCategory, SkillRangeType, SkillType, SpellEffect, SpellTargetType,
         FACTION_NUMBER_BASE_REPUTATION_MASKS, MAX_QUEST_CHOICE_REWARDS_COUNT,
         MAX_QUEST_OBJECTIVES_COUNT, MAX_QUEST_REWARDS_COUNT, MAX_QUEST_REWARDS_REPUT_COUNT,
         MAX_SPELL_EFFECTS, MAX_SPELL_REAGENTS, MAX_SPELL_TOTEMS, NPC_TEXT_EMOTE_COUNT,
@@ -598,8 +598,8 @@ pub struct SpellRecord {
     effect_real_points_per_level: [f32; MAX_SPELL_EFFECTS],
     effect_base_points: [i32; MAX_SPELL_EFFECTS],
     effect_mechanic: [u32; MAX_SPELL_EFFECTS],
-    effect_implicit_target_a: [u32; MAX_SPELL_EFFECTS],
-    effect_implicit_target_b: [u32; MAX_SPELL_EFFECTS],
+    pub effect_implicit_target_a: [SpellTargetType; MAX_SPELL_EFFECTS],
+    pub effect_implicit_target_b: [SpellTargetType; MAX_SPELL_EFFECTS],
     effect_radius_index: [u32; MAX_SPELL_EFFECTS], // SpellRadius.dbc
     effect_apply_aura_name: [u32; MAX_SPELL_EFFECTS],
     effect_amplitude: [u32; MAX_SPELL_EFFECTS],
@@ -825,14 +825,20 @@ impl DbcTypedRecord for SpellRecord {
                     record.fields[85].as_u32,
                 ],
                 effect_implicit_target_a: [
-                    record.fields[86].as_u32,
-                    record.fields[87].as_u32,
-                    record.fields[88].as_u32,
+                    SpellTargetType::n(record.fields[86].as_u32)
+                        .expect("invalid spell target type in EffectImplicitTargetA, effect 0"),
+                    SpellTargetType::n(record.fields[87].as_u32)
+                        .expect("invalid spell target type in EffectImplicitTargetA, effect 1"),
+                    SpellTargetType::n(record.fields[88].as_u32)
+                        .expect("invalid spell target type in EffectImplicitTargetA, effect 2"),
                 ],
                 effect_implicit_target_b: [
-                    record.fields[89].as_u32,
-                    record.fields[90].as_u32,
-                    record.fields[91].as_u32,
+                    SpellTargetType::n(record.fields[89].as_u32)
+                        .expect("invalid spell target type in EffectImplicitTargetB, effect 0"),
+                    SpellTargetType::n(record.fields[90].as_u32)
+                        .expect("invalid spell target type in EffectImplicitTargetB, effect 1"),
+                    SpellTargetType::n(record.fields[91].as_u32)
+                        .expect("invalid spell target type in EffectImplicitTargetB, effect 2"),
                 ],
                 effect_radius_index: [
                     record.fields[92].as_u32,

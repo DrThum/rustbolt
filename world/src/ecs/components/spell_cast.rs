@@ -75,7 +75,7 @@ impl SpellCast {
         spell_id: u32,
         targets: &mut SpellCastTargets,
     ) -> Result<SpellCastSuccess, SpellFailReason> {
-        targets.update_internal_refs(map.clone());
+        targets.update_internal_refs(map.clone(), *caster_guid);
 
         let Some(spell_record) = world_context.data_store.get_spell_record(spell_id) else {
             error!("SpellCast::cast_spell: unknown spell {}", spell_id);

@@ -71,7 +71,9 @@ fn setup_teleport_command() -> (&'static str, (Command, CommandHandler)) {
 
     fn handler(ctx: CommandContext, matches: ArgMatches) -> ChatCommandResult {
         ctx.map.world().run(
-            |mut vm_player: ViewMut<Player>, v_wpos: View<WorldPosition>| {
+            |mut vm_player: ViewMut<Player>,
+             v_wpos: View<WorldPosition>,
+             v_movement: View<Movement>| {
                 let player = &mut vm_player[ctx.my_entity_id];
                 let wpos = &mut v_wpos[ctx.my_entity_id].clone();
 
@@ -121,7 +123,7 @@ fn setup_teleport_command() -> (&'static str, (Command, CommandHandler)) {
                 };
 
                 let force_far = matches.get_one::<String>("type").unwrap() == "far";
-                player.teleport_to(wpos, force_far);
+                player.teleport_to(wpos, force_far, v_wpos, v_movement);
 
                 Ok(())
             },

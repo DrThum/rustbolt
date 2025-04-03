@@ -1,20 +1,23 @@
-use log::warn;
+use log::{error, warn};
 use shipyard::{Get, View, ViewMut};
 
 use crate::{
     datastore::data_types::GameObjectData,
-    ecs::components::unit::Unit,
+    ecs::components::{movement::Movement, unit::Unit},
     entities::{
         game_object::GameObject,
         player::{player_data::BindPoint, Player},
         position::WorldPosition,
     },
-    game::spell_effect_handler::{SpellEffectHandler, SpellEffectHandlerArgs},
+    game::{
+        map_manager::MapKey,
+        spell_effect_handler::{SpellEffectHandler, SpellEffectHandlerArgs},
+    },
     protocol::{
         packets::{LootResponseItem, SmsgBindpointUpdate, SmsgLootResponse, SmsgPlayerBound},
         server::ServerMessage,
     },
-    shared::constants::{LootSlotType, LootType, UnitFlags},
+    shared::constants::{LootSlotType, LootType, SpellTargetType, UnitFlags},
 };
 
 impl SpellEffectHandler {
@@ -136,5 +139,52 @@ impl SpellEffectHandler {
 
             player.session.send(&packet).unwrap();
         })
+    }
+
+    pub fn handle_effect_teleport_units(
+        SpellEffectHandlerArgs {
+            spell,
+            all_storages,
+            spell_record,
+            effect_index,
+            ..
+        }: SpellEffectHandlerArgs,
+    ) {
+        let target_type = match spell_record.effect_implicit_target_b[effect_index] {
+            SpellTargetType::None => spell_record.effect_implicit_target_a[effect_index],
+            other => other,
+        };
+
+        match target_type {
+            SpellTargetType::InnkeeperCoordinates => {
+                let vm_player = &mut all_storages.borrow::<ViewMut<Player>>().unwrap();
+                let Some(target_entity_id) = spell.unit_target() else {
+                    error!("handle_effect_teleport_units: spell has no unit target");
+                    return;
+                };
+
+                let Ok(player) = &mut vm_player.get(target_entity_id) else {
+                    error!("handle_effect_teleport_units: unit target is not a player");
+                    return;
+                };
+
+                let bindpoint = player.bindpoint();
+                let destination = WorldPosition {
+                    map_key: MapKey::for_continent(bindpoint.map_id),
+                    zone: 0, // TODO: get zone from terrain files
+                    x: bindpoint.x,
+                    y: bindpoint.y,
+                    z: bindpoint.z,
+                    o: bindpoint.o,
+                };
+
+                let v_wpos = all_storages.borrow::<View<WorldPosition>>().unwrap();
+                let v_movement = all_storages.borrow::<View<Movement>>().unwrap();
+                player.teleport_to(&destination, false, v_wpos, v_movement);
+            }
+            _ => warn!(
+                "handle_effect_teleport_units: target_type {target_type:?} not implemented yet"
+            ),
+        }
     }
 }

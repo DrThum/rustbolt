@@ -73,12 +73,13 @@ impl SpellCastTargets {
         Self::new(Some(unit_guid), None, None, None, None, None)
     }
 
-    pub fn update_internal_refs(&mut self, map: Arc<Map>) {
+    pub fn update_internal_refs(&mut self, map: Arc<Map>, caster_guid: ObjectGuid) {
         self.is_initialized = true;
 
         if self.is_target_self {
             self.unit_entity_id = self
                 .unit_guid
+                .or(Some(caster_guid))
                 .and_then(|unit_guid| map.lookup_entity_ecs(&unit_guid));
 
             if self.unit_entity_id.is_none() {

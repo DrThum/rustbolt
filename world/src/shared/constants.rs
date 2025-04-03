@@ -1013,6 +1013,7 @@ impl SpellEffect {
     pub fn is_positive(&self) -> bool {
         match self {
             Self::SchoolDamage => false,
+            Self::TeleportUnits => true,
             Self::Heal => true,
             Self::Bind => true,
             Self::CreateItem => true,
@@ -1027,6 +1028,94 @@ impl SpellEffect {
     pub fn is_negative(&self) -> bool {
         !self.is_positive()
     }
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Copy, Clone, N)]
+pub enum SpellTargetType {
+    None = 0,
+    TargetSelf = 1,
+    RandomEnemyChainInArea = 2, // only one spell has that, but regardless, it's a target type after all
+    RandomFriendChainInArea = 3,
+    RandomUnitChainInArea = 4, // some plague spells that are infectious - maybe targets not-infected friends inrange
+    Pet = 5,
+    ChainDamage = 6,
+    AreaeffectInstant = 7, // targets around provided destination point
+    AreaeffectCustom = 8,
+    InnkeeperCoordinates = 9, // uses in teleport to innkeeper spells
+    Unk11 = 11,               // used by spell 4 'Word of Recall Other'
+    AllEnemyInArea = 15,
+    AllEnemyInAreaInstant = 16,
+    TableXYZCoordinates = 17, // uses in teleport spells and some other
+    EffectSelect = 18,        // highly depends on the spell effect
+    AllPartyAroundCaster = 20,
+    SingleFriend = 21,
+    CasterCoordinates = 22, // used only in TargetA, target selection dependent from TargetB
+    Gameobject = 23,
+    InFrontOfCaster = 24,
+    Duelvsplayer = 25,
+    GameobjectItem = 26,
+    Master = 27,
+    AllEnemyInAreaChanneled = 28,
+    Unk29 = 29,
+    AllFriendlyUnitsAroundCaster = 30, // select friendly for caster object faction (in different original caster faction) in TargetB used only with TARGET_ALL_AROUND_CASTER and in self casting range in TargetA
+    AllFriendlyUnitsInArea = 31,
+    Minion = 32,
+    AllParty = 33,
+    AllPartyAroundCaster2 = 34, // used in Tranquility
+    SingleParty = 35,
+    AllHostileUnitsAroundCaster = 36,
+    AreaeffectParty = 37,
+    Script = 38,
+    SelfFishing = 39,
+    FocusOrScriptedGameobject = 40,
+    TotemEarth = 41,
+    TotemWater = 42,
+    TotemAir = 43,
+    TotemFire = 44,
+    ChainHeal = 45,
+    ScriptCoordinates = 46,
+    DynamicObjectFront = 47,
+    DynamicObjectBehind = 48,
+    DynamicObjectLeftSide = 49,
+    DynamicObjectRightSide = 50,
+    AreaeffectGoAroundSource = 51,
+    AreaeffectGoAroundDest = 52, // gameobject around destination, select by spell_script_target
+    CurrentEnemyCoordinates = 53, // set unit coordinates as dest, only 16 target B imlemented
+    LargeFrontalCone = 54,
+    Unk55 = 55,
+    AllRaidAroundCaster = 56,
+    SingleFriend2 = 57,
+    Unk58 = 58,
+    Unk59 = 59,
+    NarrowFrontalCone = 60,
+    AreaeffectPartyAndClass = 61,
+    Unk62 = 62,
+    DuelvsplayerCoordinates = 63,
+    InfrontOfVictim = 64,
+    BehindVictim = 65, // used in teleport behind spells, caster/target dependent from spell effect
+    RightFromVictim = 66,
+    LeftFromVictim = 67,
+    Unk70 = 70,
+    RandomNearbyLoc = 72, // used in teleport onto nearby locations
+    RandomCircumferencePoint = 73,
+    Unk74 = 74,
+    Unk75 = 75,
+    DynamicObjectCoordinates = 76,
+    SingleEnemy = 77,
+    PointAtNorth = 78, // 78-85 possible _COORDINATES at radius with pi/4 step around target in unknown order, N?
+    PointAtSouth = 79, // S?
+    PointAtEast = 80, // 80/81 must be symmetric from line caster->target, E (base at 82/83, 84/85 order) ?
+    PointAtWest = 81, // 80/81 must be symmetric from line caster->target, W (base at 82/83, 84/85 order) ?
+    PointAtNe = 82,   // from spell desc: "(NE)"
+    PointAtNw = 83,   // from spell desc: "(NW)"
+    PointAtSe = 84,   // from spell desc: "(SE)"
+    PointAtSw = 85,   // from spell desc: "(SW)"
+    RandomNearbyDest = 86, // "Test Nearby Dest Random" - random around selected destination
+    Self2 = 87,
+    Unk88 = 88, // Smoke Flare(s) and Hurricane
+    NoncombatPet = 90,
+    Unk93 = 93,
 }
 
 #[allow(dead_code)]

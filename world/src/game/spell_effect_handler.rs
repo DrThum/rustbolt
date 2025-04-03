@@ -44,6 +44,10 @@ impl SpellEffectHandler {
                     SpellEffect::SchoolDamage,
                     SpellEffectHandler::handle_effect_school_damage
                 ),
+                define_handler!(
+                    SpellEffect::TeleportUnits,
+                    SpellEffectHandler::handle_effect_teleport_units
+                ),
                 define_handler!(SpellEffect::Heal, SpellEffectHandler::handle_effect_heal),
                 define_handler!(
                     SpellEffect::OpenLock,

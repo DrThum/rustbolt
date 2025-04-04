@@ -390,6 +390,11 @@ impl WorldSession {
                     return None;
                 };
 
+                // Ignore expired cooldowns
+                if cooldown.end < std::time::SystemTime::now() {
+                    return None;
+                }
+
                 let cooldown_in_ms = cooldown
                     .end
                     .duration_since(std::time::SystemTime::now())

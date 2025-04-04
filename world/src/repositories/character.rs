@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, sync::Arc, time::SystemTime};
 
 use r2d2::PooledConnection;
 use r2d2_sqlite::SqliteConnectionManager;
@@ -114,6 +114,23 @@ impl CharacterRepository {
             InventorySlot::EquipmentRanged => InventoryType::Ranged,
             InventorySlot::EquipmentTabard => InventoryType::Tabard,
         }
+    }
+
+    pub fn fetch_spell_cooldowns(
+        conn: &PooledConnection<SqliteConnectionManager>,
+        guid: u64,
+    ) -> HashMap<u32, u64> {
+        let mut stmt = conn.prepare_cached("SELECT spell_id, cooldown_end_timestamp FROM character_spell_cooldowns WHERE character_guid = :guid").unwrap();
+        let rows = stmt
+            .query_map(named_params! { ":guid": guid }, |row| {
+                let spell_id: u32 = row.get("spell_id").unwrap();
+                let timestamp: u64 = row.get("cooldown_end_timestamp").unwrap();
+
+                Ok((spell_id, timestamp))
+            })
+            .unwrap();
+
+        rows.filter_map(|r| r.ok()).collect()
     }
 
     pub fn fetch_characters(
@@ -597,7 +614,12 @@ impl CharacterRepository {
             .unwrap();
         stmt.execute(named_params! {":guid": guid})?;
 
+        let now = SystemTime::now();
         for (spell_id, cooldown) in cooldowns.list() {
+            if cooldown.end < now {
+                continue; // Skip expired cooldowns
+            }
+
             let mut stmt = transaction.prepare_cached("INSERT INTO character_spell_cooldowns(character_guid, spell_id, cooldown_end_timestamp) VALUES (:guid, :spell_id, :timestamp)").unwrap();
             stmt.execute(named_params! {
                 ":guid": guid,

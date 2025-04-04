@@ -11,14 +11,22 @@ pub struct Cooldowns {
 }
 
 impl Cooldowns {
-    pub fn new() -> Self {
-        Self {
-            spell_cooldowns: HashMap::new(),
+    pub fn new(existing_cooldowns: HashMap<u32, SystemTime>) -> Self {
+        let mut spell_cooldowns = HashMap::new();
+        for (spell_id, end) in existing_cooldowns {
+            spell_cooldowns.insert(
+                spell_id,
+                SpellCooldown {
+                    end,
+                    synced_with_client: true, // Mark the cooldowns as synced with the client because they are sent in SMSG_INITIAL_SPELLS
+                },
+            );
         }
+
+        Self { spell_cooldowns }
     }
 
     pub fn add_spell_cooldown(&mut self, spell_id: u32, cooldown: Duration) {
-        println!("add_spell_cooldown {:?}", SystemTime::now() + cooldown);
         self.spell_cooldowns.insert(
             spell_id,
             SpellCooldown {
@@ -35,10 +43,9 @@ impl Cooldowns {
     pub fn list(&self) -> impl Iterator<Item = (&u32, &SpellCooldown)> {
         self.spell_cooldowns.iter()
     }
-
-    // TODO: handle spell categories (add a cooldown for all spells of a given category)
 }
 
+// TODO: Add item_id: Option<u32>
 pub struct SpellCooldown {
     pub end: SystemTime,
     pub synced_with_client: bool,

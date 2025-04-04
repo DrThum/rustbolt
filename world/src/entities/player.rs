@@ -279,6 +279,23 @@ impl Player {
         transaction.commit()
     }
 
+    pub fn load_spell_cooldowns_from_db(
+        guid: u64,
+        world_context: Arc<WorldContext>,
+    ) -> HashMap<u32, SystemTime> {
+        let conn = world_context.database.characters.get().unwrap();
+        let spell_cooldowns = CharacterRepository::fetch_spell_cooldowns(&conn, guid);
+        spell_cooldowns
+            .into_iter()
+            .map(|(id, end)| {
+                (
+                    id,
+                    SystemTime::UNIX_EPOCH + Duration::from_millis(end as u64),
+                )
+            })
+            .collect()
+    }
+
     pub fn load_from_db(
         account_id: u32,
         guid: u64,

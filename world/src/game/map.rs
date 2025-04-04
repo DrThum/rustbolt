@@ -317,6 +317,10 @@ impl Map {
                     self.world_context.clone(),
                     session.clone(),
                 );
+                let spell_cooldowns = Player::load_spell_cooldowns_from_db(
+                    char_data.guid,
+                    self.world_context.clone(),
+                );
 
                 let base_health_mana_record = self
                     .world_context
@@ -395,7 +399,7 @@ impl Map {
                         (
                             SpellCast::new(),
                             NearbyPlayers::new(), // Player is always nearby a player
-                            Cooldowns::new(),
+                            Cooldowns::new(spell_cooldowns),
                         ),
                     ),
                 );
@@ -480,11 +484,12 @@ impl Map {
             .run(|v_wpos: View<WorldPosition>| v_wpos[player_entity_id].clone())
             .as_position();
 
-        self.world()
-            .run(|v_player: View<Player>, v_movement: View<Movement>| {
+        self.world().run(
+            |v_player: View<Player>, v_movement: View<Movement>, v_cooldowns: View<Cooldowns>| {
                 let player = v_player.get(player_entity_id).unwrap();
+                let spell_cooldowns = v_cooldowns.get(player_entity_id).unwrap();
 
-                session.send_initial_spells(player);
+                session.send_initial_spells(player, spell_cooldowns, self.world_context.clone());
                 session.send_initial_action_buttons(player);
                 session.send_initial_reputations(player);
 
@@ -499,7 +504,8 @@ impl Map {
                 let smsg_create_object = player.build_create_object(movement, true);
 
                 session.create_entity(&player_guid, smsg_create_object);
-            });
+            },
+        );
 
         self.spatial_grid.insert(player_position, player_entity_id);
 

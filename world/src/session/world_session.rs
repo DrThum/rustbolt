@@ -37,10 +37,11 @@ use crate::{
         client::ClientMessage,
         opcodes::Opcode,
         packets::{
-            FactionInit, MovementInfo, SmsgActionButtons, SmsgAttackStop, SmsgBindpointUpdate,
-            SmsgCreateObject, SmsgDestroyObject, SmsgGossipComplete, SmsgInitWorldStates,
-            SmsgInitialSpells, SmsgInitializeFactions, SmsgLoginSetTimeSpeed, SmsgMessageChat,
-            SmsgSetRestStart, SmsgTimeSyncReq, SmsgTutorialFlags, SmsgUpdateObject,
+            FactionInit, InitialSpellCooldown, MovementInfo, SmsgActionButtons, SmsgAttackStop,
+            SmsgBindpointUpdate, SmsgCreateObject, SmsgDestroyObject, SmsgGossipComplete,
+            SmsgInitWorldStates, SmsgInitialSpells, SmsgInitializeFactions, SmsgLoginSetTimeSpeed,
+            SmsgMessageChat, SmsgSetRestStart, SmsgTimeSyncReq, SmsgTutorialFlags,
+            SmsgUpdateObject,
         },
         server::{ServerMessage, ServerMessageHeader, ServerMessagePayload},
     },
@@ -374,9 +375,45 @@ impl WorldSession {
         self.current_map.write().replace(map);
     }
 
-    pub fn send_initial_spells(&self, player: &Player) {
+    pub fn send_initial_spells(
+        &self,
+        player: &Player,
+        cooldowns: &Cooldowns,
+        world_context: Arc<WorldContext>,
+    ) {
         let spells: Vec<u32> = player.spells().to_vec();
-        let packet = ServerMessage::new(SmsgInitialSpells::new(spells, Vec::new() /* TODO */));
+        let cooldowns: Vec<InitialSpellCooldown> = cooldowns
+            .list()
+            .filter_map(|(spell_id, cooldown)| {
+                let Some(spell_record) = world_context.data_store.get_spell_record(*spell_id)
+                else {
+                    return None;
+                };
+
+                let cooldown_in_ms = cooldown
+                    .end
+                    .duration_since(std::time::SystemTime::now())
+                    .unwrap()
+                    .as_millis() as u32;
+
+                Some(InitialSpellCooldown {
+                    spell_id: *spell_id as u16,
+                    cast_item_id: 0, // TODO
+                    spell_category: spell_record.category as u16,
+                    cooldown_millis: if spell_record.category == 0 {
+                        cooldown_in_ms
+                    } else {
+                        0
+                    },
+                    category_cooldown: if spell_record.category == 0 {
+                        0
+                    } else {
+                        cooldown_in_ms
+                    },
+                })
+            })
+            .collect();
+        let packet = ServerMessage::new(SmsgInitialSpells::new(spells, cooldowns));
         self.send(&packet).unwrap();
     }
 

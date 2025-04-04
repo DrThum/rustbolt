@@ -66,6 +66,7 @@ pub struct DataStore {
     map: DbcStore<MapRecord>,
     emotes_text: DbcStore<EmotesTextRecord>,
     spell: DbcStore<SpellRecord>,
+    spells_by_category: HashMap<u32, Vec<u32>>,
     spell_duration: DbcStore<SpellDurationRecord>,
     spell_cast_times: DbcStore<SpellCastTimeRecord>,
     skill_line: DbcStore<SkillLineRecord>,
@@ -133,6 +134,7 @@ impl DataStore {
         let map = parse_dbc!(config.common.data.directory, "Map");
         let emotes_text = parse_dbc!(config.common.data.directory, "EmotesText");
         let spell = parse_dbc!(config.common.data.directory, "Spell");
+        let spells_by_category = Self::build_spells_by_category_index(&spell);
         let spell_duration = parse_dbc!(config.common.data.directory, "SpellDuration");
         let spell_cast_times = parse_dbc!(config.common.data.directory, "SpellCastTimes");
         let skill_line = parse_dbc!(config.common.data.directory, "SkillLine");
@@ -361,6 +363,7 @@ impl DataStore {
             map,
             emotes_text,
             spell,
+            spells_by_category,
             spell_duration,
             spell_cast_times,
             skill_line,
@@ -428,6 +431,10 @@ impl DataStore {
 
     pub fn get_spell_record(&self, id: u32) -> Option<&SpellRecord> {
         self.spell.get(&id)
+    }
+
+    pub fn get_spells_by_category(&self, category: u32) -> Option<&Vec<u32>> {
+        self.spells_by_category.get(&category)
     }
 
     pub fn get_spell_duration_record(&self, id: u32) -> Option<&SpellDurationRecord> {
@@ -636,5 +643,22 @@ impl DataStore {
 
     pub fn get_gtRegenMPPerSpt(&self, index: usize) -> Option<&GameTableRegenMPPerSptRecord> {
         self.gt_RegenMPPerSpt.get(index)
+    }
+
+    fn build_spells_by_category_index(
+        spells: &HashMap<u32, SpellRecord>,
+    ) -> HashMap<u32, Vec<u32>> {
+        let mut spells_by_category: HashMap<u32, Vec<u32>> = HashMap::new();
+
+        for (id, spell) in spells.iter() {
+            if spell.category != 0 {
+                spells_by_category
+                    .entry(spell.category)
+                    .or_insert_with(Vec::new)
+                    .push(*id);
+            }
+        }
+
+        spells_by_category
     }
 }

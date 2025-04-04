@@ -1,6 +1,6 @@
 use std::{
     collections::HashMap,
-    time::{Duration, Instant},
+    time::{Duration, SystemTime},
 };
 
 use shipyard::Component;
@@ -18,23 +18,28 @@ impl Cooldowns {
     }
 
     pub fn add_spell_cooldown(&mut self, spell_id: u32, cooldown: Duration) {
+        println!("add_spell_cooldown {:?}", SystemTime::now() + cooldown);
         self.spell_cooldowns.insert(
             spell_id,
             SpellCooldown {
-                end: Instant::now() + cooldown,
+                end: SystemTime::now() + cooldown,
                 synced_with_client: false,
             },
         );
     }
 
-    pub fn list_mut(&mut self) -> HashMap<&u32, &mut SpellCooldown> {
-        self.spell_cooldowns.iter_mut().collect()
+    pub fn list_mut(&mut self) -> impl Iterator<Item = (&u32, &mut SpellCooldown)> {
+        self.spell_cooldowns.iter_mut()
+    }
+
+    pub fn list(&self) -> impl Iterator<Item = (&u32, &SpellCooldown)> {
+        self.spell_cooldowns.iter()
     }
 
     // TODO: handle spell categories (add a cooldown for all spells of a given category)
 }
 
 pub struct SpellCooldown {
-    pub end: Instant,
+    pub end: SystemTime,
     pub synced_with_client: bool,
 }

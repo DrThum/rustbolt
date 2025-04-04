@@ -1,4 +1,4 @@
-use std::time::Instant;
+use std::time::SystemTime;
 
 use shipyard::{IntoIter, View, ViewMut};
 
@@ -17,17 +17,17 @@ pub fn send_cooldowns(
     mut vm_cooldowns: ViewMut<Cooldowns>,
 ) {
     for (player, guid, cooldowns) in (&v_player, &v_guid, &mut vm_cooldowns).iter() {
-        let now = Instant::now();
+        let now = SystemTime::now();
 
         let mut client_cooldowns: Vec<ClientSpellCooldown> = Vec::new();
-        for (&spell_id, spell_cooldown) in cooldowns.list_mut().iter_mut() {
+        for (&spell_id, spell_cooldown) in cooldowns.list_mut() {
             if spell_cooldown.synced_with_client {
                 continue;
             }
 
             client_cooldowns.push(ClientSpellCooldown {
-                spell_id: *spell_id,
-                cooldown_ms: spell_cooldown.end.duration_since(now).as_millis() as u32,
+                spell_id,
+                cooldown_ms: spell_cooldown.end.duration_since(now).unwrap().as_millis() as u32,
             });
 
             spell_cooldown.synced_with_client = true;

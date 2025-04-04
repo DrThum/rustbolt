@@ -542,7 +542,7 @@ pub struct CreatureTemplate {
 #[derive(Debug, Clone)]
 pub struct SpellRecord {
     id: u32,
-    category: u32,
+    pub category: u32,
     // castUI: u32
     dispel_type: u32,
     mechanic: u32,
@@ -624,8 +624,8 @@ pub struct SpellRecord {
     // ToolTip: String,
     // ToolTipFlags: u32
     mana_cost_percentage: u32,
-    start_recovery_category: u32,
-    start_recovery_time: u32,
+    start_recovery_category: u32, // Global cooldown
+    start_recovery_time: u32,     // Global cooldown
     max_target_level: u32,
     spell_family_name: u32,
     spell_family_flags: u64,
@@ -687,10 +687,23 @@ impl SpellRecord {
             .map(|rec| rec.base)
     }
 
+    /**
+     * Returns the cooldown of the spell, falling back to the category cooldown if the spell
+     * doesn't have a specific cooldown but does have a category cooldown.
+     * If the spell has no specific nor category cooldown, returns None.
+     */
     pub fn cooldown(&self) -> Option<Duration> {
-        match self.recovery_time {
+        match (self.recovery_time, self.category_recovery_time) {
+            (0, 0) => None,
+            (0, _) => Some(Duration::from_millis(self.category_recovery_time as u64)),
+            (rt, _) => Some(Duration::from_millis(rt as u64)),
+        }
+    }
+
+    pub fn category_cooldown(&self) -> Option<(u32, Duration)> {
+        match self.category_recovery_time {
             0 => None,
-            rt => Some(Duration::from_millis(rt as u64)),
+            crt => Some((self.category, Duration::from_millis(crt as u64))),
         }
     }
 

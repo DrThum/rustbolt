@@ -99,8 +99,11 @@ pub fn update_spell(vm_all_storages: AllStoragesViewMut) {
                         if let Ok(mut cooldowns) = (&mut vm_cooldowns).get(caster_entity_id) {
                             // Add specific spell cooldown
                             if let Some(cooldown_duration) = spell_record.cooldown() {
-                                cooldowns
-                                    .add_spell_cooldown(current_ranged.id(), cooldown_duration);
+                                cooldowns.add_spell_cooldown(
+                                    current_ranged.id(),
+                                    cooldown_duration,
+                                    current_ranged.cast_from_item_id(),
+                                );
                             }
 
                             // Add this spell's category cooldown to every other spell in the same category
@@ -118,6 +121,7 @@ pub fn update_spell(vm_all_storages: AllStoragesViewMut) {
                                         cooldowns.add_spell_cooldown(
                                             *spell_id_from_category,
                                             category_cooldown,
+                                            current_ranged.cast_from_item_id(),
                                         );
                                     }
                                 }

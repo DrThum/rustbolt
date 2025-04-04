@@ -119,14 +119,15 @@ impl CharacterRepository {
     pub fn fetch_spell_cooldowns(
         conn: &PooledConnection<SqliteConnectionManager>,
         guid: u64,
-    ) -> HashMap<u32, u64> {
-        let mut stmt = conn.prepare_cached("SELECT spell_id, cooldown_end_timestamp FROM character_spell_cooldowns WHERE character_guid = :guid").unwrap();
+    ) -> HashMap<u32, (Option<u32>, u64)> {
+        let mut stmt = conn.prepare_cached("SELECT spell_id, item_id, cooldown_end_timestamp FROM character_spell_cooldowns WHERE character_guid = :guid").unwrap();
         let rows = stmt
             .query_map(named_params! { ":guid": guid }, |row| {
                 let spell_id: u32 = row.get("spell_id").unwrap();
+                let item_id: Option<u32> = row.get("item_id").unwrap();
                 let timestamp: u64 = row.get("cooldown_end_timestamp").unwrap();
 
-                Ok((spell_id, timestamp))
+                Ok((spell_id, (item_id, timestamp)))
             })
             .unwrap();
 
@@ -620,10 +621,11 @@ impl CharacterRepository {
                 continue; // Skip expired cooldowns
             }
 
-            let mut stmt = transaction.prepare_cached("INSERT INTO character_spell_cooldowns(character_guid, spell_id, cooldown_end_timestamp) VALUES (:guid, :spell_id, :timestamp)").unwrap();
+            let mut stmt = transaction.prepare_cached("INSERT INTO character_spell_cooldowns(character_guid, spell_id, item_id, cooldown_end_timestamp) VALUES (:guid, :spell_id, :item_id, :timestamp)").unwrap();
             stmt.execute(named_params! {
                 ":guid": guid,
                 ":spell_id": spell_id,
+                ":item_id": cooldown.item_id,
                 ":timestamp": cooldown.end.duration_since(std::time::UNIX_EPOCH).unwrap().as_millis() as i64,
             })?;
         }

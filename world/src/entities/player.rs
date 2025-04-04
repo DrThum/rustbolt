@@ -16,6 +16,7 @@ use strum::IntoEnumIterator;
 
 use crate::{
     datastore::data_types::PlayerCreatePosition,
+    ecs::components::cooldowns::SpellCooldown,
     entities::player::player_data::FactionStanding,
     game::world_context::WorldContext,
     protocol::packets::{CmsgCharCreate, SmsgCreateObject},
@@ -282,15 +283,19 @@ impl Player {
     pub fn load_spell_cooldowns_from_db(
         guid: u64,
         world_context: Arc<WorldContext>,
-    ) -> HashMap<u32, SystemTime> {
+    ) -> HashMap<u32, SpellCooldown> {
         let conn = world_context.database.characters.get().unwrap();
         let spell_cooldowns = CharacterRepository::fetch_spell_cooldowns(&conn, guid);
         spell_cooldowns
             .into_iter()
-            .map(|(id, end)| {
+            .map(|(id, (item_id, end))| {
                 (
                     id,
-                    SystemTime::UNIX_EPOCH + Duration::from_millis(end as u64),
+                    SpellCooldown {
+                        end: SystemTime::UNIX_EPOCH + Duration::from_millis(end as u64),
+                        item_id,
+                        synced_with_client: true, // Mark the cooldowns as synced with the client because they are sent in SMSG_INITIAL_SPELLS
+                    },
                 )
             })
             .collect()

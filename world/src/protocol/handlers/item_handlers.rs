@@ -353,6 +353,7 @@ impl OpcodeHandler {
 
                     vm_spell[player_entity_id].set_current_ranged(
                         spell_id,
+                        Some(item_template.entry),
                         spell_base_cast_time,
                         player_entity_id,
                         session.player_guid().unwrap(),

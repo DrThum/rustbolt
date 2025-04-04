@@ -45,6 +45,7 @@ impl SpellCast {
     pub fn set_current_ranged(
         &mut self,
         spell_id: u32,
+        cast_from_item_id: Option<u32>,
         duration: Duration,
         caster_entity_id: EntityId,
         caster_guid: ObjectGuid,
@@ -54,6 +55,7 @@ impl SpellCast {
     ) {
         self.current_ranged = Some(Arc::new(Spell::new(
             spell_id,
+            cast_from_item_id,
             caster_entity_id,
             caster_guid,
             unit_target,
@@ -110,6 +112,7 @@ impl SpellCast {
                 );
                 vm_spell[caster_entity_id].set_current_ranged(
                     spell_id,
+                    None,
                     spell_base_cast_time,
                     caster_entity_id,
                     *caster_guid,

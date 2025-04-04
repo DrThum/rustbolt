@@ -4,6 +4,7 @@ use crate::entities::object_guid::ObjectGuid;
 
 pub struct Spell {
     id: u32,
+    cast_from_item_id: Option<u32>,
     caster_entity_id: EntityId,
     caster_guid: ObjectGuid,
     unit_target: Option<EntityId>,
@@ -15,6 +16,7 @@ pub struct Spell {
 impl Spell {
     pub fn new(
         id: u32,
+        cast_from_item_id: Option<u32>,
         caster_entity_id: EntityId,
         caster_guid: ObjectGuid,
         unit_target: Option<EntityId>,
@@ -23,6 +25,7 @@ impl Spell {
     ) -> Self {
         Self {
             id,
+            cast_from_item_id,
             caster_entity_id,
             caster_guid,
             unit_target,
@@ -33,6 +36,10 @@ impl Spell {
 
     pub fn id(&self) -> u32 {
         self.id
+    }
+
+    pub fn cast_from_item_id(&self) -> Option<u32> {
+        self.cast_from_item_id
     }
 
     pub fn unit_target(&self) -> Option<EntityId> {

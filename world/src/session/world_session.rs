@@ -26,7 +26,7 @@ use tokio::{
 use wow_srp::tbc_header::HeaderCrypto;
 
 use crate::{
-    ecs::components::powers::Powers,
+    ecs::components::{cooldowns::Cooldowns, powers::Powers},
     entities::{
         object_guid::ObjectGuid,
         player::{player_data::BindPoint, Player},
@@ -178,7 +178,8 @@ impl WorldSession {
                 map.world().run(
                     |mut vm_player: ViewMut<Player>,
                      v_wpos: View<WorldPosition>,
-                     v_powers: View<Powers>| {
+                     v_powers: View<Powers>,
+                     v_cooldowns: View<Cooldowns>| {
                         let transaction = conn.transaction().unwrap();
 
                         CharacterRepository::save_to_db(
@@ -186,6 +187,7 @@ impl WorldSession {
                             &mut vm_player[entity_id],
                             &v_powers[entity_id],
                             &v_wpos[entity_id],
+                            &v_cooldowns[entity_id],
                         )
                         .unwrap();
                         transaction.commit().unwrap();

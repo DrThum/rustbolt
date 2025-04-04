@@ -9,7 +9,7 @@ use crate::{
         data_types::{ItemRecord, PlayerCreatePosition},
         DataStore,
     },
-    ecs::components::powers::Powers,
+    ecs::components::{cooldowns::Cooldowns, powers::Powers},
     entities::{
         object_guid::ObjectGuid,
         player::{
@@ -500,6 +500,7 @@ impl CharacterRepository {
         player: &mut Player,
         powers: &Powers,
         position: &WorldPosition,
+        cooldowns: &Cooldowns,
     ) -> Result<(), Error> {
         let guid = player.guid().counter();
 
@@ -589,6 +590,21 @@ impl CharacterRepository {
         }
 
         player.inventory_mut().mark_saved();
+
+        // Save spell cooldowns
+        let mut stmt = transaction
+            .prepare_cached("DELETE FROM character_spell_cooldowns WHERE character_guid = :guid")
+            .unwrap();
+        stmt.execute(named_params! {":guid": guid})?;
+
+        for (spell_id, cooldown) in cooldowns.list() {
+            let mut stmt = transaction.prepare_cached("INSERT INTO character_spell_cooldowns(character_guid, spell_id, cooldown_end_timestamp) VALUES (:guid, :spell_id, :timestamp)").unwrap();
+            stmt.execute(named_params! {
+                ":guid": guid,
+                ":spell_id": spell_id,
+                ":timestamp": cooldown.end.duration_since(std::time::UNIX_EPOCH).unwrap().as_millis() as i64,
+            })?;
+        }
 
         Ok(())
     }

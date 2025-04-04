@@ -58,10 +58,13 @@ impl CharacterRepository {
         let mut stmt_create = transaction.prepare_cached(
             "INSERT INTO characters
             (guid, account_id, name, race, class, gender, skin, face, hairstyle, haircolor, facialstyle,
-            map_id, zone_id, position_x, position_y, position_z, orientation, current_health, current_mana)
+            map_id, zone_id, position_x, position_y, position_z, orientation, current_health, current_mana,
+            bindpoint_map_id, bindpoint_area_id, bindpoint_position_x, bindpoint_position_y, bindpoint_position_z,
+            bindpoint_orientation)
             VALUES
             (NULL, :account_id, :name, :race, :class, :gender, :skin, :face, :hairstyle, :haircolor, :facialstyle,
-            :map, :zone, :x, :y, :z, :o, :current_health, :current_mana)
+            :map, :zone, :x, :y, :z, :o, :current_health, :current_mana, :bindpoint_map_id, :bindpoint_area_id,
+            :bindpoint_position_x, :bindpoint_position_y, :bindpoint_position_z, :bindpoint_orientation)
             ").unwrap();
         stmt_create
             .execute(named_params! {
@@ -83,6 +86,12 @@ impl CharacterRepository {
                 ":o": create_position.o,
                 ":current_health": health,
                 ":current_mana": mana,
+                ":bindpoint_map_id": create_position.map,
+                ":bindpoint_area_id": create_position.zone,
+                ":bindpoint_position_x": create_position.x,
+                ":bindpoint_position_y": create_position.y,
+                ":bindpoint_position_z": create_position.z,
+                ":bindpoint_orientation": create_position.o,
             })
             .unwrap();
 

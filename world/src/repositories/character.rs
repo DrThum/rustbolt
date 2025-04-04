@@ -54,7 +54,7 @@ impl CharacterRepository {
         create_position: &PlayerCreatePosition,
         health: u32,
         mana: u32,
-    ) -> u64 {
+    ) -> u32 {
         let mut stmt_create = transaction.prepare_cached(
             "INSERT INTO characters
             (guid, account_id, name, race, class, gender, skin, face, hairstyle, haircolor, facialstyle,
@@ -95,7 +95,7 @@ impl CharacterRepository {
             })
             .unwrap();
 
-        transaction.last_insert_rowid() as u64
+        transaction.last_insert_rowid() as u32
     }
 
     // Note: don't use it for anything else than char enum, it's incomplete
@@ -411,7 +411,7 @@ impl CharacterRepository {
 
     pub fn add_item_to_inventory(
         transaction: &Transaction,
-        character_guid: u64,
+        character_guid: u32,
         item_guid: u32,
         slot: u32,
     ) {
@@ -424,7 +424,7 @@ impl CharacterRepository {
         .unwrap();
     }
 
-    pub fn add_spell_offline(transaction: &Transaction, character_guid: u64, spell_id: u32) {
+    pub fn add_spell_offline(transaction: &Transaction, character_guid: u32, spell_id: u32) {
         let mut stmt = transaction.prepare_cached("INSERT INTO character_spells(character_guid, spell_id) VALUES (:character_guid, :spell_id)").unwrap();
         stmt.execute(named_params! {
             ":character_guid": character_guid,
@@ -435,7 +435,7 @@ impl CharacterRepository {
 
     pub fn add_skill_offline(
         transaction: &Transaction,
-        character_guid: u64,
+        character_guid: u32,
         skill_id: u32,
         value: u32,
         max_value: u32,
@@ -453,7 +453,7 @@ impl CharacterRepository {
 
     pub fn add_action(
         transaction: &Transaction,
-        character_guid: u64,
+        character_guid: u32,
         position: u32,
         action_type: ActionButtonType,
         action_value: u32,
@@ -471,7 +471,7 @@ impl CharacterRepository {
 
     pub fn add_reputation_offline(
         transaction: &Transaction,
-        character_guid: u64,
+        character_guid: u32,
         faction_id: u32,
         standing: i32,
         flags: u32,
@@ -637,6 +637,21 @@ impl CharacterRepository {
                 ":item_id": cooldown.item_id,
                 ":timestamp": cooldown.end.duration_since(std::time::UNIX_EPOCH).unwrap().as_millis() as i64,
             })?;
+        }
+
+        // Save action buttons
+        let mut stmt = transaction
+            .prepare_cached("DELETE FROM character_action_buttons WHERE character_guid = :guid")
+            .unwrap();
+        stmt.execute(named_params! {":guid": guid})?;
+        for (_, action) in player.action_buttons() {
+            Self::add_action(
+                transaction,
+                guid,
+                action.position,
+                action.action_type,
+                action.action_value,
+            );
         }
 
         Ok(())

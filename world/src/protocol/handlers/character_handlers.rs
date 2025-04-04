@@ -1,16 +1,17 @@
 use binrw::NullString;
-use shipyard::ViewMut;
+use shipyard::{Get, ViewMut};
 
 use crate::ecs::components::melee::Melee;
 use crate::ecs::components::unit::Unit;
 use crate::entities::object_guid::ObjectGuid;
+use crate::entities::player::player_data::ActionButton;
 use crate::entities::player::Player;
 use crate::protocol::client::ClientMessage;
 use crate::protocol::packets::*;
 use crate::protocol::server::ServerMessage;
 use crate::repositories::character::CharacterRepository;
 use crate::session::opcode_handler::{OpcodeHandler, PacketHandlerArgs};
-use crate::session::world_session::WorldSessionState;
+use crate::session::world_session::{WSRunnableArgs, WorldSessionState};
 use crate::shared::response_codes::ResponseCodes;
 
 impl OpcodeHandler {
@@ -270,5 +271,28 @@ impl OpcodeHandler {
                 });
             }
         }
+    }
+
+    pub fn handle_cmsg_set_action_button(
+        PacketHandlerArgs { session, data, .. }: PacketHandlerArgs,
+    ) {
+        let cmsg: CmsgSetActionButton = ClientMessage::read_as(data).unwrap();
+
+        session.run(&|WSRunnableArgs {
+                          map,
+                          player_entity_id,
+                      }: WSRunnableArgs| {
+            map.world().run(|mut vm_player: ViewMut<Player>| {
+                if let Ok(mut player) = (&mut vm_player).get(player_entity_id) {
+                    if cmsg.data == 0 {
+                        player.remove_action_button(cmsg.position as u8);
+                        return;
+                    }
+
+                    let action_button = ActionButton::from_packed(cmsg.position as u8, cmsg.data);
+                    player.add_action_button(action_button);
+                }
+            });
+        });
     }
 }

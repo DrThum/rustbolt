@@ -345,6 +345,11 @@ impl OpcodeHandler {
                     ProcessInMap,
                     OpcodeHandler::handle_cmsg_binder_activate
                 ),
+                define_handler!(
+                    Opcode::CmsgSetActionButton,
+                    ProcessInMap,
+                    OpcodeHandler::handle_cmsg_set_action_button
+                ),
             ]),
         }
     }

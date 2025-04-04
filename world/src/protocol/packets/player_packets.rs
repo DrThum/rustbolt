@@ -153,3 +153,9 @@ impl SmsgLevelUpInfo {
         }
     }
 }
+
+#[binread]
+pub struct CmsgSetActionButton {
+    pub position: u8,
+    pub data: u32,
+}

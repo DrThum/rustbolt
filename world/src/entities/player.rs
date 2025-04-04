@@ -703,6 +703,14 @@ impl Player {
         &self.action_buttons
     }
 
+    pub fn add_action_button(&mut self, button: ActionButton) {
+        self.action_buttons.insert(button.position as usize, button);
+    }
+
+    pub fn remove_action_button(&mut self, button: u8) {
+        self.action_buttons.remove(&(button as usize));
+    }
+
     pub fn faction_standings(&self) -> &HashMap<u32, FactionStanding> {
         &self.faction_standings
     }

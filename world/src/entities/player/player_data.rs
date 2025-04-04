@@ -20,6 +20,16 @@ impl ActionButton {
     pub fn packed(&self) -> u32 {
         self.action_value | ((self.action_type as u32) << 24)
     }
+
+    pub fn from_packed(position: u8, packed: u32) -> Self {
+        let action_type = ActionButtonType::n(packed >> 24).expect("invalid action button type");
+        let action_value = packed & 0x00FFFFFF;
+        Self {
+            position: position as u32,
+            action_type,
+            action_value,
+        }
+    }
 }
 
 #[derive(Clone)]

@@ -20,7 +20,7 @@ use crate::{
         dbc::Dbc,
     },
     repositories::{
-        creature::{CreatureModelInfo, CreatureRepository},
+        creature::{CreatureModelInfo, CreatureRepository, TrainerSpellDbRecord},
         creature_static_data::{
             CreatureBaseAttributesPerLevelDbRecord, CreatureStaticDataRepository,
         },
@@ -93,6 +93,7 @@ pub struct DataStore {
     player_experience_per_level: SqlStore<PlayerExperiencePerLevel>,
     loot_tables: SqlStore<LootTable>,
     game_object_templates: SqlStore<GameObjectTemplate>,
+    trainer_spells: SqlMultiStore<TrainerSpellDbRecord>,
     // GameTables (DBC files with name starting with gtXXX)
     gt_OCTRegenHP: GameTableStore<GameTableOCTRegenHPRecord>,
     gt_RegenHPPerSpt: GameTableStore<GameTableRegenHPPerSptRecord>,
@@ -355,6 +356,18 @@ impl DataStore {
             HashMap::new()
         };
 
+        info!("Loading trainer spells...");
+        let trainer_spells = CreatureRepository::load_trainer_spells(conn);
+        let trainer_spells: SqlMultiStore<TrainerSpellDbRecord> = {
+            let mut multimap: MultiMap<u32, TrainerSpellDbRecord> = MultiMap::new();
+            for trainer_spell in trainer_spells {
+                let key = trainer_spell.creature_template_entry;
+                multimap.insert(key, trainer_spell);
+            }
+
+            multimap
+        };
+
         Ok(DataStore {
             chr_races,
             chr_classes,
@@ -389,6 +402,7 @@ impl DataStore {
             player_experience_per_level,
             loot_tables,
             game_object_templates,
+            trainer_spells,
             gt_OCTRegenHP,
             gt_RegenHPPerSpt,
             gt_RegenMPPerSpt,
@@ -631,6 +645,13 @@ impl DataStore {
 
     pub fn get_loot_table(&self, id: u32) -> Option<&LootTable> {
         self.loot_tables.get(&id)
+    }
+
+    pub fn get_trainer_spells_by_creature_entry(
+        &self,
+        creature_entry: u32,
+    ) -> Option<&Vec<TrainerSpellDbRecord>> {
+        self.trainer_spells.get_vec(&creature_entry)
     }
 
     pub fn get_gtOCTRegenHP(&self, index: usize) -> Option<&GameTableOCTRegenHPRecord> {

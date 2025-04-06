@@ -102,17 +102,19 @@ impl OpcodeHandler {
                                 return None;
                             }
 
+                            let required_level = world_context.data_store.get_skill_required_level_for_player(spell.spell_id, player.race_bit(), player.class_bit()).unwrap_or(0);
+
                             Some(TrainerSpell {
                                 spell_id: spell.spell_id,
                                 state: TrainerSpellState::Green, // FIXME
                                 cost: spell.spell_cost,
-                                can_learn_primary_profession_first_rank: false, // FIXME
-                                enable_learn_primary_profession_button: false, // FIXME
-                                required_level: spell.required_level as u8, // FIXME: use the actual spell required level instead
+                                can_learn_primary_profession_first_rank: false, // FIXME: professions
+                                enable_learn_primary_profession_button: false, // FIXME: professions
+                                required_level: required_level.max(spell.required_level) as u8,
                                 required_skill: spell.required_skill,
                                 required_skill_value: spell.required_skill_value,
-                                previous_spell: 0, // FIXME
-                                required_required_spell: 0, // FIXME
+                                previous_spell: 0, // FIXME: spell chains
+                                required_required_spell: 0, // FIXME: spell chains
                                 unk: 0, // always 0 in MaNGOS
                             })
                         })

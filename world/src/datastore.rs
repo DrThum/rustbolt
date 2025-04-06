@@ -511,6 +511,37 @@ impl DataStore {
             .filter(|v| !v.is_empty())
     }
 
+    pub fn get_skill_required_level_for_player(
+        &self,
+        spell_id: u32,
+        race: CharacterRaceBit,
+        class: CharacterClassBit,
+    ) -> Option<u32> {
+        let skill_line_abilities = self.get_skill_line_ability_by_spell(spell_id)?;
+
+        let relevant_ability = skill_line_abilities.iter().find(|ability| {
+            let race_match = !ability.race_mask.is_empty() && ability.race_mask.intersects(race);
+            let class_match =
+                !ability.class_mask.is_empty() && ability.class_mask.intersects(class);
+
+            race_match && class_match
+        })?;
+
+        let records =
+            self.get_skill_race_class_info_by_skill_id(relevant_ability.skill_id as u32)?;
+
+        for record in records {
+            if record.race_mask.intersects(race) && record.class_mask.intersects(class) {
+                return match record.required_level {
+                    0 => None,
+                    level => Some(level),
+                };
+            }
+        }
+
+        None
+    }
+
     pub fn get_faction_record(&self, id: u32) -> Option<&FactionRecord> {
         self.faction.get(&id)
     }

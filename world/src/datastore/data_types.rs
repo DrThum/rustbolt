@@ -12,11 +12,11 @@ use crate::{
         ItemTemplateDamage, ItemTemplateSocket, ItemTemplateSpell, ItemTemplateStat,
     },
     shared::constants::{
-        AbilityLearnType, ActionButtonType, CharacterClass, CharacterClassBit, CharacterRaceBit,
-        CreatureRank, Expansion, GameObjectType, GossipMenuItemIcon, GossipMenuOptionType,
-        InventorySlot, InventoryType, MapType, PlayerQuestStatus, PowerType, QuestFlag,
-        SkillCategory, SkillRangeType, SkillType, SpellEffect, SpellTargetType,
-        FACTION_NUMBER_BASE_REPUTATION_MASKS, MAX_QUEST_CHOICE_REWARDS_COUNT,
+        AbilityLearnType, ActionButtonType, CharacterClass, CharacterClassBit, CharacterRace,
+        CharacterRaceBit, CreatureRank, Expansion, GameObjectType, GossipMenuItemIcon,
+        GossipMenuOptionType, InventorySlot, InventoryType, MapType, PlayerQuestStatus, PowerType,
+        QuestFlag, SkillCategory, SkillRangeType, SkillType, SpellEffect, SpellTargetType,
+        TrainerType, FACTION_NUMBER_BASE_REPUTATION_MASKS, MAX_QUEST_CHOICE_REWARDS_COUNT,
         MAX_QUEST_OBJECTIVES_COUNT, MAX_QUEST_REWARDS_COUNT, MAX_QUEST_REWARDS_REPUT_COUNT,
         MAX_SPELL_EFFECTS, MAX_SPELL_REAGENTS, MAX_SPELL_TOTEMS, NPC_TEXT_EMOTE_COUNT,
         NPC_TEXT_TEXT_COUNT,
@@ -536,6 +536,11 @@ pub struct CreatureTemplate {
     pub min_money_loot: u32,
     pub max_money_loot: u32,
     pub loot_table_id: Option<u32>,
+    pub trainer_type: Option<TrainerType>,
+    pub trainer_tradeskill_spell: Option<u32>,
+    pub trainer_class: Option<CharacterClass>,
+    pub trainer_race: Option<CharacterRace>,
+    pub trainer_template_id: Option<u32>,
 }
 
 #[allow(dead_code)]

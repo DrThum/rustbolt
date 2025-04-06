@@ -2072,3 +2072,12 @@ pub enum SpellCastTargetFlags {
 pub enum RemarkableSpells {
     Bind = 3286, // Cast by innkeepers when players set their bind point
 }
+
+#[allow(dead_code)]
+#[derive(Copy, Clone, N)]
+pub enum TrainerType {
+    Class = 0,
+    Mount = 1,
+    Tradeskill = 2,
+    Pet = 3,
+}

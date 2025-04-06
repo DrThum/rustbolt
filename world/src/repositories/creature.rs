@@ -11,7 +11,9 @@ use rusqlite::{
 use crate::{
     datastore::data_types::CreatureTemplate,
     ecs::components::movement::MovementKind,
-    shared::constants::{CharacterClass, CreatureRank, Gender, MAX_CREATURE_TEMPLATE_MODELID},
+    shared::constants::{
+        CharacterClass, CreatureRank, Gender, TrainerType, MAX_CREATURE_TEMPLATE_MODELID,
+    },
 };
 
 pub struct CreatureRepository;
@@ -28,7 +30,14 @@ impl CreatureRepository {
         let count = count.next().unwrap().unwrap_or(0);
         let bar = ProgressBar::new(count);
 
-        let mut stmt = conn.prepare_cached("SELECT entry, name, sub_name, icon_name, expansion, unit_class, min_level, max_level, health_multiplier, power_multiplier, damage_multiplier, armor_multiplier, experience_multiplier, model_id1, model_id2, model_id3, model_id4, scale, family, type_id, racial_leader, type_flags, speed_walk, speed_run, rank, melee_base_attack_time_ms, ranged_base_attack_time_ms, base_damage_variance, pet_spell_data_id, faction_template_id, npc_flags, unit_flags, dynamic_flags, gossip_menu_id, movement_type, min_money_loot, max_money_loot, loot_table_id FROM creature_templates ORDER BY entry").unwrap();
+        let mut stmt = conn.prepare_cached("
+            SELECT entry, name, sub_name, icon_name, expansion, unit_class, min_level, max_level, health_multiplier, power_multiplier,
+            damage_multiplier, armor_multiplier, experience_multiplier, model_id1, model_id2, model_id3, model_id4, scale, family, type_id,
+            racial_leader, type_flags, speed_walk, speed_run, rank, melee_base_attack_time_ms, ranged_base_attack_time_ms, base_damage_variance,
+            pet_spell_data_id, faction_template_id, npc_flags, unit_flags, dynamic_flags, gossip_menu_id, movement_type, min_money_loot,
+            max_money_loot, loot_table_id, trainer_type, trainer_tradeskill_spell, trainer_class, trainer_race, trainer_template_id
+            FROM creature_templates
+            ORDER BY entry").unwrap();
 
         let result = stmt
             .query_map([], |row| {
@@ -88,6 +97,11 @@ impl CreatureRepository {
                     min_money_loot: row.get(MinMoneyLoot as usize).unwrap(),
                     max_money_loot: row.get(MaxMoneyLoot as usize).unwrap(),
                     loot_table_id: row.get(LootTableId as usize).unwrap(),
+                    trainer_type: row.get(TrainerType as usize).unwrap(),
+                    trainer_tradeskill_spell: row.get(TrainerTradeskillSpell as usize).unwrap(),
+                    trainer_class: row.get(TrainerClass as usize).unwrap(),
+                    trainer_race: row.get(TrainerRace as usize).unwrap(),
+                    trainer_template_id: row.get(TrainerTemplateId as usize).unwrap(),
                 };
 
                 assert!(
@@ -228,6 +242,11 @@ enum CreatureTemplateColumnIndex {
     MinMoneyLoot,
     MaxMoneyLoot,
     LootTableId,
+    TrainerType,
+    TrainerTradeskillSpell,
+    TrainerClass,
+    TrainerRace,
+    TrainerTemplateId,
 }
 
 enum CreatureSpawnColumnIndex {
@@ -271,5 +290,12 @@ impl FromSql for CreatureRank {
     fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
         let value = value.as_i64()?;
         CreatureRank::n(value).ok_or(FromSqlError::Other("invalid creature rank".into()))
+    }
+}
+
+impl FromSql for TrainerType {
+    fn column_result(value: rusqlite::types::ValueRef<'_>) -> rusqlite::types::FromSqlResult<Self> {
+        let value = value.as_i64()?;
+        TrainerType::n(value).ok_or(FromSqlError::Other("invalid trainer type".into()))
     }
 }

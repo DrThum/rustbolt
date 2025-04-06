@@ -2081,3 +2081,11 @@ pub enum TrainerType {
     Tradeskill = 2,
     Pet = 3,
 }
+
+#[allow(dead_code)]
+#[derive(Copy, Clone, N, Debug)]
+pub enum TrainerSpellState {
+    Green = 0,
+    Red = 1,
+    Gray = 2,
+}

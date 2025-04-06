@@ -1,3 +1,4 @@
+use binrw::NullString;
 use log::{error, warn};
 use shipyard::{Get, View};
 
@@ -7,7 +8,7 @@ use crate::protocol::client::ClientMessage;
 use crate::protocol::packets::*;
 use crate::protocol::server::ServerMessage;
 use crate::session::opcode_handler::{OpcodeHandler, PacketHandlerArgs};
-use crate::shared::constants::GossipMenuOptionType;
+use crate::shared::constants::{GossipMenuOptionType, TrainerSpellState};
 
 impl OpcodeHandler {
     pub(crate) fn handle_cmsg_gossip_hello(
@@ -46,10 +47,9 @@ impl OpcodeHandler {
             return;
         };
 
-        let creature_exists = map
-            .world()
-            .run(|v_creature: View<Creature>| v_creature.get(target_entity_id).is_ok());
-        if !creature_exists {
+        let Ok(creature_template) = map.world().run(|v_creature: View<Creature>| {
+            v_creature.get(target_entity_id).map(|c| c.template.clone())
+        }) else {
             warn!("handle_cmsg_gossip_select_option: target is not a creature, TODO!");
             return;
         };
@@ -77,6 +77,44 @@ impl OpcodeHandler {
                 });
                 session.send(&packet).unwrap();
             },
+            GossipMenuOptionType::Trainer => {
+                let Some(trainer_type) = creature_template.trainer_type else {
+                    error!("handle_cmsg_gossip_select_option: received a trainer option but creature is not a trainer");
+                    session.close_gossip_menu();
+                    return;
+                };
+
+                let Some(spells) = world_context.data_store.get_trainer_spells_by_creature_entry(creature_template.entry) else {
+                    error!("handle_cmsg_gossip_select_option: received a trainer option but no spells found for entry {}",creature_template.entry);
+                    session.close_gossip_menu();
+                    return;
+                };
+
+                let spells = spells.into_iter()
+                    .map(|spell| TrainerSpell {
+                        spell_id: spell.spell_id,
+                        state: TrainerSpellState::Green, // FIXME
+                        cost: spell.spell_cost,
+                        can_learn_primary_profession_first_rank: false, // FIXME
+                        enable_learn_primary_profession_button: false, // FIXME
+                        required_level: spell.required_level as u8, // FIXME: use the actual spell required level instead
+                        required_skill: spell.required_skill,
+                        required_skill_value: spell.required_skill_value,
+                        previous_spell: 0, // FIXME
+                        required_required_spell: 0, // FIXME
+                        unk: 0, // always 0 in MaNGOS
+                    })
+                    .collect::<Vec<_>>();
+
+                let packet = ServerMessage::new(SmsgTrainerList {
+                    trainer_guid: cmsg.guid,
+                    trainer_type: trainer_type as u32,
+                    spell_count: spells.len() as u32,
+                    spells,
+                    title: NullString::from("Hello! Ready for some training?"),
+                });
+                session.send(&packet).unwrap();
+            }
             ot => warn!("handle_cmsg_gossip_select_option: received a non-implemented-yet option type {ot:?}"),
         };
     }

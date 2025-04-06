@@ -54,6 +54,7 @@ pub mod player_data;
 pub mod player_inventory;
 pub mod powers;
 pub mod quests;
+pub mod spells;
 pub mod stats;
 
 #[derive(Component)]
@@ -721,6 +722,22 @@ impl Player {
 
     pub fn bindpoint(&self) -> BindPoint {
         self.bindpoint.read().clone()
+    }
+
+    pub fn race_bit(&self) -> CharacterRaceBit {
+        CharacterRaceBit::from(
+            self.internal_values
+                .read()
+                .get_u8(UnitFields::UnitFieldBytes0.into(), 0),
+        )
+    }
+
+    pub fn class_bit(&self) -> CharacterClassBit {
+        CharacterClassBit::from(
+            self.internal_values
+                .read()
+                .get_u8(UnitFields::UnitFieldBytes0.into(), 1),
+        )
     }
 
     pub fn build_create_object(

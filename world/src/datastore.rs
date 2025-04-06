@@ -1,6 +1,6 @@
 #![allow(non_snake_case)]
 
-use data_types::AreaTableRecord;
+use data_types::{AreaTableRecord, SkillRaceClassInfoRecord};
 use indicatif::ProgressBar;
 use log::info;
 use multimap::MultiMap;
@@ -72,6 +72,7 @@ pub struct DataStore {
     skill_line: DbcStore<SkillLineRecord>,
     skill_line_ability: DbcStore<SkillLineAbilityRecord>,
     skill_line_ability_by_spell: DbcMultiStore<SkillLineAbilityRecord>,
+    skill_race_class_info: DbcMultiStore<SkillRaceClassInfoRecord>,
     faction: DbcStore<FactionRecord>,
     faction_template: DbcStore<FactionTemplateRecord>,
     area_table: DbcStore<AreaTableRecord>,
@@ -146,6 +147,16 @@ impl DataStore {
             let mut multimap: MultiMap<u32, SkillLineAbilityRecord> = MultiMap::new();
             for record in skill_line_ability.values() {
                 multimap.insert(record.spell_id, (*record).clone());
+            }
+
+            multimap
+        };
+        let skill_race_class_info = {
+            let skill_race_class_info_raw: HashMap<u32, SkillRaceClassInfoRecord> =
+                parse_dbc!(config.common.data.directory, "SkillRaceClassInfo");
+            let mut multimap: MultiMap<u32, SkillRaceClassInfoRecord> = MultiMap::new();
+            for record in skill_race_class_info_raw.values() {
+                multimap.insert(record.skill_id, (*record).clone());
             }
 
             multimap
@@ -395,6 +406,7 @@ impl DataStore {
             skill_line,
             skill_line_ability,
             skill_line_ability_by_spell,
+            skill_race_class_info,
             faction,
             faction_template,
             area_table,
@@ -485,7 +497,18 @@ impl DataStore {
         &self,
         spell_id: u32,
     ) -> Option<&Vec<SkillLineAbilityRecord>> {
-        self.skill_line_ability_by_spell.get_vec(&spell_id)
+        self.skill_line_ability_by_spell
+            .get_vec(&spell_id)
+            .filter(|v| !v.is_empty())
+    }
+
+    pub fn get_skill_race_class_info_by_skill_id(
+        &self,
+        skill_id: u32,
+    ) -> Option<&Vec<SkillRaceClassInfoRecord>> {
+        self.skill_race_class_info
+            .get_vec(&skill_id)
+            .filter(|v| !v.is_empty())
     }
 
     pub fn get_faction_record(&self, id: u32) -> Option<&FactionRecord> {

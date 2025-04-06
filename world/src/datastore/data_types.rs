@@ -1056,7 +1056,7 @@ impl DbcTypedRecord for SkillLineRecord {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct SkillLineAbilityRecord {
     pub id: u32,
     pub skill_id: SkillType,
@@ -1105,6 +1105,37 @@ impl DbcTypedRecord for SkillLineAbilityRecord {
             if record.skill_id == SkillType::Lockpicking && record.max_value == 0 {
                 record.learn_on_get_skill = AbilityLearnType::LearnedOnGetRaceOrClassSkill;
             }
+
+            (key, record)
+        }
+    }
+}
+
+#[allow(dead_code)]
+#[derive(Clone)]
+pub struct SkillRaceClassInfoRecord {
+    // id: u32,
+    pub skill_id: u32,
+    pub race_mask: BitFlags<CharacterRaceBit>,
+    pub class_mask: BitFlags<CharacterClassBit>,
+    pub flags: u32,
+    pub required_level: u32,
+    // skill_tier_id: u32,
+    // skill_cost_id: u32,
+}
+
+impl DbcTypedRecord for SkillRaceClassInfoRecord {
+    fn from_record(record: &DbcRecord, _strings: &DbcStringBlock) -> (u32, Self) {
+        unsafe {
+            let key = record.fields[1].as_u32;
+
+            let record = SkillRaceClassInfoRecord {
+                skill_id: record.fields[1].as_u32,
+                race_mask: BitFlags::from_bits_unchecked(record.fields[2].as_u32),
+                class_mask: BitFlags::from_bits_unchecked(record.fields[3].as_u32),
+                flags: record.fields[4].as_u32,
+                required_level: record.fields[5].as_u32,
+            };
 
             (key, record)
         }

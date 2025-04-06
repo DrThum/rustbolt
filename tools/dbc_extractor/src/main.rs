@@ -22,6 +22,7 @@ fn main() -> Result<(), std::io::Error> {
         "DBFilesClient\\SpellCastTimes.dbc",
         "DBFilesClient\\SkillLine.dbc",
         "DBFilesClient\\SkillLineAbility.dbc",
+        "DBFilesClient\\SkillRaceClassInfo.dbc",
         // Game Tables
         "DBFilesClient\\gtOCTRegenHP.dbc",
         "DBFilesClient\\gtRegenHPPerSpt.dbc",

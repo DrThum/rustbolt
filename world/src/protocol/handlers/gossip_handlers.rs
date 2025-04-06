@@ -3,6 +3,7 @@ use log::{error, warn};
 use shipyard::{Get, View};
 
 use crate::entities::creature::Creature;
+use crate::entities::player::Player;
 use crate::game::gossip::GossipMenu;
 use crate::protocol::client::ClientMessage;
 use crate::protocol::packets::*;
@@ -84,36 +85,50 @@ impl OpcodeHandler {
                     return;
                 };
 
-                let Some(spells) = world_context.data_store.get_trainer_spells_by_creature_entry(creature_template.entry) else {
+                let Some(trainer_spells) = world_context.data_store.get_trainer_spells_by_creature_entry(creature_template.entry) else {
                     error!("handle_cmsg_gossip_select_option: received a trainer option but no spells found for entry {}",creature_template.entry);
                     session.close_gossip_menu();
                     return;
                 };
 
-                let spells = spells.into_iter()
-                    .map(|spell| TrainerSpell {
-                        spell_id: spell.spell_id,
-                        state: TrainerSpellState::Green, // FIXME
-                        cost: spell.spell_cost,
-                        can_learn_primary_profession_first_rank: false, // FIXME
-                        enable_learn_primary_profession_button: false, // FIXME
-                        required_level: spell.required_level as u8, // FIXME: use the actual spell required level instead
-                        required_skill: spell.required_skill,
-                        required_skill_value: spell.required_skill_value,
-                        previous_spell: 0, // FIXME
-                        required_required_spell: 0, // FIXME
-                        unk: 0, // always 0 in MaNGOS
-                    })
-                    .collect::<Vec<_>>();
+                let spells_for_packet: Vec<TrainerSpell> = map.world().run(|v_player: View<Player>| {
+                    let Ok(player) = v_player.get(session.player_entity_id().unwrap()) else {
+                        return Vec::new();
+                    };
 
-                let packet = ServerMessage::new(SmsgTrainerList {
-                    trainer_guid: cmsg.guid,
-                    trainer_type: trainer_type as u32,
-                    spell_count: spells.len() as u32,
-                    spells,
-                    title: NullString::from("Hello! Ready for some training?"),
+                    trainer_spells.into_iter()
+                        .filter_map(|spell| {
+                            if !player.can_train_spell(spell.spell_id, world_context.clone()) {
+                                return None;
+                            }
+
+                            Some(TrainerSpell {
+                                spell_id: spell.spell_id,
+                                state: TrainerSpellState::Green, // FIXME
+                                cost: spell.spell_cost,
+                                can_learn_primary_profession_first_rank: false, // FIXME
+                                enable_learn_primary_profession_button: false, // FIXME
+                                required_level: spell.required_level as u8, // FIXME: use the actual spell required level instead
+                                required_skill: spell.required_skill,
+                                required_skill_value: spell.required_skill_value,
+                                previous_spell: 0, // FIXME
+                                required_required_spell: 0, // FIXME
+                                unk: 0, // always 0 in MaNGOS
+                            })
+                        })
+                        .collect()
                 });
-                session.send(&packet).unwrap();
+
+                if !spells_for_packet.is_empty() {
+                    let packet = ServerMessage::new(SmsgTrainerList {
+                        trainer_guid: cmsg.guid,
+                        trainer_type: trainer_type as u32,
+                        spell_count: spells_for_packet.len() as u32,
+                        spells: spells_for_packet,
+                        title: NullString::from("Hello! Ready for some training?"),
+                    });
+                    session.send(&packet).unwrap();
+                }
             }
             ot => warn!("handle_cmsg_gossip_select_option: received a non-implemented-yet option type {ot:?}"),
         };

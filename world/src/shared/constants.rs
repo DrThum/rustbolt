@@ -60,7 +60,7 @@ pub enum CharacterRace {
 #[allow(dead_code)]
 #[bitflags]
 #[repr(u32)]
-#[derive(N, Clone, Copy)]
+#[derive(N, Clone, Copy, Debug)]
 pub enum CharacterRaceBit {
     Human = 1,
     Orc = 1 << 1,
@@ -117,7 +117,7 @@ pub enum CharacterClass {
 #[allow(dead_code)]
 #[bitflags]
 #[repr(u32)]
-#[derive(N, Clone, Copy)]
+#[derive(N, Clone, Copy, Debug)]
 pub enum CharacterClassBit {
     Warrior = 1,
     Paladin = 1 << 1,
@@ -1119,7 +1119,7 @@ pub enum SpellTargetType {
 }
 
 #[allow(dead_code)]
-#[derive(N, Copy, Clone, PartialEq)]
+#[derive(N, Copy, Clone, PartialEq, Debug)]
 pub enum SkillType {
     None = 0,
     Frost = 6,
@@ -1263,7 +1263,7 @@ pub enum SkillType {
 }
 
 #[allow(dead_code)]
-#[derive(N, Clone, PartialEq)]
+#[derive(N, Clone, PartialEq, Debug)]
 pub enum AbilityLearnType {
     None = 0,
     LearnedOnGetProfessionSkill = 1,
@@ -1290,6 +1290,10 @@ pub enum SkillCategory {
     Languages = 10,
     PrimaryProfession = 11,
     Generic = 12,
+}
+
+pub enum AbilitySkillFlags {
+    NonTrainable = 0x100,
 }
 
 #[allow(dead_code)]

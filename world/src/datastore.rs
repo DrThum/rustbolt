@@ -94,6 +94,7 @@ pub struct DataStore {
     loot_tables: SqlStore<LootTable>,
     game_object_templates: SqlStore<GameObjectTemplate>,
     trainer_spells: SqlMultiStore<TrainerSpellDbRecord>,
+    trainer_spell_templates: SqlMultiStore<TrainerSpellDbRecord>,
     // GameTables (DBC files with name starting with gtXXX)
     gt_OCTRegenHP: GameTableStore<GameTableOCTRegenHPRecord>,
     gt_RegenHPPerSpt: GameTableStore<GameTableRegenHPPerSptRecord>,
@@ -356,12 +357,24 @@ impl DataStore {
             HashMap::new()
         };
 
-        info!("Loading trainer spells...");
+        info!("Loading trainer individual spells...");
         let trainer_spells = CreatureRepository::load_trainer_spells(conn);
         let trainer_spells: SqlMultiStore<TrainerSpellDbRecord> = {
             let mut multimap: MultiMap<u32, TrainerSpellDbRecord> = MultiMap::new();
             for trainer_spell in trainer_spells {
-                let key = trainer_spell.creature_template_entry;
+                let key = trainer_spell.creature_template_entry_or_template_id;
+                multimap.insert(key, trainer_spell);
+            }
+
+            multimap
+        };
+
+        info!("Loading trainer spells templates...");
+        let trainer_spell_templates = CreatureRepository::load_trainer_spell_templates(conn);
+        let trainer_spell_templates: SqlMultiStore<TrainerSpellDbRecord> = {
+            let mut multimap: MultiMap<u32, TrainerSpellDbRecord> = MultiMap::new();
+            for trainer_spell in trainer_spell_templates {
+                let key = trainer_spell.creature_template_entry_or_template_id;
                 multimap.insert(key, trainer_spell);
             }
 
@@ -403,6 +416,7 @@ impl DataStore {
             loot_tables,
             game_object_templates,
             trainer_spells,
+            trainer_spell_templates,
             gt_OCTRegenHP,
             gt_RegenHPPerSpt,
             gt_RegenMPPerSpt,
@@ -647,11 +661,35 @@ impl DataStore {
         self.loot_tables.get(&id)
     }
 
+    /**
+     * Returns the combined data from the trainer individual spells (from trainer_spells) and
+     * its template (from trainer_spell_templates).
+     */
     pub fn get_trainer_spells_by_creature_entry(
         &self,
         creature_entry: u32,
-    ) -> Option<&Vec<TrainerSpellDbRecord>> {
-        self.trainer_spells.get_vec(&creature_entry)
+    ) -> Option<Vec<TrainerSpellDbRecord>> {
+        let mut combined_spells: Vec<TrainerSpellDbRecord> = Vec::new();
+        if let Some(trainer_spells) = self.trainer_spells.get_vec(&creature_entry) {
+            combined_spells.extend(trainer_spells.clone());
+        }
+
+        let Some(creature_template) = self.creature_templates.get(&creature_entry) else {
+            return None;
+        };
+
+        if let Some(trainer_spell_templates) = self
+            .trainer_spell_templates
+            .get_vec(&creature_template.trainer_template_id.unwrap_or(0))
+        {
+            combined_spells.extend(trainer_spell_templates.clone());
+        }
+
+        if combined_spells.is_empty() {
+            return None;
+        }
+
+        Some(combined_spells)
     }
 
     pub fn get_gtOCTRegenHP(&self, index: usize) -> Option<&GameTableOCTRegenHPRecord> {

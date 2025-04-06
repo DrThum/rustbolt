@@ -201,7 +201,36 @@ impl CreatureRepository {
                 use TrainerSpellColumnIndex::*;
 
                 Ok(TrainerSpellDbRecord {
-                    creature_template_entry: row.get(CreatureTemplateEntry as usize).unwrap(),
+                    creature_template_entry_or_template_id: row
+                        .get(CreatureTemplateEntryOrTemplateId as usize)
+                        .unwrap(),
+                    spell_id: row.get(SpellId as usize).unwrap(),
+                    spell_cost: row.get(SpellCost as usize).unwrap(),
+                    required_skill: row.get(RequiredSkill as usize).unwrap(),
+                    required_skill_value: row.get(RequiredSkillValue as usize).unwrap(),
+                    required_level: row.get(RequiredLevel as usize).unwrap(),
+                })
+            })
+            .unwrap();
+
+        result.filter_map(|res| res.ok()).collect()
+    }
+
+    pub fn load_trainer_spell_templates(
+        conn: &PooledConnection<SqliteConnectionManager>,
+    ) -> Vec<TrainerSpellDbRecord> {
+        let mut stmt = conn.prepare_cached("
+            SELECT template_id, spell_id, spell_cost, required_skill, required_skill_value, required_level
+            FROM trainer_spell_templates").unwrap();
+
+        let result = stmt
+            .query_map([], |row| {
+                use TrainerSpellColumnIndex::*;
+
+                Ok(TrainerSpellDbRecord {
+                    creature_template_entry_or_template_id: row
+                        .get(CreatureTemplateEntryOrTemplateId as usize)
+                        .unwrap(),
                     spell_id: row.get(SpellId as usize).unwrap(),
                     spell_cost: row.get(SpellCost as usize).unwrap(),
                     required_skill: row.get(RequiredSkill as usize).unwrap(),
@@ -304,8 +333,9 @@ enum CreatureModelInfoColumnIndex {
     ModelIdAlternative,
 }
 
+#[derive(Clone, Copy)]
 pub struct TrainerSpellDbRecord {
-    pub creature_template_entry: u32,
+    pub creature_template_entry_or_template_id: u32,
     pub spell_id: u32,
     pub spell_cost: u32,
     pub required_skill: u32,
@@ -314,7 +344,7 @@ pub struct TrainerSpellDbRecord {
 }
 
 enum TrainerSpellColumnIndex {
-    CreatureTemplateEntry,
+    CreatureTemplateEntryOrTemplateId,
     SpellId,
     SpellCost,
     RequiredSkill,

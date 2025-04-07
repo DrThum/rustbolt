@@ -72,6 +72,18 @@ impl SmsgGossipMessage {
             menu_quest_items,
         }
     }
+
+    pub fn standalone_title_text(source_guid: &ObjectGuid, title_text_id: u32) -> Self {
+        Self {
+            source_guid: source_guid.raw(),
+            menu_id: 0,
+            title_text_id,
+            menu_items_count: 0,
+            menu_items: vec![],
+            menu_quest_items_count: 0,
+            menu_quest_items: vec![],
+        }
+    }
 }
 
 #[binwrite]

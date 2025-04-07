@@ -24,9 +24,9 @@ use crate::{
     session::world_session::WorldSession,
     shared::constants::{
         AbilityLearnType, AttributeModifier, AttributeModifierType, CharacterClass,
-        CharacterClassBit, CharacterRaceBit, Gender, HighGuidType, InventorySlot, InventoryType,
-        ItemClass, ItemSubclassConsumable, ObjectTypeId, ObjectTypeMask, PlayerQuestStatus,
-        PowerType, QuestSlotState, SkillRangeType, UnitFlags, MAX_QUESTS_IN_LOG,
+        CharacterClassBit, CharacterRace, CharacterRaceBit, Gender, HighGuidType, InventorySlot,
+        InventoryType, ItemClass, ItemSubclassConsumable, ObjectTypeId, ObjectTypeMask,
+        PlayerQuestStatus, PowerType, QuestSlotState, SkillRangeType, UnitFlags, MAX_QUESTS_IN_LOG,
         MAX_QUEST_OBJECTIVES_COUNT, PLAYER_DEFAULT_BOUNDING_RADIUS, PLAYER_DEFAULT_COMBAT_REACH,
     },
 };
@@ -728,12 +728,30 @@ impl Player {
         self.bindpoint.read().clone()
     }
 
+    pub fn race(&self) -> CharacterRace {
+        CharacterRace::n(
+            self.internal_values
+                .read()
+                .get_u8(UnitFields::UnitFieldBytes0.into(), 0) as u32,
+        )
+        .unwrap()
+    }
+
     pub fn race_bit(&self) -> CharacterRaceBit {
         CharacterRaceBit::from(
             self.internal_values
                 .read()
                 .get_u8(UnitFields::UnitFieldBytes0.into(), 0),
         )
+    }
+
+    pub fn class(&self) -> CharacterClass {
+        CharacterClass::n(
+            self.internal_values
+                .read()
+                .get_u8(UnitFields::UnitFieldBytes0.into(), 1) as u32,
+        )
+        .unwrap()
     }
 
     pub fn class_bit(&self) -> CharacterClassBit {

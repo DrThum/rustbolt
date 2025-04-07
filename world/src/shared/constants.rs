@@ -2078,7 +2078,7 @@ pub enum RemarkableSpells {
 }
 
 #[allow(dead_code)]
-#[derive(Copy, Clone, N)]
+#[derive(Copy, Clone, N, Debug)]
 pub enum TrainerType {
     Class = 0,
     Mount = 1,

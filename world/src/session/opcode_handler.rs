@@ -443,4 +443,13 @@ impl OpcodeHandler {
             },
         );
     }
+
+    pub fn send_gossip_text(npc_guid: &ObjectGuid, title_text_id: u32, session: Arc<WorldSession>) {
+        let packet = ServerMessage::new(SmsgGossipMessage::standalone_title_text(
+            npc_guid,
+            title_text_id,
+        ));
+
+        session.send(&packet).unwrap();
+    }
 }

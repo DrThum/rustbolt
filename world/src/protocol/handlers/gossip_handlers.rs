@@ -9,7 +9,7 @@ use crate::protocol::client::ClientMessage;
 use crate::protocol::packets::*;
 use crate::protocol::server::ServerMessage;
 use crate::session::opcode_handler::{OpcodeHandler, PacketHandlerArgs};
-use crate::shared::constants::GossipMenuOptionType;
+use crate::shared::constants::{CharacterClass, GossipMenuOptionType, TrainerType};
 
 impl OpcodeHandler {
     pub(crate) fn handle_cmsg_gossip_hello(
@@ -85,29 +85,46 @@ impl OpcodeHandler {
                     return;
                 };
 
-                // TODO: send message if trainer of another class
-                /*
-                if (pPlayer->getClass() != GetCreatureInfo()->TrainerClass)
-                {
-                    if (msg)
-                    {
-                        pPlayer->PlayerTalkClass->ClearMenus();
-                        switch (GetCreatureInfo()->TrainerClass)
-                        {
-                            case CLASS_DRUID:  pPlayer->PlayerTalkClass->SendGossipMenu(4913, GetObjectGuid()); break;
-                            case CLASS_HUNTER: pPlayer->PlayerTalkClass->SendGossipMenu(10090, GetObjectGuid()); break;
-                            case CLASS_MAGE:   pPlayer->PlayerTalkClass->SendGossipMenu(328, GetObjectGuid()); break;
-                            case CLASS_PALADIN: pPlayer->PlayerTalkClass->SendGossipMenu(1635, GetObjectGuid()); break;
-                            case CLASS_PRIEST: pPlayer->PlayerTalkClass->SendGossipMenu(4436, GetObjectGuid()); break;
-                            case CLASS_ROGUE:  pPlayer->PlayerTalkClass->SendGossipMenu(4797, GetObjectGuid()); break;
-                            case CLASS_SHAMAN: pPlayer->PlayerTalkClass->SendGossipMenu(5003, GetObjectGuid()); break;
-                            case CLASS_WARLOCK: pPlayer->PlayerTalkClass->SendGossipMenu(5836, GetObjectGuid()); break;
-                            case CLASS_WARRIOR: pPlayer->PlayerTalkClass->SendGossipMenu(4985, GetObjectGuid()); break;
-                        }
+                let Some(player_entity_id) = session.player_entity_id() else {
+                    error!("handle_cmsg_gossip_select_option: no player_entity_id in session");
+                    return;
+                };
+
+                let is_valid_trainer = map.world().run(|v_player: View<Player>| {
+                    let Ok(player) = v_player.get(player_entity_id) else { return false; };
+
+                    match trainer_type {
+                        TrainerType::Class => {
+                            if player.class() != creature_template.trainer_class.unwrap() {
+                                let gossip_text_id = match creature_template.trainer_class.unwrap() {
+                                    CharacterClass::None => 0,
+                                    CharacterClass::Warrior => 4985,
+                                    CharacterClass::Paladin => 1635,
+                                    CharacterClass::Hunter => 10090,
+                                    CharacterClass::Rogue => 4797,
+                                    CharacterClass::Priest => 4436,
+                                    CharacterClass::Shaman => 5003,
+                                    CharacterClass::Mage => 328,
+                                    CharacterClass::Warlock => 5836,
+                                    CharacterClass::Druid => 4913,
+                                };
+
+                                OpcodeHandler::send_gossip_text(&cmsg.guid, gossip_text_id, session.clone());
+                                return false;
+                            }
+                        },
+                        _ => {
+                            // TODO: same for mount with race, tradeskills and pets for non-hunter (see Mangos' IsTrainerOf second half)
+                            warn!("add checks for trainer type {trainer_type:?} if needed");
+                        },
                     }
-                    return false;
+
+                    true
+                });
+
+                if !is_valid_trainer {
+                    return;
                 }
-                */
 
                 let Some(trainer_spells) = world_context.data_store.get_trainer_spells_by_creature_entry(creature_template.entry) else {
                     error!("handle_cmsg_gossip_select_option: received a trainer option but no spells found for entry {}",creature_template.entry);
@@ -146,16 +163,14 @@ impl OpcodeHandler {
                         .collect()
                 });
 
-                if !spells_for_packet.is_empty() {
-                    let packet = ServerMessage::new(SmsgTrainerList {
-                        trainer_guid: cmsg.guid,
-                        trainer_type: trainer_type as u32,
-                        spell_count: spells_for_packet.len() as u32,
-                        spells: spells_for_packet,
-                        title: NullString::from("Hello! Ready for some training?"),
-                    });
-                    session.send(&packet).unwrap();
-                }
+                let packet = ServerMessage::new(SmsgTrainerList {
+                    trainer_guid: cmsg.guid,
+                    trainer_type: trainer_type as u32,
+                    spell_count: spells_for_packet.len() as u32,
+                    spells: spells_for_packet,
+                    title: NullString::from("Hello! Ready for some training?"),
+                });
+                session.send(&packet).unwrap();
             }
             ot => warn!("handle_cmsg_gossip_select_option: received a non-implemented-yet option type {ot:?}"),
         };

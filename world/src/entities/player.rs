@@ -696,6 +696,10 @@ impl Player {
         &self.spells
     }
 
+    pub fn has_spell(&self, spell_id: u32) -> bool {
+        self.spells.contains(&spell_id)
+    }
+
     pub fn guid(&self) -> ObjectGuid {
         self.guid
     }
@@ -825,6 +829,22 @@ impl Player {
 
     pub fn take_teleport_destination(&mut self) -> Option<WorldPosition> {
         self.teleport_destination.take()
+    }
+
+    pub fn get_skill_level(&self, skill_id: u32) -> Option<u32> {
+        let number_of_possible_skills = (UnitFields::PlayerCharacterPoints1 as usize
+            - UnitFields::PlayerSkillInfo1_1 as usize)
+            / 3; // 3 u32 per skill
+        let values = self.internal_values.read();
+        for index in 0..number_of_possible_skills {
+            let base_index = UnitFields::PlayerSkillInfo1_1 as usize + (index * 3);
+            let value_skill_id = values.get_u16(base_index, 0);
+            if value_skill_id == skill_id as u16 {
+                return Some(values.get_u16(base_index + 1, 0) as u32);
+            }
+        }
+
+        None
     }
 }
 

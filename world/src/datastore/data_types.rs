@@ -579,7 +579,7 @@ pub struct SpellRecord {
     proc_charges: u32,
     max_level: u32,
     base_level: u32,
-    spell_level: u32,
+    pub spell_level: u32,
     duration_index: u32, // SpellDuration.dbc
     pub power_type: PowerType,
     mana_cost: u32,

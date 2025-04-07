@@ -9,10 +9,15 @@ use rusqlite::{
 };
 
 use crate::{
-    datastore::data_types::CreatureTemplate,
+    datastore::{
+        data_types::{CreatureTemplate, SpellRecord},
+        DbcStore,
+    },
     ecs::components::movement::MovementKind,
+    entities::player::Player,
     shared::constants::{
-        CharacterClass, CreatureRank, Gender, TrainerType, MAX_CREATURE_TEMPLATE_MODELID,
+        CharacterClass, CreatureRank, Gender, TrainerSpellState, TrainerType,
+        MAX_CREATURE_TEMPLATE_MODELID,
     },
 };
 
@@ -191,51 +196,71 @@ impl CreatureRepository {
 
     pub fn load_trainer_spells(
         conn: &PooledConnection<SqliteConnectionManager>,
+        spell_dbc: &DbcStore<SpellRecord>,
     ) -> Vec<TrainerSpellDbRecord> {
-        let mut stmt = conn.prepare_cached("
-            SELECT creature_template_entry, spell_id, spell_cost, required_skill, required_skill_value, required_level
-            FROM trainer_spells").unwrap();
-
-        let result = stmt
-            .query_map([], |row| {
-                use TrainerSpellColumnIndex::*;
-
-                Ok(TrainerSpellDbRecord {
-                    creature_template_entry_or_template_id: row
-                        .get(CreatureTemplateEntryOrTemplateId as usize)
-                        .unwrap(),
-                    spell_id: row.get(SpellId as usize).unwrap(),
-                    spell_cost: row.get(SpellCost as usize).unwrap(),
-                    required_skill: row.get(RequiredSkill as usize).unwrap(),
-                    required_skill_value: row.get(RequiredSkillValue as usize).unwrap(),
-                    required_level: row.get(RequiredLevel as usize).unwrap(),
-                })
-            })
-            .unwrap();
-
-        result.filter_map(|res| res.ok()).collect()
+        Self::load_trainer_spells_internal(
+            conn,
+            "trainer_spells",
+            "creature_template_entry",
+            spell_dbc,
+        )
     }
 
     pub fn load_trainer_spell_templates(
         conn: &PooledConnection<SqliteConnectionManager>,
+        spell_dbc: &DbcStore<SpellRecord>,
     ) -> Vec<TrainerSpellDbRecord> {
-        let mut stmt = conn.prepare_cached("
-            SELECT template_id, spell_id, spell_cost, required_skill, required_skill_value, required_level
-            FROM trainer_spell_templates").unwrap();
+        Self::load_trainer_spells_internal(
+            conn,
+            "trainer_spell_templates",
+            "template_id",
+            spell_dbc,
+        )
+    }
+
+    fn load_trainer_spells_internal(
+        conn: &PooledConnection<SqliteConnectionManager>,
+        table: &str,
+        primary_key: &str,
+        spell_dbc: &DbcStore<SpellRecord>,
+    ) -> Vec<TrainerSpellDbRecord> {
+        let mut stmt = conn
+            .prepare_cached(
+                format!(
+                    "
+            SELECT {}, spell_id, spell_cost, required_skill, required_skill_value, required_level
+            FROM {}",
+                    primary_key, table
+                )
+                .as_str(),
+            )
+            .unwrap();
 
         let result = stmt
             .query_map([], |row| {
                 use TrainerSpellColumnIndex::*;
 
+                let spell_id: u32 = row.get(SpellId as usize).unwrap();
+                let required_level_from_db: u32 = row.get(RequiredLevel as usize).unwrap();
+                let required_level = match required_level_from_db {
+                    0 => {
+                        let spell_record = spell_dbc
+                            .get(&spell_id)
+                            .expect("trainer_spell has unknown spell record");
+                        spell_record.spell_level
+                    }
+                    other => other,
+                };
+
                 Ok(TrainerSpellDbRecord {
                     creature_template_entry_or_template_id: row
                         .get(CreatureTemplateEntryOrTemplateId as usize)
                         .unwrap(),
-                    spell_id: row.get(SpellId as usize).unwrap(),
+                    spell_id,
                     spell_cost: row.get(SpellCost as usize).unwrap(),
                     required_skill: row.get(RequiredSkill as usize).unwrap(),
                     required_skill_value: row.get(RequiredSkillValue as usize).unwrap(),
-                    required_level: row.get(RequiredLevel as usize).unwrap(),
+                    required_level,
                 })
             })
             .unwrap();
@@ -333,7 +358,7 @@ enum CreatureModelInfoColumnIndex {
     ModelIdAlternative,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct TrainerSpellDbRecord {
     pub creature_template_entry_or_template_id: u32,
     pub spell_id: u32,
@@ -341,6 +366,32 @@ pub struct TrainerSpellDbRecord {
     pub required_skill: u32,
     pub required_skill_value: u32,
     pub required_level: u32,
+}
+
+impl TrainerSpellDbRecord {
+    pub fn state_for_player(&self, player: &Player, required_level: u32) -> TrainerSpellState {
+        use TrainerSpellState::*;
+
+        if self.spell_id == 0 {
+            return Red;
+        }
+
+        if player.has_spell(self.spell_id) {
+            return Gray;
+        }
+
+        if player.level() < required_level {
+            return Red;
+        }
+
+        if self.required_skill_value > 0
+            && player.get_skill_level(self.required_skill).unwrap_or(0) < self.required_skill_value
+        {
+            return Red;
+        }
+
+        return Green;
+    }
 }
 
 enum TrainerSpellColumnIndex {

@@ -369,7 +369,7 @@ impl DataStore {
         };
 
         info!("Loading trainer individual spells...");
-        let trainer_spells = CreatureRepository::load_trainer_spells(conn);
+        let trainer_spells = CreatureRepository::load_trainer_spells(conn, &spell);
         let trainer_spells: SqlMultiStore<TrainerSpellDbRecord> = {
             let mut multimap: MultiMap<u32, TrainerSpellDbRecord> = MultiMap::new();
             for trainer_spell in trainer_spells {
@@ -381,7 +381,8 @@ impl DataStore {
         };
 
         info!("Loading trainer spells templates...");
-        let trainer_spell_templates = CreatureRepository::load_trainer_spell_templates(conn);
+        let trainer_spell_templates =
+            CreatureRepository::load_trainer_spell_templates(conn, &spell);
         let trainer_spell_templates: SqlMultiStore<TrainerSpellDbRecord> = {
             let mut multimap: MultiMap<u32, TrainerSpellDbRecord> = MultiMap::new();
             for trainer_spell in trainer_spell_templates {

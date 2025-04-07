@@ -9,7 +9,7 @@ use crate::protocol::client::ClientMessage;
 use crate::protocol::packets::*;
 use crate::protocol::server::ServerMessage;
 use crate::session::opcode_handler::{OpcodeHandler, PacketHandlerArgs};
-use crate::shared::constants::{GossipMenuOptionType, TrainerSpellState};
+use crate::shared::constants::GossipMenuOptionType;
 
 impl OpcodeHandler {
     pub(crate) fn handle_cmsg_gossip_hello(
@@ -85,6 +85,30 @@ impl OpcodeHandler {
                     return;
                 };
 
+                // TODO: send message if trainer of another class
+                /*
+                if (pPlayer->getClass() != GetCreatureInfo()->TrainerClass)
+                {
+                    if (msg)
+                    {
+                        pPlayer->PlayerTalkClass->ClearMenus();
+                        switch (GetCreatureInfo()->TrainerClass)
+                        {
+                            case CLASS_DRUID:  pPlayer->PlayerTalkClass->SendGossipMenu(4913, GetObjectGuid()); break;
+                            case CLASS_HUNTER: pPlayer->PlayerTalkClass->SendGossipMenu(10090, GetObjectGuid()); break;
+                            case CLASS_MAGE:   pPlayer->PlayerTalkClass->SendGossipMenu(328, GetObjectGuid()); break;
+                            case CLASS_PALADIN: pPlayer->PlayerTalkClass->SendGossipMenu(1635, GetObjectGuid()); break;
+                            case CLASS_PRIEST: pPlayer->PlayerTalkClass->SendGossipMenu(4436, GetObjectGuid()); break;
+                            case CLASS_ROGUE:  pPlayer->PlayerTalkClass->SendGossipMenu(4797, GetObjectGuid()); break;
+                            case CLASS_SHAMAN: pPlayer->PlayerTalkClass->SendGossipMenu(5003, GetObjectGuid()); break;
+                            case CLASS_WARLOCK: pPlayer->PlayerTalkClass->SendGossipMenu(5836, GetObjectGuid()); break;
+                            case CLASS_WARRIOR: pPlayer->PlayerTalkClass->SendGossipMenu(4985, GetObjectGuid()); break;
+                        }
+                    }
+                    return false;
+                }
+                */
+
                 let Some(trainer_spells) = world_context.data_store.get_trainer_spells_by_creature_entry(creature_template.entry) else {
                     error!("handle_cmsg_gossip_select_option: received a trainer option but no spells found for entry {}",creature_template.entry);
                     session.close_gossip_menu();
@@ -103,14 +127,15 @@ impl OpcodeHandler {
                             }
 
                             let required_level = world_context.data_store.get_skill_required_level_for_player(spell.spell_id, player.race_bit(), player.class_bit()).unwrap_or(0);
+                            let required_level = required_level.max(spell.required_level);
 
                             Some(TrainerSpell {
                                 spell_id: spell.spell_id,
-                                state: TrainerSpellState::Green, // FIXME
+                                state: spell.state_for_player(player, required_level),
                                 cost: spell.spell_cost,
                                 can_learn_primary_profession_first_rank: false, // FIXME: professions
                                 enable_learn_primary_profession_button: false, // FIXME: professions
-                                required_level: required_level.max(spell.required_level) as u8,
+                                required_level: required_level as u8,
                                 required_skill: spell.required_skill,
                                 required_skill_value: spell.required_skill_value,
                                 previous_spell: 0, // FIXME: spell chains

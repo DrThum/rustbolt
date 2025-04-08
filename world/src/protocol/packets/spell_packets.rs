@@ -229,3 +229,23 @@ impl BinWrite for ClientSpellCooldown {
         Ok(())
     }
 }
+
+#[binwrite]
+#[server_opcode]
+pub struct SmsgPlaySpellVisual {
+    pub caster_guid: ObjectGuid,
+    pub spell_art_kit: u32,
+}
+
+#[binwrite]
+#[server_opcode]
+pub struct SmsgPlaySpellImpact {
+    pub caster_guid: ObjectGuid,
+    pub spell_art_kit: u32,
+}
+
+#[binwrite]
+#[server_opcode]
+pub struct SmsgLearnedSpell {
+    pub spell_id: u32,
+}

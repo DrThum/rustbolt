@@ -350,6 +350,11 @@ impl OpcodeHandler {
                     ProcessInMap,
                     OpcodeHandler::handle_cmsg_set_action_button
                 ),
+                define_handler!(
+                    Opcode::CmsgTrainerBuySpell,
+                    ProcessInMap,
+                    OpcodeHandler::handle_cmsg_trainer_buy_spell
+                ),
             ]),
         }
     }

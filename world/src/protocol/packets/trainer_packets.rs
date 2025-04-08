@@ -1,4 +1,4 @@
-use binrw::{binwrite, NullString};
+use binrw::{binread, binwrite, NullString};
 use opcode_derive::server_opcode;
 
 use crate::entities::object_guid::ObjectGuid;
@@ -40,4 +40,10 @@ pub struct TrainerSpell {
     pub previous_spell: u32, // chain_node ? (chain_node->prev ? chain_node->prev : chain_node->req) : 0
     pub required_required_spell: u32, // chain_node && chain_node->prev ? chain_node->req : 0
     pub unk: u32,            // always 0 in MaNGOS
+}
+
+#[binread]
+pub struct CmsgTrainerBuySpell {
+    pub trainer_guid: ObjectGuid,
+    pub spell_id: u32,
 }

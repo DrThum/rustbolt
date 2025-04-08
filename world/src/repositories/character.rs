@@ -424,7 +424,7 @@ impl CharacterRepository {
         .unwrap();
     }
 
-    pub fn add_spell_offline(transaction: &Transaction, character_guid: u32, spell_id: u32) {
+    pub fn add_spell(transaction: &Transaction, character_guid: u32, spell_id: u32) {
         let mut stmt = transaction.prepare_cached("INSERT INTO character_spells(character_guid, spell_id) VALUES (:character_guid, :spell_id)").unwrap();
         stmt.execute(named_params! {
             ":character_guid": character_guid,
@@ -600,7 +600,7 @@ impl CharacterRepository {
         let mut stmt = transaction
             .prepare_cached("DELETE FROM character_inventory WHERE character_guid = :guid")
             .unwrap();
-        stmt.execute(named_params! {":guid": guid})?;
+        stmt.execute(named_params! { ":guid": guid })?;
 
         for (slot, item) in player.inventory().list() {
             if item.needs_db_save() {
@@ -622,7 +622,7 @@ impl CharacterRepository {
         let mut stmt = transaction
             .prepare_cached("DELETE FROM character_spell_cooldowns WHERE character_guid = :guid")
             .unwrap();
-        stmt.execute(named_params! {":guid": guid})?;
+        stmt.execute(named_params! { ":guid": guid })?;
 
         let now = SystemTime::now();
         for (spell_id, cooldown) in cooldowns.list() {
@@ -643,7 +643,7 @@ impl CharacterRepository {
         let mut stmt = transaction
             .prepare_cached("DELETE FROM character_action_buttons WHERE character_guid = :guid")
             .unwrap();
-        stmt.execute(named_params! {":guid": guid})?;
+        stmt.execute(named_params! { ":guid": guid })?;
         for (_, action) in player.action_buttons() {
             Self::add_action(
                 transaction,
@@ -652,6 +652,15 @@ impl CharacterRepository {
                 action.action_type,
                 action.action_value,
             );
+        }
+
+        // Save spells
+        let mut stmt = transaction
+            .prepare_cached("DELETE FROM character_spells WHERE character_guid = :guid")
+            .unwrap();
+        stmt.execute(named_params! { ":guid": guid })?;
+        for &spell_id in player.spells() {
+            Self::add_spell(transaction, guid, spell_id);
         }
 
         Ok(())

@@ -1,6 +1,6 @@
 use binrw::NullString;
 use log::{error, warn};
-use shipyard::{Get, View};
+use shipyard::{Get, View, ViewMut};
 
 use crate::entities::creature::Creature;
 use crate::entities::player::Player;
@@ -127,7 +127,7 @@ impl OpcodeHandler {
                 }
 
                 let Some(trainer_spells) = world_context.data_store.get_trainer_spells_by_creature_entry(creature_template.entry) else {
-                    error!("handle_cmsg_gossip_select_option: received a trainer option but no spells found for entry {}",creature_template.entry);
+                    error!("handle_cmsg_gossip_select_option: received a trainer option but no spells found for entry {}", creature_template.entry);
                     session.close_gossip_menu();
                     return;
                 };
@@ -174,5 +174,100 @@ impl OpcodeHandler {
             }
             ot => warn!("handle_cmsg_gossip_select_option: received a non-implemented-yet option type {ot:?}"),
         };
+    }
+
+    pub fn handle_cmsg_trainer_buy_spell(
+        PacketHandlerArgs {
+            session,
+            world_context,
+            data,
+            ..
+        }: PacketHandlerArgs,
+    ) {
+        let cmsg: CmsgTrainerBuySpell = ClientMessage::read_as(data).unwrap();
+
+        let Some(map) = session.current_map() else {
+            error!("handle_cmsg_trainer_buy_spell: session has no map");
+            return;
+        };
+
+        let Some(target_entity_id) = map.lookup_entity_ecs(&cmsg.trainer_guid) else {
+            error!(
+                "handle_cmsg_trainer_buy_spell: map has no EntityId for cmsg.guid (guid: {:?})",
+                cmsg.trainer_guid
+            );
+            return;
+        };
+
+        let Ok(creature_template) = map.world().run(|v_creature: View<Creature>| {
+            v_creature.get(target_entity_id).map(|c| c.template.clone())
+        }) else {
+            warn!("handle_cmsg_trainer_buy_spell: target is not a creature");
+            return;
+        };
+
+        if creature_template.trainer_type.is_none() {
+            error!("handle_cmsg_trainer_buy_spell: creature is not a trainer");
+            return;
+        };
+
+        let Some(trainer_spells) = world_context
+            .data_store
+            .get_trainer_spells_by_creature_entry(creature_template.entry)
+        else {
+            error!(
+                "handle_cmsg_trainer_buy_spell: no spells found for entry {}",
+                creature_template.entry
+            );
+            return;
+        };
+
+        let Some(trainer_spell) = trainer_spells
+            .iter()
+            .find(|tsp| tsp.spell_id == cmsg.spell_id)
+        else {
+            error!("handle_cmsg_trainer_buy_spell: request spell not trained by the trainer");
+            return;
+        };
+
+        map.world().run(|mut vm_player: ViewMut<Player>| {
+            let Ok(mut player) = (&mut vm_player).get(session.player_entity_id().unwrap()) else {
+                error!("handle_cmsg_trainer_buy_spell: no player in session");
+                return;
+            };
+
+            // FIXME: take reputation into account for a potential discount (see Player::GetReputationPriceDiscount(Creature*) in MaNGOS)
+
+            if player.money() < trainer_spell.spell_cost {
+                return;
+            }
+
+            player.modify_money(-1 * trainer_spell.spell_cost as i32);
+
+            let packet = ServerMessage::new(SmsgPlaySpellVisual {
+                caster_guid: cmsg.trainer_guid,
+                spell_art_kit: 0xB3,
+            }); // Visual effect on trainer
+            session.send(&packet).unwrap();
+
+            let packet = ServerMessage::new(SmsgPlaySpellImpact {
+                caster_guid: player.guid(),
+                spell_art_kit: 0x16A,
+            }); // Visual effect on player
+            session.send(&packet).unwrap();
+
+            player.add_spell(trainer_spell.spell_id);
+
+            let packet = ServerMessage::new(SmsgLearnedSpell {
+                spell_id: trainer_spell.spell_id,
+            });
+            session.send(&packet).unwrap();
+
+            let packet = ServerMessage::new(SmsgTrainerBuySucceeded {
+                trainer_guid: cmsg.trainer_guid,
+                spell_id: trainer_spell.spell_id,
+            });
+            session.send(&packet).unwrap();
+        });
     }
 }

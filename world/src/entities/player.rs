@@ -194,7 +194,7 @@ impl Player {
         let mut added_skill_ids: HashSet<u32> = HashSet::new();
         for spell_id in start_spells {
             if let Some(spell_record) = data_store.get_spell_record(*spell_id) {
-                CharacterRepository::add_spell_offline(&transaction, character_guid, *spell_id);
+                CharacterRepository::add_spell(&transaction, character_guid, *spell_id);
 
                 if let Some(learnable_skill) = spell_record.learnable_skill() {
                     if !added_skill_ids.contains(&learnable_skill.skill_id) {
@@ -698,6 +698,10 @@ impl Player {
 
     pub fn has_spell(&self, spell_id: u32) -> bool {
         self.spells.contains(&spell_id)
+    }
+
+    pub fn add_spell(&mut self, spell_id: u32) {
+        self.spells.push(spell_id);
     }
 
     pub fn guid(&self) -> ObjectGuid {

@@ -78,7 +78,7 @@ impl Player {
         let total_count = self.inventory.get_item_count(item_id);
         let packet = ServerMessage::new(SmsgItemPushResult {
             player_guid: self.guid,
-            loot_source: 0,
+            loot_source: 0, // 0 = from loot
             is_created: 0,
             is_visible_in_chat: 1,
             bag_slot: 255, // FIXME: INVENTORY_SLOT_BAG_0

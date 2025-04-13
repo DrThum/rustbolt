@@ -2093,3 +2093,17 @@ pub enum TrainerSpellState {
     Red = 1,
     Gray = 2,
 }
+
+#[allow(dead_code)]
+#[derive(Copy, Clone, Debug)]
+pub enum BuyFailedReason {
+    CantFindItem = 0,
+    ItemAlreadySold = 1,
+    NotEnoughtMoney = 2,
+    SellerDontLikeYou = 4,
+    DistanceTooFar = 5,
+    ItemSoldOut = 7,
+    CantCarryMore = 8,
+    RankRequire = 11,
+    ReputationRequire = 12,
+}

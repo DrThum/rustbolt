@@ -360,6 +360,11 @@ impl OpcodeHandler {
                     ProcessInMap,
                     OpcodeHandler::handle_cmsg_list_inventory
                 ),
+                define_handler!(
+                    Opcode::CmsgBuyItem,
+                    ProcessInMap,
+                    OpcodeHandler::handle_cmsg_buy_item
+                ),
             ]),
         }
     }

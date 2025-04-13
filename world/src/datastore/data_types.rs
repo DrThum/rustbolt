@@ -541,6 +541,7 @@ pub struct CreatureTemplate {
     pub trainer_class: Option<CharacterClass>,
     pub trainer_race: Option<CharacterRace>,
     pub trainer_template_id: Option<u32>,
+    pub vendor_inventory_template_id: Option<u32>,
 }
 
 #[allow(dead_code)]

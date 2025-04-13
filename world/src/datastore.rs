@@ -20,7 +20,9 @@ use crate::{
         dbc::Dbc,
     },
     repositories::{
-        creature::{CreatureModelInfo, CreatureRepository, TrainerSpellDbRecord},
+        creature::{
+            CreatureModelInfo, CreatureRepository, TrainerSpellDbRecord, VendorItemDbRecord,
+        },
         creature_static_data::{
             CreatureBaseAttributesPerLevelDbRecord, CreatureStaticDataRepository,
         },
@@ -96,6 +98,8 @@ pub struct DataStore {
     game_object_templates: SqlStore<GameObjectTemplate>,
     trainer_spells: SqlMultiStore<TrainerSpellDbRecord>,
     trainer_spell_templates: SqlMultiStore<TrainerSpellDbRecord>,
+    vendor_inventory_items: SqlMultiStore<VendorItemDbRecord>,
+    vendor_inventory_templates: SqlMultiStore<VendorItemDbRecord>,
     // GameTables (DBC files with name starting with gtXXX)
     gt_OCTRegenHP: GameTableStore<GameTableOCTRegenHPRecord>,
     gt_RegenHPPerSpt: GameTableStore<GameTableRegenHPPerSptRecord>,
@@ -393,6 +397,30 @@ impl DataStore {
             multimap
         };
 
+        info!("Loading vendor inventory individual items...");
+        let vendor_inventory_items = CreatureRepository::load_vendor_inventory_items(conn);
+        let vendor_inventory_items: SqlMultiStore<VendorItemDbRecord> = {
+            let mut multimap: MultiMap<u32, VendorItemDbRecord> = MultiMap::new();
+            for vendor_item in vendor_inventory_items {
+                let key = vendor_item.creature_template_entry_or_template_id;
+                multimap.insert(key, vendor_item);
+            }
+
+            multimap
+        };
+
+        info!("Loading vendor inventory templates...");
+        let vendor_inventory_templates = CreatureRepository::load_vendor_inventory_templates(conn);
+        let vendor_inventory_templates: SqlMultiStore<VendorItemDbRecord> = {
+            let mut multimap: MultiMap<u32, VendorItemDbRecord> = MultiMap::new();
+            for vendor_item in vendor_inventory_templates {
+                let key = vendor_item.creature_template_entry_or_template_id;
+                multimap.insert(key, vendor_item);
+            }
+
+            multimap
+        };
+
         Ok(DataStore {
             chr_races,
             chr_classes,
@@ -430,6 +458,8 @@ impl DataStore {
             game_object_templates,
             trainer_spells,
             trainer_spell_templates,
+            vendor_inventory_items,
+            vendor_inventory_templates,
             gt_OCTRegenHP,
             gt_RegenHPPerSpt,
             gt_RegenMPPerSpt,
@@ -733,9 +763,9 @@ impl DataStore {
             return None;
         };
 
-        if let Some(trainer_spell_templates) = self
-            .trainer_spell_templates
-            .get_vec(&creature_template.trainer_template_id.unwrap_or(0))
+        if let Some(trainer_spell_templates) = creature_template
+            .trainer_template_id
+            .and_then(|template_id| self.trainer_spell_templates.get_vec(&template_id))
         {
             combined_spells.extend(trainer_spell_templates.clone());
         }
@@ -745,6 +775,37 @@ impl DataStore {
         }
 
         Some(combined_spells)
+    }
+
+    /**
+     * Returns the combined data from the vendor individual items (from vendor_inventory_items) and
+     * its template (from vendor_inventory_templates).
+     */
+    pub fn get_vendor_inventory_by_creature_entry(
+        &self,
+        creature_entry: u32,
+    ) -> Option<Vec<VendorItemDbRecord>> {
+        let mut combined_items: Vec<VendorItemDbRecord> = Vec::new();
+        if let Some(vendor_items) = self.vendor_inventory_items.get_vec(&creature_entry) {
+            combined_items.extend(vendor_items.clone());
+        };
+
+        let Some(creature_template) = self.creature_templates.get(&creature_entry) else {
+            return None;
+        };
+
+        if let Some(vendor_items_from_template) = creature_template
+            .vendor_inventory_template_id
+            .and_then(|template_id| self.vendor_inventory_templates.get_vec(&template_id))
+        {
+            combined_items.extend(vendor_items_from_template.clone());
+        }
+
+        if combined_items.is_empty() {
+            return None;
+        }
+
+        return Some(combined_items);
     }
 
     pub fn get_gtOCTRegenHP(&self, index: usize) -> Option<&GameTableOCTRegenHPRecord> {

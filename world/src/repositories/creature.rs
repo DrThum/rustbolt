@@ -40,7 +40,8 @@ impl CreatureRepository {
             damage_multiplier, armor_multiplier, experience_multiplier, model_id1, model_id2, model_id3, model_id4, scale, family, type_id,
             racial_leader, type_flags, speed_walk, speed_run, rank, melee_base_attack_time_ms, ranged_base_attack_time_ms, base_damage_variance,
             pet_spell_data_id, faction_template_id, npc_flags, unit_flags, dynamic_flags, gossip_menu_id, movement_type, min_money_loot,
-            max_money_loot, loot_table_id, trainer_type, trainer_tradeskill_spell, trainer_class, trainer_race, trainer_template_id
+            max_money_loot, loot_table_id, trainer_type, trainer_tradeskill_spell, trainer_class, trainer_race, trainer_template_id,
+            vendor_inventory_template_id
             FROM creature_templates
             ORDER BY entry").unwrap();
 
@@ -107,6 +108,9 @@ impl CreatureRepository {
                     trainer_class: row.get(TrainerClass as usize).unwrap(),
                     trainer_race: row.get(TrainerRace as usize).unwrap(),
                     trainer_template_id: row.get(TrainerTemplateId as usize).unwrap(),
+                    vendor_inventory_template_id: row
+                        .get(VendorInventoryTemplateId as usize)
+                        .unwrap(),
                 };
 
                 assert!(
@@ -267,6 +271,61 @@ impl CreatureRepository {
 
         result.filter_map(|res| res.ok()).collect()
     }
+
+    pub fn load_vendor_inventory_items(
+        conn: &PooledConnection<SqliteConnectionManager>,
+    ) -> Vec<VendorItemDbRecord> {
+        Self::load_vendor_inventory_internal(
+            conn,
+            "vendor_inventory_items",
+            "creature_template_entry",
+        )
+    }
+
+    pub fn load_vendor_inventory_templates(
+        conn: &PooledConnection<SqliteConnectionManager>,
+    ) -> Vec<VendorItemDbRecord> {
+        Self::load_vendor_inventory_internal(conn, "vendor_inventory_templates", "template_id")
+    }
+
+    fn load_vendor_inventory_internal(
+        conn: &PooledConnection<SqliteConnectionManager>,
+        table: &str,
+        primary_key: &str,
+    ) -> Vec<VendorItemDbRecord> {
+        let mut stmt = conn
+            .prepare_cached(
+                format!(
+                    "
+        SELECT {}, item_id, max_count, increment_time_seconds, extended_cost_id
+        FROM {}",
+                    primary_key, table
+                )
+                .as_str(),
+            )
+            .unwrap();
+
+        let result = stmt
+            .query_map([], |row| {
+                use VendorItemColumnIndex::*;
+
+                Ok(VendorItemDbRecord {
+                    creature_template_entry_or_template_id: row
+                        .get(CreatureTemplateEntryOrTemplateId as usize)
+                        .unwrap(),
+                    item_id: row.get(ItemId as usize).unwrap(),
+                    max_count: row.get(MaxCount as usize).unwrap(),
+                    increment_time: row
+                        .get::<usize, Option<u64>>(IncrementTime as usize)
+                        .map(|maybe_secs| maybe_secs.map(|secs| Duration::from_secs(secs)))
+                        .unwrap(),
+                    extended_cost_id: row.get(ExtendedCostId as usize).unwrap(),
+                })
+            })
+            .unwrap();
+
+        result.filter_map(|res| res.ok()).collect()
+    }
 }
 
 pub struct CreatureSpawnDbRecord {
@@ -326,6 +385,7 @@ enum CreatureTemplateColumnIndex {
     TrainerClass,
     TrainerRace,
     TrainerTemplateId,
+    VendorInventoryTemplateId,
 }
 
 enum CreatureSpawnColumnIndex {
@@ -401,6 +461,23 @@ enum TrainerSpellColumnIndex {
     RequiredSkill,
     RequiredSkillValue,
     RequiredLevel,
+}
+
+#[derive(Clone, Debug)]
+pub struct VendorItemDbRecord {
+    pub creature_template_entry_or_template_id: u32,
+    pub item_id: u32,
+    pub max_count: Option<u32>,
+    pub increment_time: Option<Duration>,
+    pub extended_cost_id: Option<u32>,
+}
+
+enum VendorItemColumnIndex {
+    CreatureTemplateEntryOrTemplateId,
+    ItemId,
+    MaxCount,
+    IncrementTime,
+    ExtendedCostId,
 }
 
 impl FromSql for Gender {

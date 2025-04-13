@@ -229,6 +229,14 @@ impl CreatureRepository {
         spell_dbc: &DbcStore<SpellRecord>,
     ) -> Vec<TrainerSpellDbRecord> {
         let mut stmt = conn
+            .prepare_cached(format!("SELECT COUNT(spell_id) FROM {}", table).as_str())
+            .unwrap();
+        let mut count = stmt.query_map([], |row| row.get::<usize, u64>(0)).unwrap();
+
+        let count = count.next().unwrap().unwrap_or(0);
+        let bar = ProgressBar::new(count);
+
+        let mut stmt = conn
             .prepare_cached(
                 format!(
                     "
@@ -243,6 +251,11 @@ impl CreatureRepository {
         let result = stmt
             .query_map([], |row| {
                 use TrainerSpellColumnIndex::*;
+
+                bar.inc(1);
+                if bar.position() == count {
+                    bar.finish();
+                }
 
                 let spell_id: u32 = row.get(SpellId as usize).unwrap();
                 let required_level_from_db: u32 = row.get(RequiredLevel as usize).unwrap();
@@ -294,6 +307,14 @@ impl CreatureRepository {
         primary_key: &str,
     ) -> Vec<VendorItemDbRecord> {
         let mut stmt = conn
+            .prepare_cached(format!("SELECT COUNT(item_id) FROM {}", table).as_str())
+            .unwrap();
+        let mut count = stmt.query_map([], |row| row.get::<usize, u64>(0)).unwrap();
+
+        let count = count.next().unwrap().unwrap_or(0);
+        let bar = ProgressBar::new(count);
+
+        let mut stmt = conn
             .prepare_cached(
                 format!(
                     "
@@ -308,6 +329,11 @@ impl CreatureRepository {
         let result = stmt
             .query_map([], |row| {
                 use VendorItemColumnIndex::*;
+
+                bar.inc(1);
+                if bar.position() == count {
+                    bar.finish();
+                }
 
                 Ok(VendorItemDbRecord {
                     creature_template_entry_or_template_id: row

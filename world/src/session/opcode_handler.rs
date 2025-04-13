@@ -355,6 +355,11 @@ impl OpcodeHandler {
                     ProcessInMap,
                     OpcodeHandler::handle_cmsg_trainer_buy_spell
                 ),
+                define_handler!(
+                    Opcode::CmsgListInventory,
+                    ProcessInMap,
+                    OpcodeHandler::handle_cmsg_list_inventory
+                ),
             ]),
         }
     }

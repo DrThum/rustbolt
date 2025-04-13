@@ -270,4 +270,88 @@ impl OpcodeHandler {
             session.send(&packet).unwrap();
         });
     }
+
+    pub fn handle_cmsg_list_inventory(
+        PacketHandlerArgs {
+            session,
+            world_context,
+            data,
+            ..
+        }: PacketHandlerArgs,
+    ) {
+        let cmsg: CmsgListInventory = ClientMessage::read_as(data).unwrap();
+
+        let Some(map) = session.current_map() else {
+            error!("handle_cmsg_list_inventory: session has no map");
+            return;
+        };
+
+        let Some(target_entity_id) = map.lookup_entity_ecs(&cmsg.vendor_guid) else {
+            error!(
+                "handle_cmsg_list_inventory: map has no EntityId for cmsg.vendor_guid (guid: {:?})",
+                cmsg.vendor_guid
+            );
+            return;
+        };
+
+        let Ok(creature_template) = map.world().run(|v_creature: View<Creature>| {
+            v_creature.get(target_entity_id).map(|c| c.template.clone())
+        }) else {
+            warn!("handle_cmsg_list_inventory: target is not a creature");
+            return;
+        };
+
+        let Some(inventory_items) = world_context
+            .data_store
+            .get_vendor_inventory_by_creature_entry(creature_template.entry)
+        else {
+            error!(
+                "handle_cmsg_list_inventory: no vendor inventory found for entry {}",
+                creature_template.entry
+            );
+            let packet = ServerMessage::new(SmsgListInventory::empty(cmsg.vendor_guid));
+            session.send(&packet).unwrap();
+            return;
+        };
+
+        let items_for_packet: Vec<InventoryItem> = inventory_items
+            .iter()
+            .enumerate()
+            .filter_map(|(index, item)| {
+                let Some(item_template) = world_context.data_store.get_item_template(item.item_id)
+                else {
+                    warn!(
+                        "found unknown item id {} on vendor (creature template entry {}",
+                        item.item_id, creature_template.entry
+                    );
+                    return None;
+                };
+
+                Some(InventoryItem {
+                    index: (index + 1) as u32,
+                    item_id: item.item_id,
+                    item_display_id: item_template.display_id,
+                    item_count_at_vendor: item
+                        .max_count
+                        .filter(|&count| count > 0)
+                        .unwrap_or(0xFFFFFFFF),
+                    price: item_template.buy_price, // FIXME: take reputation into account for a potential discount (see Player::GetReputationPriceDiscount(Creature*) in MaNGOS)
+                    max_durability: item_template.max_durability,
+                    buy_count: item_template.buy_count,
+                    extended_cost_id: item.extended_cost_id.unwrap_or(0),
+                })
+            })
+            .collect();
+
+        if items_for_packet.is_empty() {
+            let packet = ServerMessage::new(SmsgListInventory::empty(cmsg.vendor_guid));
+            session.send(&packet).unwrap();
+        } else {
+            let packet = ServerMessage::new(SmsgListInventory::from_items(
+                cmsg.vendor_guid,
+                items_for_packet,
+            ));
+            session.send(&packet).unwrap();
+        }
+    }
 }

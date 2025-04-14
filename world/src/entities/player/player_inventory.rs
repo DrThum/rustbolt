@@ -9,6 +9,7 @@ use crate::{
         attribute_modifiers::AttributeModifiers,
         internal_values::InternalValues,
         item::Item,
+        object_guid::ObjectGuid,
         update::{CreateData, UpdateData},
     },
     shared::constants::{AttributeModifier, AttributeModifierType, InventorySlot, InventoryType},
@@ -51,6 +52,10 @@ impl PlayerInventory {
 
     pub fn get(&self, slot: u32) -> Option<&Item> {
         self.items.get(&slot)
+    }
+
+    pub fn get_mut_by_guid(&mut self, guid: ObjectGuid) -> Option<(&u32, &mut Item)> {
+        self.items.iter_mut().find(|(_, item)| *item.guid() == guid)
     }
 
     pub fn has_item_in_slot(&self, slot: u32) -> bool {

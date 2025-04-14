@@ -4,7 +4,7 @@ use opcode_derive::server_opcode;
 use crate::entities::object_guid::ObjectGuid;
 use crate::protocol::opcodes::Opcode;
 use crate::protocol::server::ServerMessagePayload;
-use crate::shared::constants::BuyFailedReason;
+use crate::shared::constants::{BuyFailedReason, SellFailedReason};
 
 #[binread]
 pub struct CmsgListInventory {
@@ -77,4 +77,21 @@ pub struct SmsgBuyFailed {
     pub param: Option<u32>,
     #[bw(map = |bfr: &BuyFailedReason| *bfr as u8)]
     pub fail_reason: BuyFailedReason,
+}
+
+#[binread]
+pub struct CmsgSellItem {
+    pub vendor_guid: ObjectGuid,
+    pub item_guid: ObjectGuid,
+    pub count: u8,
+}
+
+#[binwrite]
+#[server_opcode]
+pub struct SmsgSellItem {
+    pub vendor_guid: ObjectGuid,
+    pub item_guid: ObjectGuid,
+    pub param: Option<u32>,
+    #[bw(map = |sfr: &SellFailedReason| *sfr as u8)]
+    pub fail_reason: SellFailedReason,
 }

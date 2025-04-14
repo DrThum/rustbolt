@@ -365,6 +365,11 @@ impl OpcodeHandler {
                     ProcessInMap,
                     OpcodeHandler::handle_cmsg_buy_item
                 ),
+                define_handler!(
+                    Opcode::CmsgSellItem,
+                    ProcessInMap,
+                    OpcodeHandler::handle_cmsg_sell_item
+                ),
             ]),
         }
     }

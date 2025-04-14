@@ -2,6 +2,7 @@ use binrw::NullString;
 use log::{error, warn};
 use shipyard::{Get, View, ViewMut};
 
+use crate::datastore::data_types::ItemTemplate;
 use crate::entities::creature::Creature;
 use crate::entities::player::Player;
 use crate::game::gossip::GossipMenu;
@@ -10,7 +11,7 @@ use crate::protocol::packets::*;
 use crate::protocol::server::ServerMessage;
 use crate::session::opcode_handler::{OpcodeHandler, PacketHandlerArgs};
 use crate::shared::constants::{
-    BuyFailedReason, CharacterClass, GossipMenuOptionType, TrainerType,
+    BuyFailedReason, CharacterClass, GossipMenuOptionType, SellFailedReason, TrainerType,
 };
 
 impl OpcodeHandler {
@@ -371,13 +372,13 @@ impl OpcodeHandler {
         // TODO: handle extended cost
         // TODO: handle limited items (check current stock, periodically restock, ...)
         let Some(map) = session.current_map() else {
-            error!("handle_cmsg_list_inventory: session has no map");
+            error!("handle_cmsg_buy_item: session has no map");
             return;
         };
 
         let Some(target_entity_id) = map.lookup_entity_ecs(&cmsg.vendor_guid) else {
             error!(
-                "handle_cmsg_list_inventory: map has no EntityId for cmsg.vendor_guid (guid: {:?})",
+                "handle_cmsg_buy_item: map has no EntityId for cmsg.vendor_guid (guid: {:?})",
                 cmsg.vendor_guid
             );
             return;
@@ -386,7 +387,7 @@ impl OpcodeHandler {
         let Ok(creature_template) = map.world().run(|v_creature: View<Creature>| {
             v_creature.get(target_entity_id).map(|c| c.template.clone())
         }) else {
-            warn!("handle_cmsg_list_inventory: target is not a creature");
+            warn!("handle_cmsg_buy_item: target is not a creature");
             return;
         };
 
@@ -395,7 +396,7 @@ impl OpcodeHandler {
             .get_vendor_inventory_by_creature_entry(creature_template.entry)
         else {
             error!(
-                "handle_cmsg_list_inventory: no vendor inventory found for entry {}",
+                "handle_cmsg_buy_item: no vendor inventory found for entry {}",
                 creature_template.entry
             );
             let packet = ServerMessage::new(SmsgListInventory::empty(cmsg.vendor_guid));
@@ -489,6 +490,91 @@ impl OpcodeHandler {
 
                     session.send(&packet).unwrap();
                 }
+            }
+        });
+    }
+
+    pub fn handle_cmsg_sell_item(
+        PacketHandlerArgs {
+            session,
+            world_context,
+            data,
+            ..
+        }: PacketHandlerArgs,
+    ) {
+        let cmsg: CmsgSellItem = ClientMessage::read_as(data).unwrap();
+
+        let Some(map) = session.current_map() else {
+            error!("handle_cmsg_sell_item: session has no map");
+            return;
+        };
+
+        if map.lookup_entity_ecs(&cmsg.vendor_guid).is_none() {
+            error!(
+                "handle_cmsg_sell_item: map has no EntityId for cmsg.vendor_guid (guid: {:?})",
+                cmsg.vendor_guid
+            );
+            return;
+        }
+
+        map.world().run(|mut vm_player: ViewMut<Player>| {
+            let Ok(mut player) = (&mut vm_player).get(session.player_entity_id().unwrap()) else {
+                error!("handle_cmsg_sell_item: session has no player");
+                return;
+            };
+
+            // FIXME: don't sell item if template.sell_price == 0
+
+            let slot_to_remove: Option<u32>;
+            let item_template: Option<&ItemTemplate>;
+            {
+                let inventory = player.inventory_mut();
+
+                let Some((slot, item)) = inventory.get_mut_by_guid(cmsg.item_guid) else {
+                    let packet = ServerMessage::new(SmsgSellItem {
+                        vendor_guid: cmsg.vendor_guid,
+                        item_guid: cmsg.item_guid,
+                        param: None,
+                        fail_reason: SellFailedReason::CantFindItem,
+                    });
+
+                    session.send(&packet).unwrap();
+                    return;
+                };
+
+                if cmsg.count > 0 && cmsg.count as u32 != item.stack_count() {
+                    warn!("handle_cmsg_sell_item: unhandled case where cmsg.count > 0 && cmsg.count != item.stack_count() - TODO!");
+                    return;
+                }
+
+                slot_to_remove = Some(*slot);
+                item_template = world_context.data_store.get_item_template(item.entry());
+            }
+
+            let Some(item_template) = item_template else {
+                error!("handle_cmsg_sell_item: attempt to sell unknown item id (item guid: {:?})", cmsg.item_guid);
+                return;
+            };
+
+            if item_template.sell_price == 0 {
+                let packet = ServerMessage::new(SmsgSellItem {
+                    vendor_guid: cmsg.vendor_guid,
+                    item_guid: cmsg.item_guid,
+                    param: None,
+                    fail_reason: SellFailedReason::CantSellItem,
+                });
+
+                session.send(&packet).unwrap();
+                return;
+            }
+
+            if let Some(slot_to_remove) = slot_to_remove {
+                if let Some(sold_item) = player.remove_item(slot_to_remove) {
+                    let price = item_template.sell_price * sold_item.stack_count();
+                    player.modify_money(price as i32);
+                }
+
+                // TODO: Implement buyback
             }
         });
     }

@@ -2107,3 +2107,14 @@ pub enum BuyFailedReason {
     RankRequire = 11,
     ReputationRequire = 12,
 }
+
+#[allow(dead_code)]
+#[derive(Copy, Clone, Debug)]
+pub enum SellFailedReason {
+    CantFindItem = 1,
+    CantSellItem = 2,       // "Merchant doesn't like that item"
+    CantFindVendor = 3,     // "Merchant doesn't like you"
+    YouDontOwnThatItem = 4, // "You don't own that item"
+    Unk = 5,                // <nothing appears>
+    OnlyEmptyBag = 6,       // "You an only do that with empty bags"
+}

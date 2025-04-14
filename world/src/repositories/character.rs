@@ -262,7 +262,7 @@ impl CharacterRepository {
                 "SELECT account_id, race, class, level, gender, name, haircolor, hairstyle, face, skin, facialstyle,
                 map_id, zone_id, position_x, position_y, position_z, orientation, current_health, current_mana, current_rage,
                 current_energy, experience, money, bindpoint_map_id, bindpoint_area_id, bindpoint_position_x, bindpoint_position_y,
-                bindpoint_position_z, bindpoint_orientation
+                bindpoint_position_z, bindpoint_orientation, action_bar_toggles
                 FROM characters WHERE guid = :guid")
             .unwrap();
         let mut rows = stmt
@@ -307,6 +307,7 @@ impl CharacterRepository {
             bindpoint_position_y: row.get("bindpoint_position_y").unwrap(),
             bindpoint_position_z: row.get("bindpoint_position_z").unwrap(),
             bindpoint_orientation: row.get("bindpoint_orientation").unwrap(),
+            action_bar_toggles: row.get("action_bar_toggles").unwrap(),
         })
     }
 
@@ -540,7 +541,7 @@ impl CharacterRepository {
                 current_health = :current_health, current_mana = :current_mana, current_rage = :current_rage, current_energy = :current_energy,
                 experience = :experience, money = :money, bindpoint_map_id = :bindpoint_map_id, bindpoint_area_id = :bindpoint_area_id,
                 bindpoint_position_x = :bindpoint_position_x, bindpoint_position_y = :bindpoint_position_y, bindpoint_position_z = :bindpoint_position_z,
-                bindpoint_orientation = :bindpoint_orientation
+                bindpoint_orientation = :bindpoint_orientation, action_bar_toggles = :action_bar_toggles
                 WHERE guid = :guid",
             )
             .unwrap();
@@ -568,6 +569,7 @@ impl CharacterRepository {
             ":bindpoint_position_y": bindpoint.y,
             ":bindpoint_position_z": bindpoint.z,
             ":bindpoint_orientation": bindpoint.o,
+            ":action_bar_toggles": player.action_bar_toggles(),
         })?;
 
         // Save quest data
@@ -689,6 +691,7 @@ pub struct CharacterRecord {
     pub bindpoint_position_y: f32,
     pub bindpoint_position_z: f32,
     pub bindpoint_orientation: f32,
+    pub action_bar_toggles: u8,
 }
 
 impl CharacterRecord {

@@ -2118,3 +2118,11 @@ pub enum SellFailedReason {
     Unk = 5,                // <nothing appears>
     OnlyEmptyBag = 6,       // "You an only do that with empty bags"
 }
+
+#[allow(dead_code)]
+#[derive(Copy, Clone, Debug)]
+#[repr(u8)]
+pub enum PlayerFieldBytesOffset {
+    // 0: something related to the death timer
+    ActionBarToggles = 2,
+}

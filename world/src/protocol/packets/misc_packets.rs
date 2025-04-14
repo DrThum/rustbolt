@@ -96,3 +96,8 @@ pub struct CmsgTimeSyncResp {
     pub counter: u32,
     pub ticks: u32, // Seconds since server start
 }
+
+#[binread]
+pub struct CmsgSetActionBarToggles {
+    pub toggles: u8,
+}

@@ -1,6 +1,7 @@
 use crate::ecs::components::spell_cast::SpellCast;
 use crate::ecs::components::unit::Unit;
 use crate::entities::object_guid::ObjectGuid;
+use crate::entities::player::Player;
 use crate::game::spell_cast_target::SpellCastTargets;
 use crate::protocol::client::ClientMessage;
 use crate::protocol::packets::*;
@@ -9,7 +10,7 @@ use crate::session::opcode_handler::{OpcodeHandler, PacketHandlerArgs};
 use crate::session::world_session::WSRunnableArgs;
 use crate::shared::constants::RemarkableSpells;
 use log::error;
-use shipyard::ViewMut;
+use shipyard::{Get, View, ViewMut};
 
 impl OpcodeHandler {
     pub(crate) fn handle_cmsg_realm_split(
@@ -82,6 +83,26 @@ impl OpcodeHandler {
                     error!("handle_cmsg_binder_active: innkeeper failed to cast Bind ({fail_reason:?})");
                 },
             }
+        });
+    }
+
+    pub fn handle_cmsg_set_action_bar_toggles(
+        PacketHandlerArgs { data, session, .. }: PacketHandlerArgs,
+    ) {
+        let cmsg: CmsgSetActionBarToggles = ClientMessage::read_as(data).unwrap();
+
+        session.run(&|WSRunnableArgs {
+                          map,
+                          player_entity_id,
+                      }| {
+            map.world().run(|v_player: View<Player>| {
+                let Ok(player) = v_player.get(player_entity_id) else {
+                    error!("handle_cmsg_set_action_bar_toggles: player not found");
+                    return;
+                };
+
+                player.set_action_bar_toggles(cmsg.toggles);
+            })
         });
     }
 }

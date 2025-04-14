@@ -370,6 +370,11 @@ impl OpcodeHandler {
                     ProcessInMap,
                     OpcodeHandler::handle_cmsg_sell_item
                 ),
+                define_handler!(
+                    Opcode::CmsgSetActionBarToggles,
+                    ProcessInMap,
+                    OpcodeHandler::handle_cmsg_set_action_bar_toggles
+                ),
             ]),
         }
     }

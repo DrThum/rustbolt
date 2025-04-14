@@ -1,0 +1,1 @@
+ALTER TABLE characters ADD COLUMN action_bar_toggles INTEGER NOT NULL DEFAULT 0;

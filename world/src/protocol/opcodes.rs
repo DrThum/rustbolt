@@ -706,7 +706,7 @@ pub enum Opcode {
     SmsgPlayerSkinned = 0x2BC,
     SmsgDurabilityDamageDeath = 0x2BD,
     CmsgSetExploration = 0x2BE,
-    CmsgSetActionbarToggles = 0x2BF,
+    CmsgSetActionBarToggles = 0x2BF,
     UmsgDeleteGuildCharter = 0x2C0,
     MsgPetitionRename = 0x2C1,
     SmsgInitWorldStates = 0x2C2,

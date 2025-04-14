@@ -26,8 +26,9 @@ use crate::{
         AbilityLearnType, AttributeModifier, AttributeModifierType, CharacterClass,
         CharacterClassBit, CharacterRace, CharacterRaceBit, Gender, HighGuidType, InventorySlot,
         InventoryType, ItemClass, ItemSubclassConsumable, ObjectTypeId, ObjectTypeMask,
-        PlayerQuestStatus, PowerType, QuestSlotState, SkillRangeType, UnitFlags, MAX_QUESTS_IN_LOG,
-        MAX_QUEST_OBJECTIVES_COUNT, PLAYER_DEFAULT_BOUNDING_RADIUS, PLAYER_DEFAULT_COMBAT_REACH,
+        PlayerFieldBytesOffset, PlayerQuestStatus, PowerType, QuestSlotState, SkillRangeType,
+        UnitFlags, MAX_QUESTS_IN_LOG, MAX_QUEST_OBJECTIVES_COUNT, PLAYER_DEFAULT_BOUNDING_RADIUS,
+        PLAYER_DEFAULT_COMBAT_REACH,
     },
 };
 
@@ -668,6 +669,13 @@ impl Player {
             o: character.bindpoint_orientation,
         }));
 
+        // Restore action bar toggles
+        values.set_u8(
+            UnitFields::PlayerFieldBytes.into(),
+            PlayerFieldBytesOffset::ActionBarToggles as usize,
+            character.action_bar_toggles,
+        );
+
         values.reset_dirty();
 
         Self {
@@ -730,6 +738,21 @@ impl Player {
 
     pub fn bindpoint(&self) -> BindPoint {
         self.bindpoint.read().clone()
+    }
+
+    pub fn set_action_bar_toggles(&self, value: u8) {
+        self.internal_values.write().set_u8(
+            UnitFields::PlayerFieldBytes.into(),
+            PlayerFieldBytesOffset::ActionBarToggles as usize,
+            value,
+        );
+    }
+
+    pub fn action_bar_toggles(&self) -> u8 {
+        self.internal_values.read().get_u8(
+            UnitFields::PlayerFieldBytes.into(),
+            PlayerFieldBytesOffset::ActionBarToggles as u8,
+        )
     }
 
     pub fn race(&self) -> CharacterRace {

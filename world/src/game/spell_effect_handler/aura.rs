@@ -1,8 +1,9 @@
 use log::error;
-use shipyard::{Get, UniqueView, ViewMut};
+use shipyard::{Get, UniqueView, View, ViewMut};
 
 use crate::{
-    ecs::components::applied_auras::AppliedAuras, session::session_holder::WrappedSessionHolder,
+    ecs::components::applied_auras::AppliedAuras, entities::player::Player,
+    session::session_holder::WrappedSessionHolder,
 };
 
 use super::{SpellEffectHandler, SpellEffectHandlerArgs};
@@ -19,20 +20,27 @@ impl SpellEffectHandler {
     ) {
         all_storages.run(
             |mut vm_app_auras: ViewMut<AppliedAuras>,
-             session_holder: UniqueView<WrappedSessionHolder>| {
+             session_holder: UniqueView<WrappedSessionHolder>,
+             v_player: View<Player>| {
                 let Some(target_entity_id) = spell.unit_target() else {
                     error!("handle_effect_apply_aura: spell has no unit target");
                     return;
                 };
 
-                if let Ok(mut applied_auras) = (&mut vm_app_auras).get(target_entity_id) {
-                    applied_auras.add_aura(
-                        spell.clone(),
-                        spell_record.clone(),
-                        session_holder.get_session(&spell.caster_guid()),
-                        world_context.data_store.clone(),
-                    );
-                }
+                let Ok(mut applied_auras) = (&mut vm_app_auras).get(target_entity_id) else {
+                    error!("handle_effect_apply_aura: no AppliedAuras component found on target");
+                    return;
+                };
+
+                let player = v_player.get(spell.caster()).ok();
+
+                applied_auras.add_aura(
+                    spell.clone(),
+                    spell_record.clone(),
+                    player.map(|p| p.session.clone()),
+                    session_holder.get_session(&spell.caster_guid()),
+                    world_context.data_store.clone(),
+                );
             },
         )
     }

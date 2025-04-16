@@ -2,6 +2,7 @@ use binrw::NullString;
 use log::{error, warn};
 use shipyard::{Get, View, ViewMut};
 
+use crate::ecs::components::guid::Guid;
 use crate::ecs::components::powers::Powers;
 use crate::ecs::components::spell_cast::SpellCast;
 use crate::entities::player::Player;
@@ -297,7 +298,8 @@ impl OpcodeHandler {
             map.world().run(
                 |v_player: View<Player>,
                  mut vm_spell: ViewMut<SpellCast>,
-                 v_powers: View<Powers>| {
+                 v_powers: View<Powers>,
+                 v_guid: View<Guid>| {
                     let Ok(player) = v_player.get(player_entity_id) else {
                         error!("handle_cmsg_use_item: no player found");
                         return;
@@ -351,13 +353,19 @@ impl OpcodeHandler {
                         powers.snapshot(),
                     );
 
+                    let unit_target = targets.unit_target();
+                    let unit_target_guid = unit_target
+                        .and_then(|entity_id| v_guid.get(entity_id).ok())
+                        .map(|g| g.0);
+
                     vm_spell[player_entity_id].set_current_ranged(
                         spell_id,
                         Some(item_template.entry),
                         spell_base_cast_time,
                         player_entity_id,
                         session.player_guid().unwrap(),
-                        targets.unit_target(),
+                        unit_target,
+                        unit_target_guid,
                         targets.game_object_target(),
                         power_cost,
                     );

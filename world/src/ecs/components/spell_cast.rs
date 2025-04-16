@@ -4,7 +4,7 @@ use std::{
 };
 
 use log::{error, warn};
-use shipyard::{Component, EntityId, View, ViewMut};
+use shipyard::{Component, EntityId, Get, View, ViewMut};
 
 use crate::{
     entities::object_guid::ObjectGuid,
@@ -14,7 +14,7 @@ use crate::{
     shared::constants::SpellFailReason,
 };
 
-use super::powers::Powers;
+use super::{guid::Guid, powers::Powers};
 
 #[derive(Component)]
 pub struct SpellCast {
@@ -50,6 +50,7 @@ impl SpellCast {
         caster_entity_id: EntityId,
         caster_guid: ObjectGuid,
         unit_target: Option<EntityId>,
+        unit_target_guid: Option<ObjectGuid>,
         game_object_target: Option<EntityId>,
         power_cost: u32,
     ) {
@@ -59,6 +60,7 @@ impl SpellCast {
             caster_entity_id,
             caster_guid,
             unit_target,
+            unit_target_guid,
             game_object_target,
             power_cost,
         )));
@@ -93,8 +95,8 @@ impl SpellCast {
             return Err(SpellFailReason::DontReport);
         };
 
-        map.world()
-            .run(|mut vm_spell: ViewMut<SpellCast>, v_powers: View<Powers>| {
+        map.world().run(
+            |mut vm_spell: ViewMut<SpellCast>, v_powers: View<Powers>, v_guid: View<Guid>| {
                 if vm_spell[caster_entity_id].current_ranged().is_some() {
                     return Err(SpellFailReason::SpellInProgress);
                 }
@@ -110,13 +112,20 @@ impl SpellCast {
                     powers.base_mana(),
                     powers.snapshot(),
                 );
+
+                let unit_target = targets.unit_target();
+                let unit_target_guid = unit_target
+                    .and_then(|entity_id| v_guid.get(entity_id).ok())
+                    .map(|g| g.0);
+
                 vm_spell[caster_entity_id].set_current_ranged(
                     spell_id,
                     None,
                     spell_base_cast_time,
                     caster_entity_id,
                     *caster_guid,
-                    targets.unit_target(),
+                    unit_target,
+                    unit_target_guid,
                     targets.game_object_target(),
                     power_cost,
                 );
@@ -124,7 +133,8 @@ impl SpellCast {
                 Ok(SpellCastSuccess {
                     spell_base_cast_time,
                 })
-            })
+            },
+        )
     }
 }
 

@@ -54,6 +54,7 @@ impl AppliedAuras {
         &mut self,
         spell: Arc<Spell>,
         spell_record: Arc<SpellRecord>,
+        caster_session: Option<Arc<WorldSession>>,
         target_session: Option<Arc<WorldSession>>,
         data_store: Arc<DataStore>,
     ) {
@@ -62,7 +63,22 @@ impl AppliedAuras {
                 warn!("not implemented: refresh aura");
             }
             None => {
-                let aura = Aura::new(spell.id(), spell.caster(), spell.caster_guid());
+                let Some(target_entity_id) = spell.unit_target() else {
+                    warn!("add_aura: spell has no unit target (TODO?)");
+                    return;
+                };
+
+                let Some(target_guid) = spell.unit_target_guid() else {
+                    warn!("add_aura: spell has no unit target guid (TODO?)");
+                    return;
+                };
+
+                let aura = Aura::new(
+                    spell.id(),
+                    spell.caster(),
+                    spell.caster_guid(),
+                    target_entity_id,
+                );
 
                 let mut slot: Option<usize> = None;
                 if aura.is_visible() {
@@ -81,8 +97,7 @@ impl AppliedAuras {
                         let update_field_offset = first_free_slot % 4;
 
                         let aura_flags = if aura.is_positive {
-                            make_bitflags!(AuraFlag::{Helpful | Cancelable | HelpfulRevealed})
-                                .bits()
+                            make_bitflags!(AuraFlag::{Helpful}).bits()
                         } else {
                             BitFlags::from_flag(AuraFlag::Harmful).bits()
                         };
@@ -117,7 +132,6 @@ impl AppliedAuras {
 
                 if let Some(slot) = slot {
                     if let Some(session) = target_session {
-                        // FIXME: this must be sent to the target
                         let packet = ServerMessage::new(SmsgUpdateAuraDuration {
                             slot: slot as u8,
                             duration_ms: duration,
@@ -125,9 +139,8 @@ impl AppliedAuras {
 
                         session.send(&packet).unwrap();
 
-                        // FIXME: this must be sent to the target
                         let packet = ServerMessage::new(SmsgSetExtraAuraInfo {
-                            target_guid: aura.caster_guid.as_packed(), // FIXME: we need the target guid here, not caster's
+                            target_guid: target_guid.as_packed(),
                             slot: slot as u8,
                             spell_id: aura.spell_id,
                             max_duration_ms: duration,
@@ -135,19 +148,20 @@ impl AppliedAuras {
                         });
 
                         session.send(&packet).unwrap();
+                    }
 
-                        // FIXME: this must be sent to the caster
-                        // if caster != target {
-                        let packet = ServerMessage::new(SmsgSetExtraAuraInfoNeedUpdate {
-                            target_guid: aura.caster_guid.as_packed(), // FIXME: we need the target guid here, not caster's
-                            slot: slot as u8,
-                            spell_id: aura.spell_id,
-                            max_duration_ms: duration,
-                            duration_ms: duration,
-                        });
-                        // }
+                    if let Some(caster_session) = caster_session {
+                        if spell.caster() != target_entity_id {
+                            let packet = ServerMessage::new(SmsgSetExtraAuraInfoNeedUpdate {
+                                target_guid: target_guid.as_packed(),
+                                slot: slot as u8,
+                                spell_id: aura.spell_id,
+                                max_duration_ms: duration,
+                                duration_ms: duration,
+                            });
 
-                        session.send(&packet).unwrap();
+                            caster_session.send(&packet).unwrap();
+                        }
                     }
 
                     self.lock_slot(slot, aura.is_positive);

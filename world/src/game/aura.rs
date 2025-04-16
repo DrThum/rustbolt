@@ -6,15 +6,22 @@ pub struct Aura {
     pub spell_id: u32,
     pub caster_id: EntityId,
     pub caster_guid: ObjectGuid,
+    pub target_id: EntityId,
     pub is_positive: bool,
 }
 
 impl Aura {
-    pub fn new(spell_id: u32, caster_id: EntityId, caster_guid: ObjectGuid) -> Self {
+    pub fn new(
+        spell_id: u32,
+        caster_id: EntityId,
+        caster_guid: ObjectGuid,
+        target_id: EntityId,
+    ) -> Self {
         Self {
             spell_id,
             caster_id,
             caster_guid,
+            target_id,
             is_positive: true, // FIXME
         }
     }

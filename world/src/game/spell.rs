@@ -8,6 +8,7 @@ pub struct Spell {
     caster_entity_id: EntityId,
     caster_guid: ObjectGuid,
     unit_target: Option<EntityId>,
+    unit_target_guid: Option<ObjectGuid>,
     game_object_target: Option<EntityId>,
     // item_target: EntityId, // TODO: We'll have to make Item a Component for this to work
     power_cost: u32,
@@ -20,6 +21,7 @@ impl Spell {
         caster_entity_id: EntityId,
         caster_guid: ObjectGuid,
         unit_target: Option<EntityId>,
+        unit_target_guid: Option<ObjectGuid>,
         game_object_target: Option<EntityId>,
         power_cost: u32,
     ) -> Self {
@@ -29,6 +31,7 @@ impl Spell {
             caster_entity_id,
             caster_guid,
             unit_target,
+            unit_target_guid,
             game_object_target,
             power_cost,
         }
@@ -44,6 +47,10 @@ impl Spell {
 
     pub fn unit_target(&self) -> Option<EntityId> {
         self.unit_target
+    }
+
+    pub fn unit_target_guid(&self) -> Option<ObjectGuid> {
+        self.unit_target_guid
     }
 
     pub fn game_object_target(&self) -> Option<EntityId> {

@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Instant};
 
 use enumflags2::{make_bitflags, BitFlags};
 use fixedbitset::FixedBitSet;
@@ -11,7 +11,10 @@ use crate::{
     entities::{internal_values::InternalValues, update_fields::UnitFields},
     game::{aura::Aura, spell::Spell},
     protocol::{
-        packets::{SmsgSetExtraAuraInfo, SmsgSetExtraAuraInfoNeedUpdate, SmsgUpdateAuraDuration},
+        packets::{
+            SmsgClearExtraAuraInfo, SmsgSetExtraAuraInfo, SmsgSetExtraAuraInfoNeedUpdate,
+            SmsgUpdateAuraDuration,
+        },
         server::ServerMessage,
     },
     session::world_session::WorldSession,
@@ -73,11 +76,17 @@ impl AppliedAuras {
                     return;
                 };
 
+                let duration = spell_record
+                    .base_duration(data_store.clone())
+                    .unwrap_or_default();
+
                 let aura = Aura::new(
                     spell.id(),
                     spell.caster(),
                     spell.caster_guid(),
                     target_entity_id,
+                    target_guid,
+                    duration,
                 );
 
                 let mut slot: Option<usize> = None;
@@ -125,16 +134,11 @@ impl AppliedAuras {
                     }
                 }
 
-                let duration = spell_record
-                    .base_duration(data_store.clone())
-                    .map(|d| d.as_millis())
-                    .unwrap_or(0) as u32;
-
                 if let Some(slot) = slot {
                     if let Some(session) = target_session {
                         let packet = ServerMessage::new(SmsgUpdateAuraDuration {
                             slot: slot as u8,
-                            duration_ms: duration,
+                            duration_ms: duration.as_millis() as u32,
                         });
 
                         session.send(&packet).unwrap();
@@ -143,8 +147,8 @@ impl AppliedAuras {
                             target_guid: target_guid.as_packed(),
                             slot: slot as u8,
                             spell_id: aura.spell_id,
-                            max_duration_ms: duration,
-                            duration_ms: duration,
+                            max_duration_ms: duration.as_millis() as u32,
+                            duration_ms: duration.as_millis() as u32,
                         });
 
                         session.send(&packet).unwrap();
@@ -156,8 +160,8 @@ impl AppliedAuras {
                                 target_guid: target_guid.as_packed(),
                                 slot: slot as u8,
                                 spell_id: aura.spell_id,
-                                max_duration_ms: duration,
-                                duration_ms: duration,
+                                max_duration_ms: duration.as_millis() as u32,
+                                duration_ms: duration.as_millis() as u32,
                             });
 
                             caster_session.send(&packet).unwrap();
@@ -169,6 +173,57 @@ impl AppliedAuras {
 
                 let aura_app = AuraApplication::new(aura, slot);
                 self.auras.push(aura_app);
+            }
+        }
+    }
+
+    pub fn update(&mut self, session: Option<Arc<WorldSession>>) {
+        let now = Instant::now();
+
+        for index in 0..self.auras.len() {
+            let aura_app = unsafe { self.auras.get_unchecked(index) };
+
+            if aura_app.aura.is_expired(now) {
+                if let Some(slot) = aura_app.slot {
+                    // Update internal values for this specific slot
+                    let mut values = self.internal_values.write();
+
+                    values.set_u32(UnitFields::UnitFieldAura as usize + slot, 0);
+
+                    let update_field_slot = slot / 4;
+                    let update_field_offset = slot % 4;
+
+                    values.set_u8(
+                        UnitFields::UnitFieldAuraFlags as usize + update_field_slot,
+                        update_field_offset,
+                        0,
+                    );
+
+                    values.set_u8(
+                        UnitFields::UnitFieldAuraLevels as usize + update_field_slot,
+                        update_field_offset,
+                        0,
+                    );
+
+                    values.set_u8(
+                        UnitFields::UnitFieldAuraApplications as usize + update_field_slot,
+                        update_field_offset,
+                        0,
+                    );
+
+                    drop(values);
+
+                    if let Some(ref session) = session {
+                        let packet = ServerMessage::new(SmsgClearExtraAuraInfo {
+                            target_guid: aura_app.aura.target_guid.as_packed(),
+                            spell_id: aura_app.aura.spell_id,
+                        });
+
+                        session.send(&packet).unwrap();
+                    }
+                }
+
+                self.auras.remove(index);
             }
         }
     }

@@ -1,3 +1,22 @@
-pub fn update_auras() {
-    // TODO
+use shipyard::{Get, IntoIter, IntoWithId, UniqueView, View, ViewMut};
+
+use crate::{
+    ecs::components::applied_auras::AppliedAuras, entities::player::Player, game::map::HasPlayers,
+};
+
+pub fn update_auras(
+    has_players: UniqueView<HasPlayers>,
+    v_player: View<Player>,
+    mut vm_app_auras: ViewMut<AppliedAuras>,
+) {
+    if !**has_players {
+        return;
+    }
+
+    for (entity_id, applied_auras) in (&mut vm_app_auras).iter().with_id() {
+        let player = v_player.get(entity_id).ok();
+        let session = player.map(|p| p.session.clone());
+
+        applied_auras.update(session);
+    }
 }

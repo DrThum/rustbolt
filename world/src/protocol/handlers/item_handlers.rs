@@ -371,7 +371,7 @@ impl OpcodeHandler {
                     );
 
                     let packet = ServerMessage::new(SmsgClearExtraAuraInfo {
-                        caster_guid: session.player_guid().unwrap().as_packed(),
+                        target_guid: session.player_guid().unwrap().as_packed(),
                         spell_id,
                     });
 

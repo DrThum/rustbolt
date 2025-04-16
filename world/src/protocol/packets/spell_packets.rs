@@ -95,13 +95,6 @@ pub struct CmsgCastSpell {
 
 #[binwrite]
 #[server_opcode]
-pub struct SmsgClearExtraAuraInfo {
-    pub caster_guid: PackedObjectGuid,
-    pub spell_id: u32,
-}
-
-#[binwrite]
-#[server_opcode]
 pub struct SmsgSpellStart {
     pub caster_entity_guid: PackedObjectGuid, // Can be an item for example
     pub caster_unit_guid: PackedObjectGuid,
@@ -275,4 +268,11 @@ pub struct SmsgSetExtraAuraInfoNeedUpdate {
     pub spell_id: u32,
     pub max_duration_ms: u32,
     pub duration_ms: u32,
+}
+
+#[binwrite]
+#[server_opcode]
+pub struct SmsgClearExtraAuraInfo {
+    pub target_guid: PackedObjectGuid,
+    pub spell_id: u32,
 }

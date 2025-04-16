@@ -40,7 +40,9 @@ impl SpellEffectHandler {
                     effect_index,
                     spell_record.clone(),
                     player.map(|p| p.session.clone()),
-                    session_holder.get_session(&spell.caster_guid()),
+                    spell
+                        .unit_target_guid()
+                        .and_then(|target_guid| session_holder.get_session(&target_guid)),
                     world_context.data_store.clone(),
                 );
             },

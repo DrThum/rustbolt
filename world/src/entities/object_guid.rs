@@ -5,7 +5,7 @@ use fixedbitset::FixedBitSet;
 
 use crate::shared::constants::HighGuidType;
 
-#[derive(PartialEq, Eq, Copy, Clone, Debug)]
+#[derive(PartialEq, Eq, Copy, Clone)]
 pub struct ObjectGuid {
     high_guid_type: HighGuidType,
     raw: u64,
@@ -139,6 +139,17 @@ impl ObjectGuid {
 impl std::hash::Hash for ObjectGuid {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.raw.hash(state);
+    }
+}
+
+impl std::fmt::Debug for ObjectGuid {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "ObjectGuid(type: {:?}, counter: {})",
+            self.high_guid_type,
+            self.counter()
+        )
     }
 }
 

@@ -1,12 +1,13 @@
 use std::time::{Duration, Instant};
 
+use fixedbitset::FixedBitSet;
 use shipyard::EntityId;
 
-use crate::entities::object_guid::ObjectGuid;
+use crate::{entities::object_guid::ObjectGuid, shared::constants::MAX_SPELL_EFFECTS};
 
 pub struct Aura {
     pub spell_id: u32,
-    pub spell_effect_index: usize,
+    pub effect_mask: FixedBitSet,
     pub caster_id: EntityId,
     pub caster_guid: ObjectGuid,
     pub target_id: EntityId,
@@ -25,9 +26,12 @@ impl Aura {
         target_guid: ObjectGuid,
         duration: Duration,
     ) -> Self {
+        let mut effect_mask = FixedBitSet::with_capacity(MAX_SPELL_EFFECTS);
+        effect_mask.set(spell_effect_index, true);
+
         Self {
             spell_id,
-            spell_effect_index,
+            effect_mask,
             caster_id,
             caster_guid,
             target_id,
@@ -35,6 +39,14 @@ impl Aura {
             is_positive: true, // FIXME
             expires: Instant::now() + duration,
         }
+    }
+
+    pub fn add_effect_index(&mut self, new_effect_index: usize) {
+        self.effect_mask.set(new_effect_index, true);
+    }
+
+    pub fn effect_mask(&self) -> &FixedBitSet {
+        &self.effect_mask
     }
 
     pub fn is_visible(&self) -> bool {

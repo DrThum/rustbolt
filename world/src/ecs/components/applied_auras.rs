@@ -8,7 +8,9 @@ use shipyard::Component;
 
 use crate::{
     datastore::data_types::SpellRecord,
-    entities::{internal_values::InternalValues, update_fields::UnitFields},
+    entities::{
+        internal_values::InternalValues, object_guid::ObjectGuid, update_fields::UnitFields,
+    },
     game::{aura::Aura, spell::Spell},
     protocol::{
         packets::{
@@ -64,9 +66,13 @@ impl AppliedAuras {
     ) {
         match self
             .auras
-            .iter()
-            .find(|aura| aura.spell_id() == spell.id() && aura.effect_index() == effect_index)
+            .iter_mut()
+            .find(|aura| aura.spell_id() == spell.id() && aura.caster_guid() == spell.caster_guid())
         {
+            Some(existing_aura) if !existing_aura.has_effect_index(effect_index) => {
+                // Use the same slot for auras from the same spell and same caster
+                existing_aura.aura.add_effect_index(effect_index);
+            }
             Some(_existing_aura) => {
                 warn!("not implemented: refresh aura");
             }
@@ -269,7 +275,11 @@ impl AuraApplication {
         self.aura.spell_id
     }
 
-    pub fn effect_index(&self) -> usize {
-        self.aura.spell_effect_index
+    pub fn has_effect_index(&self, effect_index: usize) -> bool {
+        self.aura.effect_mask().contains(effect_index)
+    }
+
+    pub fn caster_guid(&self) -> ObjectGuid {
+        self.aura.caster_guid
     }
 }

@@ -6,6 +6,7 @@ use crate::entities::object_guid::ObjectGuid;
 
 pub struct Aura {
     pub spell_id: u32,
+    pub spell_effect_index: usize,
     pub caster_id: EntityId,
     pub caster_guid: ObjectGuid,
     pub target_id: EntityId,
@@ -17,6 +18,7 @@ pub struct Aura {
 impl Aura {
     pub fn new(
         spell_id: u32,
+        spell_effect_index: usize,
         caster_id: EntityId,
         caster_guid: ObjectGuid,
         target_id: EntityId,
@@ -25,6 +27,7 @@ impl Aura {
     ) -> Self {
         Self {
             spell_id,
+            spell_effect_index,
             caster_id,
             caster_guid,
             target_id,

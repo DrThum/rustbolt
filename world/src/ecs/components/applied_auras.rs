@@ -56,12 +56,17 @@ impl AppliedAuras {
     pub fn add_aura(
         &mut self,
         spell: Arc<Spell>,
+        effect_index: usize,
         spell_record: Arc<SpellRecord>,
         caster_session: Option<Arc<WorldSession>>,
         target_session: Option<Arc<WorldSession>>,
         data_store: Arc<DataStore>,
     ) {
-        match self.auras.iter().find(|aura| aura.spell_id() == spell.id()) {
+        match self
+            .auras
+            .iter()
+            .find(|aura| aura.spell_id() == spell.id() && aura.effect_index() == effect_index)
+        {
             Some(_existing_aura) => {
                 warn!("not implemented: refresh aura");
             }
@@ -82,6 +87,7 @@ impl AppliedAuras {
 
                 let aura = Aura::new(
                     spell.id(),
+                    effect_index,
                     spell.caster(),
                     spell.caster_guid(),
                     target_entity_id,
@@ -180,7 +186,7 @@ impl AppliedAuras {
     pub fn update(&mut self, session: Option<Arc<WorldSession>>) {
         let now = Instant::now();
 
-        for index in 0..self.auras.len() {
+        for index in (0..self.auras.len()).rev() {
             let aura_app = unsafe { self.auras.get_unchecked(index) };
 
             if aura_app.aura.is_expired(now) {
@@ -261,5 +267,9 @@ impl AuraApplication {
 
     pub fn spell_id(&self) -> u32 {
         self.aura.spell_id
+    }
+
+    pub fn effect_index(&self) -> usize {
+        self.aura.spell_effect_index
     }
 }

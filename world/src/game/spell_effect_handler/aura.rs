@@ -15,6 +15,7 @@ impl SpellEffectHandler {
             spell_record,
             all_storages,
             world_context,
+            effect_index,
             ..
         }: SpellEffectHandlerArgs,
     ) {
@@ -36,6 +37,7 @@ impl SpellEffectHandler {
 
                 applied_auras.add_aura(
                     spell.clone(),
+                    effect_index,
                     spell_record.clone(),
                     player.map(|p| p.session.clone()),
                     session_holder.get_session(&spell.caster_guid()),

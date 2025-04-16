@@ -249,3 +249,30 @@ pub struct SmsgPlaySpellImpact {
 pub struct SmsgLearnedSpell {
     pub spell_id: u32,
 }
+
+#[binwrite]
+#[server_opcode]
+pub struct SmsgUpdateAuraDuration {
+    pub slot: u8,
+    pub duration_ms: u32,
+}
+
+#[binwrite]
+#[server_opcode]
+pub struct SmsgSetExtraAuraInfo {
+    pub target_guid: PackedObjectGuid,
+    pub slot: u8,
+    pub spell_id: u32,
+    pub max_duration_ms: u32,
+    pub duration_ms: u32,
+}
+
+#[binwrite]
+#[server_opcode]
+pub struct SmsgSetExtraAuraInfoNeedUpdate {
+    pub target_guid: PackedObjectGuid,
+    pub slot: u8,
+    pub spell_id: u32,
+    pub max_duration_ms: u32,
+    pub duration_ms: u32,
+}

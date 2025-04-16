@@ -1,3 +1,4 @@
+pub mod aura;
 pub mod behavior;
 pub mod combat;
 pub mod cooldown;

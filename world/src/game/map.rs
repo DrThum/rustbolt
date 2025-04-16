@@ -21,6 +21,7 @@ use crate::{
     config::WorldConfig,
     ecs::{
         components::{
+            applied_auras::AppliedAuras,
             behavior::Behavior,
             cooldowns::Cooldowns,
             guid::Guid,
@@ -35,7 +36,7 @@ use crate::{
         },
         resources::DeltaTime,
         systems::{
-            behavior, combat, cooldown, inventory, melee, movement, packets::process_packets,
+            aura, behavior, combat, cooldown, inventory, melee, movement, packets::process_packets,
             powers, spell, unwind, updates,
         },
     },
@@ -58,7 +59,9 @@ use crate::{
         session_holder::WrappedSessionHolder,
         world_session::{WorldSession, WorldSessionState},
     },
-    shared::constants::{HighGuidType, NpcFlags, WeaponAttackType},
+    shared::constants::{
+        HighGuidType, NpcFlags, WeaponAttackType, CREATURE_BUFF_LIMIT, PLAYER_CONTROLLED_BUFF_LIMIT,
+    },
     SessionHolder,
 };
 
@@ -209,6 +212,7 @@ impl Map {
                 movement::update_movement,
                 combat::update_combat_state,
                 behavior::tick,
+                aura::update_auras,
                 powers::regenerate_powers,
                 combat::select_target,
                 melee::attempt_melee_attack,
@@ -306,10 +310,11 @@ impl Map {
              mut vm_int_vals: ViewMut<WrappedInternalValues>,
              mut vm_player: ViewMut<Player>,
              mut vm_movement: ViewMut<Movement>,
-             (mut vm_spell, mut vm_nearby_players, mut vm_cooldowns): (
+             (mut vm_spell, mut vm_nearby_players, mut vm_cooldowns, mut vm_app_auras): (
                 ViewMut<SpellCast>,
                 ViewMut<NearbyPlayers>,
                 ViewMut<Cooldowns>,
+                ViewMut<AppliedAuras>,
             )| {
                 let player = Player::load_from_db(
                     session.account_id,
@@ -356,9 +361,14 @@ impl Map {
                         &mut vm_unit,
                         &mut vm_wpos,
                         &mut vm_int_vals,
-                        &mut vm_player,
                         &mut vm_movement,
-                        (&mut vm_spell, &mut vm_nearby_players, &mut vm_cooldowns),
+                        (
+                            &mut vm_spell,
+                            &mut vm_nearby_players,
+                            &mut vm_cooldowns,
+                            &mut vm_app_auras,
+                        ),
+                        &mut vm_player,
                     ),
                     (
                         Guid::new(player_guid, player.internal_values.clone()),
@@ -394,13 +404,17 @@ impl Map {
                             o: char_data.position.o,
                         },
                         WrappedInternalValues(player.internal_values.clone()),
-                        player,
                         Movement::new(MovementKind::PlayerControlled),
                         (
                             SpellCast::new(),
                             NearbyPlayers::new(), // Player is always nearby a player
                             Cooldowns::new(spell_cooldowns),
+                            AppliedAuras::new(
+                                PLAYER_CONTROLLED_BUFF_LIMIT,
+                                player.internal_values.clone(),
+                            ),
                         ),
+                        player,
                     ),
                 );
                 session.set_player_entity_id(entity_id);
@@ -665,11 +679,18 @@ impl Map {
              mut vm_int_vals: ViewMut<WrappedInternalValues>,
              mut vm_creature: ViewMut<Creature>,
              mut vm_movement: ViewMut<Movement>,
-             (mut vm_spell, mut vm_quest_actor, mut vm_behavior, mut vm_threat_list): (
+             (
+                mut vm_spell,
+                mut vm_quest_actor,
+                mut vm_behavior,
+                mut vm_threat_list,
+                mut vm_app_auras,
+            ): (
                 ViewMut<SpellCast>,
                 ViewMut<QuestActor>,
                 ViewMut<Behavior>,
                 ViewMut<ThreatList>,
+                ViewMut<AppliedAuras>,
             )| {
                 let entity_id = entities.add_entity(
                     (
@@ -682,7 +703,7 @@ impl Map {
                         &mut vm_movement,
                         &mut vm_spell,
                         &mut vm_behavior,
-                        &mut vm_threat_list,
+                        (&mut vm_threat_list, &mut vm_app_auras),
                     ),
                     (
                         Guid::new(*creature_guid, creature.internal_values.clone()),
@@ -712,7 +733,13 @@ impl Map {
                         SpellCast::new(),
                         // FIXME: Will need different behavior depending on some flags
                         Behavior::new_wild_monster(creature_faction_template),
-                        ThreatList::new(),
+                        (
+                            ThreatList::new(),
+                            AppliedAuras::new(
+                                CREATURE_BUFF_LIMIT,
+                                creature.internal_values.clone(),
+                            ),
+                        ),
                     ),
                 );
 

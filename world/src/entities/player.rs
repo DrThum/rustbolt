@@ -27,8 +27,8 @@ use crate::{
         CharacterClassBit, CharacterRace, CharacterRaceBit, Gender, HighGuidType, InventorySlot,
         InventoryType, ItemClass, ItemSubclassConsumable, ObjectTypeId, ObjectTypeMask,
         PlayerFieldBytesOffset, PlayerQuestStatus, PowerType, QuestSlotState, SkillRangeType,
-        UnitFlags, MAX_QUESTS_IN_LOG, MAX_QUEST_OBJECTIVES_COUNT, PLAYER_DEFAULT_BOUNDING_RADIUS,
-        PLAYER_DEFAULT_COMBAT_REACH,
+        UnitFieldBytes2Offset, UnitFlags, MAX_QUESTS_IN_LOG, MAX_QUEST_OBJECTIVES_COUNT,
+        PLAYER_CONTROLLED_BUFF_LIMIT, PLAYER_DEFAULT_BOUNDING_RADIUS, PLAYER_DEFAULT_COMBAT_REACH,
     },
 };
 
@@ -396,8 +396,6 @@ impl Player {
 
         values.set_u8(UnitFields::UnitFieldBytes0.into(), 3, power_type as u8);
 
-        values.set_u8(UnitFields::UnitFieldBytes2.into(), 1, 0x28); // UNIT_BYTE2_FLAG_UNK3 | UNIT_BYTE2_FLAG_UNK5
-
         values.set_u8(
             UnitFields::PlayerBytes.into(),
             0,
@@ -438,6 +436,15 @@ impl Player {
         );
 
         values.set_u32(UnitFields::PlayerFieldCoinage.into(), character.money);
+
+        // Aura system
+        // The client splits the 56 UNIT_FIELD_AURA slots into 2 parts, the first slots for positive auras and the last ones for negative auras.
+        // The first negative slot is at the index stored in this update field
+        values.set_u8(
+            UnitFields::UnitFieldBytes2.into(),
+            UnitFieldBytes2Offset::BuffLimit as usize,
+            PLAYER_CONTROLLED_BUFF_LIMIT as u8,
+        );
 
         // Base attributes
         let base_attributes_record = world_context

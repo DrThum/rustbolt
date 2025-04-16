@@ -2126,3 +2126,37 @@ pub enum PlayerFieldBytesOffset {
     // 0: something related to the death timer
     ActionBarToggles = 2,
 }
+
+#[allow(dead_code)]
+#[derive(Copy, Clone, Debug)]
+#[repr(u8)]
+pub enum UnitFieldBytes2Offset {
+    SheathState = 0,
+    BuffLimit = 1,
+    PetFlags = 2,
+    ShapeshiftForm = 3,
+}
+
+// The client splits the 56 UNIT_FIELD_AURA slots into 2 parts, the first slots for positive auras and the last ones for negative auras.
+// Blizzlike behavior is to have max 16 buffs for creatures (thus 40 debuffs) and max 40 buffs for players (thus 16 debuffs).
+pub const CREATURE_BUFF_LIMIT: usize = 16;
+pub const PLAYER_CONTROLLED_BUFF_LIMIT: usize = 40;
+pub const UNIT_AURAS_LIMIT: usize = 50;
+
+/**
+ * Flags used in the update field UnitFieldAuraFlags.
+ * Note: UnitFieldAuraFlags size is 14 * 4 bytes but each aura occupies 1 byte
+ * so the whole field can store data for up to 56 auras.
+ */
+#[allow(dead_code)]
+#[bitflags]
+#[repr(u8)]
+#[derive(Copy, Clone, Debug)]
+pub enum AuraFlag {
+    Helpful = 0x01,
+    Harmful = 0x02,
+    PassiveDeprecated = 0x04, // debuffs can't be queried using this flag. Unused in UI since 1.10.0, new meaning unknown (still the same?)
+    HelpfulRevealed = 0x08, // Pre-WotLK: unused in UI; //corecraft says: "Note: All currently observed data has this toggled on and at least one of the three previous"
+    Cancelable = 0x10,      // confirmed on sunstrider: Client does not allow canceling those
+    NotCancelable = 0x20,
+}

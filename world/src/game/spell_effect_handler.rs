@@ -11,6 +11,7 @@ use crate::{
 
 use super::{spell::Spell, world_context::WorldContext};
 
+mod aura;
 mod combat;
 mod misc;
 
@@ -47,6 +48,10 @@ impl SpellEffectHandler {
                 define_handler!(
                     SpellEffect::TeleportUnits,
                     SpellEffectHandler::handle_effect_teleport_units
+                ),
+                define_handler!(
+                    SpellEffect::ApplyAura,
+                    SpellEffectHandler::handle_effect_apply_aura
                 ),
                 define_handler!(SpellEffect::Heal, SpellEffectHandler::handle_effect_heal),
                 define_handler!(

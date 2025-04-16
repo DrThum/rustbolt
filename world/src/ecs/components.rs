@@ -1,3 +1,4 @@
+pub mod applied_auras;
 pub mod behavior;
 pub mod cooldowns;
 pub mod guid;

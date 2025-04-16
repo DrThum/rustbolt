@@ -14,8 +14,8 @@ use crate::{
     repositories::creature::CreatureSpawnDbRecord,
     shared::constants::{
         CharacterClass, HighGuidType, NpcFlags, ObjectTypeId, ObjectTypeMask, PowerType,
-        CREATURE_AGGRO_DISTANCE_AT_SAME_LEVEL, CREATURE_AGGRO_DISTANCE_MAX,
-        CREATURE_AGGRO_DISTANCE_MIN, MAX_LEVEL_DIFFERENCE_FOR_AGGRO,
+        UnitFieldBytes2Offset, CREATURE_AGGRO_DISTANCE_AT_SAME_LEVEL, CREATURE_AGGRO_DISTANCE_MAX,
+        CREATURE_AGGRO_DISTANCE_MIN, CREATURE_BUFF_LIMIT, MAX_LEVEL_DIFFERENCE_FOR_AGGRO,
     },
     DataStore,
 };
@@ -68,6 +68,15 @@ impl Creature {
                     .set_u32(ObjectFields::ObjectFieldEntry.into(), template.entry)
                     .set_f32(ObjectFields::ObjectFieldScaleX.into(), template.scale)
                     .set_u8(UnitFields::UnitFieldBytes0.into(), 1, template.unit_class as u8);
+
+                // Aura system
+                // The client splits the 56 UNIT_FIELD_AURA slots into 2 parts, the first slots for positive auras and the last ones for negative auras.
+                // The first negative slot is at the index stored in this update field
+                values.set_u8(
+                    UnitFields::UnitFieldBytes2.into(),
+                    UnitFieldBytes2Offset::BuffLimit as usize,
+                    CREATURE_BUFF_LIMIT as u8,
+                );
 
                 let selected_level = rng.gen_range(template.min_level..=template.max_level);
 

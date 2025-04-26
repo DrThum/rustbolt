@@ -53,6 +53,7 @@ mod entities {
 }
 pub mod game {
     pub mod aura;
+    pub mod aura_effect_handler;
     pub mod entity_manager;
     pub mod experience;
     pub mod gossip;

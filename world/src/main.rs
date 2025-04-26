@@ -9,8 +9,8 @@ use rustbolt_world::{
     config::WorldConfig,
     database_context::DatabaseContext,
     game::{
-        map_manager::MapManager, spell_effect_handler::SpellEffectHandler,
-        world_context::WorldContext,
+        aura_effect_handler::AuraEffectHandler, map_manager::MapManager,
+        spell_effect_handler::SpellEffectHandler, world_context::WorldContext,
     },
     repositories::item::ItemRepository,
     session::opcode_handler::OpcodeHandler,
@@ -80,6 +80,7 @@ fn main() {
     );
     let opcode_handler = Arc::new(OpcodeHandler::new());
     let spell_effect_handler = Arc::new(SpellEffectHandler::new());
+    let aura_effect_handler = Arc::new(AuraEffectHandler::new());
 
     let database_context = Arc::new(DatabaseContext {
         auth: db_pool_auth.clone(),
@@ -102,6 +103,7 @@ fn main() {
         database: database_context,
         opcode_handler: opcode_handler.clone(),
         spell_effect_handler,
+        aura_effect_handler,
         config: config.clone(),
         start_time,
         session_holder: session_holder.clone(),

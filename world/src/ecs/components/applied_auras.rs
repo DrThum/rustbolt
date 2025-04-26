@@ -11,7 +11,10 @@ use crate::{
     entities::{
         internal_values::InternalValues, object_guid::ObjectGuid, update_fields::UnitFields,
     },
-    game::{aura::Aura, spell::Spell},
+    game::{
+        aura::Aura, aura_effect_handler::AuraEffectHandlerArgs, spell::Spell,
+        world_context::WorldContext,
+    },
     protocol::{
         packets::{
             SmsgClearExtraAuraInfo, SmsgSetExtraAuraInfo, SmsgSetExtraAuraInfoNeedUpdate,
@@ -20,7 +23,7 @@ use crate::{
         server::ServerMessage,
     },
     session::world_session::WorldSession,
-    shared::constants::{AuraFlag, UNIT_AURAS_LIMIT},
+    shared::constants::{AuraEffect, AuraFlag, MAX_SPELL_EFFECTS, UNIT_AURAS_LIMIT},
     DataStore,
 };
 
@@ -189,11 +192,44 @@ impl AppliedAuras {
         }
     }
 
-    pub fn update(&mut self, session: Option<Arc<WorldSession>>) {
+    // TODO: move this to the update_auras system
+    pub fn update(
+        &mut self,
+        session: Option<Arc<WorldSession>>,
+        world_context: Arc<WorldContext>,
+        all_storages: &shipyard::AllStoragesViewMut,
+    ) {
         let now = Instant::now();
 
         for index in (0..self.auras.len()).rev() {
-            let aura_app = unsafe { self.auras.get_unchecked(index) };
+            let aura_app = unsafe { self.auras.get_unchecked_mut(index) };
+
+            if aura_app.state == AuraApplicationState::New {
+                // Get the spell record
+                let spell_record = world_context
+                    .data_store
+                    .get_spell_record(aura_app.spell_id())
+                    .unwrap();
+
+                // Apply each effect
+                for effect_index in 0..MAX_SPELL_EFFECTS {
+                    if !aura_app.has_effect_index(effect_index) {
+                        continue;
+                    }
+
+                    if let Some(effect) =
+                        AuraEffect::n(spell_record.effect_apply_aura_name[effect_index])
+                    {
+                        let handler = world_context.aura_effect_handler.get_handler(&effect);
+                        handler(AuraEffectHandlerArgs {
+                            world_context: world_context.clone(),
+                            all_storages,
+                        });
+                    }
+                }
+
+                aura_app.state = AuraApplicationState::Active;
+            }
 
             if aura_app.aura.is_expired(now) {
                 if let Some(slot) = aura_app.slot {
@@ -264,11 +300,16 @@ impl AppliedAuras {
 struct AuraApplication {
     aura: Aura,
     slot: Option<usize>,
+    state: AuraApplicationState,
 }
 
 impl AuraApplication {
     pub fn new(aura: Aura, slot: Option<usize>) -> Self {
-        Self { aura, slot }
+        Self {
+            aura,
+            slot,
+            state: AuraApplicationState::New,
+        }
     }
 
     pub fn spell_id(&self) -> u32 {
@@ -282,4 +323,11 @@ impl AuraApplication {
     pub fn caster_guid(&self) -> ObjectGuid {
         self.aura.caster_guid
     }
+}
+
+#[derive(Debug, PartialEq)]
+enum AuraApplicationState {
+    New,
+    Active,
+    Removing,
 }

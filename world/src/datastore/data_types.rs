@@ -607,7 +607,7 @@ pub struct SpellRecord {
     pub effect_implicit_target_a: [SpellTargetType; MAX_SPELL_EFFECTS],
     pub effect_implicit_target_b: [SpellTargetType; MAX_SPELL_EFFECTS],
     effect_radius_index: [u32; MAX_SPELL_EFFECTS], // SpellRadius.dbc
-    effect_apply_aura_name: [u32; MAX_SPELL_EFFECTS],
+    pub effect_apply_aura_name: [u32; MAX_SPELL_EFFECTS],
     effect_amplitude: [u32; MAX_SPELL_EFFECTS],
     effect_multiple_value: [f32; MAX_SPELL_EFFECTS],
     effect_chain_target: [u32; MAX_SPELL_EFFECTS],

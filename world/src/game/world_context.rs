@@ -9,13 +9,17 @@ use crate::{
     SessionHolder,
 };
 
-use super::{map_manager::MapManager, spell_effect_handler::SpellEffectHandler};
+use super::{
+    aura_effect_handler::AuraEffectHandler, map_manager::MapManager,
+    spell_effect_handler::SpellEffectHandler,
+};
 
 pub struct WorldContext {
     pub data_store: Arc<DataStore>,
     pub database: Arc<DatabaseContext>,
     pub opcode_handler: Arc<OpcodeHandler>,
     pub spell_effect_handler: Arc<SpellEffectHandler>,
+    pub aura_effect_handler: Arc<AuraEffectHandler>,
     pub config: Arc<WorldConfig>,
     pub start_time: Instant,
     pub session_holder: Arc<SessionHolder<u32>>,

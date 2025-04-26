@@ -66,6 +66,7 @@ use crate::{
 };
 
 use super::{
+    aura_effect_handler::WrappedAuraEffectHandler,
     entity_manager::{EntityManager, WrappedEntityManager},
     map_manager::MapKey,
     packet_broadcaster::{PacketBroadcaster, WrappedPacketBroadcaster},
@@ -134,6 +135,9 @@ impl Map {
         world.add_unique(DeltaTime::default());
         world.add_unique(WrappedSpellEffectHandler(
             world_context.spell_effect_handler.clone(),
+        ));
+        world.add_unique(WrappedAuraEffectHandler(
+            world_context.aura_effect_handler.clone(),
         ));
         world.add_unique(WrappedWorldContext(world_context.clone()));
         world.add_unique(WrappedSpatialGrid(spatial_grid.clone()));

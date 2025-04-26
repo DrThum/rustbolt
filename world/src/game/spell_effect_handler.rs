@@ -15,7 +15,7 @@ mod aura;
 mod combat;
 mod misc;
 
-pub type EffectHandler = Box<dyn Send + Sync + for<'a, 'b> Fn(SpellEffectHandlerArgs)>;
+type EffectHandler = Box<dyn Send + Sync + for<'a, 'b> Fn(SpellEffectHandlerArgs)>;
 
 macro_rules! define_handler {
     ($effect:expr, $handler:expr) => {

@@ -612,7 +612,7 @@ pub struct SpellRecord {
     effect_multiple_value: [f32; MAX_SPELL_EFFECTS],
     effect_chain_target: [u32; MAX_SPELL_EFFECTS],
     effect_item_type: [u32; MAX_SPELL_EFFECTS],
-    effect_misc_value: [i32; MAX_SPELL_EFFECTS],
+    pub effect_misc_value: [i32; MAX_SPELL_EFFECTS],
     effect_misc_value_b: [i32; MAX_SPELL_EFFECTS],
     effect_trigger_spell: [u32; MAX_SPELL_EFFECTS],
     effect_points_per_combo_point: [f32; MAX_SPELL_EFFECTS],

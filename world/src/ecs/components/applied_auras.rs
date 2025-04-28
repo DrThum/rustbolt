@@ -224,6 +224,8 @@ impl AppliedAuras {
                         handler(AuraEffectHandlerArgs {
                             world_context: world_context.clone(),
                             all_storages,
+                            aura: &mut aura_app.aura,
+                            effect_index,
                         });
                     }
                 }

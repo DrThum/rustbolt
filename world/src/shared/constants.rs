@@ -2118,7 +2118,7 @@ pub const CREATURE_LEASH_DISTANCE: f32 = 100.;
 pub const MAX_CHASE_LEEWAY: f32 = 0.5;
 
 #[allow(dead_code)]
-#[derive(Clone, Copy, Debug, Hash, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Hash, Eq, PartialEq, EnumIter)]
 pub enum UnitAttribute {
     Strength = 0,
     Agility = 1,
@@ -2224,7 +2224,8 @@ pub enum LootError {
 }
 
 #[allow(dead_code)]
-#[derive(Eq, Hash, PartialEq, Clone, Copy, Debug)]
+#[derive(Eq, Hash, PartialEq, Clone, Copy, Debug, N)]
+
 pub enum AttributeModifier {
     StatStrength,
     StatAgility,

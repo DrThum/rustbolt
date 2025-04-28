@@ -74,8 +74,6 @@ pub struct Player {
     in_combat_with: RwLock<HashSet<ObjectGuid>>,
     currently_looting: Option<EntityId>,
     partial_regen_period_end: Instant, // "Five Seconds Rule", partial mana regen before, full regen after
-    #[allow(dead_code)]
-    pub attribute_modifiers: Arc<RwLock<AttributeModifiers>>,
     pub has_just_leveled_up: Mutex<bool>, // TODO: Make this an AtomicBoolean with acquire to
     // write, release to read
     pub needs_nearby_game_objects_refresh: AtomicBool,
@@ -308,6 +306,7 @@ impl Player {
         guid: u64,
         world_context: Arc<WorldContext>,
         session: Arc<WorldSession>,
+        attribute_modifiers: &mut AttributeModifiers,
     ) -> Player {
         let conn = world_context.database.characters.get().unwrap();
         let character = CharacterRepository::fetch_basic_character_data(&conn, guid)
@@ -322,15 +321,10 @@ impl Player {
 
         let internal_values = Arc::new(RwLock::new(InternalValues::new(PLAYER_END as usize)));
 
-        let attribute_modifiers = Arc::new(RwLock::new(AttributeModifiers::new()));
-
         // Load inventory BEFORE acquiring internal_values.write() otherwise we deadlock because
         // PlayerInventory::set calls internal_values.write() too
-        let mut inventory = PlayerInventory::new(
-            internal_values.clone(),
-            attribute_modifiers.clone(),
-            world_context.data_store.clone(),
-        );
+        let mut inventory =
+            PlayerInventory::new(internal_values.clone(), world_context.data_store.clone());
         ItemRepository::load_player_inventory(&conn, guid.raw() as u32)
             .into_iter()
             .for_each(|record| {
@@ -342,7 +336,7 @@ impl Player {
                     true,
                 );
 
-                inventory.set(record.slot, item);
+                inventory.set(record.slot, item, attribute_modifiers);
             });
 
         let mut values = internal_values.write();
@@ -451,54 +445,52 @@ impl Player {
             .data_store
             .get_player_base_attributes(character.race, character.class, character.level as u32)
             .expect("unable to retrieve base attributes for this race/class/level combination");
-        {
-            let mut attr_mods = attribute_modifiers.write();
-            attr_mods.add_modifier(
-                AttributeModifier::StatStrength,
-                AttributeModifierType::BaseValue,
-                base_attributes_record.strength as f32,
-            );
-            attr_mods.add_modifier(
-                AttributeModifier::StatAgility,
-                AttributeModifierType::BaseValue,
-                base_attributes_record.agility as f32,
-            );
-            attr_mods.add_modifier(
-                AttributeModifier::StatStamina,
-                AttributeModifierType::BaseValue,
-                base_attributes_record.stamina as f32,
-            );
-            attr_mods.add_modifier(
-                AttributeModifier::StatIntellect,
-                AttributeModifierType::BaseValue,
-                base_attributes_record.intellect as f32,
-            );
-            attr_mods.add_modifier(
-                AttributeModifier::StatSpirit,
-                AttributeModifierType::BaseValue,
-                base_attributes_record.spirit as f32,
-            );
 
-            let base_health_mana_record = world_context
-                .data_store
-                .get_player_base_health_mana(character.class, character.level as u32)
-                .expect("unable to retrieve base health/mana for this class/level combination");
+        attribute_modifiers.add_modifier(
+            AttributeModifier::StatStrength,
+            AttributeModifierType::BaseValue,
+            base_attributes_record.strength as f32,
+        );
+        attribute_modifiers.add_modifier(
+            AttributeModifier::StatAgility,
+            AttributeModifierType::BaseValue,
+            base_attributes_record.agility as f32,
+        );
+        attribute_modifiers.add_modifier(
+            AttributeModifier::StatStamina,
+            AttributeModifierType::BaseValue,
+            base_attributes_record.stamina as f32,
+        );
+        attribute_modifiers.add_modifier(
+            AttributeModifier::StatIntellect,
+            AttributeModifierType::BaseValue,
+            base_attributes_record.intellect as f32,
+        );
+        attribute_modifiers.add_modifier(
+            AttributeModifier::StatSpirit,
+            AttributeModifierType::BaseValue,
+            base_attributes_record.spirit as f32,
+        );
 
-            // Set health
-            values.set_u32(UnitFields::UnitFieldHealth.into(), character.current_health);
-            attr_mods.add_modifier(
-                AttributeModifier::Health,
-                AttributeModifierType::BaseValue,
-                base_health_mana_record.base_health as f32,
-            );
+        let base_health_mana_record = world_context
+            .data_store
+            .get_player_base_health_mana(character.class, character.level as u32)
+            .expect("unable to retrieve base health/mana for this class/level combination");
 
-            // Set mana
-            attr_mods.add_modifier(
-                AttributeModifier::Mana,
-                AttributeModifierType::BaseValue,
-                base_health_mana_record.base_mana as f32,
-            );
-        }
+        // Set health
+        values.set_u32(UnitFields::UnitFieldHealth.into(), character.current_health);
+        attribute_modifiers.add_modifier(
+            AttributeModifier::Health,
+            AttributeModifierType::BaseValue,
+            base_health_mana_record.base_health as f32,
+        );
+
+        // Set mana
+        attribute_modifiers.add_modifier(
+            AttributeModifier::Mana,
+            AttributeModifierType::BaseValue,
+            base_health_mana_record.base_mana as f32,
+        );
 
         // Set other powers
         for power_type in PowerType::iter().skip(1) {
@@ -700,7 +692,6 @@ impl Player {
             in_combat_with: RwLock::new(HashSet::new()),
             currently_looting: None,
             partial_regen_period_end: Instant::now(),
-            attribute_modifiers,
             has_just_leveled_up: Mutex::new(false),
             needs_nearby_game_objects_refresh: AtomicBool::new(false),
             teleport_destination: None,

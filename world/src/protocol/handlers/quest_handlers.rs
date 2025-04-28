@@ -5,6 +5,7 @@ use shipyard::{Get, View, ViewMut};
 
 use crate::datastore::data_types::QuestTemplate;
 use crate::ecs::components::quest_actor::QuestActor;
+use crate::entities::attribute_modifiers::AttributeModifiers;
 use crate::entities::object_guid::ObjectGuid;
 use crate::entities::player::Player;
 use crate::protocol::client::ClientMessage;
@@ -257,14 +258,19 @@ impl OpcodeHandler {
 
         let map = session.current_map().unwrap();
         map.world().run(
-            |mut vm_player: ViewMut<Player>, v_quest_actor: View<QuestActor>| {
+            |mut vm_player: ViewMut<Player>,
+             v_quest_actor: View<QuestActor>,
+             mut vm_attribute_modifiers: ViewMut<AttributeModifiers>| {
                 let player = &mut vm_player[session.player_entity_id().unwrap()];
+                let attribute_modifiers =
+                    &mut vm_attribute_modifiers[session.player_entity_id().unwrap()];
 
                 if player.can_turn_in_quest(&cmsg.quest_id) {
                     if let Some(gained_xp) = player.reward_quest(
                         cmsg.quest_id,
                         cmsg.chosen_reward_index,
                         world_context.data_store.clone(),
+                        attribute_modifiers,
                     ) {
                         let quest_template = world_context
                             .data_store

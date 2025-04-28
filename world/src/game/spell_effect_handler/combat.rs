@@ -3,7 +3,7 @@ use shipyard::{Get, View, ViewMut};
 
 use crate::{
     ecs::components::{guid::Guid, powers::Powers, threat_list::ThreatList, unit::Unit},
-    entities::{creature::Creature, player::Player},
+    entities::{attribute_modifiers::AttributeModifiers, creature::Creature, player::Player},
     game::{
         experience::Experience,
         spell_effect_handler::{SpellEffectHandler, SpellEffectHandlerArgs},
@@ -28,7 +28,8 @@ impl SpellEffectHandler {
              v_guid: View<Guid>,
              mut vm_player: ViewMut<Player>,
              v_creature: View<Creature>,
-             v_unit: View<Unit>| {
+             v_unit: View<Unit>,
+             mut vm_attribute_modifiers: ViewMut<AttributeModifiers>| {
                 let Some(unit_target) = spell.unit_target() else {
                     warn!("handle_effect_school_damage: no unit target");
                     return;
@@ -44,12 +45,22 @@ impl SpellEffectHandler {
                         threat_list.modify_threat(spell.caster(), damage as f32);
                     }
                 } else if let Ok(mut player) = (&mut vm_player).get(spell.caster()) {
+                    let Ok(mut attribute_modifiers) =
+                        (&mut vm_attribute_modifiers).get(spell.caster())
+                    else {
+                        return;
+                    };
+
                     // FIXME: This logic is duplicated in melee.rs
                     let target_guid = v_guid[unit_target].0;
                     let mut has_loot = false; // TODO: Handle player case (Insignia looting in PvP)
                     if let Ok(creature) = v_creature.get(unit_target) {
                         let xp_gain = Experience::xp_gain_against(&player, creature, map_record);
-                        player.give_experience(xp_gain, Some(target_guid));
+                        player.give_experience(
+                            xp_gain,
+                            Some(target_guid),
+                            &mut attribute_modifiers,
+                        );
                         player.notify_killed_creature(creature.guid(), creature.template.entry);
 
                         has_loot = creature.generate_loot();

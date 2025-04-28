@@ -3,6 +3,7 @@ use log::{error, warn};
 use shipyard::{Get, View, ViewMut};
 
 use crate::datastore::data_types::ItemTemplate;
+use crate::entities::attribute_modifiers::AttributeModifiers;
 use crate::entities::creature::Creature;
 use crate::entities::player::Player;
 use crate::game::gossip::GossipMenu;
@@ -434,64 +435,79 @@ impl OpcodeHandler {
         // FIXME: take reputation into account for a potential discount (see Player::GetReputationPriceDiscount(Creature*) in MaNGOS)
         let price = item_template.buy_price * cmsg.count as u32;
 
-        map.world().run(|mut vm_player: ViewMut<Player>| {
-            let Ok(mut player) = (&mut vm_player).get(session.player_entity_id().unwrap()) else {
-                error!("handle_cmsg_buy_item: session has no player");
-                return;
-            };
+        map.world().run(
+            |mut vm_player: ViewMut<Player>,
+             mut vm_attribute_modifiers: ViewMut<AttributeModifiers>| {
+                let Ok(mut player) = (&mut vm_player).get(session.player_entity_id().unwrap())
+                else {
+                    error!("handle_cmsg_buy_item: session has no player");
+                    return;
+                };
 
-            if player.money() < price {
-                let packet = ServerMessage::new(SmsgBuyFailed {
-                    vendor_guid: cmsg.vendor_guid,
-                    item_id: cmsg.item_id,
-                    param: None,
-                    fail_reason: BuyFailedReason::NotEnoughtMoney,
-                });
-                session.send(&packet).unwrap();
-                return;
-            }
+                let Ok(mut attribute_modifiers) =
+                    (&mut vm_attribute_modifiers).get(session.player_entity_id().unwrap())
+                else {
+                    error!("handle_cmsg_buy_item: player has no AttributeModifiers component");
+                    return;
+                };
 
-            match player.auto_store_new_item(cmsg.item_id, cmsg.count.into()) {
-                Ok(inventory_slot) => {
-                    player.modify_money(-1 * price as i32);
-                    let packet = ServerMessage::new(SmsgBuyItem {
+                if player.money() < price {
+                    let packet = ServerMessage::new(SmsgBuyFailed {
                         vendor_guid: cmsg.vendor_guid,
-                        index: bought_index as u32,
-                        new_count: 0xFFFFFFFF, // TODO: handle limited items
-                        bought_count: cmsg.count as u32,
-                    });
-
-                    session.send(&packet).unwrap();
-
-                    let total_count = player.inventory().get_item_count(cmsg.item_id);
-                    let packet = ServerMessage::new(SmsgItemPushResult {
-                        player_guid: player.guid(),
-                        loot_source: 1, // 1 = from npc
-                        is_created: 0,
-                        is_visible_in_chat: 1,
-                        bag_slot: 255, // FIXME: INVENTORY_SLOT_BAG_0
-                        item_slot: inventory_slot,
                         item_id: cmsg.item_id,
-                        item_suffix_factor: 0,      // FIXME
-                        item_random_property_id: 0, // FIXME
-                        count: cmsg.count as u32,
-                        total_count_of_this_item_in_inventory: total_count,
+                        param: None,
+                        fail_reason: BuyFailedReason::NotEnoughtMoney,
                     });
-
                     session.send(&packet).unwrap();
+                    return;
                 }
-                Err(inventory_result) => {
-                    let packet = ServerMessage::new(SmsgInventoryChangeFailure::build(
-                        inventory_result,
-                        None,
-                        None,
-                        None,
-                    ));
 
-                    session.send(&packet).unwrap();
+                match player.auto_store_new_item(
+                    cmsg.item_id,
+                    cmsg.count.into(),
+                    &mut attribute_modifiers,
+                ) {
+                    Ok(inventory_slot) => {
+                        player.modify_money(-1 * price as i32);
+                        let packet = ServerMessage::new(SmsgBuyItem {
+                            vendor_guid: cmsg.vendor_guid,
+                            index: bought_index as u32,
+                            new_count: 0xFFFFFFFF, // TODO: handle limited items
+                            bought_count: cmsg.count as u32,
+                        });
+
+                        session.send(&packet).unwrap();
+
+                        let total_count = player.inventory().get_item_count(cmsg.item_id);
+                        let packet = ServerMessage::new(SmsgItemPushResult {
+                            player_guid: player.guid(),
+                            loot_source: 1, // 1 = from npc
+                            is_created: 0,
+                            is_visible_in_chat: 1,
+                            bag_slot: 255, // FIXME: INVENTORY_SLOT_BAG_0
+                            item_slot: inventory_slot,
+                            item_id: cmsg.item_id,
+                            item_suffix_factor: 0,      // FIXME
+                            item_random_property_id: 0, // FIXME
+                            count: cmsg.count as u32,
+                            total_count_of_this_item_in_inventory: total_count,
+                        });
+
+                        session.send(&packet).unwrap();
+                    }
+                    Err(inventory_result) => {
+                        let packet = ServerMessage::new(SmsgInventoryChangeFailure::build(
+                            inventory_result,
+                            None,
+                            None,
+                            None,
+                        ));
+
+                        session.send(&packet).unwrap();
+                    }
                 }
-            }
-        });
+            },
+        );
     }
 
     pub fn handle_cmsg_sell_item(
@@ -517,9 +533,16 @@ impl OpcodeHandler {
             return;
         }
 
-        map.world().run(|mut vm_player: ViewMut<Player>| {
+        map.world().run(|mut vm_player: ViewMut<Player>, mut vm_attribute_modifiers: ViewMut<AttributeModifiers>| {
             let Ok(mut player) = (&mut vm_player).get(session.player_entity_id().unwrap()) else {
                 error!("handle_cmsg_sell_item: session has no player");
+                return;
+            };
+
+            let Ok(mut attribute_modifiers) =
+                (&mut vm_attribute_modifiers).get(session.player_entity_id().unwrap())
+            else {
+                error!("handle_cmsg_sell_item: player has no AttributeModifiers component");
                 return;
             };
 
@@ -569,7 +592,7 @@ impl OpcodeHandler {
             }
 
             if let Some(slot_to_remove) = slot_to_remove {
-                if let Some(sold_item) = player.remove_item(slot_to_remove) {
+                if let Some(sold_item) = player.remove_item(slot_to_remove, &mut attribute_modifiers) {
                     let price = item_template.sell_price * sold_item.stack_count();
                     player.modify_money(price as i32);
                 }

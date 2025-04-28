@@ -1,7 +1,10 @@
 use std::collections::HashSet;
 
+use shipyard::Component;
+
 use crate::shared::constants::{AttributeModifier, AttributeModifierType};
 
+#[derive(Component)]
 pub struct AttributeModifiers {
     modifiers: [[f32; AttributeModifierType::Max as usize]; AttributeModifier::Max as usize],
     dirty: HashSet<AttributeModifier>,

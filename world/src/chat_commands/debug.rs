@@ -6,7 +6,10 @@ use shipyard::{Get, UniqueView, View, ViewMut};
 
 use crate::{
     ecs::components::{guid::Guid, movement::Movement, threat_list::ThreatList},
-    entities::{creature::Creature, player::Player, position::WorldPosition},
+    entities::{
+        attribute_modifiers::AttributeModifiers, creature::Creature, player::Player,
+        position::WorldPosition,
+    },
     game::packet_broadcaster::WrappedPacketBroadcaster,
 };
 
@@ -153,32 +156,41 @@ fn setup_item_command() -> (&'static str, (Command, CommandHandler)) {
 
     fn handler(ctx: CommandContext, matches: ArgMatches) -> ChatCommandResult {
         if let Some(subcommand_add) = matches.subcommand_matches("add") {
-            return ctx.map.world().run(|mut vm_player: ViewMut<Player>| {
-                let Ok(mut player) = (&mut vm_player).get(ctx.my_entity_id) else {
-                    return Err(ChatCommandError::GenericError);
-                };
+            return ctx.map.world().run(
+                |mut vm_player: ViewMut<Player>,
+                 mut vm_attribute_modifiers: ViewMut<AttributeModifiers>| {
+                    let Ok(mut player) = (&mut vm_player).get(ctx.my_entity_id) else {
+                        return Err(ChatCommandError::GenericError);
+                    };
 
-                let item_id: &u32 = subcommand_add.get_one("id").unwrap();
-                let count: &u32 = subcommand_add.get_one("count").unwrap();
+                    let Ok(mut attribute_modifiers) =
+                        (&mut vm_attribute_modifiers).get(ctx.my_entity_id)
+                    else {
+                        return Err(ChatCommandError::GenericError);
+                    };
 
-                if ctx
-                    .world_context
-                    .data_store
-                    .get_item_template(*item_id)
-                    .is_none()
-                {
-                    ctx.reply_error(format!("Item template {item_id} does not exist").as_str());
-                    return Err(ChatCommandError::GenericError);
-                }
+                    let item_id: &u32 = subcommand_add.get_one("id").unwrap();
+                    let count: &u32 = subcommand_add.get_one("count").unwrap();
 
-                match player.auto_store_new_item(*item_id, *count) {
-                    Ok(_) => Ok(()),
-                    Err(err) => {
-                        ctx.reply_error(format!("Unable to add item ({err:?})").as_str());
-                        Err(ChatCommandError::GenericError)
+                    if ctx
+                        .world_context
+                        .data_store
+                        .get_item_template(*item_id)
+                        .is_none()
+                    {
+                        ctx.reply_error(format!("Item template {item_id} does not exist").as_str());
+                        return Err(ChatCommandError::GenericError);
                     }
-                }
-            });
+
+                    match player.auto_store_new_item(*item_id, *count, &mut attribute_modifiers) {
+                        Ok(_) => Ok(()),
+                        Err(err) => {
+                            ctx.reply_error(format!("Unable to add item ({err:?})").as_str());
+                            Err(ChatCommandError::GenericError)
+                        }
+                    }
+                },
+            );
         }
 
         Err(ChatCommandError::InvalidArguments)

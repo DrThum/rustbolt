@@ -19,6 +19,7 @@ use crate::{
         resources::DeltaTime,
     },
     entities::{
+        attribute_modifiers::AttributeModifiers,
         behaviors::{BTContext, NodeStatus},
         creature::Creature,
         player::Player,
@@ -175,7 +176,7 @@ fn action_attack_in_melee(ctx: &mut BTContext) -> NodeStatus {
             v_wpos,
             v_spell,
             v_creature,
-            mut vm_unit,
+            (mut vm_unit, mut vm_attribute_modifiers),
             mut vm_powers,
             mut vm_melee,
             mut vm_threat_list,
@@ -189,7 +190,7 @@ fn action_attack_in_melee(ctx: &mut BTContext) -> NodeStatus {
             View<WorldPosition>,
             View<SpellCast>,
             View<Creature>,
-            ViewMut<Unit>,
+            (ViewMut<Unit>, ViewMut<AttributeModifiers>),
             ViewMut<Powers>,
             ViewMut<Melee>,
             ViewMut<ThreatList>,
@@ -207,6 +208,7 @@ fn action_attack_in_melee(ctx: &mut BTContext) -> NodeStatus {
                 &mut vm_powers,
                 &mut vm_melee,
                 &mut vm_threat_list,
+                &mut vm_attribute_modifiers,
                 None,
             ) {
                 Ok(_) => NodeStatus::Success,

@@ -8,7 +8,10 @@ use log::{error, warn};
 
 use crate::{
     datastore::data_types::QuestTemplate,
-    entities::internal_values::{QuestSlotOffset, QUEST_SLOT_OFFSETS_COUNT},
+    entities::{
+        attribute_modifiers::AttributeModifiers,
+        internal_values::{QuestSlotOffset, QUEST_SLOT_OFFSETS_COUNT},
+    },
     shared::constants::{
         CharacterClassBit, CharacterRaceBit, PlayerQuestStatus, QuestSlotState, QuestStartError,
         MAX_QUESTS_IN_LOG, MAX_QUEST_OBJECTIVES_COUNT,
@@ -234,6 +237,7 @@ impl Player {
         quest_id: u32,
         chosen_reward_index: u32,
         data_store: Arc<DataStore>,
+        attribute_modifiers: &mut AttributeModifiers,
     ) -> Option<u32> {
         warn!("TODO: Implement Player::reward_quest (reputation, ...)");
 
@@ -266,7 +270,8 @@ impl Player {
 
                 // Take required items
                 for (id, count) in quest_template.required_items() {
-                    self.inventory.remove_item_count(id, count);
+                    self.inventory
+                        .remove_item_count(id, count, attribute_modifiers);
                 }
 
                 self.modify_money(quest_template.required_or_reward_money);
@@ -274,7 +279,8 @@ impl Player {
                 match quest_template.reward_choice_items()[chosen_reward_index as usize] {
                     (0, _) | (_, 0) => (),
                     (id, count) => {
-                        self.auto_store_new_item(id, count).unwrap();
+                        self.auto_store_new_item(id, count, attribute_modifiers)
+                            .unwrap();
                     }
                 }
 
@@ -283,11 +289,12 @@ impl Player {
                     .into_iter()
                     .filter(|(id, count)| *id != 0 && *count != 0)
                 {
-                    self.auto_store_new_item(id, count).unwrap();
+                    self.auto_store_new_item(id, count, attribute_modifiers)
+                        .unwrap();
                 }
 
                 let xp = quest_template.experience_reward_at_level(self.level());
-                self.give_experience(xp, None);
+                self.give_experience(xp, None, attribute_modifiers);
                 return Some(xp);
             }
         }

@@ -11,8 +11,9 @@ use shipyard::{Component, EntityId, Get, View, ViewMut};
 use crate::{
     datastore::data_types::MapRecord,
     entities::{
-        creature::Creature, internal_values::InternalValues, object_guid::ObjectGuid,
-        player::Player, position::WorldPosition, update_fields::UnitFields,
+        attribute_modifiers::AttributeModifiers, creature::Creature,
+        internal_values::InternalValues, object_guid::ObjectGuid, player::Player,
+        position::WorldPosition, update_fields::UnitFields,
     },
     game::{experience::Experience, packet_broadcaster::PacketBroadcaster},
     protocol::{
@@ -180,6 +181,7 @@ impl Melee {
         vm_powers: &mut ViewMut<Powers>,
         vm_melee: &mut ViewMut<Melee>,
         vm_threat_list: &mut ViewMut<ThreatList>,
+        vm_attribute_modifiers: &mut ViewMut<AttributeModifiers>,
         player_attacker: Option<&mut Player>,
     ) -> Result<(), ()> {
         let target_id = v_unit[attacker_id].target();
@@ -275,8 +277,18 @@ impl Melee {
                     } else if let Some(player) = player_attacker {
                         let mut has_loot = false; // TODO: Handle player case (Insignia looting in PvP)
                         if let Ok(creature) = v_creature.get(target_id) {
+                            let Ok(mut attribute_modifiers) =
+                                vm_attribute_modifiers.get(attacker_id)
+                            else {
+                                return Err(());
+                            };
+
                             let xp_gain = Experience::xp_gain_against(player, creature, map_record);
-                            player.give_experience(xp_gain, Some(target_guid));
+                            player.give_experience(
+                                xp_gain,
+                                Some(target_guid),
+                                &mut attribute_modifiers,
+                            );
                             player.notify_killed_creature(creature.guid(), creature.template.entry);
 
                             has_loot = creature.generate_loot();

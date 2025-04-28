@@ -6,7 +6,10 @@ use crate::{
         guid::Guid, melee::Melee, powers::Powers, spell_cast::SpellCast, threat_list::ThreatList,
         unit::Unit,
     },
-    entities::{creature::Creature, player::Player, position::WorldPosition},
+    entities::{
+        attribute_modifiers::AttributeModifiers, creature::Creature, player::Player,
+        position::WorldPosition,
+    },
     game::{map::HasPlayers, packet_broadcaster::WrappedPacketBroadcaster},
     session::session_holder::WrappedSessionHolder,
 };
@@ -24,7 +27,7 @@ pub fn attempt_melee_attack(
     mut vm_melee: ViewMut<Melee>,
     mut vm_unit: ViewMut<Unit>,
     mut vm_threat_list: ViewMut<ThreatList>,
-    mut vm_player: ViewMut<Player>,
+    (mut vm_player, mut vm_attribute_modifiers): (ViewMut<Player>, ViewMut<AttributeModifiers>),
     v_wpos: View<WorldPosition>,
     v_spell: View<SpellCast>,
     v_creature: View<Creature>,
@@ -47,6 +50,7 @@ pub fn attempt_melee_attack(
             &mut vm_powers,
             &mut vm_melee,
             &mut vm_threat_list,
+            &mut vm_attribute_modifiers,
             Some(&mut player),
         ) {
             Ok(_) => (),

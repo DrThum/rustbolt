@@ -41,8 +41,9 @@ use crate::{
         },
     },
     entities::{
-        creature::Creature, game_object::GameObject, internal_values::WrappedInternalValues,
-        object_guid::ObjectGuid, player::Player, position::WorldPosition,
+        attribute_modifiers::AttributeModifiers, creature::Creature, game_object::GameObject,
+        internal_values::WrappedInternalValues, object_guid::ObjectGuid, player::Player,
+        position::WorldPosition,
     },
     protocol::{
         self,
@@ -314,17 +315,27 @@ impl Map {
              mut vm_int_vals: ViewMut<WrappedInternalValues>,
              mut vm_player: ViewMut<Player>,
              mut vm_movement: ViewMut<Movement>,
-             (mut vm_spell, mut vm_nearby_players, mut vm_cooldowns, mut vm_app_auras): (
+             (
+                mut vm_spell,
+                mut vm_nearby_players,
+                mut vm_cooldowns,
+                mut vm_app_auras,
+                mut vm_attribute_modifiers,
+            ): (
                 ViewMut<SpellCast>,
                 ViewMut<NearbyPlayers>,
                 ViewMut<Cooldowns>,
                 ViewMut<AppliedAuras>,
+                ViewMut<AttributeModifiers>,
             )| {
+                let mut attribute_modifiers = AttributeModifiers::new();
+
                 let player = Player::load_from_db(
                     session.account_id,
                     char_data.guid,
                     self.world_context.clone(),
                     session.clone(),
+                    &mut attribute_modifiers,
                 );
                 let spell_cooldowns = Player::load_spell_cooldowns_from_db(
                     char_data.guid,
@@ -371,6 +382,7 @@ impl Map {
                             &mut vm_nearby_players,
                             &mut vm_cooldowns,
                             &mut vm_app_auras,
+                            &mut vm_attribute_modifiers,
                         ),
                         &mut vm_player,
                     ),
@@ -417,6 +429,7 @@ impl Map {
                                 PLAYER_CONTROLLED_BUFF_LIMIT,
                                 player.internal_values.clone(),
                             ),
+                            attribute_modifiers,
                         ),
                         player,
                     ),

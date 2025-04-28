@@ -1,7 +1,7 @@
 use log::error;
 
 use crate::{
-    entities::{item::Item, update::UpdateData},
+    entities::{attribute_modifiers::AttributeModifiers, item::Item, update::UpdateData},
     protocol::{
         packets::{SmsgCreateObject, SmsgItemPushResult},
         server::ServerMessage,
@@ -17,6 +17,7 @@ impl Player {
         &mut self,
         item_id: u32,
         stack_count: u32,
+        attribute_modifiers: &mut AttributeModifiers,
     ) -> Result<u32, InventoryResult> {
         let item_template = self
             .world_context
@@ -66,7 +67,7 @@ impl Player {
                         updates: vec![item.build_create_data()],
                     });
 
-                    self.inventory.set(slot, item);
+                    self.inventory.set(slot, item, attribute_modifiers);
                     self.session.send(&packet).unwrap();
 
                     chosen_slot = slot;
@@ -118,11 +119,17 @@ impl Player {
         Ok(chosen_slot)
     }
 
-    pub fn remove_item(&mut self, slot: u32) -> Option<Item> {
-        self.inventory.remove(slot).or_else(|| {
-            error!("Player::remove_item: no item found in slot {slot}");
-            None
-        })
+    pub fn remove_item(
+        &mut self,
+        slot: u32,
+        attribute_modifiers: &mut AttributeModifiers,
+    ) -> Option<Item> {
+        self.inventory
+            .remove(slot, attribute_modifiers)
+            .or_else(|| {
+                error!("Player::remove_item: no item found in slot {slot}");
+                None
+            })
 
         // TODO: recalculate quest status (potentially back from ObjectivesCompleted to InProgress)
     }
@@ -131,7 +138,11 @@ impl Player {
         self.inventory.get(slot)
     }
 
-    pub fn try_equip_item_from_inventory(&mut self, from_slot: u32) -> InventoryResult {
+    pub fn try_equip_item_from_inventory(
+        &mut self,
+        from_slot: u32,
+        attribute_modifiers: &mut AttributeModifiers,
+    ) -> InventoryResult {
         let Some(item_to_equip) = self.inventory.get(from_slot) else {
             return InventoryResult::SlotIsEmpty;
         };
@@ -150,15 +161,22 @@ impl Player {
         let destination_slot = destination_slot as u32;
 
         if self.inventory.has_item_in_slot(destination_slot) {
-            self.inventory.swap(from_slot, destination_slot);
+            self.inventory
+                .swap(from_slot, destination_slot, attribute_modifiers);
         } else {
-            self.inventory.move_item(from_slot, destination_slot);
+            self.inventory
+                .move_item(from_slot, destination_slot, attribute_modifiers);
         }
 
         InventoryResult::Ok
     }
 
-    pub fn try_swap_inventory_item(&mut self, from_slot: u32, to_slot: u32) -> InventoryResult {
+    pub fn try_swap_inventory_item(
+        &mut self,
+        from_slot: u32,
+        to_slot: u32,
+        attribute_modifiers: &mut AttributeModifiers,
+    ) -> InventoryResult {
         let (maybe_moved_item, maybe_target_item) = self.inventory.get2_mut(from_slot, to_slot);
 
         // There's no item in from_slot (cheating player?)
@@ -231,19 +249,20 @@ impl Player {
                     moved_item.change_stack_count(-stack_diff);
                 } else {
                     // If the moved item has no stack after the transfer, delete it
-                    self.remove_item(from_slot);
+                    self.remove_item(from_slot, attribute_modifiers);
                 }
             } else {
-                self.inventory.swap(from_slot, to_slot);
+                self.inventory.swap(from_slot, to_slot, attribute_modifiers);
             }
 
             InventoryResult::Ok
         } else if is_destination_gear_slot {
             // Moving the item from a bag to gear: equip it
-            self.try_equip_item_from_inventory(from_slot)
+            self.try_equip_item_from_inventory(from_slot, attribute_modifiers)
         } else {
             // Moving the item to a bag (from gear or a bag): just move it
-            self.inventory.move_item(from_slot, to_slot);
+            self.inventory
+                .move_item(from_slot, to_slot, attribute_modifiers);
             InventoryResult::Ok
         }
     }
@@ -253,6 +272,7 @@ impl Player {
         from_slot: u32,
         destination_slot: u32,
         count: u8,
+        attribute_modifiers: &mut AttributeModifiers,
     ) -> InventoryResult {
         match self.inventory.get2_mut(from_slot, destination_slot) {
             (None, _) => {
@@ -279,7 +299,8 @@ impl Player {
                     updates: vec![new_item.build_create_data()],
                 });
 
-                self.inventory.set(destination_slot, new_item);
+                self.inventory
+                    .set(destination_slot, new_item, attribute_modifiers);
                 self.session.send(&packet).unwrap();
 
                 InventoryResult::Ok

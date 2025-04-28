@@ -5,6 +5,7 @@ use shipyard::{Get, View, ViewMut};
 use crate::ecs::components::guid::Guid;
 use crate::ecs::components::powers::Powers;
 use crate::ecs::components::spell_cast::SpellCast;
+use crate::entities::attribute_modifiers::AttributeModifiers;
 use crate::entities::player::Player;
 use crate::protocol::client::ClientMessage;
 use crate::protocol::packets::*;
@@ -138,14 +139,20 @@ impl OpcodeHandler {
         let cmsg_destroy_item: CmsgDestroyItem = ClientMessage::read_as(data).unwrap();
 
         if let Some(map) = session.current_map() {
-            map.world().run(|mut vm_player: ViewMut<Player>| {
-                let player_entity_id = session.player_entity_id().unwrap();
-                let player = &mut vm_player[player_entity_id];
+            map.world().run(
+                |mut vm_player: ViewMut<Player>,
+                 mut vm_attribute_modifiers: ViewMut<AttributeModifiers>| {
+                    let player_entity_id = session.player_entity_id().unwrap();
+                    let player = &mut vm_player[player_entity_id];
+                    let attribute_modifiers = &mut vm_attribute_modifiers[player_entity_id];
 
-                if let Some(removed_item) = player.remove_item(cmsg_destroy_item.slot.into()) {
-                    session.destroy_entity(removed_item.guid());
-                }
-            });
+                    if let Some(removed_item) =
+                        player.remove_item(cmsg_destroy_item.slot.into(), attribute_modifiers)
+                    {
+                        session.destroy_entity(removed_item.guid());
+                    }
+                },
+            );
         }
     }
 
@@ -165,23 +172,29 @@ impl OpcodeHandler {
                           player_entity_id,
                           ..
                       }| {
-            map.world().run(|mut vm_player: ViewMut<Player>| {
-                if let Ok(mut player) = (&mut vm_player).get(player_entity_id) {
-                    let inventory_result = player.try_equip_item_from_inventory(slot);
-                    if let Some(moved_item) = player.get_inventory_item(slot) {
-                        let moved_item_template = world_context
-                            .data_store
-                            .get_item_template(moved_item.entry());
-                        let packet = ServerMessage::new(SmsgInventoryChangeFailure::build(
-                            inventory_result,
-                            Some(moved_item.guid()).copied(),
-                            moved_item_template,
-                            None,
-                        ));
-                        session.send(&packet).unwrap();
+            map.world().run(
+                |mut vm_player: ViewMut<Player>,
+                 mut vm_attribute_modifiers: ViewMut<AttributeModifiers>| {
+                    if let Ok(mut player) = (&mut vm_player).get(player_entity_id) {
+                        let attribute_modifiers = &mut vm_attribute_modifiers[player_entity_id];
+
+                        let inventory_result =
+                            player.try_equip_item_from_inventory(slot, attribute_modifiers);
+                        if let Some(moved_item) = player.get_inventory_item(slot) {
+                            let moved_item_template = world_context
+                                .data_store
+                                .get_item_template(moved_item.entry());
+                            let packet = ServerMessage::new(SmsgInventoryChangeFailure::build(
+                                inventory_result,
+                                Some(moved_item.guid()).copied(),
+                                moved_item_template,
+                                None,
+                            ));
+                            session.send(&packet).unwrap();
+                        }
                     }
-                }
-            });
+                },
+            );
         });
     }
 
@@ -200,33 +213,39 @@ impl OpcodeHandler {
                           player_entity_id,
                           ..
                       }| {
-            map.world().run(|mut vm_player: ViewMut<Player>| {
-                if let Ok(mut player) = (&mut vm_player).get(player_entity_id) {
-                    let inventory_result = player.try_swap_inventory_item(
-                        cmsg_swap_inv_item.from_slot.into(),
-                        cmsg_swap_inv_item.to_slot.into(),
-                    );
+            map.world().run(
+                |mut vm_player: ViewMut<Player>,
+                 mut vm_attribute_modifiers: ViewMut<AttributeModifiers>| {
+                    if let Ok(mut player) = (&mut vm_player).get(player_entity_id) {
+                        let attribute_modifiers = &mut vm_attribute_modifiers[player_entity_id];
 
-                    let maybe_moved_item =
-                        player.get_inventory_item(cmsg_swap_inv_item.from_slot.into());
-                    let maybe_target_item =
-                        player.get_inventory_item(cmsg_swap_inv_item.to_slot.into());
+                        let inventory_result = player.try_swap_inventory_item(
+                            cmsg_swap_inv_item.from_slot.into(),
+                            cmsg_swap_inv_item.to_slot.into(),
+                            attribute_modifiers,
+                        );
 
-                    let moved_item_template = maybe_moved_item.and_then(|moved_item| {
-                        world_context
-                            .data_store
-                            .get_item_template(moved_item.entry())
-                    });
+                        let maybe_moved_item =
+                            player.get_inventory_item(cmsg_swap_inv_item.from_slot.into());
+                        let maybe_target_item =
+                            player.get_inventory_item(cmsg_swap_inv_item.to_slot.into());
 
-                    let packet = ServerMessage::new(SmsgInventoryChangeFailure::build(
-                        inventory_result,
-                        maybe_moved_item.map(|item| item.guid()).copied(),
-                        moved_item_template,
-                        maybe_target_item.map(|item| item.guid()).copied(),
-                    ));
-                    session.send(&packet).unwrap();
-                }
-            });
+                        let moved_item_template = maybe_moved_item.and_then(|moved_item| {
+                            world_context
+                                .data_store
+                                .get_item_template(moved_item.entry())
+                        });
+
+                        let packet = ServerMessage::new(SmsgInventoryChangeFailure::build(
+                            inventory_result,
+                            maybe_moved_item.map(|item| item.guid()).copied(),
+                            moved_item_template,
+                            maybe_target_item.map(|item| item.guid()).copied(),
+                        ));
+                        session.send(&packet).unwrap();
+                    }
+                },
+            );
         });
     }
 
@@ -245,34 +264,40 @@ impl OpcodeHandler {
                           player_entity_id,
                           ..
                       }| {
-            map.world().run(|mut vm_player: ViewMut<Player>| {
-                if let Ok(mut player) = (&mut vm_player).get(player_entity_id) {
-                    let inventory_result = player.try_split_item(
-                        cmsg_split_item.source_slot.into(),
-                        cmsg_split_item.destination_slot.into(),
-                        cmsg_split_item.count,
-                    );
+            map.world().run(
+                |mut vm_player: ViewMut<Player>,
+                 mut vm_attribute_modifiers: ViewMut<AttributeModifiers>| {
+                    if let Ok(mut player) = (&mut vm_player).get(player_entity_id) {
+                        let attribute_modifiers = &mut vm_attribute_modifiers[player_entity_id];
 
-                    let maybe_source_item =
-                        player.get_inventory_item(cmsg_split_item.source_slot.into());
-                    let maybe_new_item =
-                        player.get_inventory_item(cmsg_split_item.destination_slot.into());
+                        let inventory_result = player.try_split_item(
+                            cmsg_split_item.source_slot.into(),
+                            cmsg_split_item.destination_slot.into(),
+                            cmsg_split_item.count,
+                            attribute_modifiers,
+                        );
 
-                    let source_item_template = maybe_source_item.and_then(|moved_item| {
-                        world_context
-                            .data_store
-                            .get_item_template(moved_item.entry())
-                    });
+                        let maybe_source_item =
+                            player.get_inventory_item(cmsg_split_item.source_slot.into());
+                        let maybe_new_item =
+                            player.get_inventory_item(cmsg_split_item.destination_slot.into());
 
-                    let packet = ServerMessage::new(SmsgInventoryChangeFailure::build(
-                        inventory_result,
-                        maybe_source_item.map(|item| item.guid()).copied(),
-                        source_item_template,
-                        maybe_new_item.map(|item| item.guid()).copied(),
-                    ));
-                    session.send(&packet).unwrap();
-                }
-            });
+                        let source_item_template = maybe_source_item.and_then(|moved_item| {
+                            world_context
+                                .data_store
+                                .get_item_template(moved_item.entry())
+                        });
+
+                        let packet = ServerMessage::new(SmsgInventoryChangeFailure::build(
+                            inventory_result,
+                            maybe_source_item.map(|item| item.guid()).copied(),
+                            source_item_template,
+                            maybe_new_item.map(|item| item.guid()).copied(),
+                        ));
+                        session.send(&packet).unwrap();
+                    }
+                },
+            );
         });
     }
 

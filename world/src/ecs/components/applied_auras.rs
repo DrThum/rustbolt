@@ -331,5 +331,4 @@ impl AuraApplication {
 enum AuraApplicationState {
     New,
     Active,
-    Removing,
 }

@@ -23,7 +23,7 @@ use crate::{
 
 use super::{
     attributes::Attributes,
-    internal_values::{self, InternalValues},
+    internal_values::InternalValues,
     object_guid::ObjectGuid,
     position::WorldPosition,
     update::{CreateData, MovementUpdateData, UpdateBlockBuilder, UpdateFlag, UpdateType},

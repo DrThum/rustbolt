@@ -44,7 +44,7 @@ use crate::{
         attributes::Attributes,
         creature::Creature,
         game_object::GameObject,
-        internal_values::{self, InternalValues, WrappedInternalValues},
+        internal_values::{InternalValues, WrappedInternalValues},
         object_guid::ObjectGuid,
         player::Player,
         position::WorldPosition,

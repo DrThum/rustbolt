@@ -44,11 +44,11 @@ use crate::{
         attributes::Attributes,
         creature::Creature,
         game_object::GameObject,
-        internal_values::{InternalValues, WrappedInternalValues},
+        internal_values::{self, InternalValues, WrappedInternalValues},
         object_guid::ObjectGuid,
         player::Player,
         position::WorldPosition,
-        update_fields::PLAYER_END,
+        update_fields::{PLAYER_END, UNIT_END},
     },
     protocol::{
         self,
@@ -184,10 +184,7 @@ impl Map {
                 o: spawn.orientation,
             };
 
-            let creature = Creature::from_spawn(&spawn, world_context.clone())
-                .expect("unable to build InternalValues for creature from DB spawn");
-
-            map.add_creature(&guid, creature, &position);
+            map.add_creature(&guid, &spawn, &position, world_context.clone());
         }
 
         for spawn in game_object_spawns {
@@ -351,12 +348,6 @@ impl Map {
                     self.world_context.clone(),
                 );
 
-                let base_health_mana_record = self
-                    .world_context
-                    .data_store
-                    .get_player_base_health_mana(char_data.class, char_data.level as u32)
-                    .expect("unable to retrieve base health/mana for this class/level combination");
-
                 let main_hand_attack_time = player.base_attack_time(
                     WeaponAttackType::MainHand,
                     self.world_context.data_store.clone(),
@@ -397,11 +388,7 @@ impl Map {
                     ),
                     (
                         Guid::new(player_guid, player.internal_values.clone()),
-                        Powers::new(
-                            player.internal_values.clone(),
-                            base_health_mana_record.base_health,
-                            base_health_mana_record.base_mana,
-                        ),
+                        Powers::new(player.internal_values.clone()),
                         Melee::new(
                             player.internal_values.clone(),
                             main_hand_base_damage.min(), // FIXME: still wildly inaccurate
@@ -669,9 +656,20 @@ impl Map {
     pub fn add_creature(
         &self,
         creature_guid: &ObjectGuid,
-        creature: Creature,
+        spawn: &CreatureSpawnDbRecord,
         wpos: &WorldPosition,
+        world_context: Arc<WorldContext>,
     ) {
+        let internal_values = Arc::new(RwLock::new(InternalValues::new(UNIT_END as usize)));
+        let mut attributes = Attributes::new(internal_values.clone());
+        let creature = Creature::from_spawn(
+            internal_values.clone(),
+            &spawn,
+            world_context.clone(),
+            &mut attributes,
+        )
+        .expect("unable to build InternalValues for creature from DB spawn");
+
         let creature_template = self
             .world_context
             .data_store
@@ -735,11 +733,7 @@ impl Map {
                     ),
                     (
                         Guid::new(*creature_guid, creature.internal_values.clone()),
-                        Powers::new(
-                            creature.internal_values.clone(),
-                            0, // TODO: creature base health
-                            0, // TODO: creature base mana
-                        ),
+                        Powers::new(creature.internal_values.clone()),
                         Melee::new(
                             creature.internal_values.clone(),
                             creature_base_damage,
@@ -767,7 +761,7 @@ impl Map {
                                 CREATURE_BUFF_LIMIT,
                                 creature.internal_values.clone(),
                             ),
-                            Attributes::new(creature.internal_values.clone()),
+                            attributes,
                         ),
                     ),
                 );

@@ -16,7 +16,6 @@ use crate::{
 pub struct Powers {
     internal_values: Arc<RwLock<InternalValues>>,
     next_regen_time: Instant,
-    base_mana: u32,
 }
 
 pub struct PowerSnapshot {
@@ -34,20 +33,10 @@ pub struct PowersSnapshot {
 
 impl Powers {
     // Calculate all base/max power types
-    pub fn new(
-        internal_values: Arc<RwLock<InternalValues>>,
-        base_health: u32,
-        base_mana: u32,
-    ) -> Self {
-        internal_values
-            .write()
-            .set_u32(UnitFields::UnitFieldBaseHealth.into(), base_health)
-            .set_u32(UnitFields::UnitFieldBaseMana.into(), base_mana);
-
+    pub fn new(internal_values: Arc<RwLock<InternalValues>>) -> Self {
         Self {
             internal_values,
             next_regen_time: Instant::now(),
-            base_mana,
         }
     }
 
@@ -125,7 +114,9 @@ impl Powers {
     }
 
     pub fn base_mana(&self) -> u32 {
-        self.base_mana
+        self.internal_values
+            .read()
+            .get_u32(UnitFields::UnitFieldBaseMana.into())
     }
 
     pub fn snapshot(&self) -> PowersSnapshot {

@@ -484,6 +484,16 @@ impl Player {
             base_health_mana_record.base_health as f32,
         );
 
+        values
+            .set_u32(
+                UnitFields::UnitFieldBaseHealth.into(),
+                base_health_mana_record.base_health,
+            )
+            .set_u32(
+                UnitFields::UnitFieldBaseMana.into(),
+                base_health_mana_record.base_mana,
+            );
+
         // Set mana
         attributes.add_modifier(
             AttributeModifier::Mana,

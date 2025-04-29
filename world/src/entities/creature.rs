@@ -13,15 +13,17 @@ use crate::{
     protocol::packets::SmsgCreateObject,
     repositories::creature::CreatureSpawnDbRecord,
     shared::constants::{
-        CharacterClass, HighGuidType, NpcFlags, ObjectTypeId, ObjectTypeMask, PowerType,
-        UnitFieldBytes2Offset, CREATURE_AGGRO_DISTANCE_AT_SAME_LEVEL, CREATURE_AGGRO_DISTANCE_MAX,
+        AttributeModifier, AttributeModifierType, CharacterClass, HighGuidType, NpcFlags,
+        ObjectTypeId, ObjectTypeMask, PowerType, UnitFieldBytes2Offset,
+        CREATURE_AGGRO_DISTANCE_AT_SAME_LEVEL, CREATURE_AGGRO_DISTANCE_MAX,
         CREATURE_AGGRO_DISTANCE_MIN, CREATURE_BUFF_LIMIT, MAX_LEVEL_DIFFERENCE_FOR_AGGRO,
     },
     DataStore,
 };
 
 use super::{
-    internal_values::InternalValues,
+    attributes::Attributes,
+    internal_values::{self, InternalValues},
     object_guid::ObjectGuid,
     position::WorldPosition,
     update::{CreateData, MovementUpdateData, UpdateBlockBuilder, UpdateFlag, UpdateType},
@@ -45,8 +47,10 @@ pub struct Creature {
 
 impl Creature {
     pub fn from_spawn(
+        internal_values: Arc<RwLock<InternalValues>>,
         creature_spawn: &CreatureSpawnDbRecord,
         world_context: Arc<WorldContext>,
+        attributes: &mut Attributes,
     ) -> Option<Self> {
         let data_store = world_context.data_store.clone();
         data_store
@@ -61,7 +65,7 @@ impl Creature {
                 );
                 let object_type = make_bitflags!(ObjectTypeMask::{Object | Unit}).bits();
 
-                let mut values = InternalValues::new(UNIT_END as usize);
+                let mut values = internal_values.write();
                 values
                     .set_u64(ObjectFields::ObjectFieldGuid.into(), guid.raw())
                     .set_u32(ObjectFields::ObjectFieldType.into(), object_type)
@@ -92,11 +96,17 @@ impl Creature {
                     .expect("creature base attributes not found");
 
                 // Set health
-                values.set_u32(UnitFields::UnitFieldHealth.into(), creature_health);
-                // FIXME: calculate max from base + modifiers
-                values.set_u32(
+                values
+                    .set_u32(UnitFields::UnitFieldHealth.into(), creature_health)
+                    .set_u32(
                     UnitFields::UnitFieldMaxHealth.into(),
-                            creature_health
+                    creature_health
+                ).set_u32(UnitFields::UnitFieldBaseHealth.into(), creature_health);
+
+                attributes.add_modifier(
+                    AttributeModifier::Health,
+                    AttributeModifierType::BaseValue,
+                    creature_health as f32,
                 );
 
                 // Set power type based on unit class
@@ -110,6 +120,12 @@ impl Creature {
                                 .set_u32(UnitFields::UnitFieldBaseMana.into(), attrs.mana)
                                 .set_u32(UnitFields::UnitFieldPower1.into(), attrs.mana)
                                 .set_u32(UnitFields::UnitFieldMaxPower1.into(), attrs.mana);
+
+                            attributes.add_modifier(
+                                AttributeModifier::Mana,
+                                AttributeModifierType::BaseValue,
+                                attrs.mana as f32,
+                            );
                         };
                     },
 
@@ -172,7 +188,7 @@ impl Creature {
                         o: creature_spawn.orientation,
                     },
                     npc_flags: unsafe { BitFlags::from_bits_unchecked(template.npc_flags) },
-                    internal_values: Arc::new(RwLock::new(values)),
+                    internal_values: internal_values.clone(),
                     default_movement_kind,
                     wander_radius,
                     loot: Arc::new(RwLock::new(Loot::new())),

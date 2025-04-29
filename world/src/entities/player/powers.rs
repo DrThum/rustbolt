@@ -56,34 +56,4 @@ impl Player {
         // TODO: Use SPELL_AURA_MOD_POWER_REGEN_PERCENT
         20. // Note: this probably needs to be multiplied by 10
     }
-
-    pub fn calculate_mana_regen(&self) {
-        // TODO: Incomplete, see Player::UpdateManaRegen() in MaNGOS
-        let intellect = self.attribute(UnitAttribute::Intellect) as f32;
-
-        let level = self.level().min(GAME_TABLE_MAX_LEVEL);
-        let class = self
-            .internal_values
-            .read()
-            .get_u8(UnitFields::UnitFieldBytes0.into(), 0) as u32;
-        let index = ((class - 1) * GAME_TABLE_MAX_LEVEL + level - 1) as usize;
-
-        let regen_per_spirit = self
-            .world_context
-            .data_store
-            .get_gtRegenHPPerSpt(index)
-            .map(|record| self.attribute(UnitAttribute::Spirit) as f32 * record.ratio)
-            .unwrap_or(0.);
-        let regen_from_stats = intellect.sqrt() * regen_per_spirit;
-        let regen_under_fsr = 100.; // TODO: Implement Auras
-
-        {
-            let mut values = self.internal_values.write();
-            values.set_f32(
-                UnitFields::PlayerFieldModManaRegenInterrupt.into(),
-                regen_from_stats * regen_under_fsr / 100.,
-            );
-            values.set_f32(UnitFields::PlayerFieldModManaRegen.into(), regen_from_stats);
-        }
-    }
 }

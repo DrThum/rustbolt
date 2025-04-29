@@ -15,7 +15,7 @@ use shipyard::{Component, EntityId};
 use strum::IntoEnumIterator;
 
 use crate::{
-    datastore::data_types::PlayerCreatePosition,
+    datastore::data_types::{PlayerCreatePosition, GAME_TABLE_MAX_LEVEL},
     ecs::components::cooldowns::SpellCooldown,
     entities::player::player_data::FactionStanding,
     game::world_context::WorldContext,
@@ -27,8 +27,9 @@ use crate::{
         CharacterClassBit, CharacterRace, CharacterRaceBit, Gender, HighGuidType, InventorySlot,
         InventoryType, ItemClass, ItemSubclassConsumable, ObjectTypeId, ObjectTypeMask,
         PlayerFieldBytesOffset, PlayerQuestStatus, PowerType, QuestSlotState, SkillRangeType,
-        UnitFieldBytes2Offset, UnitFlags, MAX_QUESTS_IN_LOG, MAX_QUEST_OBJECTIVES_COUNT,
-        PLAYER_CONTROLLED_BUFF_LIMIT, PLAYER_DEFAULT_BOUNDING_RADIUS, PLAYER_DEFAULT_COMBAT_REACH,
+        UnitAttribute, UnitFieldBytes2Offset, UnitFlags, MAX_QUESTS_IN_LOG,
+        MAX_QUEST_OBJECTIVES_COUNT, PLAYER_CONTROLLED_BUFF_LIMIT, PLAYER_DEFAULT_BOUNDING_RADIUS,
+        PLAYER_DEFAULT_COMBAT_REACH,
     },
 };
 
@@ -56,7 +57,6 @@ pub mod player_inventory;
 pub mod powers;
 pub mod quests;
 pub mod spells;
-pub mod stats;
 
 #[derive(Component)]
 pub struct Player {
@@ -307,6 +307,7 @@ impl Player {
         world_context: Arc<WorldContext>,
         session: Arc<WorldSession>,
         attributes: &mut Attributes,
+        internal_values: Arc<RwLock<InternalValues>>,
     ) -> Player {
         let conn = world_context.database.characters.get().unwrap();
         let character = CharacterRepository::fetch_basic_character_data(&conn, guid)
@@ -318,8 +319,6 @@ impl Player {
         );
 
         let guid = ObjectGuid::new(HighGuidType::Player, guid as u32);
-
-        let internal_values = Arc::new(RwLock::new(InternalValues::new(PLAYER_END as usize)));
 
         // Load inventory BEFORE acquiring internal_values.write() otherwise we deadlock because
         // PlayerInventory::set calls internal_values.write() too
@@ -888,6 +887,42 @@ impl Player {
         }
 
         None
+    }
+
+    pub fn attribute(&self, attr: UnitAttribute) -> u32 {
+        self.internal_values
+            .read()
+            .get_u32(UnitFields::UnitFieldStat0 as usize + attr as usize)
+    }
+
+    pub fn calculate_mana_regen(&self) {
+        // TODO: Incomplete, see Player::UpdateManaRegen() in MaNGOS
+        let intellect = self.attribute(UnitAttribute::Intellect) as f32;
+
+        let level = self.level().min(GAME_TABLE_MAX_LEVEL);
+        let class = self
+            .internal_values
+            .read()
+            .get_u8(UnitFields::UnitFieldBytes0.into(), 1) as u32;
+        let index = ((class - 1) * GAME_TABLE_MAX_LEVEL + level - 1) as usize;
+
+        let regen_per_spirit = self
+            .world_context
+            .data_store
+            .get_gtRegenHPPerSpt(index)
+            .map(|record| self.attribute(UnitAttribute::Spirit) as f32 * record.ratio)
+            .unwrap_or(0.);
+        let regen_from_stats = intellect.sqrt() * regen_per_spirit;
+        let regen_under_fsr = 100.; // TODO: Implement Auras
+
+        {
+            let mut values = self.internal_values.write();
+            values.set_f32(
+                UnitFields::PlayerFieldModManaRegenInterrupt.into(),
+                regen_from_stats * regen_under_fsr / 100.,
+            );
+            values.set_f32(UnitFields::PlayerFieldModManaRegen.into(), regen_from_stats);
+        }
     }
 }
 

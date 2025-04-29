@@ -11,7 +11,7 @@ use std::{
 };
 
 use log::{error, info, warn};
-use parking_lot::{ReentrantMutex, ReentrantMutexGuard};
+use parking_lot::{ReentrantMutex, ReentrantMutexGuard, RwLock};
 use shipyard::{
     AllStoragesViewMut, EntitiesViewMut, EntityId, Get, IntoWorkload, Unique, UniqueViewMut, View,
     ViewMut, World,
@@ -41,9 +41,14 @@ use crate::{
         },
     },
     entities::{
-        attributes::Attributes, creature::Creature, game_object::GameObject,
-        internal_values::WrappedInternalValues, object_guid::ObjectGuid, player::Player,
+        attributes::Attributes,
+        creature::Creature,
+        game_object::GameObject,
+        internal_values::{InternalValues, WrappedInternalValues},
+        object_guid::ObjectGuid,
+        player::Player,
         position::WorldPosition,
+        update_fields::PLAYER_END,
     },
     protocol::{
         self,
@@ -213,7 +218,8 @@ impl Map {
         let map_update_workload = || {
             (
                 unwind::unwind_creatures,
-                updates::update_player_surroundings, // Must be before regenerate_powers
+                updates::update_player_surroundings,
+                updates::update_attributes,
                 movement::update_movement,
                 combat::update_combat_state,
                 behavior::tick,
@@ -328,7 +334,9 @@ impl Map {
                 ViewMut<AppliedAuras>,
                 ViewMut<Attributes>,
             )| {
-                let mut attributes = Attributes::new();
+                let internal_values =
+                    Arc::new(RwLock::new(InternalValues::new(PLAYER_END as usize)));
+                let mut attributes = Attributes::new(internal_values.clone());
 
                 let player = Player::load_from_db(
                     session.account_id,
@@ -336,6 +344,7 @@ impl Map {
                     self.world_context.clone(),
                     session.clone(),
                     &mut attributes,
+                    internal_values.clone(),
                 );
                 let spell_cooldowns = Player::load_spell_cooldowns_from_db(
                     char_data.guid,
@@ -702,12 +711,14 @@ impl Map {
                 mut vm_behavior,
                 mut vm_threat_list,
                 mut vm_app_auras,
+                mut vm_attributes,
             ): (
                 ViewMut<SpellCast>,
                 ViewMut<QuestActor>,
                 ViewMut<Behavior>,
                 ViewMut<ThreatList>,
                 ViewMut<AppliedAuras>,
+                ViewMut<Attributes>,
             )| {
                 let entity_id = entities.add_entity(
                     (
@@ -720,7 +731,7 @@ impl Map {
                         &mut vm_movement,
                         &mut vm_spell,
                         &mut vm_behavior,
-                        (&mut vm_threat_list, &mut vm_app_auras),
+                        (&mut vm_threat_list, &mut vm_app_auras, &mut vm_attributes),
                     ),
                     (
                         Guid::new(*creature_guid, creature.internal_values.clone()),
@@ -756,6 +767,7 @@ impl Map {
                                 CREATURE_BUFF_LIMIT,
                                 creature.internal_values.clone(),
                             ),
+                            Attributes::new(creature.internal_values.clone()),
                         ),
                     ),
                 );

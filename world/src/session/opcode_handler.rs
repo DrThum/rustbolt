@@ -375,6 +375,11 @@ impl OpcodeHandler {
                     ProcessInMap,
                     OpcodeHandler::handle_cmsg_set_action_bar_toggles
                 ),
+                define_handler!(
+                    Opcode::CmsgCancelAura,
+                    ProcessInMap,
+                    OpcodeHandler::handle_cmsg_cancel_aura
+                ),
             ]),
         }
     }

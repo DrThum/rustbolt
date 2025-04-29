@@ -121,7 +121,7 @@ impl AppliedAuras {
                         let update_field_offset = first_free_slot % 4;
 
                         let aura_flags = if aura.is_positive {
-                            make_bitflags!(AuraFlag::{Helpful}).bits()
+                            make_bitflags!(AuraFlag::{Helpful | Cancelable}).bits()
                         } else {
                             BitFlags::from_flag(AuraFlag::Harmful).bits()
                         };
@@ -205,35 +205,14 @@ impl AppliedAuras {
             let aura_app = unsafe { self.auras.get_unchecked_mut(index) };
 
             if aura_app.state == AuraApplicationState::New {
-                // Get the spell record
-                let spell_record = world_context
-                    .data_store
-                    .get_spell_record(aura_app.spell_id())
-                    .unwrap();
-
-                // Apply each effect
-                for effect_index in 0..MAX_SPELL_EFFECTS {
-                    if !aura_app.has_effect_index(effect_index) {
-                        continue;
-                    }
-
-                    if let Some(effect) =
-                        AuraEffect::n(spell_record.effect_apply_aura_name[effect_index])
-                    {
-                        let handler = world_context.aura_effect_handler.get_handler(&effect);
-                        handler(AuraEffectHandlerArgs {
-                            world_context: world_context.clone(),
-                            all_storages,
-                            aura: &mut aura_app.aura,
-                            effect_index,
-                        });
-                    }
-                }
+                Self::handle_effects(world_context.clone(), aura_app, all_storages, true);
 
                 aura_app.state = AuraApplicationState::Active;
             }
 
-            if aura_app.aura.is_expired(now) {
+            if aura_app.state == AuraApplicationState::Removing || aura_app.aura.is_expired(now) {
+                Self::handle_effects(world_context.clone(), aura_app, all_storages, false);
+
                 if let Some(slot) = aura_app.slot {
                     // Update internal values for this specific slot
                     let mut values = self.internal_values.write();
@@ -278,6 +257,14 @@ impl AppliedAuras {
         }
     }
 
+    pub fn mark_auras_for_removal_by_spell_id(&mut self, spell_id: u32) {
+        for aura_app in &mut self.auras {
+            if aura_app.spell_id() == spell_id {
+                aura_app.state = AuraApplicationState::Removing;
+            }
+        }
+    }
+
     fn find_first_free_slot(&self, is_positive_aura: bool) -> Option<usize> {
         let bitset = if is_positive_aura {
             &self.visible_positive_aura_slots_occupation
@@ -296,6 +283,37 @@ impl AppliedAuras {
         };
 
         bitset.set(slot, true);
+    }
+
+    fn handle_effects(
+        world_context: Arc<WorldContext>,
+        aura_app: &mut AuraApplication,
+        all_storages: &shipyard::AllStoragesViewMut,
+        is_applying: bool,
+    ) {
+        // Get the spell record
+        let spell_record = world_context
+            .data_store
+            .get_spell_record(aura_app.spell_id())
+            .unwrap();
+
+        // Apply each effect
+        for effect_index in 0..MAX_SPELL_EFFECTS {
+            if !aura_app.has_effect_index(effect_index) {
+                continue;
+            }
+
+            if let Some(effect) = AuraEffect::n(spell_record.effect_apply_aura_name[effect_index]) {
+                let handler = world_context.aura_effect_handler.get_handler(&effect);
+                handler(AuraEffectHandlerArgs {
+                    world_context: world_context.clone(),
+                    all_storages,
+                    aura: &mut aura_app.aura,
+                    effect_index,
+                    is_applying,
+                });
+            }
+        }
     }
 }
 
@@ -331,4 +349,5 @@ impl AuraApplication {
 enum AuraApplicationState {
     New,
     Active,
+    Removing,
 }

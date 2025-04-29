@@ -63,4 +63,5 @@ pub struct AuraEffectHandlerArgs<'a, 'b> {
     pub all_storages: &'a AllStoragesViewMut<'b>,
     pub aura: &'a mut Aura,
     pub effect_index: usize,
+    pub is_applying: bool, // true when applying the aura, false when removing
 }

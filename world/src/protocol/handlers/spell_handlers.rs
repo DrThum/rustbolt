@@ -1,9 +1,11 @@
-use shipyard::ViewMut;
+use shipyard::{Get, ViewMut};
 
+use crate::ecs::components::applied_auras::AppliedAuras;
 use crate::ecs::components::spell_cast::{SpellCast, SpellCastSuccess};
 use crate::protocol::client::ClientMessage;
 use crate::protocol::packets::{
-    CmsgCancelCast, CmsgCastSpell, SmsgCastFailed, SmsgClearExtraAuraInfo, SmsgSpellStart,
+    CmsgCancelAura, CmsgCancelCast, CmsgCastSpell, SmsgCastFailed, SmsgClearExtraAuraInfo,
+    SmsgSpellStart,
 };
 use crate::protocol::server::ServerMessage;
 use crate::session::opcode_handler::{OpcodeHandler, PacketHandlerArgs};
@@ -81,5 +83,23 @@ impl OpcodeHandler {
                 })
             };
         }
+    }
+
+    pub(crate) fn handle_cmsg_cancel_aura(
+        PacketHandlerArgs { session, data, .. }: PacketHandlerArgs,
+    ) {
+        let cmsg: CmsgCancelAura = ClientMessage::read_as(data).unwrap();
+
+        session.run(&|WSRunnableArgs {
+                          map,
+                          player_entity_id,
+                          ..
+                      }| {
+            map.world().run(|mut vm_app_auras: ViewMut<AppliedAuras>| {
+                if let Ok(mut applied_auras) = (&mut vm_app_auras).get(player_entity_id) {
+                    applied_auras.mark_auras_for_removal_by_spell_id(cmsg.spell_id);
+                }
+            });
+        });
     }
 }

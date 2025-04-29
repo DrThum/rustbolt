@@ -276,3 +276,8 @@ pub struct SmsgClearExtraAuraInfo {
     pub target_guid: PackedObjectGuid,
     pub spell_id: u32,
 }
+
+#[binread]
+pub struct CmsgCancelAura {
+    pub spell_id: u32,
+}

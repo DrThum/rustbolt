@@ -15,6 +15,8 @@ impl AuraEffectHandler {
             world_context,
             aura,
             effect_index,
+            is_applying,
+            ..
         }: AuraEffectHandlerArgs,
     ) {
         all_storages.run(|mut vm_attributes: ViewMut<Attributes>| {
@@ -32,7 +34,9 @@ impl AuraEffectHandler {
                     if misc_value < 0 || stat as i32 == misc_value {
                         let attr_mod = AttributeModifier::n(stat as i64)
                             .expect("handle_mod_stat: invalid attribute modifier");
-                        attr_mods.add_modifier(attr_mod, AttributeModifierType::TotalValue, value);
+
+                        let amount = if is_applying { value } else { -value };
+                        attr_mods.add_modifier(attr_mod, AttributeModifierType::TotalValue, amount);
                     }
                 }
             }

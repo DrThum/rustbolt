@@ -3,7 +3,7 @@ use shipyard::{Get, View, ViewMut};
 
 use crate::{
     ecs::components::{guid::Guid, powers::Powers, threat_list::ThreatList, unit::Unit},
-    entities::{attribute_modifiers::AttributeModifiers, creature::Creature, player::Player},
+    entities::{attributes::Attributes, creature::Creature, player::Player},
     game::{
         experience::Experience,
         spell_effect_handler::{SpellEffectHandler, SpellEffectHandlerArgs},
@@ -29,7 +29,7 @@ impl SpellEffectHandler {
              mut vm_player: ViewMut<Player>,
              v_creature: View<Creature>,
              v_unit: View<Unit>,
-             mut vm_attribute_modifiers: ViewMut<AttributeModifiers>| {
+             mut vm_attributes: ViewMut<Attributes>| {
                 let Some(unit_target) = spell.unit_target() else {
                     warn!("handle_effect_school_damage: no unit target");
                     return;
@@ -45,8 +45,8 @@ impl SpellEffectHandler {
                         threat_list.modify_threat(spell.caster(), damage as f32);
                     }
                 } else if let Ok(mut player) = (&mut vm_player).get(spell.caster()) {
-                    let Ok(mut attribute_modifiers) =
-                        (&mut vm_attribute_modifiers).get(spell.caster())
+                    let Ok(mut attributes) =
+                        (&mut vm_attributes).get(spell.caster())
                     else {
                         return;
                     };
@@ -59,7 +59,7 @@ impl SpellEffectHandler {
                         player.give_experience(
                             xp_gain,
                             Some(target_guid),
-                            &mut attribute_modifiers,
+                            &mut attributes,
                         );
                         player.notify_killed_creature(creature.guid(), creature.template.entry);
 

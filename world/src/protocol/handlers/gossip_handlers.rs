@@ -3,7 +3,7 @@ use log::{error, warn};
 use shipyard::{Get, View, ViewMut};
 
 use crate::datastore::data_types::ItemTemplate;
-use crate::entities::attribute_modifiers::AttributeModifiers;
+use crate::entities::attributes::Attributes;
 use crate::entities::creature::Creature;
 use crate::entities::player::Player;
 use crate::game::gossip::GossipMenu;
@@ -436,16 +436,15 @@ impl OpcodeHandler {
         let price = item_template.buy_price * cmsg.count as u32;
 
         map.world().run(
-            |mut vm_player: ViewMut<Player>,
-             mut vm_attribute_modifiers: ViewMut<AttributeModifiers>| {
+            |mut vm_player: ViewMut<Player>, mut vm_attributes: ViewMut<Attributes>| {
                 let Ok(mut player) = (&mut vm_player).get(session.player_entity_id().unwrap())
                 else {
                     error!("handle_cmsg_buy_item: session has no player");
                     return;
                 };
 
-                let Ok(mut attribute_modifiers) =
-                    (&mut vm_attribute_modifiers).get(session.player_entity_id().unwrap())
+                let Ok(mut attributes) =
+                    (&mut vm_attributes).get(session.player_entity_id().unwrap())
                 else {
                     error!("handle_cmsg_buy_item: player has no AttributeModifiers component");
                     return;
@@ -465,7 +464,7 @@ impl OpcodeHandler {
                 match player.auto_store_new_item(
                     cmsg.item_id,
                     cmsg.count.into(),
-                    &mut attribute_modifiers,
+                    &mut attributes,
                 ) {
                     Ok(inventory_slot) => {
                         player.modify_money(-1 * price as i32);
@@ -533,14 +532,14 @@ impl OpcodeHandler {
             return;
         }
 
-        map.world().run(|mut vm_player: ViewMut<Player>, mut vm_attribute_modifiers: ViewMut<AttributeModifiers>| {
+        map.world().run(|mut vm_player: ViewMut<Player>, mut vm_attributes: ViewMut<Attributes>| {
             let Ok(mut player) = (&mut vm_player).get(session.player_entity_id().unwrap()) else {
                 error!("handle_cmsg_sell_item: session has no player");
                 return;
             };
 
-            let Ok(mut attribute_modifiers) =
-                (&mut vm_attribute_modifiers).get(session.player_entity_id().unwrap())
+            let Ok(mut attributes) =
+                (&mut vm_attributes).get(session.player_entity_id().unwrap())
             else {
                 error!("handle_cmsg_sell_item: player has no AttributeModifiers component");
                 return;
@@ -592,7 +591,7 @@ impl OpcodeHandler {
             }
 
             if let Some(slot_to_remove) = slot_to_remove {
-                if let Some(sold_item) = player.remove_item(slot_to_remove, &mut attribute_modifiers) {
+                if let Some(sold_item) = player.remove_item(slot_to_remove, &mut attributes) {
                     let price = item_template.sell_price * sold_item.stack_count();
                     player.modify_money(price as i32);
                 }

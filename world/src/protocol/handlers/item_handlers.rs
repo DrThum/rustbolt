@@ -5,7 +5,7 @@ use shipyard::{Get, View, ViewMut};
 use crate::ecs::components::guid::Guid;
 use crate::ecs::components::powers::Powers;
 use crate::ecs::components::spell_cast::SpellCast;
-use crate::entities::attribute_modifiers::AttributeModifiers;
+use crate::entities::attributes::Attributes;
 use crate::entities::player::Player;
 use crate::protocol::client::ClientMessage;
 use crate::protocol::packets::*;
@@ -141,13 +141,13 @@ impl OpcodeHandler {
         if let Some(map) = session.current_map() {
             map.world().run(
                 |mut vm_player: ViewMut<Player>,
-                 mut vm_attribute_modifiers: ViewMut<AttributeModifiers>| {
+                 mut vm_attributes: ViewMut<Attributes>| {
                     let player_entity_id = session.player_entity_id().unwrap();
                     let player = &mut vm_player[player_entity_id];
-                    let attribute_modifiers = &mut vm_attribute_modifiers[player_entity_id];
+                    let attributes = &mut vm_attributes[player_entity_id];
 
                     if let Some(removed_item) =
-                        player.remove_item(cmsg_destroy_item.slot.into(), attribute_modifiers)
+                        player.remove_item(cmsg_destroy_item.slot.into(), attributes)
                     {
                         session.destroy_entity(removed_item.guid());
                     }
@@ -174,12 +174,12 @@ impl OpcodeHandler {
                       }| {
             map.world().run(
                 |mut vm_player: ViewMut<Player>,
-                 mut vm_attribute_modifiers: ViewMut<AttributeModifiers>| {
+                 mut vm_attributes: ViewMut<Attributes>| {
                     if let Ok(mut player) = (&mut vm_player).get(player_entity_id) {
-                        let attribute_modifiers = &mut vm_attribute_modifiers[player_entity_id];
+                        let attributes = &mut vm_attributes[player_entity_id];
 
                         let inventory_result =
-                            player.try_equip_item_from_inventory(slot, attribute_modifiers);
+                            player.try_equip_item_from_inventory(slot, attributes);
                         if let Some(moved_item) = player.get_inventory_item(slot) {
                             let moved_item_template = world_context
                                 .data_store
@@ -215,14 +215,14 @@ impl OpcodeHandler {
                       }| {
             map.world().run(
                 |mut vm_player: ViewMut<Player>,
-                 mut vm_attribute_modifiers: ViewMut<AttributeModifiers>| {
+                 mut vm_attributes: ViewMut<Attributes>| {
                     if let Ok(mut player) = (&mut vm_player).get(player_entity_id) {
-                        let attribute_modifiers = &mut vm_attribute_modifiers[player_entity_id];
+                        let attributes = &mut vm_attributes[player_entity_id];
 
                         let inventory_result = player.try_swap_inventory_item(
                             cmsg_swap_inv_item.from_slot.into(),
                             cmsg_swap_inv_item.to_slot.into(),
-                            attribute_modifiers,
+                            attributes,
                         );
 
                         let maybe_moved_item =
@@ -266,15 +266,15 @@ impl OpcodeHandler {
                       }| {
             map.world().run(
                 |mut vm_player: ViewMut<Player>,
-                 mut vm_attribute_modifiers: ViewMut<AttributeModifiers>| {
+                 mut vm_attributes: ViewMut<Attributes>| {
                     if let Ok(mut player) = (&mut vm_player).get(player_entity_id) {
-                        let attribute_modifiers = &mut vm_attribute_modifiers[player_entity_id];
+                        let attributes = &mut vm_attributes[player_entity_id];
 
                         let inventory_result = player.try_split_item(
                             cmsg_split_item.source_slot.into(),
                             cmsg_split_item.destination_slot.into(),
                             cmsg_split_item.count,
-                            attribute_modifiers,
+                            attributes,
                         );
 
                         let maybe_source_item =

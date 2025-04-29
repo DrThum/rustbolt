@@ -5,18 +5,18 @@ use shipyard::Component;
 use crate::shared::constants::{AttributeModifier, AttributeModifierType};
 
 #[derive(Component)]
-pub struct AttributeModifiers {
+pub struct Attributes {
     modifiers: [[f32; AttributeModifierType::Max as usize]; AttributeModifier::Max as usize],
     dirty: HashSet<AttributeModifier>,
 }
 
-impl Default for AttributeModifiers {
+impl Default for Attributes {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl AttributeModifiers {
+impl Attributes {
     pub fn new() -> Self {
         let mut start_values = [[0., 1., 0., 1.]; AttributeModifier::Max as usize];
         // Off hand deals 50% base damage

@@ -1,5 +1,5 @@
 use crate::{
-    entities::{attribute_modifiers::AttributeModifiers, object_guid::ObjectGuid},
+    entities::{attributes::Attributes, object_guid::ObjectGuid},
     protocol::{
         packets::{SmsgLevelUpInfo, SmsgLogXpGain},
         server::ServerMessage,
@@ -26,7 +26,7 @@ impl Player {
         &self,
         xp: u32,
         victim_guid: Option<ObjectGuid>,
-        attribute_modifiers: &mut AttributeModifiers,
+        attributes: &mut Attributes,
     ) {
         let packet = ServerMessage::new(SmsgLogXpGain::build(victim_guid, xp));
         let current_xp = self.experience();
@@ -36,7 +36,7 @@ impl Player {
         while new_xp >= next_level_xp
             && self.level() <= self.world_context.config.world.game.player.maxlevel
         {
-            self.increment_level(attribute_modifiers);
+            self.increment_level(attributes);
             new_xp -= next_level_xp;
             next_level_xp = self.experience_for_next_level();
         }
@@ -54,7 +54,7 @@ impl Player {
             .get_u32(UnitFields::UnitFieldLevel.into())
     }
 
-    pub fn increment_level(&self, attribute_modifiers: &mut AttributeModifiers) {
+    pub fn increment_level(&self, attributes: &mut Attributes) {
         let current_level = self.level();
         if current_level >= self.world_context.config.world.game.player.maxlevel {
             return;
@@ -119,37 +119,37 @@ impl Player {
         ));
         self.session.send(&packet).unwrap();
 
-        attribute_modifiers.add_modifier(
+        attributes.add_modifier(
             AttributeModifier::Health,
             AttributeModifierType::BaseValue,
             health_gained as f32,
         );
-        attribute_modifiers.add_modifier(
+        attributes.add_modifier(
             AttributeModifier::Mana,
             AttributeModifierType::BaseValue,
             mana_gained as f32,
         );
-        attribute_modifiers.add_modifier(
+        attributes.add_modifier(
             AttributeModifier::StatStrength,
             AttributeModifierType::BaseValue,
             strength_gained as f32,
         );
-        attribute_modifiers.add_modifier(
+        attributes.add_modifier(
             AttributeModifier::StatAgility,
             AttributeModifierType::BaseValue,
             agility_gained as f32,
         );
-        attribute_modifiers.add_modifier(
+        attributes.add_modifier(
             AttributeModifier::StatStamina,
             AttributeModifierType::BaseValue,
             stamina_gained as f32,
         );
-        attribute_modifiers.add_modifier(
+        attributes.add_modifier(
             AttributeModifier::StatIntellect,
             AttributeModifierType::BaseValue,
             intellect_gained as f32,
         );
-        attribute_modifiers.add_modifier(
+        attributes.add_modifier(
             AttributeModifier::StatSpirit,
             AttributeModifierType::BaseValue,
             spirit_gained as f32,

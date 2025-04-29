@@ -46,7 +46,7 @@ mod entities {
     pub mod item;
     pub mod player;
 
-    pub mod attribute_modifiers;
+    pub mod attributes;
     pub mod internal_values;
 
     pub mod behaviors;

@@ -5,7 +5,7 @@ use shipyard::{Get, IntoIter, UniqueView, View, ViewMut};
 use crate::{
     ecs::components::{guid::Guid, nearby_players::NearbyPlayers},
     entities::{
-        attribute_modifiers::AttributeModifiers,
+        attributes::Attributes,
         game_object::GameObject,
         internal_values::WrappedInternalValues,
         player::Player,
@@ -79,14 +79,14 @@ pub fn update_player_surroundings(
     has_players: UniqueView<HasPlayers>,
     v_player: View<Player>,
     v_game_object: View<GameObject>,
-    mut vm_attribute_modifiers: ViewMut<AttributeModifiers>,
+    mut vm_attributes: ViewMut<Attributes>,
 ) {
     if !**has_players {
         return;
     }
 
-    for (player, mut attribute_modifiers) in (&v_player, &mut vm_attribute_modifiers).iter() {
-        update_player_attribute_modifiers(player, &mut attribute_modifiers);
+    for (player, mut attributes) in (&v_player, &mut vm_attributes).iter() {
+        update_player_attributes(player, &mut attributes);
 
         if player
             .needs_nearby_game_objects_refresh
@@ -110,54 +110,54 @@ pub fn update_player_surroundings(
     }
 }
 
-fn update_player_attribute_modifiers(
+fn update_player_attributes(
     player: &Player,
-    attribute_modifiers: &mut AttributeModifiers,
+    attributes: &mut Attributes,
 ) {
     let mut attributes_to_update: Vec<(UnitAttribute, u32)> = Vec::new();
     let mut resistances_to_update: Vec<(SpellSchool, u32)> = Vec::new();
     let mut updated_max_health: Option<u32> = None;
     let mut updated_max_mana: Option<u32> = None;
 
-    for dirty_attr_mod in attribute_modifiers.dirty_modifiers() {
+    for dirty_attr_mod in attributes.dirty_modifiers() {
         match dirty_attr_mod {
             AttributeModifier::StatStrength => {
                 attributes_to_update.push((
                     UnitAttribute::Strength,
-                    attribute_modifiers.total_modifier_value(AttributeModifier::StatStrength)
+                    attributes.total_modifier_value(AttributeModifier::StatStrength)
                         as u32,
                 ));
             }
             AttributeModifier::StatAgility => {
                 attributes_to_update.push((
                     UnitAttribute::Agility,
-                    attribute_modifiers.total_modifier_value(AttributeModifier::StatAgility) as u32,
+                    attributes.total_modifier_value(AttributeModifier::StatAgility) as u32,
                 ));
             }
             AttributeModifier::StatStamina => {
                 attributes_to_update.push((
                     UnitAttribute::Stamina,
-                    attribute_modifiers.total_modifier_value(AttributeModifier::StatStamina) as u32,
+                    attributes.total_modifier_value(AttributeModifier::StatStamina) as u32,
                 ));
             }
             AttributeModifier::StatIntellect => {
                 attributes_to_update.push((
                     UnitAttribute::Intellect,
-                    attribute_modifiers.total_modifier_value(AttributeModifier::StatIntellect)
+                    attributes.total_modifier_value(AttributeModifier::StatIntellect)
                         as u32,
                 ));
             }
             AttributeModifier::StatSpirit => {
                 attributes_to_update.push((
                     UnitAttribute::Spirit,
-                    attribute_modifiers.total_modifier_value(AttributeModifier::StatSpirit) as u32,
+                    attributes.total_modifier_value(AttributeModifier::StatSpirit) as u32,
                 ));
             }
             AttributeModifier::Health => {
                 let [base, base_percent, total, total_percent] =
-                    attribute_modifiers.modifier_values(AttributeModifier::Health);
+                    attributes.modifier_values(AttributeModifier::Health);
                 let stamina =
-                    attribute_modifiers.total_modifier_value(AttributeModifier::StatStamina);
+                    attributes.total_modifier_value(AttributeModifier::StatStamina);
 
                 // Add Stamina bonus to Health
                 let bonus_from_stamina = {
@@ -173,9 +173,9 @@ fn update_player_attribute_modifiers(
             }
             AttributeModifier::Mana => {
                 let [base, base_percent, total, total_percent] =
-                    attribute_modifiers.modifier_values(AttributeModifier::Mana);
+                    attributes.modifier_values(AttributeModifier::Mana);
                 let intellect =
-                    attribute_modifiers.total_modifier_value(AttributeModifier::StatIntellect);
+                    attributes.total_modifier_value(AttributeModifier::StatIntellect);
 
                 // Add Intellect bonus to Mana
                 let bonus_from_intel = {
@@ -194,9 +194,9 @@ fn update_player_attribute_modifiers(
             AttributeModifier::Happiness => todo!(),
             AttributeModifier::Armor => {
                 let [base, base_percent, total, total_percent] =
-                    attribute_modifiers.modifier_values(AttributeModifier::Armor);
+                    attributes.modifier_values(AttributeModifier::Armor);
                 let agility =
-                    attribute_modifiers.total_modifier_value(AttributeModifier::StatAgility);
+                    attributes.total_modifier_value(AttributeModifier::StatAgility);
 
                 // Add 2x Agility to the total armor
                 let total_armor = ((base * base_percent) + (agility * 2.) + total) * total_percent;
@@ -205,29 +205,29 @@ fn update_player_attribute_modifiers(
             }
             AttributeModifier::ResistanceHoly => resistances_to_update.push((
                 SpellSchool::Holy,
-                attribute_modifiers.total_modifier_value(AttributeModifier::ResistanceHoly) as u32,
+                attributes.total_modifier_value(AttributeModifier::ResistanceHoly) as u32,
             )),
             AttributeModifier::ResistanceFire => resistances_to_update.push((
                 SpellSchool::Fire,
-                attribute_modifiers.total_modifier_value(AttributeModifier::ResistanceFire) as u32,
+                attributes.total_modifier_value(AttributeModifier::ResistanceFire) as u32,
             )),
             AttributeModifier::ResistanceNature => resistances_to_update.push((
                 SpellSchool::Nature,
-                attribute_modifiers.total_modifier_value(AttributeModifier::ResistanceNature)
+                attributes.total_modifier_value(AttributeModifier::ResistanceNature)
                     as u32,
             )),
             AttributeModifier::ResistanceFrost => resistances_to_update.push((
                 SpellSchool::Frost,
-                attribute_modifiers.total_modifier_value(AttributeModifier::ResistanceFrost) as u32,
+                attributes.total_modifier_value(AttributeModifier::ResistanceFrost) as u32,
             )),
             AttributeModifier::ResistanceShadow => resistances_to_update.push((
                 SpellSchool::Shadow,
-                attribute_modifiers.total_modifier_value(AttributeModifier::ResistanceNature)
+                attributes.total_modifier_value(AttributeModifier::ResistanceNature)
                     as u32,
             )),
             AttributeModifier::ResistanceArcane => resistances_to_update.push((
                 SpellSchool::Arcane,
-                attribute_modifiers.total_modifier_value(AttributeModifier::ResistanceArcane)
+                attributes.total_modifier_value(AttributeModifier::ResistanceArcane)
                     as u32,
             )),
             AttributeModifier::AttackPower => todo!(),
@@ -239,7 +239,7 @@ fn update_player_attribute_modifiers(
         }
     }
 
-    attribute_modifiers.reset_dirty();
+    attributes.reset_dirty();
 
     for (unit_attr, value) in attributes_to_update {
         player.set_attribute(unit_attr, value);

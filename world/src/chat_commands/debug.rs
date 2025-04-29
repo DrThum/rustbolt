@@ -7,7 +7,7 @@ use shipyard::{Get, UniqueView, View, ViewMut};
 use crate::{
     ecs::components::{guid::Guid, movement::Movement, threat_list::ThreatList},
     entities::{
-        attribute_modifiers::AttributeModifiers, creature::Creature, player::Player,
+        attributes::Attributes, creature::Creature, player::Player,
         position::WorldPosition,
     },
     game::packet_broadcaster::WrappedPacketBroadcaster,
@@ -158,13 +158,13 @@ fn setup_item_command() -> (&'static str, (Command, CommandHandler)) {
         if let Some(subcommand_add) = matches.subcommand_matches("add") {
             return ctx.map.world().run(
                 |mut vm_player: ViewMut<Player>,
-                 mut vm_attribute_modifiers: ViewMut<AttributeModifiers>| {
+                 mut vm_attributes: ViewMut<Attributes>| {
                     let Ok(mut player) = (&mut vm_player).get(ctx.my_entity_id) else {
                         return Err(ChatCommandError::GenericError);
                     };
 
-                    let Ok(mut attribute_modifiers) =
-                        (&mut vm_attribute_modifiers).get(ctx.my_entity_id)
+                    let Ok(mut attributes) =
+                        (&mut vm_attributes).get(ctx.my_entity_id)
                     else {
                         return Err(ChatCommandError::GenericError);
                     };
@@ -182,7 +182,7 @@ fn setup_item_command() -> (&'static str, (Command, CommandHandler)) {
                         return Err(ChatCommandError::GenericError);
                     }
 
-                    match player.auto_store_new_item(*item_id, *count, &mut attribute_modifiers) {
+                    match player.auto_store_new_item(*item_id, *count, &mut attributes) {
                         Ok(_) => Ok(()),
                         Err(err) => {
                             ctx.reply_error(format!("Unable to add item ({err:?})").as_str());

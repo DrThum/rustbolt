@@ -38,7 +38,7 @@ use self::{
 };
 
 use super::{
-    attribute_modifiers::AttributeModifiers,
+    attributes::Attributes,
     internal_values::{InternalValues, QuestSlotOffset, QUEST_SLOT_OFFSETS_COUNT},
     item::Item,
     object_guid::ObjectGuid,
@@ -306,7 +306,7 @@ impl Player {
         guid: u64,
         world_context: Arc<WorldContext>,
         session: Arc<WorldSession>,
-        attribute_modifiers: &mut AttributeModifiers,
+        attributes: &mut Attributes,
     ) -> Player {
         let conn = world_context.database.characters.get().unwrap();
         let character = CharacterRepository::fetch_basic_character_data(&conn, guid)
@@ -336,7 +336,7 @@ impl Player {
                     true,
                 );
 
-                inventory.set(record.slot, item, attribute_modifiers);
+                inventory.set(record.slot, item, attributes);
             });
 
         let mut values = internal_values.write();
@@ -446,27 +446,27 @@ impl Player {
             .get_player_base_attributes(character.race, character.class, character.level as u32)
             .expect("unable to retrieve base attributes for this race/class/level combination");
 
-        attribute_modifiers.add_modifier(
+        attributes.add_modifier(
             AttributeModifier::StatStrength,
             AttributeModifierType::BaseValue,
             base_attributes_record.strength as f32,
         );
-        attribute_modifiers.add_modifier(
+        attributes.add_modifier(
             AttributeModifier::StatAgility,
             AttributeModifierType::BaseValue,
             base_attributes_record.agility as f32,
         );
-        attribute_modifiers.add_modifier(
+        attributes.add_modifier(
             AttributeModifier::StatStamina,
             AttributeModifierType::BaseValue,
             base_attributes_record.stamina as f32,
         );
-        attribute_modifiers.add_modifier(
+        attributes.add_modifier(
             AttributeModifier::StatIntellect,
             AttributeModifierType::BaseValue,
             base_attributes_record.intellect as f32,
         );
-        attribute_modifiers.add_modifier(
+        attributes.add_modifier(
             AttributeModifier::StatSpirit,
             AttributeModifierType::BaseValue,
             base_attributes_record.spirit as f32,
@@ -479,14 +479,14 @@ impl Player {
 
         // Set health
         values.set_u32(UnitFields::UnitFieldHealth.into(), character.current_health);
-        attribute_modifiers.add_modifier(
+        attributes.add_modifier(
             AttributeModifier::Health,
             AttributeModifierType::BaseValue,
             base_health_mana_record.base_health as f32,
         );
 
         // Set mana
-        attribute_modifiers.add_modifier(
+        attributes.add_modifier(
             AttributeModifier::Mana,
             AttributeModifierType::BaseValue,
             base_health_mana_record.base_mana as f32,

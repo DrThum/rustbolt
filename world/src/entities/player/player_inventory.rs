@@ -6,7 +6,7 @@ use parking_lot::RwLock;
 use crate::{
     datastore::data_types::ItemTemplate,
     entities::{
-        attribute_modifiers::AttributeModifiers,
+        attributes::Attributes,
         internal_values::InternalValues,
         item::Item,
         object_guid::ObjectGuid,
@@ -89,7 +89,7 @@ impl PlayerInventory {
         }
     }
 
-    pub fn set(&mut self, slot: u32, item: Item, attribute_modifiers: &mut AttributeModifiers) {
+    pub fn set(&mut self, slot: u32, item: Item, attributes: &mut Attributes) {
         if self.items.contains_key(&slot) {
             error!("PlayerInventory: attempt to overwrite slot {slot}");
             return;
@@ -106,15 +106,11 @@ impl PlayerInventory {
         self.items.insert(slot, item);
 
         if Self::is_gear_slot(slot) {
-            self.toggle_stats_from_item(item_entry, true, attribute_modifiers);
+            self.toggle_stats_from_item(item_entry, true, attributes);
         }
     }
 
-    pub fn remove(
-        &mut self,
-        slot: u32,
-        attribute_modifiers: &mut AttributeModifiers,
-    ) -> Option<Item> {
+    pub fn remove(&mut self, slot: u32, attributes: &mut Attributes) -> Option<Item> {
         self.internal_values.write().set_u64(
             UnitFields::PlayerFieldInvSlotHead as usize + (2 * slot) as usize,
             0,
@@ -124,7 +120,7 @@ impl PlayerInventory {
 
         self.items.remove(&slot).map(|removed_item| {
             if Self::is_gear_slot(slot) {
-                self.toggle_stats_from_item(removed_item.entry(), false, attribute_modifiers);
+                self.toggle_stats_from_item(removed_item.entry(), false, attributes);
             }
 
             removed_item
@@ -135,7 +131,7 @@ impl PlayerInventory {
         &mut self,
         item_id: u32,
         stack_count: u32,
-        attribute_modifiers: &mut AttributeModifiers,
+        attributes: &mut Attributes,
     ) {
         let mut remaining_stacks_to_remove = stack_count;
         for slot in InventorySlot::BACKPACK_START..InventorySlot::BACKPACK_END {
@@ -158,22 +154,17 @@ impl PlayerInventory {
             }
 
             // Otherwise, remove the item and try to remove the rest of the stacks from somewhere else
-            let removed_item = self.remove(slot, attribute_modifiers);
+            let removed_item = self.remove(slot, attributes);
             remaining_stacks_to_remove -= removed_item.map(|item| item.stack_count()).unwrap_or(0);
         }
     }
 
-    pub fn swap(
-        &mut self,
-        source_slot: u32,
-        destination_slot: u32,
-        attribute_modifiers: &mut AttributeModifiers,
-    ) {
-        let destination_item = self.remove(destination_slot, attribute_modifiers);
+    pub fn swap(&mut self, source_slot: u32, destination_slot: u32, attributes: &mut Attributes) {
+        let destination_item = self.remove(destination_slot, attributes);
 
-        self.move_item(source_slot, destination_slot, attribute_modifiers);
+        self.move_item(source_slot, destination_slot, attributes);
         if let Some(destination_item) = destination_item {
-            self.set(source_slot, destination_item, attribute_modifiers);
+            self.set(source_slot, destination_item, attributes);
         }
     }
 
@@ -181,7 +172,7 @@ impl PlayerInventory {
         &mut self,
         source_slot: u32,
         destination_slot: u32,
-        attribute_modifiers: &mut AttributeModifiers,
+        attributes: &mut Attributes,
     ) {
         if let Some(item) = self.items.remove(&source_slot) {
             {
@@ -209,9 +200,9 @@ impl PlayerInventory {
             // Remove stats from the item if source is gear and destination is not (item unequipped)
             // Add stats from the item if destination is gear and source is not (item equipped)
             if is_moved_from_gear && !is_moved_to_gear {
-                self.toggle_stats_from_item(item_entry, false, attribute_modifiers);
+                self.toggle_stats_from_item(item_entry, false, attributes);
             } else if is_moved_to_gear && !is_moved_from_gear {
-                self.toggle_stats_from_item(item_entry, true, attribute_modifiers);
+                self.toggle_stats_from_item(item_entry, true, attributes);
             }
         } else {
             warn!("attempt to move an item in inventory but item is not there");
@@ -341,7 +332,7 @@ impl PlayerInventory {
         &self,
         item_entry: u32,
         is_equipping_item: bool,
-        attribute_modifiers: &mut AttributeModifiers,
+        attributes: &mut Attributes,
     ) {
         // If we are unequipping the item, we want to _remove_ the stats
         let factor = if is_equipping_item { 1.0 } else { -1.0 };
@@ -350,7 +341,7 @@ impl PlayerInventory {
             // Stats: both generic (stam, spirit, intel, ...) and green modifiers
             for stat in &item_template.stats {
                 if let Some(attribute_modifier) = stat.stat_type.as_attribute_modifier() {
-                    attribute_modifiers.add_modifier(
+                    attributes.add_modifier(
                         attribute_modifier,
                         AttributeModifierType::BaseValue,
                         stat.stat_value as f32 * factor,
@@ -360,7 +351,7 @@ impl PlayerInventory {
 
             // Armor
             if item_template.armor != 0 {
-                attribute_modifiers.add_modifier(
+                attributes.add_modifier(
                     AttributeModifier::Armor,
                     AttributeModifierType::BaseValue,
                     item_template.armor as f32 * factor,
@@ -369,7 +360,7 @@ impl PlayerInventory {
 
             // Resistances
             if item_template.holy_res != 0 {
-                attribute_modifiers.add_modifier(
+                attributes.add_modifier(
                     AttributeModifier::ResistanceHoly,
                     AttributeModifierType::BaseValue,
                     item_template.holy_res as f32 * factor,
@@ -377,7 +368,7 @@ impl PlayerInventory {
             }
 
             if item_template.fire_res != 0 {
-                attribute_modifiers.add_modifier(
+                attributes.add_modifier(
                     AttributeModifier::ResistanceFire,
                     AttributeModifierType::BaseValue,
                     item_template.fire_res as f32 * factor,
@@ -385,7 +376,7 @@ impl PlayerInventory {
             }
 
             if item_template.nature_res != 0 {
-                attribute_modifiers.add_modifier(
+                attributes.add_modifier(
                     AttributeModifier::ResistanceNature,
                     AttributeModifierType::BaseValue,
                     item_template.nature_res as f32 * factor,
@@ -393,7 +384,7 @@ impl PlayerInventory {
             }
 
             if item_template.frost_res != 0 {
-                attribute_modifiers.add_modifier(
+                attributes.add_modifier(
                     AttributeModifier::ResistanceFrost,
                     AttributeModifierType::BaseValue,
                     item_template.frost_res as f32 * factor,
@@ -401,7 +392,7 @@ impl PlayerInventory {
             }
 
             if item_template.shadow_res != 0 {
-                attribute_modifiers.add_modifier(
+                attributes.add_modifier(
                     AttributeModifier::ResistanceShadow,
                     AttributeModifierType::BaseValue,
                     item_template.shadow_res as f32 * factor,
@@ -409,7 +400,7 @@ impl PlayerInventory {
             }
 
             if item_template.arcane_res != 0 {
-                attribute_modifiers.add_modifier(
+                attributes.add_modifier(
                     AttributeModifier::ResistanceArcane,
                     AttributeModifierType::BaseValue,
                     item_template.arcane_res as f32 * factor,

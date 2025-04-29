@@ -2,7 +2,7 @@ use log::{error, warn};
 use shipyard::{Get, View, ViewMut};
 
 use crate::ecs::components::unit::Unit;
-use crate::entities::attribute_modifiers::AttributeModifiers;
+use crate::entities::attributes::Attributes;
 use crate::entities::creature::Creature;
 use crate::entities::game_object::GameObject;
 use crate::entities::object_guid::ObjectGuid;
@@ -167,10 +167,10 @@ impl OpcodeHandler {
                 |mut vm_player: ViewMut<Player>,
                  v_creature: View<Creature>,
                  v_game_object: View<GameObject>,
-                 mut vm_attribute_modifiers: ViewMut<AttributeModifiers>| {
+                 mut vm_attributes: ViewMut<Attributes>| {
                     let player_entity_id = session.player_entity_id().unwrap();
                     let player: &mut Player = &mut vm_player[player_entity_id];
-                    let attribute_modifiers = &mut vm_attribute_modifiers[player_entity_id];
+                    let attributes = &mut vm_attributes[player_entity_id];
 
                     if let Some(looted_entity_id) = player.currently_looting() {
                         let maybe_loot = {
@@ -188,7 +188,7 @@ impl OpcodeHandler {
                                 match player.auto_store_new_item(
                                     loot_item.item_id,
                                     loot_item.count,
-                                    attribute_modifiers,
+                                    attributes,
                                 ) {
                                     Ok(_) => {
                                         loot.remove_item(cmsg.loot_index);

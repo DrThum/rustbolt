@@ -41,7 +41,7 @@ use crate::{
         },
     },
     entities::{
-        attribute_modifiers::AttributeModifiers, creature::Creature, game_object::GameObject,
+        attributes::Attributes, creature::Creature, game_object::GameObject,
         internal_values::WrappedInternalValues, object_guid::ObjectGuid, player::Player,
         position::WorldPosition,
     },
@@ -320,22 +320,22 @@ impl Map {
                 mut vm_nearby_players,
                 mut vm_cooldowns,
                 mut vm_app_auras,
-                mut vm_attribute_modifiers,
+                mut vm_attributes,
             ): (
                 ViewMut<SpellCast>,
                 ViewMut<NearbyPlayers>,
                 ViewMut<Cooldowns>,
                 ViewMut<AppliedAuras>,
-                ViewMut<AttributeModifiers>,
+                ViewMut<Attributes>,
             )| {
-                let mut attribute_modifiers = AttributeModifiers::new();
+                let mut attributes = Attributes::new();
 
                 let player = Player::load_from_db(
                     session.account_id,
                     char_data.guid,
                     self.world_context.clone(),
                     session.clone(),
-                    &mut attribute_modifiers,
+                    &mut attributes,
                 );
                 let spell_cooldowns = Player::load_spell_cooldowns_from_db(
                     char_data.guid,
@@ -382,7 +382,7 @@ impl Map {
                             &mut vm_nearby_players,
                             &mut vm_cooldowns,
                             &mut vm_app_auras,
-                            &mut vm_attribute_modifiers,
+                            &mut vm_attributes,
                         ),
                         &mut vm_player,
                     ),
@@ -429,7 +429,7 @@ impl Map {
                                 PLAYER_CONTROLLED_BUFF_LIMIT,
                                 player.internal_values.clone(),
                             ),
-                            attribute_modifiers,
+                            attributes,
                         ),
                         player,
                     ),

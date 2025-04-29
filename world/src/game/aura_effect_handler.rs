@@ -6,7 +6,7 @@ use strum::IntoEnumIterator;
 
 use crate::{
     create_wrapped_resource,
-    entities::attribute_modifiers::AttributeModifiers,
+    entities::attributes::Attributes,
     shared::constants::{AttributeModifier, AttributeModifierType, AuraEffect, UnitAttribute},
 };
 
@@ -66,7 +66,7 @@ impl AuraEffectHandler {
             effect_index,
         }: AuraEffectHandlerArgs,
     ) {
-        all_storages.run(|mut vm_attribute_modifiers: ViewMut<AttributeModifiers>| {
+        all_storages.run(|mut vm_attributes: ViewMut<Attributes>| {
             let spell_record = world_context
                 .data_store
                 .get_spell_record(aura.spell_id)
@@ -75,7 +75,7 @@ impl AuraEffectHandler {
             let misc_value = spell_record.effect_misc_value[effect_index] as i32;
             let value = spell_record.calc_simple_value(effect_index) as f32; // FIXME: probably not what we want (calc_spell_damage?), see Unit::CalculateSpellDamage in MaNGOS
 
-            if let Ok(mut attr_mods) = (&mut vm_attribute_modifiers).get(aura.target_id) {
+            if let Ok(mut attr_mods) = (&mut vm_attributes).get(aura.target_id) {
                 for stat in UnitAttribute::iter() {
                     // -1 or -2 = all stats
                     if misc_value < 0 || stat as i32 == misc_value {

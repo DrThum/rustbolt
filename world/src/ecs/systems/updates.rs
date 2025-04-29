@@ -107,7 +107,15 @@ pub fn update_player_surroundings(
     }
 }
 
-pub fn update_attributes(v_player: View<Player>, mut vm_attributes: ViewMut<Attributes>) {
+pub fn update_attributes(
+    has_players: UniqueView<HasPlayers>,
+    v_player: View<Player>,
+    mut vm_attributes: ViewMut<Attributes>,
+) {
+    if !**has_players {
+        return;
+    }
+
     for (entity_id, attributes) in (&mut vm_attributes).iter().with_id() {
         let player = v_player.get(entity_id).ok();
 

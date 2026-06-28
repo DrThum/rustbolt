@@ -70,7 +70,7 @@ impl SpellEffectHandler {
     pub fn get_handler(&self, spell_effect: &SpellEffect) -> &EffectHandler {
         self.handlers
             .get(spell_effect)
-            .inspect(|| {
+            .inspect(|_| {
                 trace!("Handling spell effect {:?}", spell_effect);
             })
             .unwrap_or_else(|| {

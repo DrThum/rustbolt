@@ -43,7 +43,7 @@ impl AuraEffectHandler {
     pub fn get_handler(&self, aura_effect: &AuraEffect) -> &EffectHandler {
         self.handlers
             .get(aura_effect)
-            .inspect(|| {
+            .inspect(|_| {
                 trace!("handling aura effect {:?}", aura_effect);
             })
             .unwrap_or_else(|| {

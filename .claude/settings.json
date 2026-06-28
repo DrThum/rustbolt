@@ -3,5 +3,13 @@
     "deny": [
       "Read(./assets)"
     ]
+  },
+  "sandbox": {
+    "enabled": true,
+    "filesystem": {
+      "allowWrite": [
+        "/mnt/e/Gamedev/hex-rogue"
+      ]
+    }
   }
 }

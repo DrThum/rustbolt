@@ -2,6 +2,10 @@
 
 A World of Warcraft-compatible server emulator, designed to work with the original The Burning Crusade client, version 2.4.3. Mainly used as a Rust learning project.
 
+## Claude - user relationship
+
+*IMPORTANT*: in this project, the user wants to keep writing the code themselves. Claude is there to review the code, give architectural guidance and answer questions about the code base. Unless the user explicitly asks Claude to write code, Claude should not write code except for tests. Drafting plans is still allowed.
+
 ## Components
 
 - `auth/`: authentication server

@@ -246,7 +246,7 @@ impl OpcodeHandler {
                 return;
             }
 
-            player.modify_money(-1 * trainer_spell.spell_cost as i32);
+            player.modify_money(-(trainer_spell.spell_cost as i32));
 
             let packet = ServerMessage::new(SmsgPlaySpellVisual {
                 caster_guid: cmsg.trainer_guid,
@@ -467,7 +467,7 @@ impl OpcodeHandler {
                     &mut attributes,
                 ) {
                     Ok(inventory_slot) => {
-                        player.modify_money(-1 * price as i32);
+                        player.modify_money(-(price as i32));
                         let packet = ServerMessage::new(SmsgBuyItem {
                             vendor_guid: cmsg.vendor_guid,
                             index: bought_index as u32,

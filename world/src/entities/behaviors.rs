@@ -23,7 +23,7 @@ impl<A> BehaviorTree<A> {
         tree
     }
 
-    fn node_by_index_mut(&self, index: usize) -> MutexGuard<BehaviorNodeState<A>> {
+    fn node_by_index_mut(&self, index: usize) -> MutexGuard<'_, BehaviorNodeState<A>> {
         self.nodes[index].lock()
     }
 

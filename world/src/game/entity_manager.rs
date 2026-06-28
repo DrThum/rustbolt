@@ -9,6 +9,12 @@ pub struct EntityManager {
     ecs_entities: RwLock<HashMap<ObjectGuid, EntityId>>,
 }
 
+impl Default for EntityManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl EntityManager {
     pub fn new() -> Self {
         Self {

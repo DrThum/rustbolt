@@ -492,7 +492,7 @@ impl DataStore {
         self.map.get(&id)
     }
 
-    pub fn get_all_map_records(&self) -> Values<u32, MapRecord> {
+    pub fn get_all_map_records(&self) -> Values<'_, u32, MapRecord> {
         self.map.values()
     }
 
@@ -805,7 +805,7 @@ impl DataStore {
             return None;
         }
 
-        return Some(combined_items);
+        Some(combined_items)
     }
 
     pub fn get_gtOCTRegenHP(&self, index: usize) -> Option<&GameTableOCTRegenHPRecord> {
@@ -829,7 +829,7 @@ impl DataStore {
             if spell.category != 0 {
                 spells_by_category
                     .entry(spell.category)
-                    .or_insert_with(Vec::new)
+                    .or_default()
                     .push(*id);
             }
         }

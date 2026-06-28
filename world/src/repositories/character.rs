@@ -646,7 +646,7 @@ impl CharacterRepository {
             .prepare_cached("DELETE FROM character_action_buttons WHERE character_guid = :guid")
             .unwrap();
         stmt.execute(named_params! { ":guid": guid })?;
-        for (_, action) in player.action_buttons() {
+        for action in player.action_buttons().values() {
             Self::add_action(
                 transaction,
                 guid,

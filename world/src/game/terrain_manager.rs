@@ -29,7 +29,7 @@ impl TerrainManager {
         for row in 0..MAP_WIDTH_IN_BLOCKS {
             for col in 0..MAP_WIDTH_IN_BLOCKS {
                 let maybe_terrain =
-                    TerrainBlock::load_from_disk(&data_dir, &map_internal_name, row, col);
+                    TerrainBlock::load_from_disk(data_dir, map_internal_name, row, col);
 
                 if let Some(terrain) = maybe_terrain {
                     let key = TerrainBlockCoords { row, col };

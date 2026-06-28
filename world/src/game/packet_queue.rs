@@ -10,6 +10,12 @@ pub struct PacketQueue {
     queue: RwLock<VecDeque<(Arc<WorldSession>, ClientMessage)>>,
 }
 
+impl Default for PacketQueue {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl PacketQueue {
     pub fn new() -> Self {
         Self {

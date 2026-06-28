@@ -86,7 +86,7 @@ fn setup_teleport_command() -> (&'static str, (Command, CommandHandler)) {
                             .map(|x| *x as u32)
                             .unwrap_or(wpos.map_key.map_id),
                     );
-                    let x = *matches.get_many::<f32>("xyz").unwrap().nth(0).unwrap();
+                    let x = *matches.get_many::<f32>("xyz").unwrap().next().unwrap();
                     let y = *matches.get_many::<f32>("xyz").unwrap().nth(1).unwrap();
                     let z = *matches.get_many::<f32>("xyz").unwrap().nth(2).unwrap();
                     let o = wpos.o;

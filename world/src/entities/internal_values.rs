@@ -37,7 +37,7 @@ impl InternalValues {
         !self.dirty_indexes.is_clear()
     }
 
-    pub fn get_dirty_indexes(&self) -> Ones {
+    pub fn get_dirty_indexes(&self) -> Ones<'_> {
         self.dirty_indexes.ones()
     }
 

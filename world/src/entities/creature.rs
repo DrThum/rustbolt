@@ -289,7 +289,7 @@ impl Creature {
         self.loot.read().clone()
     }
 
-    pub fn loot_mut(&self) -> RwLockWriteGuard<Loot> {
+    pub fn loot_mut(&self) -> RwLockWriteGuard<'_, Loot> {
         self.loot.write()
     }
 

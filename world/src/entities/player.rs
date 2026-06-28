@@ -292,7 +292,7 @@ impl Player {
                 (
                     id,
                     SpellCooldown {
-                        end: SystemTime::UNIX_EPOCH + Duration::from_millis(end as u64),
+                        end: SystemTime::UNIX_EPOCH + Duration::from_millis(end),
                         item_id,
                         synced_with_client: true, // Mark the cooldowns as synced with the client because they are sent in SMSG_INITIAL_SPELLS
                     },
@@ -744,7 +744,7 @@ impl Player {
     }
 
     pub fn bindpoint(&self) -> BindPoint {
-        self.bindpoint.read().clone()
+        *self.bindpoint.read()
     }
 
     pub fn set_action_bar_toggles(&self, value: u8) {

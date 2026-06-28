@@ -343,7 +343,7 @@ impl CreatureRepository {
                     max_count: row.get(MaxCount as usize).unwrap(),
                     increment_time: row
                         .get::<usize, Option<u64>>(IncrementTime as usize)
-                        .map(|maybe_secs| maybe_secs.map(|secs| Duration::from_secs(secs)))
+                        .map(|maybe_secs| maybe_secs.map(Duration::from_secs))
                         .unwrap(),
                     extended_cost_id: row.get(ExtendedCostId as usize).unwrap(),
                 })
@@ -476,7 +476,7 @@ impl TrainerSpellDbRecord {
             return Red;
         }
 
-        return Green;
+        Green
     }
 }
 

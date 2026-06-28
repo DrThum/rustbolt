@@ -118,12 +118,10 @@ impl PlayerInventory {
 
         self.update_visible_bits(slot, 0);
 
-        self.items.remove(&slot).map(|removed_item| {
+        self.items.remove(&slot).inspect(|removed_item| {
             if Self::is_gear_slot(slot) {
                 self.toggle_stats_from_item(removed_item.entry(), false, attributes);
             }
-
-            removed_item
         })
     }
 

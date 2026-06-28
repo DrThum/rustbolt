@@ -285,11 +285,11 @@ impl OpcodeHandler {
             map.world().run(|mut vm_player: ViewMut<Player>| {
                 if let Ok(mut player) = (&mut vm_player).get(player_entity_id) {
                     if cmsg.data == 0 {
-                        player.remove_action_button(cmsg.position as u8);
+                        player.remove_action_button(cmsg.position);
                         return;
                     }
 
-                    let action_button = ActionButton::from_packed(cmsg.position as u8, cmsg.data);
+                    let action_button = ActionButton::from_packed(cmsg.position, cmsg.data);
                     player.add_action_button(action_button);
                 }
             });

@@ -128,13 +128,8 @@ impl Map {
         let map_record = world_context
             .data_store
             .get_map_record(key.map_id)
-            .expect(
-                format!(
-                    "unable to find map record for map id {}, cannot instanciate map",
-                    key.map_id
-                )
-                .as_str(),
-            )
+            .unwrap_or_else(|| panic!("unable to find map record for map id {}, cannot instanciate map",
+                    key.map_id))
             .clone();
 
         let world = World::new();
@@ -274,7 +269,7 @@ impl Map {
         }
     }
 
-    pub fn world(&self) -> WorldRef {
+    pub fn world(&self) -> WorldRef<'_> {
         let guard = self.world.lock();
 
         WorldRef {
@@ -508,7 +503,7 @@ impl Map {
 
         let player_position = self
             .world()
-            .run(|v_wpos: View<WorldPosition>| v_wpos[player_entity_id].clone())
+            .run(|v_wpos: View<WorldPosition>| v_wpos[player_entity_id])
             .as_position();
 
         self.world().run(
@@ -664,7 +659,7 @@ impl Map {
         let mut attributes = Attributes::new(internal_values.clone());
         let creature = Creature::from_spawn(
             internal_values.clone(),
-            &spawn,
+            spawn,
             world_context.clone(),
             &mut attributes,
         )

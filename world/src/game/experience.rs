@@ -18,7 +18,7 @@ impl Experience {
 
         let mut xp_gain = if creature_level >= player_level {
             let level_diff = (creature_level - player_level).min(4);
-            ((player_level * 5 + base_xp) * (20 + level_diff) / 10 + 1) / 2
+            ((player_level * 5 + base_xp) * (20 + level_diff) / 10).div_ceil(2)
         } else {
             match Self::gray_level(player_level) {
                 gray_level if creature_level > gray_level => {

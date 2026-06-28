@@ -25,7 +25,7 @@ impl AuraEffectHandler {
                 .get_spell_record(aura.spell_id)
                 .unwrap();
 
-            let misc_value = spell_record.effect_misc_value[effect_index] as i32;
+            let misc_value = spell_record.effect_misc_value[effect_index];
             let value = spell_record.calc_simple_value(effect_index) as f32; // FIXME: probably not what we want (calc_spell_damage?), see Unit::CalculateSpellDamage in MaNGOS
 
             if let Ok(mut attr_mods) = (&mut vm_attributes).get(aura.target_id) {

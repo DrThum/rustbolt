@@ -1,0 +1,3 @@
+[submodule "claude-coworker-model"]
+	path = claude-coworker-model
+	url = https://github.com/imkunal007219/claude-coworker-model.git

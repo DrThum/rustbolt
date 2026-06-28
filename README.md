@@ -45,6 +45,17 @@ To build a release:
 
 ## Development
 
+### Bootstrap the databases
+
+SQLite databases are automatically created but the folder must exist. By default:
+
+- mkdir -p data/databases
+
+### Run servers
+
+- cargo run --bin rustbolt-auth
+- cargo run --bin rustbolt-world
+
 ### Run tests
 
 ```bash

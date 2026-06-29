@@ -49,9 +49,6 @@ pub struct MsgSetDungeonDifficulty {
     pub is_in_group: u32,
 }
 
-#[binread]
-pub struct CmsgLogoutRequest {}
-
 #[binwrite]
 #[server_opcode]
 pub struct SmsgLogoutResponse {

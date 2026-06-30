@@ -1,21 +1,19 @@
 use log::warn;
-use shipyard::{Get, View, ViewMut};
+use shipyard::{UniqueViewMut, ViewMut};
 
 use crate::{
-    ecs::components::{guid::Guid, powers::Powers, threat_list::ThreatList, unit::Unit},
-    entities::{attributes::Attributes, creature::Creature, player::Player},
-    game::{
-        experience::Experience,
-        spell_effect_handler::{SpellEffectHandler, SpellEffectHandlerArgs},
+    ecs::{
+        components::{powers::Powers, threat_list::ThreatList},
+        resources::CombatEvents,
+        systems::combat::apply_combat_damage,
     },
-    shared::constants::UnitDynamicFlag,
+    game::spell_effect_handler::{SpellEffectHandler, SpellEffectHandlerArgs},
 };
 
 impl SpellEffectHandler {
     pub fn handle_effect_school_damage(
         SpellEffectHandlerArgs {
             spell,
-            map_record,
             spell_record,
             effect_index,
             all_storages,
@@ -25,55 +23,21 @@ impl SpellEffectHandler {
         all_storages.run(
             |mut vm_powers: ViewMut<Powers>,
              mut vm_threat_list: ViewMut<ThreatList>,
-             v_guid: View<Guid>,
-             mut vm_player: ViewMut<Player>,
-             v_creature: View<Creature>,
-             v_unit: View<Unit>,
-             mut vm_attributes: ViewMut<Attributes>| {
+             mut combat_events: UniqueViewMut<CombatEvents>| {
                 let Some(unit_target) = spell.unit_target() else {
                     warn!("handle_effect_school_damage: no unit target");
                     return;
                 };
 
-                let damage = spell_record.calc_simple_value(effect_index);
-                let target_powers = &mut vm_powers[unit_target];
-                target_powers.apply_damage(damage as u32);
-                // TODO: Log damage somehow
-
-                if target_powers.is_alive() {
-                    if let Ok(mut threat_list) = (&mut vm_threat_list).get(unit_target) {
-                        threat_list.modify_threat(spell.caster(), damage as f32);
-                    }
-                } else if let Ok(mut player) = (&mut vm_player).get(spell.caster()) {
-                    let Ok(mut attributes) =
-                        (&mut vm_attributes).get(spell.caster())
-                    else {
-                        return;
-                    };
-
-                    // FIXME: This logic is duplicated in melee.rs
-                    let target_guid = v_guid[unit_target].0;
-                    let mut has_loot = false; // TODO: Handle player case (Insignia looting in PvP)
-                    if let Ok(creature) = v_creature.get(unit_target) {
-                        let xp_gain = Experience::xp_gain_against(&player, creature, map_record);
-                        player.give_experience(
-                            xp_gain,
-                            Some(target_guid),
-                            &mut attributes,
-                        );
-                        player.notify_killed_creature(creature.guid(), creature.template.entry);
-
-                        has_loot = creature.generate_loot();
-                    }
-
-                    if let Ok(target_unit) = v_unit.get(unit_target) {
-                        if has_loot {
-                            target_unit.set_dynamic_flag(UnitDynamicFlag::Lootable);
-                        }
-                    }
-
-                    player.unset_in_combat_with(target_guid);
-                }
+                let damage = spell_record.calc_simple_value(effect_index) as f32;
+                apply_combat_damage(
+                    spell.caster(),
+                    unit_target,
+                    damage,
+                    &mut vm_powers,
+                    &mut vm_threat_list,
+                    &mut combat_events,
+                );
             },
         );
     }

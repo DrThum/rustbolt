@@ -2,6 +2,7 @@ pub mod aura;
 pub mod behavior;
 pub mod combat;
 pub mod cooldown;
+pub mod death;
 pub mod inventory;
 pub mod melee;
 pub mod movement;

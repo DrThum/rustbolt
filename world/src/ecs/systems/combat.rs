@@ -1,9 +1,12 @@
-use shipyard::{Get, IntoIter, UniqueView, View, ViewMut};
+use shipyard::{EntityId, Get, IntoIter, UniqueView, View, ViewMut};
 
 use crate::{
-    ecs::components::{
-        guid::Guid, nearby_players::NearbyPlayers, powers::Powers, threat_list::ThreatList,
-        unit::Unit,
+    ecs::{
+        components::{
+            guid::Guid, nearby_players::NearbyPlayers, powers::Powers, threat_list::ThreatList,
+            unit::Unit,
+        },
+        resources::{CombatEvents, UnitDied},
     },
     entities::player::Player,
     game::map::HasPlayers,
@@ -116,5 +119,31 @@ pub fn select_target(
                 }
             }
         };
+    }
+}
+
+pub fn apply_combat_damage(
+    attacker_id: EntityId,
+    target_id: EntityId,
+    damage: f32,
+    vm_powers: &mut ViewMut<Powers>,
+    vm_threat_list: &mut ViewMut<ThreatList>,
+    combat_events: &mut CombatEvents,
+) {
+    let mut target_powers = vm_powers
+        .get(target_id)
+        .expect("target has no Health component");
+
+    let target_was_alive = target_powers.is_alive();
+    target_powers.apply_damage(damage as u32);
+    let target_just_died = target_was_alive && !target_powers.is_alive();
+
+    if target_just_died {
+        combat_events.push(UnitDied {
+            killer: attacker_id,
+            victim: target_id,
+        });
+    } else if let Ok(mut tl) = vm_threat_list.get(target_id) {
+        tl.modify_threat(attacker_id, damage);
     }
 }

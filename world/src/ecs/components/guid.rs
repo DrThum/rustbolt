@@ -18,3 +18,17 @@ impl Guid {
         Self(guid)
     }
 }
+
+impl std::ops::Deref for Guid {
+    type Target = ObjectGuid;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl std::ops::DerefMut for Guid {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}

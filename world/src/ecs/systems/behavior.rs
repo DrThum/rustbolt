@@ -1,14 +1,14 @@
 use shipyard::{
-    AllStoragesViewMut, EntityId, Get, IntoIter, IntoWithId, UniqueView, View, ViewMut,
+    AllStoragesViewMut, EntityId, Get, IntoIter, IntoWithId, UniqueView, UniqueViewMut, View,
+    ViewMut,
 };
 
 use crate::{
-    datastore::data_types::MapRecord,
     ecs::{
         components::{
             behavior::{Action, Behavior},
             guid::Guid,
-            melee::Melee,
+            melee::{Melee, MeleeStrikeContext, MeleeStrikeOutcome},
             movement::{Movement, MovementKind},
             nearby_players::NearbyPlayers,
             powers::Powers,
@@ -16,10 +16,10 @@ use crate::{
             threat_list::ThreatList,
             unit::Unit,
         },
-        resources::DeltaTime,
+        resources::{CombatEvents, DeltaTime},
+        systems::combat::apply_combat_damage,
     },
     entities::{
-        attributes::Attributes,
         behaviors::{BTContext, NodeStatus},
         creature::Creature,
         player::Player,
@@ -29,8 +29,12 @@ use crate::{
         map::HasPlayers, packet_broadcaster::WrappedPacketBroadcaster,
         terrain_manager::WrappedTerrainManager,
     },
+    protocol::{
+        packets::{SmsgAttackStop, SmsgAttackerStateUpdate},
+        server::ServerMessage,
+    },
     session::session_holder::WrappedSessionHolder,
-    shared::constants::{CREATURE_AGGRO_DISTANCE_MAX, MAX_CHASE_LEEWAY},
+    shared::constants::{MeleeAttackError, CREATURE_AGGRO_DISTANCE_MAX, MAX_CHASE_LEEWAY},
 };
 
 pub fn tick(vm_all_storage: AllStoragesViewMut) {
@@ -158,10 +162,10 @@ fn action_aggro(ctx: &mut BTContext) -> NodeStatus {
 }
 
 fn action_attack_in_melee(ctx: &mut BTContext) -> NodeStatus {
-    let my_id = ctx.entity_id;
+    let attacker_id = ctx.entity_id;
 
     if let Ok(v_unit) = ctx.all_storages.borrow::<View<Unit>>() {
-        if v_unit[my_id].target().is_none() {
+        if v_unit[attacker_id].target().is_none() {
             return NodeStatus::Failure;
         }
     } else {
@@ -170,18 +174,16 @@ fn action_attack_in_melee(ctx: &mut BTContext) -> NodeStatus {
 
     ctx.all_storages.run(
         |(
-            map_record,
             (packet_broadcaster, session_holder),
             v_guid,
             v_wpos,
             v_spell,
-            v_creature,
-            (mut vm_unit, mut vm_attributes),
+            v_unit,
             mut vm_powers,
             mut vm_melee,
             mut vm_threat_list,
+            mut combat_events,
         ): (
-            UniqueView<MapRecord>,
             (
                 UniqueView<WrappedPacketBroadcaster>,
                 UniqueView<WrappedSessionHolder>,
@@ -189,30 +191,106 @@ fn action_attack_in_melee(ctx: &mut BTContext) -> NodeStatus {
             View<Guid>,
             View<WorldPosition>,
             View<SpellCast>,
-            View<Creature>,
-            (ViewMut<Unit>, ViewMut<Attributes>),
+            View<Unit>,
             ViewMut<Powers>,
             ViewMut<Melee>,
             ViewMut<ThreatList>,
+            UniqueViewMut<CombatEvents>,
         )| {
-            match Melee::execute_attack(
-                my_id,
-                (**packet_broadcaster).clone(),
-                (**session_holder).clone(),
-                &map_record,
-                &v_guid,
-                &v_wpos,
-                &v_spell,
-                &v_creature,
-                &mut vm_unit,
-                &mut vm_powers,
-                &mut vm_melee,
-                &mut vm_threat_list,
-                &mut vm_attributes,
-                None,
-            ) {
-                Ok(_) => NodeStatus::Success,
-                Err(_) => NodeStatus::Failure,
+            let attacker_position = v_wpos[attacker_id];
+            let Some(target_id) = v_unit[attacker_id].target() else {
+                return NodeStatus::Failure;
+            };
+
+            let target_powers = vm_powers
+                .get(target_id)
+                .expect("target has no Health component");
+            let target_position = v_wpos
+                .get(target_id)
+                .expect("target has no WorldPosition component");
+            let target_melee_reach = {
+                vm_melee
+                    .get(target_id)
+                    .expect("target has no Melee component")
+                    .melee_reach()
+            };
+            let attacker_guid = v_guid
+                .get(attacker_id)
+                .expect("attacker has no Guid component");
+            let target_guid = v_guid.get(target_id).expect("target has no Guid component");
+
+            let is_ranged_casting_in_progress = v_spell
+                .get(attacker_id)
+                .is_ok_and(|sp| sp.current_ranged().is_some());
+
+            let context = MeleeStrikeContext {
+                attacker_position,
+                target_position: *target_position,
+                target_melee_reach,
+                is_target_alive: target_powers.is_alive(),
+                is_ranged_casting_in_progress,
+            };
+
+            let mut melee = (&mut vm_melee)
+                .get(attacker_id)
+                .expect("attacker has no Melee component");
+
+            let outcome = melee.resolve_strike(context);
+
+            match outcome {
+                MeleeStrikeOutcome::HitWithDamage { damage } => {
+                    apply_combat_damage(
+                        attacker_id,
+                        target_id,
+                        damage,
+                        &mut vm_powers,
+                        &mut vm_threat_list,
+                        &mut combat_events,
+                    );
+
+                    melee.set_error(MeleeAttackError::None, None);
+
+                    let packet = ServerMessage::new(SmsgAttackerStateUpdate {
+                        hit_info: 2, // TODO enum HitInfo
+                        attacker_guid: attacker_guid.as_packed(),
+                        target_guid: target_guid.as_packed(),
+                        actual_damage: damage as u32,
+                        sub_damage_count: 1,
+                        sub_damage_school_mask: 1, // Physical
+                        sub_damage: 1.0,
+                        sub_damage_rounded: damage as u32,
+                        sub_damage_absorb: 0,
+                        sub_damage_resist: 0,
+                        target_state: 1, // TODO: Enum VictimState
+                        unk1: 0,
+                        spell_id: 0,
+                        damage_blocked_amount: 0,
+                    });
+
+                    packet_broadcaster.broadcast_packet(&attacker_guid, &packet, None, true);
+                    return NodeStatus::Success;
+                }
+                MeleeStrikeOutcome::TargetDead => {
+                    let packet = {
+                        ServerMessage::new(SmsgAttackStop {
+                            attacker_guid: attacker_guid.as_packed(),
+                            enemy_guid: target_guid.as_packed(),
+                            unk: 0,
+                        })
+                    };
+
+                    packet_broadcaster.broadcast_packet(&attacker_guid, &packet, None, true);
+
+                    melee.is_attacking = false;
+                    return NodeStatus::Failure;
+                }
+                MeleeStrikeOutcome::OutOfRange => {
+                    let my_session = session_holder.get_session(&attacker_guid);
+                    melee.set_error(MeleeAttackError::NotInRange, my_session);
+
+                    return NodeStatus::Failure;
+                }
+                MeleeStrikeOutcome::NotAttacking => NodeStatus::Failure,
             }
         },
     )

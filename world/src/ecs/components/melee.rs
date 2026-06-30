@@ -6,30 +6,18 @@ use std::{
 use log::{error, warn};
 use parking_lot::RwLock;
 use shared::utils::value_range::ValueRange;
-use shipyard::{Component, EntityId, Get, View, ViewMut};
+use shipyard::Component;
 
 use crate::{
-    datastore::data_types::MapRecord,
     entities::{
-        attributes::Attributes, creature::Creature, internal_values::InternalValues,
-        object_guid::ObjectGuid, player::Player, position::WorldPosition,
-        update_fields::UnitFields,
+        internal_values::InternalValues, position::WorldPosition, update_fields::UnitFields,
     },
-    game::{experience::Experience, packet_broadcaster::PacketBroadcaster},
-    protocol::{
-        packets::{SmsgAttackStop, SmsgAttackSwingNotInRange, SmsgAttackerStateUpdate},
-        server::ServerMessage,
-    },
+    protocol::{packets::SmsgAttackSwingNotInRange, server::ServerMessage},
     session::world_session::WorldSession,
     shared::constants::{
-        MeleeAttackError, SheathState, UnitDynamicFlag, WeaponAttackType, ATTACK_DISPLAY_DELAY,
+        MeleeAttackError, SheathState, WeaponAttackType, ATTACK_DISPLAY_DELAY,
         BASE_MELEE_RANGE_OFFSET, NUMBER_WEAPON_ATTACK_TYPES,
     },
-    SessionHolder,
-};
-
-use super::{
-    guid::Guid, powers::Powers, spell_cast::SpellCast, threat_list::ThreatList, unit::Unit,
 };
 
 #[derive(Component)]
@@ -168,144 +156,52 @@ impl Melee {
         }
     }
 
-    pub fn execute_attack(
-        attacker_id: EntityId,
-        packet_broadcaster: Arc<PacketBroadcaster>,
-        session_holder: Arc<SessionHolder<ObjectGuid>>,
-        map_record: &MapRecord,
-        v_guid: &View<Guid>,
-        v_wpos: &View<WorldPosition>,
-        v_spell: &View<SpellCast>,
-        v_creature: &View<Creature>,
-        v_unit: &mut ViewMut<Unit>,
-        vm_powers: &mut ViewMut<Powers>,
-        vm_melee: &mut ViewMut<Melee>,
-        vm_threat_list: &mut ViewMut<ThreatList>,
-        vm_attributes: &mut ViewMut<Attributes>,
-        player_attacker: Option<&mut Player>,
-    ) -> Result<(), ()> {
-        let target_id = v_unit[attacker_id].target();
-
-        if let Some(target_id) = target_id {
-            if let Ok(target_guid) = v_guid.get(target_id).map(|g| g.0) {
-                let guid = v_guid[attacker_id].0;
-                let my_position = v_wpos[attacker_id];
-
-                let mut target_powers = vm_powers
-                    .get(target_id)
-                    .expect("target has no Health component");
-                let target_position = v_wpos
-                    .get(target_id)
-                    .expect("target has no WorldPosition component");
-                let target_melee_reach = {
-                    vm_melee
-                        .get(target_id)
-                        .expect("target has no Melee component")
-                        .melee_reach()
-                };
-
-                let melee = &mut vm_melee.get(attacker_id).unwrap();
-                let my_spell_cast = v_spell.get(attacker_id);
-
-                if !melee.is_attacking
-                    || my_spell_cast.is_ok_and(|sp| sp.current_ranged().is_some())
-                {
-                    return Err(());
-                }
-
-                if !target_powers.is_alive() {
-                    let packet = {
-                        ServerMessage::new(SmsgAttackStop {
-                            attacker_guid: guid.as_packed(),
-                            enemy_guid: target_guid.as_packed(),
-                            unk: 0,
-                        })
-                    };
-
-                    packet_broadcaster.broadcast_packet(&guid, &packet, None, true);
-
-                    melee.is_attacking = false;
-
-                    return Err(());
-                }
-
-                if !melee.can_reach_target_in_melee(
-                    &my_position,
-                    target_position,
-                    target_melee_reach,
-                ) {
-                    let my_session = session_holder.get_session(&guid);
-                    melee.set_error(MeleeAttackError::NotInRange, my_session);
-
-                    melee
-                        .ensure_attack_time(WeaponAttackType::MainHand, Duration::from_millis(100));
-                    melee.ensure_attack_time(WeaponAttackType::OffHand, Duration::from_millis(100));
-                    return Err(());
-                }
-
-                if melee.is_attack_ready(WeaponAttackType::MainHand) {
-                    let damage = melee.calc_damage();
-                    target_powers.apply_damage(damage as u32);
-
-                    let packet = ServerMessage::new(SmsgAttackerStateUpdate {
-                        hit_info: 2, // TODO enum HitInfo
-                        attacker_guid: guid.as_packed(),
-                        target_guid: target_guid.as_packed(),
-                        actual_damage: damage as u32,
-                        sub_damage_count: 1,
-                        sub_damage_school_mask: 1, // Physical
-                        sub_damage: 1.0,
-                        sub_damage_rounded: damage as u32,
-                        sub_damage_absorb: 0,
-                        sub_damage_resist: 0,
-                        target_state: 1, // TODO: Enum VictimState
-                        unk1: 0,
-                        spell_id: 0,
-                        damage_blocked_amount: 0,
-                    });
-
-                    packet_broadcaster.broadcast_packet(&guid, &packet, None, true);
-
-                    melee.reset_attack_type(WeaponAttackType::MainHand);
-                    melee.ensure_attack_time(WeaponAttackType::OffHand, ATTACK_DISPLAY_DELAY);
-                    melee.set_error(MeleeAttackError::None, None);
-
-                    if target_powers.is_alive() {
-                        if let Ok(mut tl) = vm_threat_list.get(target_id) {
-                            tl.modify_threat(attacker_id, damage);
-                        }
-                    } else if let Some(player) = player_attacker {
-                        let mut has_loot = false; // TODO: Handle player case (Insignia looting in PvP)
-                        if let Ok(creature) = v_creature.get(target_id) {
-                            let Ok(mut attributes) = vm_attributes.get(attacker_id) else {
-                                return Err(());
-                            };
-
-                            let xp_gain = Experience::xp_gain_against(player, creature, map_record);
-                            player.give_experience(xp_gain, Some(target_guid), &mut attributes);
-                            player.notify_killed_creature(creature.guid(), creature.template.entry);
-
-                            has_loot = creature.generate_loot();
-                        }
-
-                        if let Ok(target_unit) = v_unit.get(target_id) {
-                            if has_loot {
-                                target_unit.set_dynamic_flag(UnitDynamicFlag::Lootable);
-                            }
-                        }
-
-                        player.unset_in_combat_with(target_guid);
-                    } else if let Ok(mut threat_list) = vm_threat_list.get(attacker_id) {
-                        threat_list.remove(&target_id);
-                    }
-
-                    return Ok(());
-                } else if melee.is_attack_ready(WeaponAttackType::OffHand) {
-                    todo!();
-                }
-            }
+    pub fn resolve_strike(&mut self, context: MeleeStrikeContext) -> MeleeStrikeOutcome {
+        if !self.is_attacking || context.is_ranged_casting_in_progress {
+            return MeleeStrikeOutcome::NotAttacking;
         }
 
-        Err(())
+        if !context.is_target_alive {
+            return MeleeStrikeOutcome::TargetDead;
+        }
+
+        if !self.can_reach_target_in_melee(
+            &context.attacker_position,
+            &context.target_position,
+            context.target_melee_reach,
+        ) {
+            self.ensure_attack_time(WeaponAttackType::MainHand, Duration::from_millis(100));
+            self.ensure_attack_time(WeaponAttackType::OffHand, Duration::from_millis(100));
+
+            return MeleeStrikeOutcome::OutOfRange;
+        }
+
+        if self.is_attack_ready(WeaponAttackType::MainHand) {
+            self.reset_attack_type(WeaponAttackType::MainHand);
+            self.ensure_attack_time(WeaponAttackType::OffHand, ATTACK_DISPLAY_DELAY);
+
+            return MeleeStrikeOutcome::HitWithDamage {
+                damage: self.calc_damage(),
+            };
+        } else if self.is_attack_ready(WeaponAttackType::OffHand) {
+            todo!();
+        }
+
+        return MeleeStrikeOutcome::NotAttacking;
     }
+}
+
+pub enum MeleeStrikeOutcome {
+    NotAttacking,
+    OutOfRange,
+    TargetDead,
+    HitWithDamage { damage: f32 },
+}
+
+pub struct MeleeStrikeContext {
+    pub attacker_position: WorldPosition,
+    pub target_position: WorldPosition,
+    pub target_melee_reach: f32,
+    pub is_target_alive: bool,
+    pub is_ranged_casting_in_progress: bool,
 }

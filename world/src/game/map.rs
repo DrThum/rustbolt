@@ -34,10 +34,10 @@ use crate::{
             threat_list::ThreatList,
             unit::Unit,
         },
-        resources::DeltaTime,
+        resources::{CombatEvents, DeltaTime},
         systems::{
-            aura, behavior, combat, cooldown, inventory, melee, movement, packets::process_packets,
-            powers, spell, unwind, updates,
+            aura, behavior, combat, cooldown, death, inventory, melee, movement,
+            packets::process_packets, powers, spell, unwind, updates,
         },
     },
     entities::{
@@ -128,8 +128,12 @@ impl Map {
         let map_record = world_context
             .data_store
             .get_map_record(key.map_id)
-            .unwrap_or_else(|| panic!("unable to find map record for map id {}, cannot instanciate map",
-                    key.map_id))
+            .unwrap_or_else(|| {
+                panic!(
+                    "unable to find map record for map id {}, cannot instanciate map",
+                    key.map_id
+                )
+            })
             .clone();
 
         let world = World::new();
@@ -150,6 +154,7 @@ impl Map {
         world.add_unique(map_record);
         world.add_unique(HasPlayers(false));
         world.add_unique(WrappedPacketQueue(packet_queue.clone()));
+        world.add_unique(CombatEvents::default());
 
         let world = ReentrantMutex::new(RefCell::new(world));
 
@@ -220,6 +225,7 @@ impl Map {
                 combat::select_target,
                 melee::attempt_melee_attack,
                 spell::update_spell,
+                death::resolve_deaths,
                 updates::send_entity_update,
                 inventory::send_inventory_update,
                 cooldown::send_cooldowns,

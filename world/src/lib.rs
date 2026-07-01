@@ -65,6 +65,7 @@ pub mod game {
     pub mod packet_queue;
     pub mod quad_tree;
     pub mod spatial_grid;
+    pub mod spatial_index;
     pub mod spell;
     pub mod spell_cast_target;
     pub mod spell_effect_handler;

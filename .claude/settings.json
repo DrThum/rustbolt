@@ -6,10 +6,14 @@
   },
   "sandbox": {
     "enabled": true,
+    "excludedCommands": [
+      "git"
+    ],
     "filesystem": {
       "allowWrite": [
-        "/mnt/e/Gamedev/hex-rogue"
+        "/home/thum/dev/rustbolt"
       ]
     }
-  }
+  },
+  "plansDirectory": "./docs/plans"
 }

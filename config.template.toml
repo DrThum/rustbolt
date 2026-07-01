@@ -14,6 +14,8 @@ port = "8085"
 
 [world.game]
 target_tick_time_ms = 50
+# "QuadTree" | "Grid"
+spatial_backend = "QuadTree"
 
 [world.game.player]
 maxlevel = 70

@@ -5,6 +5,7 @@ use shared::models::terrain_info::Vector3;
 use shipyard::{EntityId, Get, View, ViewMut};
 
 use crate::{
+    config::SpatialIndexKind,
     create_wrapped_resource,
     ecs::components::{
         behavior::Behavior, guid::Guid, movement::Movement, nearby_players::NearbyPlayers,
@@ -17,6 +18,7 @@ use crate::{
         player::Player,
         position::{Position, WorldPosition},
     },
+    game::spatial_index::{SpatialBackend, SpatialIndex},
     protocol::packets::SmsgCreateObject,
     session::world_session::WorldSession,
     SessionHolder,
@@ -25,7 +27,7 @@ use crate::{
 use super::{entity_manager::EntityManager, quad_tree::QuadTree, world_context::WorldContext};
 
 pub struct SpatialGrid {
-    entities_tree: RwLock<QuadTree>,
+    entities_tree: RwLock<SpatialBackend>,
     session_holder: Arc<SessionHolder<ObjectGuid>>,
     entity_manager: Arc<EntityManager>,
     world_context: Arc<WorldContext>,
@@ -39,10 +41,15 @@ impl SpatialGrid {
         world_context: Arc<WorldContext>,
         visibility_distance: f32,
     ) -> Self {
-        Self {
-            entities_tree: RwLock::new(QuadTree::new(
+        let spatial_backend = match world_context.config.world.game.spatial_backend {
+            SpatialIndexKind::Grid => todo!(),
+            SpatialIndexKind::QuadTree => RwLock::new(SpatialBackend::Quad(QuadTree::new(
                 super::quad_tree::QUADTREE_DEFAULT_NODE_CAPACITY,
-            )),
+            ))),
+        };
+
+        Self {
+            entities_tree: spatial_backend,
             session_holder,
             entity_manager,
             world_context,

@@ -4,7 +4,7 @@ use log::warn;
 use shared::models::terrain_info::{Vector3, MAP_MAX_COORD};
 use shipyard::EntityId;
 
-use crate::entities::position::Position;
+use crate::{entities::position::Position, game::spatial_index::SpatialIndex};
 
 type Value = (EntityId, Vector3);
 
@@ -121,8 +121,10 @@ impl QuadTree {
             entities_positions: HashMap::new(),
         }
     }
+}
 
-    pub fn insert(&mut self, pos: Position, entity_id: EntityId) {
+impl SpatialIndex for QuadTree {
+    fn insert(&mut self, pos: Position, entity_id: EntityId) {
         fn insert_rec(
             node: &mut Box<Node>,
             bounds: Bounds,
@@ -210,7 +212,7 @@ impl QuadTree {
         self.entities_positions.insert(entity_id, pos);
     }
 
-    pub fn search_around_position(
+    fn search_around_position(
         &self,
         position: &Position,
         radius: f32,
@@ -282,7 +284,7 @@ impl QuadTree {
         entities
     }
 
-    pub fn search_around_entity(
+    fn search_around_entity(
         &self,
         entity_id: &EntityId,
         radius: f32,
@@ -300,7 +302,7 @@ impl QuadTree {
         Vec::new()
     }
 
-    pub fn delete(&mut self, guid: &EntityId) -> Option<Position> {
+    fn delete(&mut self, guid: &EntityId) -> Option<Position> {
         fn delete_rec(node: &mut Box<Node>, bounds: Bounds, position: &Vector3, value: &EntityId) {
             match &mut node.content {
                 NodeContent::Values(ref mut existing_values) => {
@@ -361,7 +363,7 @@ impl QuadTree {
         self.entities_positions.remove(guid)
     }
 
-    pub fn update(&mut self, new_position: &Position, entity_id: &EntityId) -> Option<Position> {
+    fn update(&mut self, new_position: &Position, entity_id: &EntityId) -> Option<Position> {
         // Possible optimization: use self.entities_position to compare the current pos and the new
         // one, and return Some(new_position) if they are the same spot (x/y/z)
 
@@ -392,7 +394,7 @@ impl Position {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 struct Point {
     pub x: f32,
     pub y: f32,
